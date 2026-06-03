@@ -99,12 +99,12 @@ export const LoginPage = () => {
               <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 flex items-center justify-center animate-float relative">
                 <img
                   src={BlackcitoSinPatitas}
-                  alt="Golden Stone Logo"
+                  alt="Fabero Logo"
                   className="w-full h-full object-contain drop-shadow-[0_0_15px_rgba(255,255,255,0.15)] relative z-10"
                 />
               </div>
               <h1 className="text-2xl sm:text-3xl font-extrabold text-white mb-2 tracking-wide font-pacifico drop-shadow-md">
-                Golden Stone
+                Fabero
               </h1>
               <p className="text-[10px] sm:text-xs text-zinc-400 font-medium tracking-[0.2em] relative inline-block">
                 SISTEMA DE GESTIÓN MINERA

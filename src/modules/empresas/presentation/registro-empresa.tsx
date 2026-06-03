@@ -46,7 +46,10 @@ export const RegistroEmpresa = ({
       {/* Selector de Logo Circular con Lápiz */}
       {/* Selector de Logo Circular con Efecto Hover Nítido */}
       <div className="flex flex-col items-center justify-center py-6">
-        <FileButton onChange={setLogoFile} accept="image/png,image/jpeg,image/jpg">
+        <FileButton
+          onChange={setLogoFile}
+          accept="image/png,image/jpeg,image/jpg"
+        >
           {(props) => (
             <div
               {...props}
@@ -65,7 +68,7 @@ export const RegistroEmpresa = ({
               <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center p-2 text-center">
                 <PencilIcon className="w-6 h-6 text-white mb-2 drop-shadow-md" />
                 <Text size="11px" fw={700} className="text-white leading-tight">
-                  {logoFile ? 'Cambiar imagen' : 'Subir imagen'}
+                  {logoFile ? "Cambiar imagen" : "Subir imagen"}
                 </Text>
               </div>
             </div>
@@ -88,7 +91,7 @@ export const RegistroEmpresa = ({
 
       <TextInput
         label="Razón Social"
-        placeholder="Ej. Golden Stone S.A.C."
+        placeholder="Ej. Fabero S.A.C."
         required
         withAsterisk
         disabled={loading}
@@ -100,7 +103,7 @@ export const RegistroEmpresa = ({
 
       <TextInput
         label="Nombre Comercial"
-        placeholder="Ej. Golden Stone"
+        placeholder="Ej. Fabero"
         required
         withAsterisk
         disabled={loading}
@@ -111,7 +114,9 @@ export const RegistroEmpresa = ({
       />
 
       {error && (
-        <div className="text-red-500 text-sm font-medium px-1 bg-red-500/10 p-2 rounded-lg border border-red-500/20">{error}</div>
+        <div className="text-red-500 text-sm font-medium px-1 bg-red-500/10 p-2 rounded-lg border border-red-500/20">
+          {error}
+        </div>
       )}
 
       <Group justify="flex-end" gap="md" mt="xl">

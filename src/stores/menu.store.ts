@@ -17,14 +17,14 @@ export const useMenuNavegacionStore = create<RES_MenuNavegacionStore>()(
       clearMenu: () => set({ menu: [] }),
     }),
     {
-      name: "golden-stone-menu", // nombre en localStorage
+      name: "fabero-menu", // nombre en localStorage
     },
   ),
 );
 
 // Listener para sincronización entre pestañas
 window.addEventListener("storage", (event) => {
-  if (event.key === "golden-stone-menu") {
+  if (event.key === "fabero-menu") {
     if (event.newValue) {
       // Si hay un nuevo valor de menú, intenta sincronizar
       useMenuNavegacionStore.persist.rehydrate();

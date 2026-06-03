@@ -21,14 +21,14 @@ export const useAuditoriaStore = create<IAuditoriaStore>()(
       },
     }),
     {
-      name: "golden-stone-auditoria",
+      name: "fabero-auditoria",
     },
   ),
 );
 
 // Sincronización entre pestañas nativa de Zustand persist
 window.addEventListener("storage", (event) => {
-  if (event.key === "golden-stone-auditoria") {
+  if (event.key === "fabero-auditoria") {
     useAuditoriaStore.persist.rehydrate();
   }
 });
