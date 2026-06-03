@@ -25,6 +25,7 @@ import { useEffect } from "react";
 import { onSocketEvent } from "../../service/_socket.ts";
 import { useAuditoriaStore } from "../../stores/auditoria.store.ts";
 import ModoAuditoriaPage from "../../modules/modo-auditoria/presentation/ModoAuditoriaPage.tsx";
+import { SucursalesPage } from "../../modules/sucursales/presentation/sucursales.page.tsx";
 
 export const App = () => {
   const { setModoAuditoria } = useAuditoriaStore();
@@ -81,6 +82,7 @@ export const App = () => {
           {/* Empresas */}
           <Route path="empresas" element={<EmpresasLayout />}>
             <Route path="empresas" element={<EmpresasPage />} />
+            <Route path="sucursales" element={<SucursalesPage />} />
           </Route>
 
           {/* Personal */}
