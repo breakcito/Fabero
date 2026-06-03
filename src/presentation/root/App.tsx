@@ -1,0 +1,106 @@
+import { Routes, Route, Navigate } from "react-router-dom";
+import { PublicLayout } from "../layouts/public.layout.tsx";
+import { AuthLayout } from "../layouts/auth/auth.layout.tsx";
+import { ProtectedRoute } from "./protectedRoute.tsx";
+import { PublicRoute } from "./publicRoute.tsx";
+// import { PlaceholderPage } from "../pages/placeholder.page.tsx";
+// Layouts
+import {
+  ConfiguracionLayout,
+  EmpresasLayout,
+  PersonalLayout,
+  UsuariosLayout,
+} from "../layouts/configuracion.layout.tsx";
+// Vistas
+import { LoginPage } from "../../modules/login/presentation/login.page.tsx";
+import { HomePage } from "../pages/home/home.page.tsx";
+import { EmpresasPage } from "../../modules/empresas/presentation/empresas.page.tsx";
+import { PersonalPage } from "../../modules/personal/presentation/personal.page.tsx";
+import OrganigramaPage from "../../modules/organigrama/presentation/organigrama.page.tsx";
+import { RolesPage } from "../../modules/roles/presentation/roles.page.tsx";
+import { CuentasPage } from "../../modules/cuentas/presentation/cuentas.page.tsx";
+import { PerfilPage } from "../../modules/perfil/presentation/perfil.page.tsx";
+import { ProveedoresPage } from "../../modules/proveedores-mineros/presentation/proveedores-page/proveedores.page.tsx";
+import { useEffect } from "react";
+import { onSocketEvent } from "../../service/_socket.ts";
+import { useAuditoriaStore } from "../../stores/auditoria.store.ts";
+import ModoAuditoriaPage from "../../modules/modo-auditoria/presentation/ModoAuditoriaPage.tsx";
+
+export const App = () => {
+  const { setModoAuditoria } = useAuditoriaStore();
+
+  useEffect(() => {
+    // Escuchar el evento global de modo auditoría
+    const channel = onSocketEvent(
+      "global-audit-mode",
+      "audit.mode.toggled",
+      (data: { en_modo_auditable: boolean }) => {
+        console.log("[App] Evento de Auditoría recibido:", data);
+        setModoAuditoria(data.en_modo_auditable);
+      },
+    );
+
+    return () => {
+      channel.stopListening(".audit.mode.toggled");
+    };
+  }, [setModoAuditoria]);
+
+  return (
+    <Routes>
+      {/* Rutas publicas */}
+      <Route
+        element={
+          <PublicRoute>
+            <PublicLayout />
+          </PublicRoute>
+        }
+      >
+        <Route path="/login" element={<LoginPage />} />
+      </Route>
+
+      {/* Ruta oculta de auditoría (Sin layout) */}
+      <Route path="/modo-auditoria" element={<ModoAuditoriaPage />} />
+
+      {/* Rutas protegidas */}
+      <Route
+        element={
+          <ProtectedRoute>
+            <AuthLayout />
+          </ProtectedRoute>
+        }
+      >
+        {/* Inicio */}
+        <Route path="/" element={<Navigate to="/home" replace />} />
+        <Route path="/home" element={<HomePage />} />
+
+        {/* Perfil */}
+        <Route path="/perfil" element={<PerfilPage />} />
+
+        {/* Configuracion */}
+        <Route path="/configuracion" element={<ConfiguracionLayout />}>
+          {/* Empresas */}
+          <Route path="empresas" element={<EmpresasLayout />}>
+            <Route path="empresas" element={<EmpresasPage />} />
+          </Route>
+
+          {/* Personal */}
+          <Route path="personal" element={<PersonalLayout />}>
+            <Route path="areas_cargos" element={<OrganigramaPage />} />
+            <Route path="trabajadores" element={<PersonalPage />} />
+          </Route>
+
+          {/* Usuarios */}
+          <Route path="usuarios" element={<UsuariosLayout />}>
+            <Route path="roles" element={<RolesPage />} />
+            <Route path="cuentas" element={<CuentasPage />} />
+          </Route>
+
+          <Route path="proveedores" element={<ProveedoresPage />} />
+        </Route>
+
+        {/* Redireccion */}
+        <Route path="*" element={<Navigate to="/home" replace />} />
+      </Route>
+    </Routes>
+  );
+};
