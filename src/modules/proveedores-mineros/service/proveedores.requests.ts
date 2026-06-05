@@ -1,4 +1,5 @@
 import { TipoEntidad } from "../../../shared/enums/_generic/tipo-entidad";
+import { Moneda } from "../../../shared/enums/_generic/moneda";
 import { z } from "zod";
 
 export const Schema_CrearProveedor = z
@@ -37,11 +38,22 @@ export type CrearProveedorRequest = z.infer<typeof Schema_CrearProveedor>;
 export const Schema_CrearCuentaBancaria = z.object({
   id_proveedor: z.number().min(1, "Seleccione un proveedor"),
   id_banco: z.number().min(1, "Seleccione un banco válido"),
-  moneda: z.string().min(1, "Seleccione una moneda"),
+  moneda: z.nativeEnum(Moneda),
   numero_cuenta: z.string().min(1, "El número de cuenta es requerido"),
   cci: z.string().optional().nullable(),
   es_para_detraccion: z.number(), // 1 o 0
 });
 export type CrearCuentaBancariaRequest = z.infer<
   typeof Schema_CrearCuentaBancaria
+>;
+
+export const Schema_EditarCuentaBancaria = z.object({
+  id_banco: z.number().min(1, "Seleccione un banco válido"),
+  moneda: z.nativeEnum(Moneda),
+  numero_cuenta: z.string().min(1, "El número de cuenta es requerido"),
+  cci: z.string().optional().nullable(),
+  es_para_detraccion: z.number(), // 1 o 0
+});
+export type EditarCuentaBancariaRequest = z.infer<
+  typeof Schema_EditarCuentaBancaria
 >;

@@ -136,10 +136,10 @@ body {
 }
 
 /* Visibilidad mejorada para inputs deshabilitados */
-input:disabled,
+input:disabled:not([type="checkbox"]):not([type="radio"]),
 textarea:disabled,
 select:disabled,
-[data-disabled] input,
+[data-disabled] input:not([type="checkbox"]):not([type="radio"]),
 [data-disabled] textarea,
 [data-disabled] select,
 .mantine-Input-input:disabled,

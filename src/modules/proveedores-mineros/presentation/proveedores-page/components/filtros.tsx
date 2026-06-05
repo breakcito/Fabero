@@ -3,15 +3,19 @@ import { IconPlus, IconSearch } from "@tabler/icons-react";
 
 interface Props {
   onOpenRegistro: () => void;
+  searchQuery: string;
+  setSearchQuery: (val: string) => void;
 }
 
-export const Filtros = ({ onOpenRegistro }: Props) => {
+export const Filtros = ({ onOpenRegistro, searchQuery, setSearchQuery }: Props) => {
   return (
     <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end justify-between">
       <TextInput
         label="Buscar Proveedor"
         placeholder="Buscar por razón social, RUC o DNI..."
         leftSection={<IconSearch size={16} className="text-zinc-400" />}
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
         radius="lg"
         size="sm"
         className="flex-1 min-w-64"

@@ -1,11 +1,11 @@
 import { z } from "zod";
 
 export const Schema_CrearConcesion = z.object({
+  id_departamento: z.number().min(1, "El departamento es requerido"),
+  id_provincia: z.number().min(1, "La provincia es requerida"),
+  id_distrito: z.number().min(1, "El distrito es requerido"),
   nombre: z.string().min(1, "El nombre es requerido"),
-  codigo_concesion: z.string().min(1, "El código es requerido"),
   codigo_reinfo: z.string().optional().nullable(),
-  ubigeo: z.string().optional().nullable(),
-  tipo_mineral: z.string().min(1, "El tipo de mineral es requerido"),
 });
 
 export type DTO_CrearConcesion = z.infer<typeof Schema_CrearConcesion>;

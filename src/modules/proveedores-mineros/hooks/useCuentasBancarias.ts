@@ -4,13 +4,17 @@ import type { CuentaBancariaResponse } from "../service/proveedores.responses";
 import { useNotify } from "../../../hooks/useNotify";
 import type { RES_Banco } from "../../../service/responses/banco";
 import { AuxService } from "../../../service/auxiliar.service";
+import { EstadoBase } from "../../../shared/enums/_generic/estado-base";
 
-export const useCuentasBancarias = (idProveedor: number | null) => {
+export const useCuentasBancarias = (
+  idProveedor: number | null,
+  onCuentasCountChange?: (count: number) => void,
+) => {
   const [cuentas, setCuentas] = useState<CuentaBancariaResponse[]>([]);
   const [bancos, setBancos] = useState<RES_Banco[]>([]);
   const [loadingCuentas, setLoadingCuentas] = useState(false);
   const [loadingBancos, setLoadingBancos] = useState(false);
-  const { notifyError } = useNotify();
+  const { notifyError, notifySuccess } = useNotify();
 
   const fetchCuentas = async (id: number) => {
     if (!id) return;
@@ -18,6 +22,7 @@ export const useCuentasBancarias = (idProveedor: number | null) => {
     try {
       const data = await ProveedoresService.getCuentasBancarias(id);
       setCuentas(data);
+      onCuentasCountChange?.(data.filter((c) => c.estado === EstadoBase.Activo).length);
     } catch (e) {
       console.error(e);
       notifyError("Error al cargar cuentas bancarias");
@@ -49,6 +54,38 @@ export const useCuentasBancarias = (idProveedor: number | null) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idProveedor]);
 
+  const insertCuenta = (c: CuentaBancariaResponse) => {
+    setCuentas((prev) => {
+      const exists = prev.some((x) => x.id_cuenta_bancaria === c.id_cuenta_bancaria);
+      const next = exists
+        ? prev.map((x) => (x.id_cuenta_bancaria === c.id_cuenta_bancaria ? c : x))
+        : [c, ...prev];
+      onCuentasCountChange?.(next.filter((x) => x.estado === EstadoBase.Activo).length);
+      return next;
+    });
+  };
+
+  const toggleEstadoCuenta = async (id: number, currentEstado: EstadoBase) => {
+    const nuevoEstado = currentEstado === EstadoBase.Activo ? EstadoBase.Inactivo : EstadoBase.Activo;
+    try {
+      const updated = await ProveedoresService.cambiarEstadoCuentaBancaria(id, nuevoEstado);
+      setCuentas((prev) => {
+        const next = prev.map((x) => (x.id_cuenta_bancaria === id ? updated : x));
+        onCuentasCountChange?.(next.filter((x) => x.estado === EstadoBase.Activo).length);
+        return next;
+      });
+      notifySuccess(`Cuenta bancaria ${nuevoEstado.toLowerCase()} correctamente`);
+    } catch (e) {
+      console.error(e);
+      notifyError("Error al cambiar el estado de la cuenta bancaria");
+      throw e;
+    }
+  };
+
+  const reloadCuentas = () => {
+    if (idProveedor) fetchCuentas(idProveedor);
+  };
+
   return {
     cuentas,
     bancos,
@@ -56,11 +93,8 @@ export const useCuentasBancarias = (idProveedor: number | null) => {
     loadingCuentas,
     loadingBancos,
     fetchBancos,
-    insertCuenta: (c: CuentaBancariaResponse) => {
-      setCuentas((prev) => [c, ...prev]);
-    },
-    reloadCuentas: () => {
-      if (idProveedor) fetchCuentas(idProveedor);
-    },
+    insertCuenta,
+    toggleEstadoCuenta,
+    reloadCuentas,
   };
 };

@@ -97,7 +97,11 @@ export const App = () => {
             <Route path="cuentas" element={<CuentasPage />} />
           </Route>
 
-          <Route path="proveedores" element={<ProveedoresPage />} />
+          {/* Socios Comerciales */}
+          <Route path="socios-comerciales" element={<UsuariosLayout />}>
+            <Route path="proveedores-mineros" element={<ProveedoresPage />} />
+          </Route>
+
         </Route>
 
         {/* Redireccion */}

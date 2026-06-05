@@ -35,7 +35,10 @@ export const useConcesiones = () => {
     return concesiones.filter(
       (c) =>
         c.nombre.toLowerCase().includes(q) ||
-        c.codigo_concesion.toLowerCase().includes(q),
+        (c.codigo_reinfo && c.codigo_reinfo.toLowerCase().includes(q)) ||
+        (c.departamento && c.departamento.toLowerCase().includes(q)) ||
+        (c.provincia && c.provincia.toLowerCase().includes(q)) ||
+        (c.distrito && c.distrito.toLowerCase().includes(q))
     );
   }, [concesiones, busqueda]);
 

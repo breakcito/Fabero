@@ -5,15 +5,16 @@ import { TipoEntidad } from "../../../../shared/enums/_generic/tipo-entidad";
 import type { ProveedorResponse } from "../../service/proveedores.responses";
 
 interface Props {
+  proveedor?: ProveedorResponse | null;
   onCancel: () => void;
   onSuccess: (p: ProveedorResponse) => void;
 }
 
-export const RegistroProveedor = ({ onCancel, onSuccess }: Props) => {
+export const RegistroProveedor = ({ proveedor, onCancel, onSuccess }: Props) => {
   const { payload, handleChange, handleSelectChange, submit, loading, error } =
     useRegistroProveedor((p) => {
       onSuccess(p);
-    });
+    }, proveedor);
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-6">
@@ -153,7 +154,7 @@ export const RegistroProveedor = ({ onCancel, onSuccess }: Props) => {
           leftSection={<IconDeviceFloppy size={18} />}
           className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-900/20"
         >
-          Guardar Proveedor
+          {proveedor ? "Actualizar Proveedor" : "Guardar Proveedor"}
         </Button>
       </div>
     </form>

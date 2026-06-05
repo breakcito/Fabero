@@ -14,6 +14,7 @@ import {
   IconPlus,
   IconExclamationCircle,
 } from "@tabler/icons-react";
+import { Moneda } from "../../../../../shared/enums/_generic/moneda";
 import { MONEDAS } from "../../../../../shared/variables/monedas";
 import { useRegistroCuentaBancaria } from "../../../hooks/useRegistroCuentaBancaria";
 import type { CuentaBancariaResponse } from "../../../service/proveedores.responses";
@@ -28,6 +29,7 @@ interface Props {
   loadingBancos: boolean;
   onCuentaAdded: (account: CuentaBancariaResponse) => void;
   onBancoAdded: (banco: RES_Banco) => void;
+  cuenta?: CuentaBancariaResponse | null;
 }
 
 export interface RegistroCuentaRef {
@@ -36,7 +38,7 @@ export interface RegistroCuentaRef {
 
 export const RegistroCuenta = forwardRef<RegistroCuentaRef, Props>(
   (
-    { idProveedor, bancos, loadingBancos, onCuentaAdded, onBancoAdded },
+    { idProveedor, bancos, loadingBancos, onCuentaAdded, onBancoAdded, cuenta },
     ref,
   ) => {
     const {
@@ -48,7 +50,7 @@ export const RegistroCuenta = forwardRef<RegistroCuentaRef, Props>(
       isSubmitting,
       error,
       autoSelectBanco,
-    } = useRegistroCuentaBancaria(idProveedor, bancos, onCuentaAdded);
+    } = useRegistroCuentaBancaria(idProveedor, bancos, onCuentaAdded, cuenta);
 
     const [openBanco, setOpenBanco] = useState(false);
 
@@ -56,9 +58,8 @@ export const RegistroCuenta = forwardRef<RegistroCuentaRef, Props>(
       autoSelectBanco,
     }));
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const selectMonedas = Object.values(MONEDAS).map((m: any) => ({
-      value: m.label,
+    const selectMonedas = Object.values(MONEDAS).map((m) => ({
+      value: m.label as Moneda,
       label: `${m.label} (${m.symbol})`,
     }));
 
@@ -74,7 +75,7 @@ export const RegistroCuenta = forwardRef<RegistroCuentaRef, Props>(
         <div className="absolute top-0 left-0 w-1 h-full bg-linear-to-b from-indigo-500 to-indigo-700" />
         <h3 className="text-zinc-200 font-semibold text-sm mb-4 flex items-center gap-2 uppercase tracking-wider">
           <IconNotes size={18} className="text-indigo-400" />
-          Nueva Cuenta
+          {cuenta ? "Editar Cuenta" : "Nueva Cuenta"}
         </h3>
 
         {error && (
@@ -172,7 +173,7 @@ export const RegistroCuenta = forwardRef<RegistroCuentaRef, Props>(
                   checked={payload.es_para_detraccion === 1}
                   disabled={
                     !selectedBanco?.es_nacional ||
-                    payload.moneda !== MONEDAS.PEN.label
+                    payload.moneda !== Moneda.Soles
                   }
                   onChange={(e) =>
                     handleToggleDetraccion(e.currentTarget.checked)
@@ -187,7 +188,7 @@ export const RegistroCuenta = forwardRef<RegistroCuentaRef, Props>(
                   leftSection={<IconPlus size={18} />}
                   className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-900/20"
                 >
-                  Agregar Cuenta
+                  {cuenta ? "Actualizar Cuenta" : "Agregar Cuenta"}
                 </Button>
               </div>
             </Grid.Col>

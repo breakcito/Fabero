@@ -6,6 +6,11 @@ import type { RES_Empresa } from "./responses/empresa";
 import type { RES_Marca } from "./responses/marca";
 import type { TipoEntidad } from "../shared/enums/_generic/tipo-entidad";
 import type { RES_Banco } from "./responses/banco";
+import type {
+  RES_Departamento,
+  RES_Provincia,
+  RES_Distrito,
+} from "../modules/sucursales/service/sucursales.responses";
 
 const path = "/aux";
 
@@ -73,8 +78,10 @@ export const AuxService = {
   },
 
   getBancos: async (): Promise<IRespuesta<RES_Banco[]>> => {
-    const { data } = await api.get("/proveedores/bancos");
-    return data.data;
+    const { data } = await api.get<IRespuesta<RES_Banco[]>>(
+      "/proveedores/bancos",
+    );
+    return data;
   },
 
   crearBanco: async (payload: {
@@ -83,5 +90,36 @@ export const AuxService = {
   }): Promise<RES_Banco> => {
     const { data } = await api.post("/proveedores/bancos", payload);
     return data.data;
+  },
+
+  get_departamentos: async (): Promise<IRespuesta<RES_Departamento[]>> => {
+    const { data } = await api.get<IRespuesta<RES_Departamento[]>>(
+      `${path}/departamentos`,
+    );
+    return data;
+  },
+
+  get_provincias: async (
+    id_departamento: number,
+  ): Promise<IRespuesta<RES_Provincia[]>> => {
+    const { data } = await api.get<IRespuesta<RES_Provincia[]>>(
+      `${path}/provincias`,
+      {
+        params: { id_departamento },
+      },
+    );
+    return data;
+  },
+
+  get_distritos: async (
+    id_provincia: number,
+  ): Promise<IRespuesta<RES_Distrito[]>> => {
+    const { data } = await api.get<IRespuesta<RES_Distrito[]>>(
+      `${path}/distritos`,
+      {
+        params: { id_provincia },
+      },
+    );
+    return data;
   },
 };

@@ -1,4 +1,5 @@
 import { api } from "../../../service/_api";
+import { EstadoBase } from "../../../shared/enums/_generic/estado-base";
 import type { IRespuesta } from "../../../shared/interfaces/_response";
 import type {
   DTO_CrearConcesion,
@@ -17,6 +18,21 @@ export const ConcesionesService = {
     dto: DTO_CrearConcesion,
   ): Promise<IRespuesta<RES_Concesion>> => {
     const { data } = await api.post(PATH, dto);
+    return data;
+  },
+
+  editar_concesion: async (
+    idConcesion: number,
+    dto: DTO_CrearConcesion,
+  ): Promise<IRespuesta<RES_Concesion>> => {
+    const { data } = await api.put(`${PATH}/${idConcesion}`, dto);
+    return data;
+  },
+  cambiar_estado_concesion: async (
+    idConcesion: number,
+    estado: EstadoBase,
+  ): Promise<IRespuesta<RES_Concesion>> => {
+    const { data } = await api.patch(`${PATH}/${idConcesion}/estado`, { estado });
     return data;
   },
 };
