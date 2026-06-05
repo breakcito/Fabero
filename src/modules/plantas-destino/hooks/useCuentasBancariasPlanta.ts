@@ -1,16 +1,16 @@
 import { useState, useEffect, useRef } from "react";
-import { ProveedoresService } from "../service/proveedores.service";
-import type { CuentaBancariaResponse } from "../service/proveedores.responses";
+import { PlantasDestinoService } from "../service/plantas-destino.service";
+import type { CuentaBancariaPlantaResponse } from "../service/plantas-destino.responses";
 import { useNotify } from "../../../hooks/useNotify";
 import type { RES_Banco } from "../../../service/responses/banco";
 import { AuxService } from "../../../service/auxiliar.service";
 import { EstadoBase } from "../../../shared/enums/_generic/estado-base";
 
-export const useCuentasBancarias = (
-  idProveedor: number | null,
+export const useCuentasBancariasPlanta = (
+  idPlanta: number | null,
   onCuentasCountChange?: (count: number) => void,
 ) => {
-  const [cuentas, setCuentas] = useState<CuentaBancariaResponse[]>([]);
+  const [cuentas, setCuentas] = useState<CuentaBancariaPlantaResponse[]>([]);
   const [bancos, setBancos] = useState<RES_Banco[]>([]);
   const [loadingCuentas, setLoadingCuentas] = useState(false);
   const [loadingBancos, setLoadingBancos] = useState(false);
@@ -27,7 +27,7 @@ export const useCuentasBancarias = (
     if (!id) return;
     setLoadingCuentas(true);
     try {
-      const data = await ProveedoresService.getCuentasBancarias(id);
+      const data = await PlantasDestinoService.getCuentasBancarias(id);
       setCuentas(data);
     } catch (e) {
       console.error(e);
@@ -51,14 +51,14 @@ export const useCuentasBancarias = (
   };
 
   useEffect(() => {
-    if (idProveedor) {
-      fetchCuentas(idProveedor);
-      fetchBancos(); // Carga automática al abrir/cambiar proveedor
+    if (idPlanta) {
+      fetchCuentas(idPlanta);
+      fetchBancos();
     } else {
       setCuentas([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idProveedor]);
+  }, [idPlanta]);
 
   // Sincronizar conteo de cuentas de forma reactiva y segura
   useEffect(() => {
@@ -66,7 +66,7 @@ export const useCuentasBancarias = (
     callbackRef.current?.(activeCount);
   }, [cuentas]);
 
-  const insertCuenta = (c: CuentaBancariaResponse) => {
+  const insertCuenta = (c: CuentaBancariaPlantaResponse) => {
     setCuentas((prev) => {
       const exists = prev.some((x) => x.id_cuenta_bancaria === c.id_cuenta_bancaria);
       return exists
@@ -78,7 +78,7 @@ export const useCuentasBancarias = (
   const toggleEstadoCuenta = async (id: number, currentEstado: EstadoBase) => {
     const nuevoEstado = currentEstado === EstadoBase.Activo ? EstadoBase.Inactivo : EstadoBase.Activo;
     try {
-      const updated = await ProveedoresService.cambiarEstadoCuentaBancaria(id, nuevoEstado);
+      const updated = await PlantasDestinoService.cambiarEstadoCuentaBancaria(id, nuevoEstado);
       setCuentas((prev) => prev.map((x) => (x.id_cuenta_bancaria === id ? updated : x)));
       notifySuccess(`Cuenta bancaria ${nuevoEstado.toLowerCase()} correctamente`);
     } catch (e) {
@@ -89,7 +89,7 @@ export const useCuentasBancarias = (
   };
 
   const reloadCuentas = () => {
-    if (idProveedor) fetchCuentas(idProveedor);
+    if (idPlanta) fetchCuentas(idPlanta);
   };
 
   return {

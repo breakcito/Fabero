@@ -21,6 +21,7 @@ import { RolesPage } from "../../modules/roles/presentation/roles.page.tsx";
 import { CuentasPage } from "../../modules/cuentas/presentation/cuentas.page.tsx";
 import { PerfilPage } from "../../modules/perfil/presentation/perfil.page.tsx";
 import { ProveedoresPage } from "../../modules/proveedores-mineros/presentation/proveedores-page/proveedores.page.tsx";
+import { PlantasDestinoPage } from "../../modules/plantas-destino/presentation/plantas-page/plantas.page.tsx";
 import { useEffect } from "react";
 import { onSocketEvent } from "../../service/_socket.ts";
 import { useAuditoriaStore } from "../../stores/auditoria.store.ts";
@@ -100,6 +101,7 @@ export const App = () => {
           {/* Socios Comerciales */}
           <Route path="socios-comerciales" element={<UsuariosLayout />}>
             <Route path="proveedores-mineros" element={<ProveedoresPage />} />
+            <Route path="plantas-destino" element={<PlantasDestinoPage />} />
           </Route>
 
         </Route>
