@@ -11,6 +11,7 @@ export interface ProveedorResponse {
   telefono: string | null;
   correo: string | null;
   cantidad_cuentas_bancarias: number;
+  cantidad_encargados_muestra: number;
   estado: EstadoBase;
 }
 

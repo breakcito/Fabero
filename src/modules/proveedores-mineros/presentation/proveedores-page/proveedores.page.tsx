@@ -5,6 +5,7 @@ import { useProveedores } from "../../hooks/useProveedores";
 import { RegistroProveedor } from "../registro-proveedor/registro-proveedor";
 import { CuentasBancarias } from "../cuentas-bancarias/cuentas-bancarias";
 import { ModalConcesiones } from "./components/ModalConcesiones";
+import { ModalEncargadosMuestra } from "./components/ModalEncargadosMuestra";
 import { useState } from "react";
 import type { ProveedorResponse } from "../../service/proveedores.responses";
 import { Filtros } from "./components/filtros";
@@ -23,6 +24,7 @@ export const ProveedoresPage = () => {
     deleteProveedor,
     toggleEstado,
     actualizarCantidadCuentasProveedor,
+    actualizarCantidadEncargadosProveedor,
   } = useProveedores();
 
   const [openRegistro, setOpenRegistro] = useState(false);
@@ -31,6 +33,8 @@ export const ProveedoresPage = () => {
   const [proveedorAEditar, setProveedorAEditar] =
     useState<ProveedorResponse | null>(null);
   const [selectedProveedorConcesiones, setSelectedProveedorConcesiones] =
+    useState<ProveedorResponse | null>(null);
+  const [selectedProveedorEncargados, setSelectedProveedorEncargados] =
     useState<ProveedorResponse | null>(null);
 
   return (
@@ -47,6 +51,7 @@ export const ProveedoresPage = () => {
           loading={loading}
           onOpenCuentas={(p) => setSelectedProveedor(p)}
           onOpenConcesiones={(p) => setSelectedProveedorConcesiones(p)}
+          onOpenEncargadosMuestra={(p) => setSelectedProveedorEncargados(p)}
           onEdit={(p) => setProveedorAEditar(p)}
           onDelete={deleteProveedor}
           onToggleEstado={toggleEstado}
@@ -126,6 +131,27 @@ export const ProveedoresPage = () => {
       >
         {selectedProveedorConcesiones && (
           <ModalConcesiones proveedor={selectedProveedorConcesiones} />
+        )}
+      </ModalEstandar>
+
+      {/* Modal: Gestión de Encargados de Muestra */}
+      <ModalEstandar
+        opened={!!selectedProveedorEncargados}
+        close={() => setSelectedProveedorEncargados(null)}
+        title={
+          selectedProveedorEncargados
+            ? `Encargados de Muestra del Proveedor: ${selectedProveedorEncargados.razon_social}`
+            : ""
+        }
+        size="xl"
+      >
+        {selectedProveedorEncargados && (
+          <ModalEncargadosMuestra
+            proveedor={selectedProveedorEncargados}
+            onCountChange={(count) => {
+              actualizarCantidadEncargadosProveedor(selectedProveedorEncargados.id_proveedor, count);
+            }}
+          />
         )}
       </ModalEstandar>
     </div>

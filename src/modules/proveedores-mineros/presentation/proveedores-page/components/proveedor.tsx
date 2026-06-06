@@ -11,9 +11,9 @@ import {
   IconBuilding,
   IconUser,
   IconPencil,
-  
   IconPower,
   IconMapPin,
+  IconUserCheck,
 } from "@tabler/icons-react";
 import { DataTableEstandar } from "../../../../../presentation/utils/datatable-estandar";
 import type { ProveedorResponse } from "../../../service/proveedores.responses";
@@ -24,6 +24,7 @@ interface Props {
   loading: boolean;
   onOpenCuentas: (proveedor: ProveedorResponse) => void;
   onOpenConcesiones: (proveedor: ProveedorResponse) => void;
+  onOpenEncargadosMuestra: (proveedor: ProveedorResponse) => void;
   onEdit: (proveedor: ProveedorResponse) => void;
   onDelete: (id: number) => void;
   onToggleEstado: (id: number, currentEstado: EstadoBase) => void;
@@ -34,8 +35,8 @@ export const Proveedor = ({
   loading,
   onOpenCuentas,
   onOpenConcesiones,
+  onOpenEncargadosMuestra,
   onEdit,
-
   onToggleEstado,
 }: Props) => {
   return (
@@ -108,6 +109,37 @@ export const Proveedor = ({
                   onClick={() => onOpenCuentas(r)}
                 >
                   <IconBuildingBank size={16} stroke={1.5} />
+                </ActionIcon>
+              </Tooltip>
+            </Group>
+          ),
+        },
+        {
+          accessor: "cantidad_encargados_muestra",
+          title: "Encargados Muestra",
+          width: 170,
+          textAlign: "center",
+          render: (r: ProveedorResponse) => (
+            <Group gap="xs" justify="center" wrap="nowrap">
+              <Badge
+                color={r.cantidad_encargados_muestra > 0 ? "indigo" : "gray"}
+                variant="light"
+                size="sm"
+                radius="xl"
+              >
+                {r.cantidad_encargados_muestra === 1
+                  ? "1 encargado"
+                  : `${r.cantidad_encargados_muestra} encargados`}
+              </Badge>
+              <Tooltip label="Gestionar Encargados de Muestra" withArrow position="left">
+                <ActionIcon
+                  variant="subtle"
+                  color="indigo"
+                  radius="xl"
+                  size="sm"
+                  onClick={() => onOpenEncargadosMuestra(r)}
+                >
+                  <IconUserCheck size={16} stroke={1.5} />
                 </ActionIcon>
               </Tooltip>
             </Group>

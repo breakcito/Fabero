@@ -22,6 +22,9 @@ import { CuentasPage } from "../../modules/cuentas/presentation/cuentas.page.tsx
 import { PerfilPage } from "../../modules/perfil/presentation/perfil.page.tsx";
 import { ProveedoresPage } from "../../modules/proveedores-mineros/presentation/proveedores-page/proveedores.page.tsx";
 import { PlantasDestinoPage } from "../../modules/plantas-destino/presentation/plantas-page/plantas.page.tsx";
+import { ConductoresPage } from "../../modules/conductores/presentation/conductores-page/conductores.page.tsx";
+import { EmpresasTransportePage } from "../../modules/empresas-transporte/presentation/empresas-transporte-page/empresas-transporte.page.tsx";
+import { VehiculosPage } from "../../modules/vehiculos/presentation/vehiculos-page/vehiculos.page.tsx";
 import { useEffect } from "react";
 import { onSocketEvent } from "../../service/_socket.ts";
 import { useAuditoriaStore } from "../../stores/auditoria.store.ts";
@@ -102,8 +105,14 @@ export const App = () => {
           <Route path="socios-comerciales" element={<UsuariosLayout />}>
             <Route path="proveedores-mineros" element={<ProveedoresPage />} />
             <Route path="plantas-destino" element={<PlantasDestinoPage />} />
+           
           </Route>
-
+          {/* Empresa de Transporte */}
+          <Route path="empresa-transporte" element={<UsuariosLayout />}>
+            <Route path="conductores" element={<ConductoresPage />} />
+            <Route path="empresas-transporte" element={<EmpresasTransportePage />} />
+            <Route path="vehiculos" element={<VehiculosPage />} />
+          </Route>
         </Route>
 
         {/* Redireccion */}
