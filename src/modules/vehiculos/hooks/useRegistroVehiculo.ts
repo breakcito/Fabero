@@ -19,7 +19,9 @@ export const useRegistroVehiculo = (
   const [empresas, setEmpresas] = useState<any[]>([]);
   const [marcas, setMarcas] = useState<any[]>([]);
   const [tipos, setTipos] = useState<any[]>([]);
-  const [loadingDropdowns, setLoadingDropdowns] = useState(false);
+  const [loadingEmpresas, setLoadingEmpresas] = useState(false);
+  const [loadingMarcas, setLoadingMarcas] = useState(false);
+  const [loadingTipos, setLoadingTipos] = useState(false);
 
   const [payload, setPayload] = useState<CrearVehiculoRequest>({
     id_marca: vehiculo?.id_marca || 0,
@@ -36,22 +38,50 @@ export const useRegistroVehiculo = (
   });
 
   const fetchDropdownData = async () => {
-    setLoadingDropdowns(true);
-    try {
-      const [empData, mcData, tpData] = await Promise.all([
-        EmpresasTransporteService.getEmpresasTransporte(),
-        MarcasService.getMarcas(),
-        TiposVehiculoService.getTiposVehiculo(),
-      ]);
-      setEmpresas(empData);
-      setMarcas(mcData);
-      setTipos(tpData);
-    } catch (e) {
-      console.error(e);
-      notifyError("Ocurrió un error al cargar datos auxiliares");
-    } finally {
-      setLoadingDropdowns(false);
-    }
+    const fetchEmpresas = async () => {
+      setLoadingEmpresas(true);
+      try {
+        const empData = await EmpresasTransporteService.getEmpresasTransporte();
+        setEmpresas(empData);
+      } catch (e) {
+        console.error(e);
+        notifyError("Ocurrió un error al cargar las empresas de transporte");
+      } finally {
+        setLoadingEmpresas(false);
+      }
+    };
+
+    const fetchMarcas = async () => {
+      setLoadingMarcas(true);
+      try {
+        const mcData = await MarcasService.getMarcas();
+        setMarcas(mcData);
+      } catch (e) {
+        console.error(e);
+        notifyError("Ocurrió un error al cargar las marcas");
+      } finally {
+        setLoadingMarcas(false);
+      }
+    };
+
+    const fetchTipos = async () => {
+      setLoadingTipos(true);
+      try {
+        const tpData = await TiposVehiculoService.getTiposVehiculo();
+        setTipos(tpData);
+      } catch (e) {
+        console.error(e);
+        notifyError("Ocurrió un error al cargar los tipos de vehículo");
+      } finally {
+        setLoadingTipos(false);
+      }
+    };
+
+    await Promise.allSettled([
+      fetchEmpresas(),
+      fetchMarcas(),
+      fetchTipos(),
+    ]);
   };
 
   useEffect(() => {
@@ -104,7 +134,9 @@ export const useRegistroVehiculo = (
     empresas,
     marcas,
     tipos,
-    loadingDropdowns,
+    loadingEmpresas,
+    loadingMarcas,
+    loadingTipos,
     fetchDropdownData,
   };
 };

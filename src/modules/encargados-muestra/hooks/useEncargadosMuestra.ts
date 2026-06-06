@@ -4,6 +4,7 @@ import { EncargadosMuestraService } from "../service/encargados-muestra.service"
 import type { RES_EncargadoMuestra } from "../service/encargados-muestra.responses";
 import type { DTO_CrearEncargadoMuestra } from "../service/encargados-muestra.requests";
 import { Schema_CrearEncargadoMuestra } from "../service/encargados-muestra.requests";
+import { EstadoBase } from "../../../shared/enums/_generic/estado-base";
 
 export const useEncargadosMuestra = (
   onSuccess?: (nueva: RES_EncargadoMuestra) => void,
@@ -60,6 +61,41 @@ export const useEncargadosMuestra = (
 
   const setField = (field: keyof DTO_CrearEncargadoMuestra, value: any) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const insertEncargado = (nuevo: RES_EncargadoMuestra) => {
+    setEncargados((prev) => {
+      const exists = prev.some((item) => item.id_encargado_muestra === nuevo.id_encargado_muestra);
+      if (exists) {
+        return prev.map((item) => (item.id_encargado_muestra === nuevo.id_encargado_muestra ? nuevo : item));
+      }
+      return [nuevo, ...prev];
+    });
+  };
+
+  const updateEncargado = (editado: RES_EncargadoMuestra) => {
+    setEncargados((prev) =>
+      prev.map((item) => (item.id_encargado_muestra === editado.id_encargado_muestra ? editado : item))
+    );
+  };
+
+  const toggleEstado = async (id: number, currentEstado: EstadoBase) => {
+    const nuevoEstado = currentEstado === EstadoBase.Activo ? EstadoBase.Inactivo : EstadoBase.Activo;
+    try {
+      setLoading(true);
+      const resp = await EncargadosMuestraService.cambiar_estado_encargado_muestra(id, nuevoEstado);
+      if (resp.success) {
+        updateEncargado(resp.data);
+        notifySuccess(resp.message || `Estado cambiado a ${nuevoEstado.toLowerCase()}`);
+      } else {
+        notifyError(resp.message || "No se pudo cambiar el estado");
+      }
+    } catch (e) {
+      console.error(e);
+      notifyError("No se pudo cambiar el estado del encargado");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSubmit = async () => {
@@ -120,5 +156,8 @@ export const useEncargadosMuestra = (
     form,
     setField,
     handleSubmit,
+    insertEncargado,
+    updateEncargado,
+    toggleEstado,
   };
 };

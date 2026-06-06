@@ -73,27 +73,7 @@ export const ProveedoresService = {
   ): Promise<void> => {
     await api.delete(`/proveedores/${idProveedor}/concesiones/${idConcesion}`);
   },
-  getEncargadosMuestraProveedor: async (
-    idProveedor: number,
-  ): Promise<any[]> => {
-    const { data } = await api.get(`/proveedores/${idProveedor}/encargados-muestra`);
-    return data.data;
-  },
-  asociarEncargadoMuestraProveedor: async (
-    idProveedor: number,
-    idEncargadoMuestra: number,
-  ): Promise<void> => {
-    await api.post("/proveedores/encargados-muestra", {
-      id_proveedor: idProveedor,
-      id_encargado_muestra: idEncargadoMuestra,
-    });
-  },
-  desasociarEncargadoMuestraProveedor: async (
-    idProveedor: number,
-    idEncargadoMuestra: number,
-  ): Promise<void> => {
-    await api.delete(`/proveedores/${idProveedor}/encargados-muestra/${idEncargadoMuestra}`);
-  },
+
   editarCuentaBancaria: async (
     id: number,
     payload: any,

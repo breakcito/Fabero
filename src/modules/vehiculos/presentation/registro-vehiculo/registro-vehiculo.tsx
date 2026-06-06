@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { IconDeviceFloppy, IconExclamationCircle, IconPlus, IconSettings } from "@tabler/icons-react";
-import { Button, Grid, Select, TextInput, Alert, ActionIcon, Group, NumberInput, Text, Tooltip } from "@mantine/core";
+import { IconDeviceFloppy, IconExclamationCircle, IconSettings } from "@tabler/icons-react";
+import { Button, Grid, Select, TextInput, Alert, ActionIcon, Group, NumberInput, Tooltip, Loader } from "@mantine/core";
 import { useRegistroVehiculo } from "../../hooks/useRegistroVehiculo";
 import type { VehiculoResponse } from "../../service/vehiculos.responses";
 import { EstadoBase } from "../../../../shared/enums/_generic/estado-base";
@@ -24,6 +24,9 @@ export const RegistroVehiculo = ({ vehiculo, onCancel, onSuccess }: Props) => {
     empresas,
     marcas,
     tipos,
+    loadingEmpresas,
+    loadingMarcas,
+    loadingTipos,
     fetchDropdownData,
   } = useRegistroVehiculo((v) => {
     onSuccess(v);
@@ -83,6 +86,8 @@ export const RegistroVehiculo = ({ vehiculo, onCancel, onSuccess }: Props) => {
               searchable
               withAsterisk
               radius="xl"
+              disabled={loadingEmpresas}
+              rightSection={loadingEmpresas ? <Loader size={16} /> : undefined}
               data={getEmpresasDropdown()}
               value={payload.id_empresa_transporte ? String(payload.id_empresa_transporte) : null}
               onChange={(val) => handleChange("id_empresa_transporte", val ? Number(val) : 0)}
@@ -104,6 +109,8 @@ export const RegistroVehiculo = ({ vehiculo, onCancel, onSuccess }: Props) => {
                 withAsterisk
                 radius="xl"
                 className="flex-1"
+                disabled={loadingMarcas}
+                rightSection={loadingMarcas ? <Loader size={16} /> : undefined}
                 data={getMarcasDropdown()}
                 value={payload.id_marca ? String(payload.id_marca) : null}
                 onChange={(val) => handleChange("id_marca", val ? Number(val) : 0)}
@@ -138,6 +145,8 @@ export const RegistroVehiculo = ({ vehiculo, onCancel, onSuccess }: Props) => {
                 withAsterisk
                 radius="xl"
                 className="flex-1"
+                disabled={loadingTipos}
+                rightSection={loadingTipos ? <Loader size={16} /> : undefined}
                 data={getTiposDropdown()}
                 value={payload.id_tipo_vehiculo ? String(payload.id_tipo_vehiculo) : null}
                 onChange={(val) => handleChange("id_tipo_vehiculo", val ? Number(val) : 0)}
