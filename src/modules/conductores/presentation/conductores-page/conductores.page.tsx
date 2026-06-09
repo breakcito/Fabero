@@ -3,7 +3,7 @@ import { useTitlePage } from "../../../../hooks/useTitlePage";
 import { useConductores } from "../../hooks/useConductores";
 import { RegistroConductor } from "../registro-conductor/registro-conductor";
 import { useState } from "react";
-import type { ConductorResponse } from "../../service/conductores.responses";
+import type { RES_Conductor } from "../../service/conductores.responses";
 import { Filtros } from "./components/filtros";
 import { Conductor } from "./components/conductor";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
@@ -14,6 +14,7 @@ export const ConductoresPage = () => {
   const {
     conductores,
     loading,
+    togglingIds,
     searchQuery,
     setSearchQuery,
     insertConductor,
@@ -22,7 +23,8 @@ export const ConductoresPage = () => {
   } = useConductores();
 
   const [openRegistro, setOpenRegistro] = useState(false);
-  const [conductorAEditar, setConductorAEditar] = useState<ConductorResponse | null>(null);
+  const [conductorAEditar, setConductorAEditar] =
+    useState<RES_Conductor | null>(null);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -36,6 +38,7 @@ export const ConductoresPage = () => {
         <Conductor
           conductores={conductores}
           loading={loading}
+          togglingIds={togglingIds}
           onEdit={(c) => setConductorAEditar(c)}
           onToggleEstado={toggleEstado}
         />
@@ -61,7 +64,11 @@ export const ConductoresPage = () => {
       <ModalEstandar
         opened={!!conductorAEditar}
         close={() => setConductorAEditar(null)}
-        title={conductorAEditar ? `Editar Conductor: ${conductorAEditar.nombre} ${conductorAEditar.apellido}` : ""}
+        title={
+          conductorAEditar
+            ? `Editar Conductor: ${conductorAEditar.nombre} ${conductorAEditar.apellido}`
+            : ""
+        }
         size="lg"
       >
         {conductorAEditar && (

@@ -1,7 +1,7 @@
 import type { EstadoBase } from "../../../shared/enums/_generic/estado-base";
 
-export interface ConductorResponse {
-  id: number;
+export interface RES_Conductor {
+  id_conductor: number;
   dni: string;
   ruc: string | null;
   nombre: string;

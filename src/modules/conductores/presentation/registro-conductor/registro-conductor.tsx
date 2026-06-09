@@ -1,15 +1,19 @@
 import { IconDeviceFloppy, IconExclamationCircle } from "@tabler/icons-react";
 import { Button, Grid, TextInput, Alert } from "@mantine/core";
 import { useRegistroConductor } from "../../hooks/useRegistroConductor";
-import type { ConductorResponse } from "../../service/conductores.responses";
+import type { RES_Conductor } from "../../service/conductores.responses";
 
 interface Props {
-  conductor?: ConductorResponse | null;
+  conductor?: RES_Conductor | null;
   onCancel: () => void;
-  onSuccess: (c: ConductorResponse) => void;
+  onSuccess: (c: RES_Conductor) => void;
 }
 
-export const RegistroConductor = ({ conductor, onCancel, onSuccess }: Props) => {
+export const RegistroConductor = ({
+  conductor,
+  onCancel,
+  onSuccess,
+}: Props) => {
   const { payload, handleChange, submit, loading, error } =
     useRegistroConductor((c) => {
       onSuccess(c);

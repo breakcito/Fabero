@@ -11,6 +11,7 @@ import type {
   RES_Provincia,
   RES_Distrito,
 } from "../modules/sucursales/service/sucursales.responses";
+import type { RES_Conductor } from "./responses/conductor";
 
 const path = "/aux";
 
@@ -121,5 +122,21 @@ export const AuxService = {
       },
     );
     return data;
+  },
+
+  get_conductores: async (): Promise<RES_Conductor[]> => {
+    const { data } = await api.get(`${path}/conductores`);
+    return data.data;
+  },
+
+  crear_conductor: async (payload: {
+    dni: string;
+    ruc: string | null;
+    nombre: string;
+    apellido: string;
+    numero_licencia: string;
+  }): Promise<RES_Conductor> => {
+    const { data } = await api.post(`${path}/conductores`, payload);
+    return data.data;
   },
 };

@@ -12,9 +12,14 @@ import {
   Stack,
   Card,
   Switch,
-  Grid,
 } from "@mantine/core";
-import { IconPencil, IconPower, IconDeviceFloppy, IconPlus, IconX } from "@tabler/icons-react";
+import {
+  IconPencil,
+  IconPower,
+  IconDeviceFloppy,
+  IconPlus,
+  IconX,
+} from "@tabler/icons-react";
 import { useTiposVehiculo } from "../../../tipos-vehiculo/hooks/useTiposVehiculo";
 import { EstadoBase } from "../../../../shared/enums/_generic/estado-base";
 import type { TipoVehiculoResponse } from "../../../tipos-vehiculo/service/tipos-vehiculo.service";
@@ -24,14 +29,21 @@ interface Props {
 }
 
 export const ModalTiposVehiculo = ({ onSelectTipoVehiculo }: Props) => {
-  const { tiposVehiculo, loading, addTipoVehiculo, updateTipoVehiculo, toggleEstadoTipoVehiculo } =
-    useTiposVehiculo();
+  const {
+    tiposVehiculo,
+    loading,
+    addTipoVehiculo,
+    updateTipoVehiculo,
+    toggleEstadoTipoVehiculo,
+  } = useTiposVehiculo();
 
   const [nombre, setNombre] = useState("");
   const [tieneCarreta, setTieneCarreta] = useState(false);
   const [esCarreta, setEsCarreta] = useState(false);
 
-  const [editingTipo, setEditingTipo] = useState<TipoVehiculoResponse | null>(null);
+  const [editingTipo, setEditingTipo] = useState<TipoVehiculoResponse | null>(
+    null,
+  );
   const [saving, setSaving] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -41,10 +53,19 @@ export const ModalTiposVehiculo = ({ onSelectTipoVehiculo }: Props) => {
     setSaving(true);
     try {
       if (editingTipo) {
-        await updateTipoVehiculo(editingTipo.id, nombre.trim(), tieneCarreta, esCarreta);
+        await updateTipoVehiculo(
+          editingTipo.id,
+          nombre.trim(),
+          tieneCarreta,
+          esCarreta,
+        );
         setEditingTipo(null);
       } else {
-        const created = await addTipoVehiculo(nombre.trim(), tieneCarreta, esCarreta);
+        const created = await addTipoVehiculo(
+          nombre.trim(),
+          tieneCarreta,
+          esCarreta,
+        );
         if (onSelectTipoVehiculo && created) {
           onSelectTipoVehiculo(created.id);
         }
@@ -75,11 +96,20 @@ export const ModalTiposVehiculo = ({ onSelectTipoVehiculo }: Props) => {
 
   return (
     <Stack gap="md" className="p-1">
-      <Card withBorder padding="md" radius="lg" className="bg-zinc-900/30 border-zinc-800">
+      <Card
+        withBorder
+        padding="md"
+        radius="lg"
+        className="bg-zinc-900/30 border-zinc-800"
+      >
         <form onSubmit={handleSubmit}>
           <Stack gap="md">
             <TextInput
-              label={editingTipo ? "Editar Nombre del Tipo" : "Nuevo Tipo de Vehículo"}
+              label={
+                editingTipo
+                  ? "Editar Nombre del Tipo"
+                  : "Nuevo Tipo de Vehículo"
+              }
               placeholder="Ej. Semirremolque, Camioneta, Furgón"
               required
               value={nombre}
@@ -131,7 +161,13 @@ export const ModalTiposVehiculo = ({ onSelectTipoVehiculo }: Props) => {
                   type="submit"
                   loading={saving}
                   radius="xl"
-                  leftSection={editingTipo ? <IconDeviceFloppy size={16} /> : <IconPlus size={16} />}
+                  leftSection={
+                    editingTipo ? (
+                      <IconDeviceFloppy size={16} />
+                    ) : (
+                      <IconPlus size={16} />
+                    )
+                  }
                   className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-900/20"
                 >
                   {editingTipo ? "Actualizar" : "Agregar"}
@@ -147,7 +183,7 @@ export const ModalTiposVehiculo = ({ onSelectTipoVehiculo }: Props) => {
           <Loader size="sm" color="indigo" />
         </Group>
       ) : tiposVehiculo.length === 0 ? (
-        <Text size="sm" color="dimmed" textAlign="center" py="lg">
+        <Text size="sm" c="dimmed" ta="center" py="lg">
           No hay tipos de vehículo registrados.
         </Text>
       ) : (
@@ -155,32 +191,61 @@ export const ModalTiposVehiculo = ({ onSelectTipoVehiculo }: Props) => {
           <Table verticalSpacing="sm" className="min-w-full text-zinc-300">
             <Table.Thead className="bg-zinc-900/40 border-b border-zinc-800">
               <Table.Tr>
-                <Table.Th className="text-zinc-400 font-semibold text-xs py-3 px-4">#</Table.Th>
-                <Table.Th className="text-zinc-400 font-semibold text-xs py-3 px-4">Nombre</Table.Th>
-                <Table.Th className="text-zinc-400 font-semibold text-xs py-3 px-4 text-center">Tiene Carreta</Table.Th>
-                <Table.Th className="text-zinc-400 font-semibold text-xs py-3 px-4 text-center">Es Carreta</Table.Th>
-                <Table.Th className="text-zinc-400 font-semibold text-xs py-3 px-4 text-center">Estado</Table.Th>
-                <Table.Th className="text-zinc-400 font-semibold text-xs py-3 px-4 text-center">Acciones</Table.Th>
+                <Table.Th className="text-zinc-400 font-semibold text-xs py-3 px-4">
+                  #
+                </Table.Th>
+                <Table.Th className="text-zinc-400 font-semibold text-xs py-3 px-4">
+                  Nombre
+                </Table.Th>
+                <Table.Th className="text-zinc-400 font-semibold text-xs py-3 px-4 text-center">
+                  Tiene Carreta
+                </Table.Th>
+                <Table.Th className="text-zinc-400 font-semibold text-xs py-3 px-4 text-center">
+                  Es Carreta
+                </Table.Th>
+                <Table.Th className="text-zinc-400 font-semibold text-xs py-3 px-4 text-center">
+                  Estado
+                </Table.Th>
+                <Table.Th className="text-zinc-400 font-semibold text-xs py-3 px-4 text-center">
+                  Acciones
+                </Table.Th>
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
               {tiposVehiculo.map((tipo, idx) => (
-                <Table.Tr key={tipo.id} className="border-b border-zinc-800/60 hover:bg-zinc-900/10">
-                  <Table.Td className="py-2.5 px-4 text-sm text-zinc-500">{idx + 1}</Table.Td>
-                  <Table.Td className="py-2.5 px-4 text-sm font-medium text-white">{tipo.nombre}</Table.Td>
+                <Table.Tr
+                  key={tipo.id}
+                  className="border-b border-zinc-800/60 hover:bg-zinc-900/10"
+                >
+                  <Table.Td className="py-2.5 px-4 text-sm text-zinc-500">
+                    {idx + 1}
+                  </Table.Td>
+                  <Table.Td className="py-2.5 px-4 text-sm font-medium text-white">
+                    {tipo.nombre}
+                  </Table.Td>
                   <Table.Td className="py-2.5 px-4 text-center">
-                    <Badge color={tipo.tiene_carreta ? "indigo" : "gray"} variant="light" size="xs">
+                    <Badge
+                      color={tipo.tiene_carreta ? "indigo" : "gray"}
+                      variant="light"
+                      size="xs"
+                    >
                       {tipo.tiene_carreta ? "Sí" : "No"}
                     </Badge>
                   </Table.Td>
                   <Table.Td className="py-2.5 px-4 text-center">
-                    <Badge color={tipo.es_carreta ? "teal" : "gray"} variant="light" size="xs">
+                    <Badge
+                      color={tipo.es_carreta ? "teal" : "gray"}
+                      variant="light"
+                      size="xs"
+                    >
                       {tipo.es_carreta ? "Sí" : "No"}
                     </Badge>
                   </Table.Td>
                   <Table.Td className="py-2.5 px-4 text-center">
                     <Badge
-                      color={tipo.estado === EstadoBase.Activo ? "green" : "gray"}
+                      color={
+                        tipo.estado === EstadoBase.Activo ? "green" : "gray"
+                      }
                       variant="light"
                       size="sm"
                       radius="lg"
@@ -202,13 +267,26 @@ export const ModalTiposVehiculo = ({ onSelectTipoVehiculo }: Props) => {
                           <IconPencil size={16} stroke={1.5} />
                         </ActionIcon>
                       </Tooltip>
-                      <Tooltip label={tipo.estado === EstadoBase.Activo ? "Inactivar" : "Activar"} withArrow>
+                      <Tooltip
+                        label={
+                          tipo.estado === EstadoBase.Activo
+                            ? "Inactivar"
+                            : "Activar"
+                        }
+                        withArrow
+                      >
                         <ActionIcon
                           variant="subtle"
-                          color={tipo.estado === EstadoBase.Activo ? "orange" : "green"}
+                          color={
+                            tipo.estado === EstadoBase.Activo
+                              ? "orange"
+                              : "green"
+                          }
                           radius="xl"
                           size="sm"
-                          onClick={() => toggleEstadoTipoVehiculo(tipo.id, tipo.estado)}
+                          onClick={() =>
+                            toggleEstadoTipoVehiculo(tipo.id, tipo.estado)
+                          }
                         >
                           <IconPower size={16} stroke={1.5} />
                         </ActionIcon>

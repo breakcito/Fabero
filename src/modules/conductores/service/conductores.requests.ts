@@ -8,4 +8,4 @@ export const Schema_CrearConductor = z.object({
   numero_licencia: z.string().min(3, "El número de licencia debe tener al menos 3 caracteres").max(20, "El número de licencia es muy largo"),
 });
 
-export type CrearConductorRequest = z.infer<typeof Schema_CrearConductor>;
+export type REQ_CrearConductor = z.infer<typeof Schema_CrearConductor>;
