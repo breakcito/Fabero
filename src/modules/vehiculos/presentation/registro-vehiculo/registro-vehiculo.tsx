@@ -5,8 +5,8 @@ import { useRegistroVehiculo } from "../../hooks/useRegistroVehiculo";
 import type { VehiculoResponse } from "../../service/vehiculos.responses";
 import { EstadoBase } from "../../../../shared/enums/_generic/estado-base";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
-import { ModalMarcas } from "../components/modal-marcas";
-import { ModalTiposVehiculo } from "../components/modal-tipos-vehiculo";
+import { FormMarca } from "../../../../presentation/utils/form-marca";
+import { FormTipoVehiculo } from "../../../../presentation/utils/form-tipo-vehiculo";
 
 interface Props {
   vehiculo?: VehiculoResponse | null;
@@ -34,13 +34,14 @@ export const RegistroVehiculo = ({ vehiculo, onCancel, onSuccess }: Props) => {
 
   const [openMarcasModal, setOpenMarcasModal] = useState(false);
   const [openTiposModal, setOpenTiposModal] = useState(false);
+  const [nombreMarca, setNombreMarca] = useState("");
 
   // Filter lists: Active ones + currently selected one
   const getEmpresasDropdown = () => {
     return empresas
-      .filter((e) => e.estado === EstadoBase.Activo || e.id === payload.id_empresa_transporte)
+      .filter((e) => e.estado === EstadoBase.Activo || e.id_empresa_transporte === payload.id_empresa_transporte)
       .map((e) => ({
-        value: String(e.id),
+        value: String(e.id_empresa_transporte),
         label: `${e.razon_social} (${e.ruc})`,
       }));
   };
@@ -56,9 +57,9 @@ export const RegistroVehiculo = ({ vehiculo, onCancel, onSuccess }: Props) => {
 
   const getTiposDropdown = () => {
     return tipos
-      .filter((t) => t.estado === EstadoBase.Activo || t.id === payload.id_tipo_vehiculo)
+      .filter((t) => t.estado === EstadoBase.Activo || t.id_tipo_vehiculo === payload.id_tipo_vehiculo)
       .map((t) => ({
-        value: String(t.id),
+        value: String(t.id_tipo_vehiculo),
         label: t.nombre,
       }));
   };
@@ -225,7 +226,7 @@ export const RegistroVehiculo = ({ vehiculo, onCancel, onSuccess }: Props) => {
               min={0}
               radius="xl"
               value={payload.capacidad || undefined}
-              onChange={(val) => handleChange("capacidad", val)}
+              onChange={(val) => handleChange("capacidad", typeof val === "number" ? val : Number(val) || 0)}
               classNames={{
                 input:
                   "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 transition-all",
@@ -241,7 +242,7 @@ export const RegistroVehiculo = ({ vehiculo, onCancel, onSuccess }: Props) => {
               min={0}
               radius="xl"
               value={payload.tara || undefined}
-              onChange={(val) => handleChange("tara", val)}
+              onChange={(val) => handleChange("tara", typeof val === "number" ? val : Number(val) || 0)}
               classNames={{
                 input:
                   "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 transition-all",
@@ -259,7 +260,7 @@ export const RegistroVehiculo = ({ vehiculo, onCancel, onSuccess }: Props) => {
               decimalScale={2}
               radius="xl"
               value={payload.largo || undefined}
-              onChange={(val) => handleChange("largo", val)}
+              onChange={(val) => handleChange("largo", typeof val === "number" ? val : val === "" ? "" : (Number(val) || null))}
               classNames={{
                 input:
                   "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 transition-all",
@@ -275,7 +276,7 @@ export const RegistroVehiculo = ({ vehiculo, onCancel, onSuccess }: Props) => {
               decimalScale={2}
               radius="xl"
               value={payload.ancho || undefined}
-              onChange={(val) => handleChange("ancho", val)}
+              onChange={(val) => handleChange("ancho", typeof val === "number" ? val : val === "" ? "" : (Number(val) || null))}
               classNames={{
                 input:
                   "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 transition-all",
@@ -291,7 +292,7 @@ export const RegistroVehiculo = ({ vehiculo, onCancel, onSuccess }: Props) => {
               decimalScale={2}
               radius="xl"
               value={payload.alto || undefined}
-              onChange={(val) => handleChange("alto", val)}
+              onChange={(val) => handleChange("alto", typeof val === "number" ? val : val === "" ? "" : (Number(val) || null))}
               classNames={{
                 input:
                   "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 transition-all",
@@ -328,14 +329,21 @@ export const RegistroVehiculo = ({ vehiculo, onCancel, onSuccess }: Props) => {
         opened={openMarcasModal}
         close={() => {
           setOpenMarcasModal(false);
+          setNombreMarca("");
           fetchDropdownData(); // reload marcas dropdown list
         }}
-        title="Administrar Marcas de Vehículo"
+        title="Registrar Marca de Vehículo"
         size="md"
       >
-        <ModalMarcas
-          onSelectMarca={(id) => {
-            handleChange("id_marca", id);
+        <FormMarca
+          nombre={nombreMarca}
+          setNombre={setNombreMarca}
+          marcasExistentes={marcas.map((m) => ({ id_marca: m.id, nombre: m.nombre }))}
+          onSuccess={(nuevaMarca) => {
+            handleChange("id_marca", nuevaMarca.id_marca);
+            setOpenMarcasModal(false);
+            setNombreMarca("");
+            fetchDropdownData();
           }}
         />
       </ModalEstandar>
@@ -350,7 +358,7 @@ export const RegistroVehiculo = ({ vehiculo, onCancel, onSuccess }: Props) => {
         title="Administrar Tipos de Vehículo"
         size="lg"
       >
-        <ModalTiposVehiculo
+        <FormTipoVehiculo
           onSelectTipoVehiculo={(id) => {
             handleChange("id_tipo_vehiculo", id);
           }}

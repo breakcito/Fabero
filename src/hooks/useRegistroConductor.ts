@@ -37,8 +37,10 @@ export const useRegistroConductor = (onSuccess: (conductor: RES_Conductor) => vo
 
     const validation = z
       .object({
-        dni: z.string().min(1, "El DNI es requerido"),
-        ruc: z.string().optional().transform((v) => v || null),
+        dni: z.string().length(8, "El DNI debe tener exactamente 8 caracteres"),
+        ruc: z.string().optional().refine(val => !val || val.length === 11, {
+          message: "El RUC debe tener exactamente 11 caracteres",
+        }).transform((v) => v || null),
         nombre: z.string().min(1, "El nombre es requerido"),
         apellido: z.string().min(1, "El apellido es requerido"),
         numero_licencia: z.string().min(1, "El número de licencia es requerido"),
@@ -61,9 +63,11 @@ export const useRegistroConductor = (onSuccess: (conductor: RES_Conductor) => vo
         numero_licencia: "",
       });
       onSuccess(response);
-    } catch (e) {
-      console.error(e);
-      notifyError("Error al registrar conductor");
+    } catch (err: unknown) {
+      console.error(err);
+      const axiosError = err as { response?: { data?: { message?: string } }; message?: string };
+      const msg = axiosError.response?.data?.message || axiosError.message || "Error al registrar conductor";
+      notifyError(msg);
     } finally {
       setLoading(false);
     }

@@ -38,21 +38,21 @@ export const Vehiculo = ({
           accessor: "numero_placa",
           title: "Vehículo / Placa",
           width: 180,
-          render: (r: VehiculoResponse) => (
-            <Group gap="sm">
-              <ThemeIcon variant="light" color="indigo" radius="xl" size="lg">
-                <IconTruck className="w-5 h-5" />
-              </ThemeIcon>
-              <div>
-                <Text size="sm" fw={600} className="text-white">
-                  {r.numero_placa}
-                </Text>
-                <Text size="xs" className="text-zinc-500">
-                  {r.serie_placa ? `Serie: ${r.serie_placa}` : "Sin Serie"}
-                </Text>
-              </div>
-            </Group>
-          ),
+          render: (r: VehiculoResponse) => {
+            const fullPlaca = r.serie_placa
+              ? `${r.serie_placa}-${r.numero_placa}`
+              : r.numero_placa;
+            return (
+              <Group gap="sm">
+                <ThemeIcon variant="light" color="indigo" radius="xl" size="lg">
+                  <IconTruck className="w-5 h-5" />
+                </ThemeIcon>
+                <div className="inline-flex items-center justify-center bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-2.5 py-0.5 rounded-md font-bold text-xs tracking-wider uppercase font-mono">
+                  {fullPlaca}
+                </div>
+              </Group>
+            );
+          },
         },
         {
           accessor: "tipo_vehiculo_nombre",

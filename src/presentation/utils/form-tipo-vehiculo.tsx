@@ -20,15 +20,15 @@ import {
   IconPlus,
   IconX,
 } from "@tabler/icons-react";
-import { useTiposVehiculo } from "../../../tipos-vehiculo/hooks/useTiposVehiculo";
-import { EstadoBase } from "../../../../shared/enums/_generic/estado-base";
-import type { TipoVehiculoResponse } from "../../../tipos-vehiculo/service/tipos-vehiculo.service";
+import { useTiposVehiculo } from "../../hooks/useTiposVehiculo";
+import { EstadoBase } from "../../shared/enums/_generic/estado-base";
+import type { RES_TipoVehiculo } from "../../service/responses/tipo-vehiculo";
 
 interface Props {
   onSelectTipoVehiculo?: (id: number) => void;
 }
 
-export const ModalTiposVehiculo = ({ onSelectTipoVehiculo }: Props) => {
+export const FormTipoVehiculo = ({ onSelectTipoVehiculo }: Props) => {
   const {
     tiposVehiculo,
     loading,
@@ -41,7 +41,7 @@ export const ModalTiposVehiculo = ({ onSelectTipoVehiculo }: Props) => {
   const [tieneCarreta, setTieneCarreta] = useState(false);
   const [esCarreta, setEsCarreta] = useState(false);
 
-  const [editingTipo, setEditingTipo] = useState<TipoVehiculoResponse | null>(
+  const [editingTipo, setEditingTipo] = useState<RES_TipoVehiculo | null>(
     null,
   );
   const [saving, setSaving] = useState(false);
@@ -54,7 +54,7 @@ export const ModalTiposVehiculo = ({ onSelectTipoVehiculo }: Props) => {
     try {
       if (editingTipo) {
         await updateTipoVehiculo(
-          editingTipo.id,
+          editingTipo.id_tipo_vehiculo,
           nombre.trim(),
           tieneCarreta,
           esCarreta,
@@ -67,7 +67,7 @@ export const ModalTiposVehiculo = ({ onSelectTipoVehiculo }: Props) => {
           esCarreta,
         );
         if (onSelectTipoVehiculo && created) {
-          onSelectTipoVehiculo(created.id);
+          onSelectTipoVehiculo(created.id_tipo_vehiculo);
         }
       }
       setNombre("");
@@ -80,7 +80,7 @@ export const ModalTiposVehiculo = ({ onSelectTipoVehiculo }: Props) => {
     }
   };
 
-  const handleEdit = (tipo: TipoVehiculoResponse) => {
+  const handleEdit = (tipo: RES_TipoVehiculo) => {
     setEditingTipo(tipo);
     setNombre(tipo.nombre);
     setTieneCarreta(tipo.tiene_carreta);
@@ -214,7 +214,7 @@ export const ModalTiposVehiculo = ({ onSelectTipoVehiculo }: Props) => {
             <Table.Tbody>
               {tiposVehiculo.map((tipo, idx) => (
                 <Table.Tr
-                  key={tipo.id}
+                  key={tipo.id_tipo_vehiculo}
                   className="border-b border-zinc-800/60 hover:bg-zinc-900/10"
                 >
                   <Table.Td className="py-2.5 px-4 text-sm text-zinc-500">
@@ -285,7 +285,7 @@ export const ModalTiposVehiculo = ({ onSelectTipoVehiculo }: Props) => {
                           radius="xl"
                           size="sm"
                           onClick={() =>
-                            toggleEstadoTipoVehiculo(tipo.id, tipo.estado)
+                            toggleEstadoTipoVehiculo(tipo.id_tipo_vehiculo, tipo.estado)
                           }
                         >
                           <IconPower size={16} stroke={1.5} />

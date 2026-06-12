@@ -1,17 +1,18 @@
 import { useState, useEffect } from "react";
-import { TiposVehiculoService, type TipoVehiculoResponse } from "../service/tipos-vehiculo.service";
-import { useNotify } from "../../../hooks/useNotify";
-import { EstadoBase } from "../../../shared/enums/_generic/estado-base";
+import { AuxService } from "../service/auxiliar.service";
+import type { RES_TipoVehiculo } from "../service/responses/tipo-vehiculo";
+import { useNotify } from "./useNotify";
+import { EstadoBase } from "../shared/enums/_generic/estado-base";
 
 export const useTiposVehiculo = () => {
-  const [tiposVehiculo, setTiposVehiculo] = useState<TipoVehiculoResponse[]>([]);
+  const [tiposVehiculo, setTiposVehiculo] = useState<RES_TipoVehiculo[]>([]);
   const [loading, setLoading] = useState(false);
   const { notifySuccess, notifyError } = useNotify();
 
   const fetchTiposVehiculo = async () => {
     setLoading(true);
     try {
-      const data = await TiposVehiculoService.getTiposVehiculo();
+      const data = await AuxService.get_tipos_vehiculo();
       setTiposVehiculo(data);
     } catch (e) {
       console.error(e);
@@ -28,10 +29,10 @@ export const useTiposVehiculo = () => {
 
   const addTipoVehiculo = async (nombre: string, tieneCarreta: boolean, esCarreta: boolean) => {
     try {
-      const created = await TiposVehiculoService.crearTipoVehiculo(nombre, tieneCarreta, esCarreta);
+      const created = await AuxService.crear_tipo_vehiculo(nombre, tieneCarreta, esCarreta);
       setTiposVehiculo((prev) => {
-        const exists = prev.some((item) => item.id === created.id);
-        if (exists) return prev.map((item) => (item.id === created.id ? created : item));
+        const exists = prev.some((item) => item.id_tipo_vehiculo === created.id_tipo_vehiculo);
+        if (exists) return prev.map((item) => (item.id_tipo_vehiculo === created.id_tipo_vehiculo ? created : item));
         return [...prev, created];
       });
       notifySuccess("Tipo de vehículo creado exitosamente");
@@ -50,8 +51,8 @@ export const useTiposVehiculo = () => {
     esCarreta: boolean
   ) => {
     try {
-      const updated = await TiposVehiculoService.editarTipoVehiculo(id, nombre, tieneCarreta, esCarreta);
-      setTiposVehiculo((prev) => prev.map((item) => (item.id === id ? updated : item)));
+      const updated = await AuxService.editar_tipo_vehiculo(id, nombre, tieneCarreta, esCarreta);
+      setTiposVehiculo((prev) => prev.map((item) => (item.id_tipo_vehiculo === id ? updated : item)));
       notifySuccess("Tipo de vehículo actualizado exitosamente");
       return updated;
     } catch (e) {
@@ -65,8 +66,8 @@ export const useTiposVehiculo = () => {
     const nuevoEstado =
       currentEstado === EstadoBase.Activo ? EstadoBase.Inactivo : EstadoBase.Activo;
     try {
-      const updated = await TiposVehiculoService.cambiarEstadoTipoVehiculo(id, nuevoEstado);
-      setTiposVehiculo((prev) => prev.map((item) => (item.id === id ? updated : item)));
+      const updated = await AuxService.cambiar_estado_tipo_vehiculo(id, nuevoEstado);
+      setTiposVehiculo((prev) => prev.map((item) => (item.id_tipo_vehiculo === id ? updated : item)));
       notifySuccess(`Tipo de vehículo ${nuevoEstado.toLowerCase()} correctamente`);
     } catch (e) {
       console.error(e);

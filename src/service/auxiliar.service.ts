@@ -12,6 +12,11 @@ import type {
   RES_Distrito,
 } from "../modules/sucursales/service/sucursales.responses";
 import type { RES_Conductor } from "./responses/conductor";
+import type { RES_TipoVehiculo } from "./responses/tipo-vehiculo";
+import type { RES_EmpresaTransporte } from "./responses/empresa-transporte";
+import type { RES_Vehiculo } from "./responses/vehiculo";
+import type { RES_MotivoIngreso, RES_Visitante } from "./responses/auxiliar-visitas";
+import type { EstadoBase } from "../shared/enums/_generic/estado-base";
 
 const path = "/aux";
 
@@ -137,6 +142,148 @@ export const AuxService = {
     numero_licencia: string;
   }): Promise<RES_Conductor> => {
     const { data } = await api.post(`${path}/conductores`, payload);
+    if (!data.success) {
+      throw new Error(data.message || "Error al registrar conductor");
+    }
     return data.data;
+  },
+
+  /**
+   * Obtener lista de todos los tipos de vehículo registrados
+   */
+  get_tipos_vehiculo: async (): Promise<RES_TipoVehiculo[]> => {
+    const { data } = await api.get(`${path}/tipos-vehiculo`);
+    return data.data;
+  },
+
+  /**
+   * Registrar un nuevo tipo de vehículo en el sistema
+   */
+  crear_tipo_vehiculo: async (
+    nombre: string,
+    tieneCarreta: boolean,
+    esCarreta: boolean
+  ): Promise<RES_TipoVehiculo> => {
+    const { data } = await api.post(`${path}/tipos-vehiculo`, {
+      nombre,
+      tiene_carreta: tieneCarreta,
+      es_carreta: esCarreta,
+    });
+    return data.data;
+  },
+
+  /**
+   * Editar la información de un tipo de vehículo existente
+   */
+  editar_tipo_vehiculo: async (
+    id: number,
+    nombre: string,
+    tieneCarreta: boolean,
+    esCarreta: boolean
+  ): Promise<RES_TipoVehiculo> => {
+    const { data } = await api.put(`${path}/tipos-vehiculo/${id}`, {
+      nombre,
+      tiene_carreta: tieneCarreta,
+      es_carreta: esCarreta,
+    });
+    return data.data;
+  },
+
+  /**
+   * Cambiar el estado (Activo/Inactivo) de un tipo de vehículo
+   */
+  cambiar_estado_tipo_vehiculo: async (
+    id: number,
+    estado: EstadoBase
+  ): Promise<RES_TipoVehiculo> => {
+    const { data } = await api.patch(`${path}/tipos-vehiculo/${id}/estado`, { estado });
+    return data.data;
+  },
+
+  /**
+   * Obtener lista simplificada de empresas de transporte activas (para dropdowns)
+   */
+  get_empresas_transporte: async (): Promise<RES_EmpresaTransporte[]> => {
+    const { data } = await api.get(`${path}/empresas-transporte`);
+    return data.data;
+  },
+
+  /**
+   * Obtener lista simplificada de vehículos (para dropdowns y búsquedas rápidas)
+   */
+  get_vehiculos: async (filters?: {
+    serie?: string;
+    numero_placa?: string;
+  }): Promise<RES_Vehiculo[]> => {
+    const { data } = await api.get(`${path}/vehiculos`, {
+      params: filters,
+    });
+    return data.data;
+  },
+
+  /**
+   * Registrar un vehículo de forma simplificada
+   */
+  crear_vehiculo: async (payload: {
+    serie_placa: string | null;
+    numero_placa: string;
+    id_empresa_transporte: number;
+    id_tipo_vehiculo: number;
+  }): Promise<RES_Vehiculo> => {
+    const { data } = await api.post(`${path}/vehiculos`, payload);
+    return data.data;
+  },
+
+  /**
+   * Editar un vehículo de forma simplificada
+   */
+  editar_vehiculo: async (
+    id: number,
+    payload: {
+      id_empresa_transporte: number;
+      id_tipo_vehiculo: number;
+    }
+  ): Promise<RES_Vehiculo> => {
+    const { data } = await api.put(`${path}/vehiculos/${id}`, payload);
+    return data.data;
+  },
+
+  /**
+   * Obtener listado de motivos de ingreso
+   */
+  get_motivos_ingreso: async (): Promise<IRespuesta<RES_MotivoIngreso[]>> => {
+    const { data } = await api.get<IRespuesta<RES_MotivoIngreso[]>>(
+      `${path}/motivos-ingreso`
+    );
+    return data;
+  },
+
+  /**
+   * Buscar visitante por DNI
+   */
+  buscar_visitante_por_dni: async (
+    dni: string
+  ): Promise<IRespuesta<RES_Visitante>> => {
+    const { data } = await api.get<IRespuesta<RES_Visitante>>(
+      `${path}/visitantes/buscar`,
+      { params: { dni } }
+    );
+    return data;
+  },
+
+  /**
+   * Crear un nuevo visitante
+   */
+  crear_visitante: async (payload: {
+    nombre: string;
+    apellido: string;
+    dni: string;
+    telefono: string | null;
+  }): Promise<IRespuesta<RES_Visitante>> => {
+    const { data } = await api.post<IRespuesta<RES_Visitante>>(
+      `${path}/visitantes`,
+      payload
+    );
+    return data;
   },
 };

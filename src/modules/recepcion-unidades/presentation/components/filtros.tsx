@@ -1,0 +1,223 @@
+import { IconSearch, IconCalendar, IconTruck, IconArrowsUpDown, IconX } from "@tabler/icons-react";
+import { TextInput, Select, Grid, Group, ActionIcon } from "@mantine/core";
+import type { RecepcionFilters } from "../../service/recepcion-unidades.requests";
+import type { RES_EmpresaTransporte } from "../../../../service/responses/empresa-transporte";
+import { TipoIngreso } from "../../enums";
+
+interface Props {
+  filters: RecepcionFilters;
+  handleFilterChange: <K extends keyof RecepcionFilters>(key: K, value: RecepcionFilters[K]) => void;
+  handleSearch: () => void;
+  empresas: RES_EmpresaTransporte[];
+  onClearTextFilter: (key: "numero_placa" | "serie_placa") => void;
+}
+
+export const Filtros = ({
+  filters,
+  handleFilterChange,
+  handleSearch,
+  empresas,
+  onClearTextFilter,
+}: Props) => {
+  const getEmpresasData = () => {
+    return empresas.map((e) => ({
+      value: String(e.id_empresa_transporte),
+      label: e.razon_social,
+    }));
+  };
+
+  const getTipoIngresoData = () => {
+    return [
+      { value: TipoIngreso.RecepcionMineral, label: "Recepción de Mineral" },
+      { value: TipoIngreso.DespachoMineral, label: "Despacho de Mineral" },
+    ];
+  };
+
+  const fieldClasses = {
+    input:
+      "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all h-[38px]",
+    label: "text-zinc-400 mb-1 font-medium text-xs ml-1 flex items-center gap-1.5",
+    section: "text-zinc-500 transition-colors",
+  };
+
+  return (
+    <div className="animate-fadeIn w-full">
+      <Grid gutter="md">
+        {/* Fecha Inicio */}
+        <Grid.Col span={{ base: 12, sm: 4, md: 2 }}>
+          <TextInput
+            type="date"
+            label="Fecha Inicio"
+            radius="lg"
+            leftSection={<IconCalendar size={16} className={filters.fecha_inicio ? "text-indigo-400" : "text-zinc-500"} />}
+            value={filters.fecha_inicio || ""}
+            onChange={(e) => handleFilterChange("fecha_inicio", e.target.value)}
+            classNames={fieldClasses}
+            style={{ colorScheme: "dark" }}
+          />
+        </Grid.Col>
+
+        {/* Fecha Fin */}
+        <Grid.Col span={{ base: 12, sm: 4, md: 2 }}>
+          <TextInput
+            type="date"
+            label="Fecha Fin"
+            radius="lg"
+            leftSection={<IconCalendar size={16} className={filters.fecha_fin ? "text-indigo-400" : "text-zinc-500"} />}
+            value={filters.fecha_fin || ""}
+            onChange={(e) => handleFilterChange("fecha_fin", e.target.value)}
+            classNames={fieldClasses}
+            style={{ colorScheme: "dark" }}
+          />
+        </Grid.Col>
+
+        {/* Serie Placa */}
+        <Grid.Col span={{ base: 12, sm: 4, md: 2 }}>
+          <TextInput
+            label="Serie Placa"
+            placeholder="Ej: F3V"
+            radius="lg"
+            leftSection={<IconSearch size={16} className={filters.serie_placa ? "text-indigo-400" : "text-zinc-500"} />}
+            value={filters.serie_placa || ""}
+            onChange={(e) => {
+              const val = e.target.value.toUpperCase();
+              handleFilterChange("serie_placa", val);
+              if (val === "") {
+                onClearTextFilter("serie_placa");
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleSearch();
+            }}
+            rightSection={
+              <Group gap={4} style={{ flexWrap: "nowrap" }} mr={4}>
+                {filters.serie_placa && (
+                  <ActionIcon 
+                    size="sm" 
+                    variant="subtle" 
+                    color="gray" 
+                    onClick={() => onClearTextFilter("serie_placa")}
+                    title="Limpiar"
+                    className="text-zinc-400 hover:text-white"
+                  >
+                    <IconX size={14} />
+                  </ActionIcon>
+                )}
+                <ActionIcon 
+                  size="sm" 
+                  variant="filled" 
+                  color="indigo" 
+                  onClick={handleSearch}
+                  title="Buscar por serie"
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors h-[26px] w-[26px]"
+                >
+                  <IconSearch size={14} />
+                </ActionIcon>
+              </Group>
+            }
+            rightSectionWidth={filters.serie_placa ? 64 : 36}
+            classNames={fieldClasses}
+          />
+        </Grid.Col>
+
+        {/* Nro. Placa */}
+        <Grid.Col span={{ base: 12, sm: 4, md: 2 }}>
+          <TextInput
+            label="Nro. Placa"
+            placeholder="Ej: 999"
+            radius="lg"
+            leftSection={<IconSearch size={16} className={filters.numero_placa ? "text-indigo-400" : "text-zinc-500"} />}
+            value={filters.numero_placa || ""}
+            onChange={(e) => {
+              const val = e.target.value.toUpperCase();
+              handleFilterChange("numero_placa", val);
+              if (val === "") {
+                onClearTextFilter("numero_placa");
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleSearch();
+            }}
+            rightSection={
+              <Group gap={4} style={{ flexWrap: "nowrap" }} mr={4}>
+                {filters.numero_placa && (
+                  <ActionIcon 
+                    size="sm" 
+                    variant="subtle" 
+                    color="gray" 
+                    onClick={() => onClearTextFilter("numero_placa")}
+                    title="Limpiar"
+                    className="text-zinc-400 hover:text-white"
+                  >
+                    <IconX size={14} />
+                  </ActionIcon>
+                )}
+                <ActionIcon 
+                  size="sm" 
+                  variant="filled" 
+                  color="indigo" 
+                  onClick={handleSearch}
+                  title="Buscar por placa"
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors h-[26px] w-[26px]"
+                >
+                  <IconSearch size={14} />
+                </ActionIcon>
+              </Group>
+            }
+            rightSectionWidth={filters.numero_placa ? 64 : 36}
+            classNames={fieldClasses}
+          />
+        </Grid.Col>
+
+        {/* Transportista */}
+        <Grid.Col span={{ base: 12, sm: 4, md: 2 }}>
+          <Select
+            label="Transportista"
+            placeholder="Seleccione"
+            searchable
+            clearable
+            radius="lg"
+            leftSection={<IconTruck size={16} className={filters.id_empresa_transporte ? "text-indigo-400" : "text-zinc-500"} />}
+            data={getEmpresasData()}
+            value={filters.id_empresa_transporte ? String(filters.id_empresa_transporte) : null}
+            onChange={(val) => handleFilterChange("id_empresa_transporte", val ? Number(val) : undefined)}
+            comboboxProps={{
+              transitionProps: { transition: "pop-top-left", duration: 150 },
+              dropdownPadding: 6,
+              shadow: "md",
+            }}
+            classNames={{
+              ...fieldClasses,
+              dropdown: "bg-zinc-950 border-zinc-800 text-white rounded-lg shadow-2xl",
+              option: "hover:bg-zinc-900 rounded-lg text-sm text-zinc-300 hover:text-white transition-colors py-2 px-3 data-[selected]:bg-indigo-600 data-[selected]:text-white",
+            }}
+          />
+        </Grid.Col>
+
+        {/* Condición Ingreso */}
+        <Grid.Col span={{ base: 12, sm: 4, md: 2 }}>
+          <Select
+            label="Condición Ingreso"
+            placeholder="Seleccione"
+            clearable
+            radius="lg"
+            leftSection={<IconArrowsUpDown size={16} className={filters.tipo_ingreso ? "text-indigo-400" : "text-zinc-500"} />}
+            data={getTipoIngresoData()}
+            value={filters.tipo_ingreso || null}
+            onChange={(val) => handleFilterChange("tipo_ingreso", val || "")}
+            comboboxProps={{
+              transitionProps: { transition: "pop-top-left", duration: 150 },
+              dropdownPadding: 6,
+              shadow: "md",
+            }}
+            classNames={{
+              ...fieldClasses,
+              dropdown: "bg-zinc-950 border-zinc-800 text-white rounded-lg shadow-2xl",
+              option: "hover:bg-zinc-900 rounded-lg text-sm text-zinc-300 hover:text-white transition-colors py-2 px-3 data-[selected]:bg-indigo-600 data-[selected]:text-white",
+            }}
+          />
+        </Grid.Col>
+      </Grid>
+    </div>
+  );
+};

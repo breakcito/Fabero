@@ -1,0 +1,13 @@
+import type { EstadoBase } from "../../shared/enums/_generic/estado-base";
+
+export interface RES_Vehiculo {
+  id_vehiculo: number;
+  id_empresa_transporte: number;
+  id_tipo_vehiculo: number;
+  razon_social: string;
+  tipo_vehiculo_nombre: string;
+  serie_placa: string | null;
+  numero_placa: string;
+  estado: EstadoBase;
+  last_id_conductor?: number | null;
+}

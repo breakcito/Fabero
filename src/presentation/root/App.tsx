@@ -26,6 +26,8 @@ import { EncargadosMuestraPage } from "../../modules/encargados-muestra/presenta
 import { ConductoresPage } from "../../modules/conductores/presentation/conductores-page/conductores.page.tsx";
 import { EmpresasTransportePage } from "../../modules/empresas-transporte/presentation/empresas-transporte-page/empresas-transporte.page.tsx";
 import { VehiculosPage } from "../../modules/vehiculos/presentation/vehiculos-page/vehiculos.page.tsx";
+import { RecepcionUnidadesPage } from "../../modules/recepcion-unidades/presentation/recepcion-unidades.page.tsx";
+import { RecepcionVisitasPage } from "../../modules/recepcion-visitas/presentation/recepcion-visitas.page.tsx";
 import { useEffect } from "react";
 import { onSocketEvent } from "../../service/_socket.ts";
 import { useAuditoriaStore } from "../../stores/auditoria.store.ts";
@@ -82,6 +84,8 @@ export const App = () => {
         {/* Perfil */}
         <Route path="/perfil" element={<PerfilPage />} />
 
+
+
         {/* Configuracion */}
         <Route path="/configuracion" element={<ConfiguracionLayout />}>
           {/* Empresas */}
@@ -94,7 +98,7 @@ export const App = () => {
           <Route path="personal" element={<PersonalLayout />}>
             <Route path="areas_cargos" element={<OrganigramaPage />} />
             <Route path="trabajadores" element={<PersonalPage />} />
-             <Route path="encargados-muestra" element={<EncargadosMuestraPage />} />
+            <Route path="encargados-muestra" element={<EncargadosMuestraPage />} />
           </Route>
 
           {/* Usuarios */}
@@ -107,13 +111,24 @@ export const App = () => {
           <Route path="socios-comerciales" element={<UsuariosLayout />}>
             <Route path="proveedores-mineros" element={<ProveedoresPage />} />
             <Route path="plantas-destino" element={<PlantasDestinoPage />} />
-            
+
           </Route>
           {/* Empresa de Transporte */}
           <Route path="empresa-transporte" element={<UsuariosLayout />}>
             <Route path="conductores" element={<ConductoresPage />} />
             <Route path="empresas-transporte" element={<EmpresasTransportePage />} />
             <Route path="vehiculos" element={<VehiculosPage />} />
+          </Route>
+        </Route>
+
+        {/* Operaciones */}
+        <Route path="/operaciones" element={<ConfiguracionLayout />}>
+         
+          <Route path="gestion-vigilancia" element={<UsuariosLayout />}>
+            {/* Recepción de Unidades */}
+            <Route path="recepcion-unidades" element={<RecepcionUnidadesPage />} />
+            {/* Recepción de Visitas */}
+            <Route path="recepcion-visitas" element={<RecepcionVisitasPage />} />
           </Route>
         </Route>
 
