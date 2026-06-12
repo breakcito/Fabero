@@ -74,7 +74,7 @@ export const RecepcionVisitasPage = () => {
       <ModalEstandar
         opened={openRegistro}
         close={() => setOpenRegistro(false)}
-        title="Nueva Registro de Visita"
+        title="Nuevo Registro de Visita"
         size="lg"
       >
         <RegistroVisita

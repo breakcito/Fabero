@@ -413,17 +413,7 @@ export const RegistroVisita = ({ onCancel, onSuccess }: Props) => {
             classNames={fieldClasses}
           />
 
-          {isExistingVisitor && (
-            <Alert
-              icon={<IconSearch size={18} />}
-              color="green"
-              variant="light"
-              radius="lg"
-              title="Visitante Registrado"
-            >
-              Se encontraron coincidencias para este DNI. Los datos se autocompletaron de forma segura.
-            </Alert>
-          )}
+          
 
           {/* Nombre */}
           <TextInput

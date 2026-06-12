@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button, Grid, Select, TextInput, Textarea, Alert, ActionIcon, Tooltip } from "@mantine/core";
-import { IconDeviceFloppy, IconExclamationCircle, IconPlus, IconTruck } from "@tabler/icons-react";
+import { IconDeviceFloppy, IconExclamationCircle, IconPlus } from "@tabler/icons-react";
 import { useRegistroRecepcion } from "../../hooks/useRegistroRecepcion";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
 import { RegistroConductor } from "../../../../presentation/utils/registro-conductor";
@@ -28,8 +28,6 @@ export const RegistroRecepcion = ({ onCancel, onSuccess }: Props) => {
     setSerieBusqueda,
     numeroBusqueda,
     setNumeroBusqueda,
-    vehiculoEncontrado,
-    nombreVehiculoEncontrado,
     handleConductorCreado,
   } = useRegistroRecepcion(onSuccess);
 
@@ -117,34 +115,7 @@ export const RegistroRecepcion = ({ onCancel, onSuccess }: Props) => {
             </div>
           </Grid.Col>
 
-          {/* Información del Vehículo Detectado o Alerta de Nuevo */}
-          {vehiculoEncontrado && (
-            <Grid.Col span={12}>
-              <Alert
-                icon={<IconTruck size={18} />}
-                color="green"
-                variant="light"
-                radius="lg"
-                title="Vehículo Identificado"
-              >
-                Se detectó la placa: <strong>{nombreVehiculoEncontrado}</strong>. Puede modificar el Transportista o Tipo de Vehículo si es necesario.
-              </Alert>
-            </Grid.Col>
-          )}
-
-          {!vehiculoEncontrado && serieBusqueda.trim() && numeroBusqueda.trim() && (
-            <Grid.Col span={12}>
-              <Alert
-                icon={<IconExclamationCircle size={18} />}
-                color="blue"
-                variant="light"
-                radius="lg"
-                title="Nuevo Vehículo"
-              >
-                La placa <strong>{serieBusqueda}-{numeroBusqueda}</strong> no está registrada. Se creará automáticamente en la base de datos al registrar este ingreso.
-              </Alert>
-            </Grid.Col>
-          )}
+          
 
           {/* Transportista */}
           <Grid.Col span={{ base: 12, md: 6 }}>

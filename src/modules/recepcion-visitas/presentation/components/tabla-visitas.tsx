@@ -111,7 +111,7 @@ export const TablaVisitas = ({ recepciones, loading, onUpdateRecepcion }: Props)
           {
             accessor: "visitantes",
             title: "Visitantes / Documento",
-            width: 280,
+            width: 140,
             render: (r: RecepcionVisitaResponse) => (
               <div className="flex flex-col gap-1.5">
                 {r.visitantes.map((v, idx) => (
