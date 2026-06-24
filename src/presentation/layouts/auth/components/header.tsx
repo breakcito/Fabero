@@ -1,10 +1,11 @@
-import { useEffect } from "react";
-import { Select } from "@mantine/core";
+import { useEffect, useRef } from "react";
+import { Loader, Select } from "@mantine/core";
 import { Bars3Icon } from "@heroicons/react/24/outline";
 import { UserMenu } from "./user-menu";
 import { useTitlePage } from "../../../../hooks/useTitlePage";
 import { useUIStore } from "../../../../stores/ui.store";
 import { AuxService } from "../../../../service/auxiliar.service";
+import logoSac from "../../../assets/svg/logo.svg";
 
 interface HeaderProps {
   onMenuToggle: () => void;
@@ -18,17 +19,25 @@ export const Header = ({ onMenuToggle }: HeaderProps) => {
   const sucursal_elegida = useUIStore((state) => state.sucursal_elegida);
   const set_sucursal_elegida = useUIStore((state) => state.set_sucursal_elegida);
 
+  const fetchingRef = useRef(false);
+  const loadingSucursales = ver_sucursal && sucursales.length === 0;
+
   useEffect(() => {
-    if (ver_sucursal && sucursales.length === 0) {
-      AuxService.get_sucursales()
-        .then((data) => {
-          set_sucursales(data);
-        })
-        .catch((err) => {
-          console.error("Error al cargar sucursales:", err);
-        });
-    }
-  }, [ver_sucursal, sucursales.length, set_sucursales]);
+    if (!ver_sucursal || sucursales.length > 0 || fetchingRef.current) return;
+
+    fetchingRef.current = true;
+    AuxService.get_sucursales()
+      .then((data) => {
+        set_sucursales(data);
+        if (data.length > 0) set_sucursal_elegida(data[0]);
+      })
+      .catch((err) => {
+        console.error("Error al cargar sucursales:", err);
+      })
+      .finally(() => {
+        fetchingRef.current = false;
+      });
+  }, [ver_sucursal, sucursales.length, set_sucursales, set_sucursal_elegida]);
 
   return (
     <header
@@ -65,25 +74,37 @@ export const Header = ({ onMenuToggle }: HeaderProps) => {
         >
           <Bars3Icon className="w-5 h-5" />
         </button>
+        <img src={logoSac} alt="Logo SAC" className="h-5 w-auto" />
         
+
         {ver_sucursal && (
           <Select
-            placeholder="Seleccione sucursal"
+            placeholder="Sucursal"
             data={sucursales.map((s) => ({ value: String(s.id_sucursal), label: s.nombre }))}
             value={sucursal_elegida ? String(sucursal_elegida.id_sucursal) : null}
             onChange={(val) => {
               const selected = sucursales.find((s) => String(s.id_sucursal) === val) || null;
               set_sucursal_elegida(selected);
             }}
-            classNames={{
-              input: "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 transition-all h-[36px]",
-              dropdown: "bg-zinc-950 border-zinc-800 text-white rounded-lg shadow-2xl",
-              option: "hover:bg-zinc-900 rounded-lg text-sm text-zinc-300 hover:text-white transition-colors py-2 px-3 data-[selected]:bg-indigo-600 data-[selected]:text-white",
-            }}
+            disabled={loadingSucursales}
+            rightSection={loadingSucursales ? <Loader size={12} color="white" /> : undefined}
+            rightSectionPointerEvents="none"
+            searchable
             size="xs"
+            radius="lg"
             w={180}
+            classNames={{
+              input: "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 focus:ring-1 focus:ring-zinc-300 transition-all",
+              dropdown: "bg-zinc-950/90 backdrop-blur-xl border border-zinc-800 rounded-xl shadow-2xl",
+              option: [
+                "rounded-lg text-xs text-zinc-300 transition-colors",
+                "hover:bg-zinc-900 hover:text-white",
+                "data-[selected]:bg-indigo-600 data-[selected]:text-white",
+              ].join(" "),
+            }}
           />
         )}
+       
       </div>
 
       {/* Título (Centrado Absoluto) */}
@@ -98,8 +119,11 @@ export const Header = ({ onMenuToggle }: HeaderProps) => {
 
       {/* Menu de usuario */}
       <div className="relative z-10">
+         
         <UserMenu />
       </div>
+
+       
     </header>
   );
 };
