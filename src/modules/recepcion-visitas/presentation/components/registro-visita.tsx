@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button, Grid, Select, TextInput, Textarea, Alert, ActionIcon, Checkbox, Text } from "@mantine/core";
-import { IconDeviceFloppy, IconExclamationCircle, IconPlus, IconTrash, IconFile, IconSearch } from "@tabler/icons-react";
+import { IconDeviceFloppy, IconExclamationCircle, IconPlus, IconTrash, IconFile, IconSearch, IconPencil } from "@tabler/icons-react";
 import { useRegistroVisita } from "../../hooks/useRegistroVisita";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
 import { MultiFilePicker } from "../../../../presentation/utils/archivo/multifile-picker";
@@ -18,6 +18,7 @@ export const RegistroVisita = ({ onCancel, onSuccess }: Props) => {
     handleChange,
     visitantes,
     handleAgregarVisitante,
+    handleActualizarVisitante,
     handleRemoverVisitante,
     submit,
     loading,
@@ -28,25 +29,25 @@ export const RegistroVisita = ({ onCancel, onSuccess }: Props) => {
   } = useRegistroVisita(onSuccess);
 
   const [openVisitorModal, setOpenVisitorModal] = useState(false);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
-  // Form local para nuevo visitante en sub-modal
+  // Form local para nuevo/editar visitante en sub-modal
   const [visitorForm, setVisitorForm] = useState<{
     id_visitante?: number;
     dni: string;
     nombre: string;
     apellido: string;
     telefono: string;
-    foto_documento: File | null;
+    fotos_documento: File[];
   }>({
     dni: "",
     nombre: "",
     apellido: "",
     telefono: "",
-    foto_documento: null,
+    fotos_documento: [],
   });
 
   const [searchingDni, setSearchingDni] = useState(false);
-  const [isExistingVisitor, setIsExistingVisitor] = useState(false);
   const [visitorError, setVisitorError] = useState<string | null>(null);
 
   const getEmpleadosDropdown = () => {
@@ -87,9 +88,7 @@ export const RegistroVisita = ({ onCancel, onSuccess }: Props) => {
             apellido: res.data.apellido,
             telefono: res.data.telefono || "",
           }));
-          setIsExistingVisitor(true);
         } else {
-          setIsExistingVisitor(false);
           // Si no existe, limpiar campos por si había cargado antes
           setVisitorForm((prev) => ({
             ...prev,
@@ -101,7 +100,6 @@ export const RegistroVisita = ({ onCancel, onSuccess }: Props) => {
         }
       } catch (err: unknown) {
         console.error(err);
-        setIsExistingVisitor(false);
         setVisitorForm((prev) => ({
           ...prev,
           id_visitante: undefined,
@@ -113,7 +111,6 @@ export const RegistroVisita = ({ onCancel, onSuccess }: Props) => {
         setSearchingDni(false);
       }
     } else {
-      setIsExistingVisitor(false);
       setVisitorForm((prev) => ({
         ...prev,
         id_visitante: undefined,
@@ -124,7 +121,35 @@ export const RegistroVisita = ({ onCancel, onSuccess }: Props) => {
     }
   };
 
-  const handleAddVisitorToList = () => {
+  const handleOpenAddModal = () => {
+    setVisitorForm({
+      dni: "",
+      nombre: "",
+      apellido: "",
+      telefono: "",
+      fotos_documento: [],
+    });
+    setEditingIndex(null);
+    setVisitorError(null);
+    setOpenVisitorModal(true);
+  };
+
+  const handleOpenEditModal = (index: number) => {
+    const v = visitantes[index];
+    setVisitorForm({
+      id_visitante: v.id_visitante,
+      dni: v.dni,
+      nombre: v.nombre,
+      apellido: v.apellido,
+      telefono: v.telefono,
+      fotos_documento: v.foto_documento,
+    });
+    setEditingIndex(index);
+    setVisitorError(null);
+    setOpenVisitorModal(true);
+  };
+
+  const handleSaveVisitor = () => {
     setVisitorError(null);
 
     if (visitorForm.dni.length !== 8) {
@@ -135,19 +160,27 @@ export const RegistroVisita = ({ onCancel, onSuccess }: Props) => {
       setVisitorError("Debe completar los nombres y apellidos del visitante.");
       return;
     }
-    if (!visitorForm.foto_documento) {
+    if (visitorForm.fotos_documento.length === 0) {
       setVisitorError("Debe adjuntar la foto del documento de identidad.");
       return;
     }
 
-    handleAgregarVisitante({
+    const data = {
       id_visitante: visitorForm.id_visitante,
       dni: visitorForm.dni,
       nombre: visitorForm.nombre,
       apellido: visitorForm.apellido,
       telefono: visitorForm.telefono,
-      foto_documento: visitorForm.foto_documento,
-    });
+      foto_documento: visitorForm.fotos_documento,
+    };
+
+    if (editingIndex !== null) {
+      const success = handleActualizarVisitante(editingIndex, data);
+      if (!success) return;
+    } else {
+      const success = handleAgregarVisitante(data);
+      if (!success) return;
+    }
 
     // Resetear form y cerrar sub-modal
     setVisitorForm({
@@ -155,9 +188,9 @@ export const RegistroVisita = ({ onCancel, onSuccess }: Props) => {
       nombre: "",
       apellido: "",
       telefono: "",
-      foto_documento: null,
+      fotos_documento: [],
     });
-    setIsExistingVisitor(false);
+    setEditingIndex(null);
     setOpenVisitorModal(false);
   };
 
@@ -308,31 +341,48 @@ export const RegistroVisita = ({ onCancel, onSuccess }: Props) => {
 
                       {/* Right: Doc / Action */}
                       <div className="flex items-center justify-between md:justify-end gap-3 border-t md:border-t-0 border-zinc-800/50 pt-2.5 md:pt-0">
-                        {v.foto_documento && (
-                          <div className="flex items-center gap-2 bg-zinc-950/60 border border-zinc-800/50 p-1.5 px-3 rounded-xl max-w-[200px]">
-                            <IconFile size={14} className="text-indigo-400 shrink-0" />
-                            <Text size="xs" c="zinc.4" className="truncate font-mono leading-none">
-                              {v.foto_documento.name}
-                            </Text>
+                        {v.foto_documento && v.foto_documento.length > 0 && (
+                          <div className="flex flex-col gap-1">
+                            {v.foto_documento.map((file, fidx) => (
+                              <div key={fidx} className="flex items-center gap-2 bg-zinc-950/60 border border-zinc-800/50 p-1.5 px-3 rounded-xl max-w-[200px]">
+                                <IconFile size={14} className="text-indigo-400 shrink-0" />
+                                <Text size="xs" c="zinc.4" className="truncate font-mono leading-none">
+                                  {file.name}
+                                </Text>
+                              </div>
+                            ))}
                           </div>
                         )}
-                        <ActionIcon
-                          type="button"
-                          variant="light"
-                          color="red"
-                          radius="xl"
-                          size="md"
-                          onClick={() => handleRemoverVisitante(index)}
-                          className="bg-red-500/5 hover:bg-red-500/10 text-red-400 shrink-0"
-                        >
-                          <IconTrash size={16} />
-                        </ActionIcon>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <ActionIcon
+                            type="button"
+                            variant="light"
+                            color="blue"
+                            radius="xl"
+                            size="md"
+                            onClick={() => handleOpenEditModal(index)}
+                            className="bg-blue-500/5 hover:bg-blue-500/10 text-blue-400"
+                          >
+                            <IconPencil size={16} />
+                          </ActionIcon>
+                          <ActionIcon
+                            type="button"
+                            variant="light"
+                            color="red"
+                            radius="xl"
+                            size="md"
+                            onClick={() => handleRemoverVisitante(index)}
+                            className="bg-red-500/5 hover:bg-red-500/10 text-red-400"
+                          >
+                            <IconTrash size={16} />
+                          </ActionIcon>
+                        </div>
                       </div>
                     </div>
                   ))}
                 </div>
               )}
-
+ 
               {/* Botón agregar visitante */}
               <div className="mt-4 flex justify-center">
                 <Button
@@ -340,7 +390,7 @@ export const RegistroVisita = ({ onCancel, onSuccess }: Props) => {
                   variant="filled"
                   radius="xl"
                   leftSection={<IconPlus size={16} />}
-                  onClick={() => setOpenVisitorModal(true)}
+                  onClick={handleOpenAddModal}
                   className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all"
                 >
                   Agregar Visita
@@ -373,14 +423,14 @@ export const RegistroVisita = ({ onCancel, onSuccess }: Props) => {
         </div>
       </form>
 
-      {/* Sub-modal: Agregar un Visitante por DNI o Formulario completo */}
+      {/* Sub-modal: Agregar/Editar un Visitante */}
       <ModalEstandar
         opened={openVisitorModal}
         close={() => {
           setOpenVisitorModal(false);
           setVisitorError(null);
         }}
-        title="Agregar Visitante"
+        title={editingIndex !== null ? "Editar Visitante" : "Agregar Visitante"}
         size="md"
       >
         <div className="flex flex-col gap-4">
@@ -422,7 +472,6 @@ export const RegistroVisita = ({ onCancel, onSuccess }: Props) => {
             radius="lg"
             value={visitorForm.nombre}
             onChange={(e) => setVisitorForm((prev) => ({ ...prev, nombre: e.target.value }))}
-            disabled={isExistingVisitor}
             classNames={fieldClasses}
           />
 
@@ -433,7 +482,6 @@ export const RegistroVisita = ({ onCancel, onSuccess }: Props) => {
             radius="lg"
             value={visitorForm.apellido}
             onChange={(e) => setVisitorForm((prev) => ({ ...prev, apellido: e.target.value }))}
-            disabled={isExistingVisitor}
             classNames={fieldClasses}
           />
 
@@ -444,19 +492,18 @@ export const RegistroVisita = ({ onCancel, onSuccess }: Props) => {
             radius="lg"
             value={visitorForm.telefono}
             onChange={(e) => setVisitorForm((prev) => ({ ...prev, telefono: e.target.value }))}
-            disabled={isExistingVisitor}
             classNames={fieldClasses}
           />
 
           {/* Foto Documento */}
           <div className="bg-zinc-900/30 border border-zinc-800/80 p-3 rounded-2xl">
             <MultiFilePicker
-              files={visitorForm.foto_documento ? [visitorForm.foto_documento] : []}
-              onFilesChange={(files) => setVisitorForm((prev) => ({ ...prev, foto_documento: files[0] || null }))}
+              files={visitorForm.fotos_documento}
+              onFilesChange={(files) => setVisitorForm((prev) => ({ ...prev, fotos_documento: files }))}
               label="Foto del Documento de Identidad"
-              description="Suba una fotografía o captura clara del documento de identidad del visitante."
-              multiple={false}
-              maxFiles={1}
+              description="Suba una o varias fotografías o capturas claras del documento de identidad del visitante."
+              multiple={true}
+              maxFiles={10}
               accept="image/*,application/pdf"
             />
           </div>
@@ -476,10 +523,10 @@ export const RegistroVisita = ({ onCancel, onSuccess }: Props) => {
             </Button>
             <Button
               type="button"
-              onClick={handleAddVisitorToList}
+              onClick={handleSaveVisitor}
               className="bg-blue-600 hover:bg-blue-700 text-white font-bold"
             >
-              Agregar a la Lista
+              {editingIndex !== null ? "Guardar Cambios" : "Agregar a la Lista"}
             </Button>
           </div>
         </div>

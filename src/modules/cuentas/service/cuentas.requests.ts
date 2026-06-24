@@ -3,6 +3,7 @@ export interface REQ_CrearCuenta {
   id_empleado: number;
   username: string;
   password: string;
+  sucursales?: number[];
 }
 
 export interface REQ_ActualizarCuenta {
@@ -10,4 +11,5 @@ export interface REQ_ActualizarCuenta {
   username: string;
   password?: string;
   estado?: string;
+  sucursales?: number[];
 }

@@ -5,12 +5,14 @@ import {
   Stack,
   Group,
   PasswordInput,
+  MultiSelect,
 } from "@mantine/core";
 import {
   UserIcon,
   ShieldCheckIcon,
   IdentificationIcon,
   KeyIcon,
+  BuildingOfficeIcon,
 } from "@heroicons/react/24/outline";
 import { useRegistroCuenta } from "../hooks/useRegistroCuenta";
 import type {
@@ -18,6 +20,7 @@ import type {
   RES_RolDisponible,
 } from "../service/cuentas.responses";
 import type { RES_Empleado } from "../../../service/responses/empleado";
+import type { RES_Sucursal } from "../../sucursales/service/sucursales.responses";
 
 interface RegistroCuentaProps {
   cuentaEdit: RES_Cuenta | null;
@@ -25,6 +28,7 @@ interface RegistroCuentaProps {
   refresh: () => void;
   roles: RES_RolDisponible[];
   empleadosSinCuenta: RES_Empleado[];
+  sucursalesDisponibles: RES_Sucursal[];
 }
 
 export const RegistroCuenta = ({
@@ -33,6 +37,7 @@ export const RegistroCuenta = ({
   refresh,
   roles,
   empleadosSinCuenta,
+  sucursalesDisponibles,
 }: RegistroCuentaProps) => {
   const { form, updateForm, loading, handleGuardar, isEdit } =
     useRegistroCuenta(cuentaEdit, onClose, refresh);
@@ -123,6 +128,24 @@ export const RegistroCuenta = ({
           disabled={loading}
         />
       </Group>
+
+      <MultiSelect
+        label="Sucursales Asociadas"
+        placeholder="Seleccione las sucursales"
+        data={sucursalesDisponibles.map((s) => ({
+          value: s.id_sucursal.toString(),
+          label: s.nombre,
+        }))}
+        value={form.sucursales.map(String)}
+        onChange={(val) => updateForm({ sucursales: val.map(Number) })}
+        radius="lg"
+        leftSection={<BuildingOfficeIcon className="w-4 h-4 text-zinc-500" />}
+        classNames={fieldClasses}
+        disabled={loading}
+        searchable
+        clearable
+        hidePickedOptions
+      />
 
       <Group justify="flex-end" gap="md" mt="xl">
         <Button

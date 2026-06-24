@@ -4,7 +4,7 @@ export interface VisitorPayload {
   apellido?: string;     // si es nuevo
   dni?: string;          // si es nuevo
   telefono?: string;     // si es nuevo
-  foto_documento?: File; // archivo adjunto
+  foto_documento?: File[]; // archivos adjuntos
 }
 
 export interface CrearRecepcionVisitaRequest {

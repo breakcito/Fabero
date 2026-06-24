@@ -45,6 +45,7 @@ export const CuentasPage = () => {
     refresh,
     roles,
     empleadosSinCuenta,
+    sucursalesDisponibles,
   } = useCuentas();
 
   return (
@@ -287,7 +288,7 @@ export const CuentasPage = () => {
       <ModalEstandar
         opened={openedCreate}
         close={closeCreate}
-        title={selectedCuenta ? "Cambiar Contraseña" : "Registrar Nueva Cuenta"}
+        title={selectedCuenta ? "Editar Cuenta" : "Registrar Nueva Cuenta"}
         size="lg"
       >
         <RegistroCuenta
@@ -296,6 +297,7 @@ export const CuentasPage = () => {
           refresh={refresh}
           roles={roles}
           empleadosSinCuenta={empleadosSinCuenta}
+          sucursalesDisponibles={sucursalesDisponibles}
         />
       </ModalEstandar>
     </div>

@@ -91,10 +91,10 @@ export const Vehiculo = ({
           render: (r: VehiculoResponse) => (
             <div>
               <Text size="xs" className="text-zinc-300">
-                Cap.: <strong className="text-indigo-400">{formatNumber(r.capacidad)} kg</strong>
+                Cap.: <strong className="text-indigo-400">{formatNumber(r.capacidad / 1000)} t</strong>
               </Text>
               <Text size="xs" className="text-zinc-500">
-                Tara: {formatNumber(r.tara)} kg
+                Tara: {formatNumber(r.tara / 1000)} t
               </Text>
             </div>
           ),

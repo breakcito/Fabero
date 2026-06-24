@@ -5,7 +5,10 @@ export interface RecepcionVisitaDetalleResponse {
   visitante_apellido: string;
   visitante_dni: string;
   visitante_telefono: string | null;
-  url_foto_documento: string | null;
+  url_foto_documento: string[];
+  fecha_hora_salida: string | null;
+  observacion_salida: string | null;
+  estado: string;
 }
 
 export interface RecepcionVisitaResponse {
@@ -17,12 +20,9 @@ export interface RecepcionVisitaResponse {
   id_motivo_ingreso: number;
   motivo_ingreso_nombre: string;
   fecha_hora_ingreso: string;
-  fecha_hora_salida: string | null;
   observacion: string | null;
-  observacion_salida: string | null;
   con_vehiculo: boolean;
   serie_placa: string | null;
   numero_placa: string | null;
-  estado: string;
   visitantes: RecepcionVisitaDetalleResponse[];
 }

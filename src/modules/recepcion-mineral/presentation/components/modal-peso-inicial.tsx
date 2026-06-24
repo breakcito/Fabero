@@ -1,0 +1,361 @@
+import { useState, useEffect } from "react";
+import { Select, TextInput, Textarea, Button, ActionIcon, Tooltip, Stack, Text, Grid } from "@mantine/core";
+import { IconPlus, IconWeight } from "@tabler/icons-react";
+import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
+import { FormZonaOrigen } from "../../../../presentation/utils/form-zona-origen";
+import { RegistroEncargadoMuestra } from "../../../encargados-muestra/presentation/registro-encargado-muestra/registro-encargado-muestra";
+import { MultiFilePicker } from "../../../../presentation/utils/archivo/multifile-picker";
+import { AuxService } from "../../../../service/auxiliar.service";
+import type { RES_Proveedor } from "../../../../service/responses/proveedor";
+import type { RES_EncargadoMuestraGlobal } from "../../../../service/responses/encargado-muestra-global";
+import type { RES_ZonaOrigen } from "../../../../service/responses/zona-origen";
+import type { RES_LoteMineral } from "../../service/recepcion-mineral.responses";
+import type { DTO_PesoInicial } from "../../service/recepcion-mineral.requests";
+import { useNotify } from "../../../../hooks/useNotify";
+
+interface Props {
+  lote: RES_LoteMineral;
+  onCancel: () => void;
+  onSubmit: (loteId: number, dto: DTO_PesoInicial) => Promise<void>;
+}
+
+export const ModalPesoInicial = ({ lote, onCancel, onSubmit }: Props) => {
+  const { notifyError } = useNotify();
+
+  // Inputs
+  const [tipoCarga, setTipoCarga] = useState<string>("Granel");
+  const [idProveedor, setIdProveedor] = useState<string | null>(null);
+  const [idEncargado, setIdEncargado] = useState<string | null>(null);
+  const [idZona, setIdZona] = useState<string | null>(null);
+  const [contacto, setContacto] = useState<string>("");
+  const [producto, setProducto] = useState<string>("Aurífero");
+  const [material, setMaterial] = useState<string>("Mixto");
+  const [observacion, setObservacion] = useState<string>("");
+  const [pesoInicial, setPesoInicial] = useState<string>("");
+  const [evidencias, setEvidencias] = useState<File[]>([]);
+
+  // Catálogos
+  const [proveedores, setProveedores] = useState<RES_Proveedor[]>([]);
+  const [encargados, setEncargados] = useState<RES_EncargadoMuestraGlobal[]>([]);
+  const [zonas, setZonas] = useState<RES_ZonaOrigen[]>([]);
+  const [loadingCatalogos, setLoadingCatalogos] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Sub-Modals
+  const [openZonaModal, setOpenZonaModal] = useState(false);
+  const [nuevaZonaNombre, setNuevaZonaNombre] = useState("");
+  const [openEncargadoModal, setOpenEncargadoModal] = useState(false);
+
+  const fetchCatalogos = async () => {
+    setLoadingCatalogos(true);
+    try {
+      const [resProv, resEnc, resZonas] = await Promise.all([
+        AuxService.get_proveedores(),
+        AuxService.get_encargados_muestra(),
+        AuxService.get_zonas_origen(),
+      ]);
+
+      setProveedores(resProv.data || []);
+      setEncargados(resEnc || []);
+      setZonas(resZonas || []);
+    } catch (e) {
+      console.error("Error al cargar catálogos de pesaje inicial", e);
+    } finally {
+      setLoadingCatalogos(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCatalogos();
+  }, []);
+
+  const handleProveedorChange = (val: string | null) => {
+    setIdProveedor(val);
+    if (val) {
+      const p = proveedores.find((x) => String(x.id_proveedor) === val);
+      if (p && p.telefono) {
+        setContacto(p.telefono);
+      } else {
+        setContacto("");
+      }
+    } else {
+      setContacto("");
+    }
+  };
+
+  const handleConfirmar = async () => {
+    if (!pesoInicial || isNaN(Number(pesoInicial)) || Number(pesoInicial) <= 0) {
+      notifyError("Debe ingresar un peso inicial válido y mayor a cero.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const dto: DTO_PesoInicial = {
+        id_proveedor_minero: idProveedor ? Number(idProveedor) : null,
+        id_encargado_muestra: idEncargado ? Number(idEncargado) : null,
+        id_zona_origen: idZona ? Number(idZona) : null,
+        numero_contacto: contacto,
+        tipo_carga: tipoCarga,
+        tipo_producto: producto,
+        tipo_mineral: material,
+        peso_inicial: Number(pesoInicial),
+        observacion_peso_inicial: observacion,
+        evidencias: evidencias,
+      };
+
+      await onSubmit(lote.id, dto);
+      onCancel();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const fieldClasses = {
+    input:
+      "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 transition-all",
+    label: "text-zinc-400 font-medium text-xs mb-1.5",
+  };
+
+  return (
+    <>
+      <Stack gap="md" className="max-h-[80vh] overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+        <Grid gutter="md">
+          {/* Columna Izquierda */}
+          <Grid.Col span={{ base: 12, md: 6 }}>
+            <Stack gap="md">
+              {/* Tipo Carga */}
+              <Select
+                label="Tipo Carga:"
+                placeholder="Seleccione"
+                data={["Granel", "Sacos", "Mixto"]}
+                value={tipoCarga}
+                onChange={(val) => setTipoCarga(val || "Granel")}
+                classNames={fieldClasses}
+                radius="lg"
+                required
+              />
+
+              {/* Proveedor Minero */}
+              <Select
+                label="Proveedor Minero:"
+                placeholder="Seleccione proveedor"
+                searchable
+                disabled={loadingCatalogos}
+                data={proveedores.map((p) => ({ value: String(p.id_proveedor), label: `${p.razon_social} (${p.documento})` }))}
+                value={idProveedor}
+                onChange={handleProveedorChange}
+                classNames={fieldClasses}
+                radius="lg"
+              />
+
+              {/* Producto */}
+              <Select
+                label="Producto:"
+                placeholder="Seleccione"
+                data={["Aurífero", "Polimetálico"]}
+                value={producto}
+                onChange={(val) => setProducto(val || "Aurífero")}
+                classNames={fieldClasses}
+                radius="lg"
+                required
+              />
+
+              {/* Tipo Material */}
+              <Select
+                label="Tipo Material:"
+                placeholder="Seleccione"
+                data={["Mixto", "Óxido", "Sulfuro"]}
+                value={material}
+                onChange={(val) => setMaterial(val || "Mixto")}
+                classNames={fieldClasses}
+                radius="lg"
+                required
+              />
+            </Stack>
+          </Grid.Col>
+
+          {/* Columna Derecha */}
+          <Grid.Col span={{ base: 12, md: 6 }}>
+            <Stack gap="md">
+              {/* Zona Origen + Botón Agregar */}
+              <div className="flex gap-2 items-end">
+                <Select
+                  label="Zona Origen:"
+                  placeholder="Elija una opción..."
+                  searchable
+                  disabled={loadingCatalogos}
+                  data={zonas.map((z) => ({ value: String(z.id), label: z.nombre }))}
+                  value={idZona}
+                  onChange={setIdZona}
+                  classNames={fieldClasses}
+                  radius="lg"
+                  className="flex-1"
+                />
+                <Tooltip label="Agregar Zona de Origen" withArrow>
+                  <ActionIcon
+                    type="button"
+                    variant="filled"
+                    color="zinc"
+                    radius="lg"
+                    size="lg"
+                    onClick={() => setOpenZonaModal(true)}
+                    className="bg-zinc-800 text-zinc-300 hover:bg-zinc-700 h-[38px] w-[38px] mb-2"
+                  >
+                    <IconPlus size={18} />
+                  </ActionIcon>
+                </Tooltip>
+              </div>
+
+              {/* Encargado Muestra + Botón Agregar */}
+              <div className="flex gap-2 items-end">
+                <Select
+                  label="Encargado Muestra:"
+                  placeholder="---"
+                  searchable
+                  disabled={loadingCatalogos}
+                  data={encargados.map((e) => ({ value: String(e.id_encargado_muestra), label: e.nombre }))}
+                  value={idEncargado}
+                  onChange={setIdEncargado}
+                  classNames={fieldClasses}
+                  radius="lg"
+                  className="flex-1"
+                />
+                <Tooltip label="Agregar Encargado de Muestra" withArrow>
+                  <ActionIcon
+                    type="button"
+                    variant="filled"
+                    color="zinc"
+                    radius="lg"
+                    size="lg"
+                    onClick={() => setOpenEncargadoModal(true)}
+                    className="bg-zinc-800 text-zinc-300 hover:bg-zinc-700 h-[38px] w-[38px] mb-2"
+                  >
+                    <IconPlus size={18} />
+                  </ActionIcon>
+                </Tooltip>
+              </div>
+
+              {/* N° Contacto */}
+              <TextInput
+                label="N° Contacto:"
+                placeholder="Autocompletado con teléfono del proveedor"
+                value={contacto}
+                onChange={(e) => setContacto(e.currentTarget.value)}
+                classNames={fieldClasses}
+                radius="lg"
+              />
+
+              {/* Observación */}
+              <Textarea
+                label="Observación:"
+                placeholder="Escriba alguna observación sobre el peso inicial..."
+                value={observacion}
+                onChange={(e) => setObservacion(e.currentTarget.value)}
+                classNames={fieldClasses}
+                radius="lg"
+                minRows={2}
+              />
+            </Stack>
+          </Grid.Col>
+
+          {/* Fila inferior de ancho completo */}
+          <Grid.Col span={12}>
+            <Stack gap="md">
+              {/* Evidencias */}
+              <div className="bg-zinc-900/30 border border-zinc-800/80 p-4 rounded-2xl">
+                <MultiFilePicker
+                  files={evidencias}
+                  onFilesChange={setEvidencias}
+                  label="Evidencias de Pesaje Inicial"
+                  description="Adjunte imágenes del ingreso de balanza inicial"
+                />
+              </div>
+
+              {/* Peso Inicial */}
+              <div className="bg-zinc-950/40 p-4 rounded-2xl border border-zinc-900/80">
+                <Text className="text-zinc-300 font-bold text-sm mb-2">Peso Inicial (Kg):</Text>
+                <TextInput
+                  placeholder="Ingrese peso inicial en Kilos"
+                  value={pesoInicial}
+                  onChange={(e) => setPesoInicial(e.currentTarget.value.replace(/\D/g, ""))}
+                  classNames={{
+                    input:
+                      "bg-zinc-900/60 border-zinc-800 text-center font-bold text-lg text-white focus:border-zinc-300 transition-all",
+                  }}
+                  radius="lg"
+                />
+              </div>
+            </Stack>
+          </Grid.Col>
+        </Grid>
+
+        {/* Botones de acción */}
+        <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-zinc-800">
+          <Button
+            variant="subtle"
+            color="gray"
+            radius="lg"
+            onClick={onCancel}
+            disabled={submitting}
+            classNames={{ root: "text-zinc-400 hover:bg-zinc-800" }}
+          >
+            Cerrar
+          </Button>
+          <Button
+            radius="lg"
+            loading={submitting}
+            onClick={handleConfirmar}
+            leftSection={<IconWeight size={18} />}
+            className="bg-amber-500 hover:bg-amber-600 text-zinc-950 font-bold shadow-lg shadow-amber-900/20"
+          >
+            Confirmar
+          </Button>
+        </div>
+      </Stack>
+
+      {/* Sub-Modal: Registro de Nueva Zona de Origen */}
+      <ModalEstandar
+        opened={openZonaModal}
+        close={() => setOpenZonaModal(false)}
+        title="Registrar Nueva Zona de Origen"
+        size="sm"
+      >
+        <FormZonaOrigen
+          nombre={nuevaZonaNombre}
+          setNombre={setNuevaZonaNombre}
+          zonasExistentes={zonas}
+          onSuccess={(nueva) => {
+            setZonas((prev) => [...prev, nueva]);
+            setIdZona(String(nueva.id));
+            setNuevaZonaNombre("");
+            setOpenZonaModal(false);
+          }}
+        />
+      </ModalEstandar>
+
+      {/* Sub-Modal: Registro de Nuevo Encargado de Muestra */}
+      <ModalEstandar
+        opened={openEncargadoModal}
+        close={() => setOpenEncargadoModal(false)}
+        title="Registrar Nuevo Encargado de Muestra"
+        size="md"
+      >
+        <RegistroEncargadoMuestra
+          onCancel={() => setOpenEncargadoModal(false)}
+          onSuccess={(nuevo) => {
+            const formatted: RES_EncargadoMuestraGlobal = {
+              id_encargado_muestra: nuevo.id_encargado_muestra,
+              nombre: `${nuevo.nombre} ${nuevo.apellido}`.trim()
+            };
+            setEncargados((prev) => [...prev, formatted]);
+            setIdEncargado(String(nuevo.id_encargado_muestra));
+            setOpenEncargadoModal(false);
+          }}
+        />
+      </ModalEstandar>
+    </>
+  );
+};

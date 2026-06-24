@@ -11,23 +11,27 @@ export const useRegistroConductor = (onSuccess: (conductor: RES_Conductor) => vo
 
   const [payload, setPayload] = useState<{
     dni: string;
-    ruc: string;
     nombre: string;
     apellido: string;
     numero_licencia: string;
   }>({
     dni: "",
-    ruc: "",
     nombre: "",
     apellido: "",
     numero_licencia: "",
   });
 
   const handleChange = (
-    field: "dni" | "ruc" | "nombre" | "apellido" | "numero_licencia",
+    field: "dni" | "nombre" | "apellido" | "numero_licencia",
     value: string,
   ) => {
-    setPayload((prev) => ({ ...prev, [field]: value }));
+    setPayload((prev) => {
+      const next = { ...prev, [field]: value };
+      if (field === "dni") {
+        next.numero_licencia = value;
+      }
+      return next;
+    });
     if (error) setError(null);
   };
 
@@ -38,9 +42,6 @@ export const useRegistroConductor = (onSuccess: (conductor: RES_Conductor) => vo
     const validation = z
       .object({
         dni: z.string().length(8, "El DNI debe tener exactamente 8 caracteres"),
-        ruc: z.string().optional().refine(val => !val || val.length === 11, {
-          message: "El RUC debe tener exactamente 11 caracteres",
-        }).transform((v) => v || null),
         nombre: z.string().min(1, "El nombre es requerido"),
         apellido: z.string().min(1, "El apellido es requerido"),
         numero_licencia: z.string().min(1, "El número de licencia es requerido"),
@@ -57,7 +58,6 @@ export const useRegistroConductor = (onSuccess: (conductor: RES_Conductor) => vo
       notifySuccess("Conductor registrado exitosamente");
       setPayload({
         dni: "",
-        ruc: "",
         nombre: "",
         apellido: "",
         numero_licencia: "",

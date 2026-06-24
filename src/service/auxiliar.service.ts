@@ -17,6 +17,9 @@ import type { RES_EmpresaTransporte } from "./responses/empresa-transporte";
 import type { RES_Vehiculo } from "./responses/vehiculo";
 import type { RES_MotivoIngreso, RES_Visitante } from "./responses/auxiliar-visitas";
 import type { EstadoBase } from "../shared/enums/_generic/estado-base";
+import type { RES_Sucursal } from "./responses/sucursal";
+import type { RES_ZonaOrigen } from "./responses/zona-origen";
+import type { RES_EncargadoMuestraGlobal } from "./responses/encargado-muestra-global";
 
 const path = "/aux";
 
@@ -136,7 +139,6 @@ export const AuxService = {
 
   crear_conductor: async (payload: {
     dni: string;
-    ruc: string | null;
     nombre: string;
     apellido: string;
     numero_licencia: string;
@@ -285,5 +287,25 @@ export const AuxService = {
       payload
     );
     return data;
+  },
+
+  get_sucursales: async (): Promise<RES_Sucursal[]> => {
+    const { data } = await api.get(`${path}/sucursales`);
+    return data.data;
+  },
+
+  get_zonas_origen: async (): Promise<RES_ZonaOrigen[]> => {
+    const { data } = await api.get(`${path}/zonas-origen`);
+    return data.data;
+  },
+
+  crear_zona_origen: async (payload: { nombre: string }): Promise<RES_ZonaOrigen> => {
+    const { data } = await api.post(`${path}/zonas-origen`, payload);
+    return data.data;
+  },
+
+  get_encargados_muestra: async (): Promise<RES_EncargadoMuestraGlobal[]> => {
+    const { data } = await api.get(`${path}/encargados-muestra`);
+    return data.data;
   },
 };

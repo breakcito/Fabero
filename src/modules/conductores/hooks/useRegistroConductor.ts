@@ -17,14 +17,19 @@ export const useRegistroConductor = (
 
   const [payload, setPayload] = useState<REQ_CrearConductor>({
     dni: conductor?.dni || "",
-    ruc: conductor?.ruc || "",
     nombre: conductor?.nombre || "",
     apellido: conductor?.apellido || "",
     numero_licencia: conductor?.numero_licencia || "",
   });
 
   const handleChange = (field: keyof REQ_CrearConductor, value: string) => {
-    setPayload((prev) => ({ ...prev, [field]: value }));
+    setPayload((prev) => {
+      const next = { ...prev, [field]: value };
+      if (field === "dni") {
+        next.numero_licencia = value;
+      }
+      return next;
+    });
     if (error) setError(null);
   };
 
@@ -54,7 +59,6 @@ export const useRegistroConductor = (
         notifySuccess("Conductor registrado exitosamente");
         setPayload({
           dni: "",
-          ruc: "",
           nombre: "",
           apellido: "",
           numero_licencia: "",

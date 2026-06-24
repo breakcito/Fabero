@@ -57,27 +57,16 @@ export const RegistroConductor = ({ onCancel, onSuccess }: Props) => {
         />
       </SimpleGrid>
 
-      <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-        <TextInput
-          label="DNI"
-          placeholder="Ej. 12345678"
-          radius="lg"
-          size="xs"
-          required
-          value={payload.dni}
-          onChange={(e) => handleChange("dni", e.target.value)}
-          classNames={fieldClasses}
-        />
-        <TextInput
-          label="RUC (Opcional)"
-          placeholder="Ej. 10123456789"
-          radius="lg"
-          size="xs"
-          value={payload.ruc}
-          onChange={(e) => handleChange("ruc", e.target.value)}
-          classNames={fieldClasses}
-        />
-      </SimpleGrid>
+      <TextInput
+        label="DNI"
+        placeholder="Ej. 12345678"
+        radius="lg"
+        size="xs"
+        required
+        value={payload.dni}
+        onChange={(e) => handleChange("dni", e.target.value)}
+        classNames={fieldClasses}
+      />
 
       <TextInput
         label="Nro. Licencia de Conducir"

@@ -13,6 +13,7 @@ export const useRegistroCuenta = (
     id_rol: 0,
     username: "",
     password: "",
+    sucursales: [] as number[],
   });
   const [loading, setLoading] = useState(false);
   const { notify } = useNotify();
@@ -24,6 +25,7 @@ export const useRegistroCuenta = (
         id_rol: cuentaEdit.id_rol,
         username: cuentaEdit.username,
         password: "", // Vacío por defecto al editar
+        sucursales: cuentaEdit.sucursales || [],
       });
     } else {
       setForm({
@@ -31,6 +33,7 @@ export const useRegistroCuenta = (
         id_rol: 0,
         username: "",
         password: "",
+        sucursales: [],
       });
     }
   }, [cuentaEdit]);
@@ -62,6 +65,7 @@ export const useRegistroCuenta = (
           id_rol: form.id_rol,
           username: form.username,
           password: form.password,
+          sucursales: form.sucursales,
         });
       } else {
         res = await CuentasService.crearCuenta({
@@ -69,6 +73,7 @@ export const useRegistroCuenta = (
           id_empleado: form.id_empleado,
           username: form.username,
           password: form.password as string,
+          sucursales: form.sucursales,
         });
       }
 

@@ -28,6 +28,8 @@ import { EmpresasTransportePage } from "../../modules/empresas-transporte/presen
 import { VehiculosPage } from "../../modules/vehiculos/presentation/vehiculos-page/vehiculos.page.tsx";
 import { RecepcionUnidadesPage } from "../../modules/recepcion-unidades/presentation/recepcion-unidades.page.tsx";
 import { RecepcionVisitasPage } from "../../modules/recepcion-visitas/presentation/recepcion-visitas.page.tsx";
+import { RecepcionMineralPage } from "../../modules/recepcion-mineral/presentation/recepcion-mineral.page.tsx";
+import { ResumenBalanzaPage } from "../../modules/resumen-balanza/presentation/resumen-balanza.page.tsx";
 import { useEffect } from "react";
 import { onSocketEvent } from "../../service/_socket.ts";
 import { useAuditoriaStore } from "../../stores/auditoria.store.ts";
@@ -129,6 +131,12 @@ export const App = () => {
             <Route path="recepcion-unidades" element={<RecepcionUnidadesPage />} />
             {/* Recepción de Visitas */}
             <Route path="recepcion-visitas" element={<RecepcionVisitasPage />} />
+          </Route>
+          <Route path="gestion-balanza" element={<UsuariosLayout />}>
+            {/* Recepción de Minerales */}
+            <Route path="recepcion-mineral" element={<RecepcionMineralPage />} />
+            {/* Resumen de Balanza */}
+            <Route path="resumen-balanza" element={<ResumenBalanzaPage />} />
           </Route>
         </Route>
 

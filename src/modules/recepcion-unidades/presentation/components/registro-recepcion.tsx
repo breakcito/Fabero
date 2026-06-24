@@ -6,7 +6,8 @@ import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
 import { RegistroConductor } from "../../../../presentation/utils/registro-conductor";
 import { MultiFilePicker } from "../../../../presentation/utils/archivo/multifile-picker";
 import type { RecepcionUnidadResponse } from "../../service/recepcion-unidades.responses";
-import { TipoIngreso, TipoCarga } from "../../enums";
+import { TipoIngreso } from "../../../../shared/enums/_generic/tipo-ingreso";
+import { TipoCarga } from "../../../../shared/enums/_generic/tipo-carga";
 
 interface Props {
   onCancel: () => void;
@@ -77,14 +78,31 @@ export const RegistroRecepcion = ({ onCancel, onSuccess }: Props) => {
         )}
 
         <Grid gutter="md">
-          {/* Búsqueda de Vehículo por Serie, Número de Placa y Condición de Ingreso */}
+          {/* Condición de Ingreso */}
           <Grid.Col span={12}>
-            <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-end w-full">
+            <Select
+              label="Condición de Ingreso"
+              placeholder="Seleccione"
+              withAsterisk
+              radius="lg"
+              data={[
+                { value: TipoIngreso.RecepcionMineral, label: "Recepción de Mineral" },
+                { value: TipoIngreso.DespachoMineral, label: "Despacho de Mineral" },
+              ]}
+              value={payload.tipo_ingreso || null}
+              onChange={(val) => handleChange("tipo_ingreso", val as TipoIngreso)}
+              classNames={fieldClasses}
+            />
+          </Grid.Col>
+
+          {/* Búsqueda de Vehículo por Serie y Número de Placa */}
+          <Grid.Col span={12}>
+            <div className="flex gap-3 items-stretch sm:items-end w-full">
               <TextInput
                 label="Serie Placa"
                 placeholder="Ej. F1B"
                 radius="lg"
-                className="w-full sm:w-[120px] md:w-[140px]"
+                className="flex-1"
                 value={serieBusqueda}
                 onChange={(e) => setSerieBusqueda(e.target.value.toUpperCase())}
                 classNames={fieldClasses}
@@ -93,23 +111,9 @@ export const RegistroRecepcion = ({ onCancel, onSuccess }: Props) => {
                 label="Número Placa"
                 placeholder="Ej. 890"
                 radius="lg"
-                className="w-full sm:w-[160px] md:w-[180px]"
+                className="flex-1"
                 value={numeroBusqueda}
                 onChange={(e) => setNumeroBusqueda(e.target.value.toUpperCase())}
-                classNames={fieldClasses}
-              />
-              <Select
-                label="Condición de Ingreso"
-                placeholder="Seleccione"
-                withAsterisk
-                radius="lg"
-                className="flex-1"
-                data={[
-                  { value: TipoIngreso.RecepcionMineral, label: "Recepción de Mineral" },
-                  { value: TipoIngreso.DespachoMineral, label: "Despacho de Mineral" },
-                ]}
-                value={payload.tipo_ingreso || null}
-                onChange={(val) => handleChange("tipo_ingreso", val as TipoIngreso)}
                 classNames={fieldClasses}
               />
             </div>

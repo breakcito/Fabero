@@ -6,6 +6,14 @@ import { AuxService } from "../../../service/auxiliar.service";
 import type { RES_EmpresaTransporte } from "../../../service/responses/empresa-transporte";
 import { useNotify } from "../../../hooks/useNotify";
 
+const getTodayString = () => {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 export const useRecepciones = () => {
   const [recepciones, setRecepciones] = useState<RecepcionUnidadResponse[]>([]);
   const [loading, setLoading] = useState(false);
@@ -14,8 +22,8 @@ export const useRecepciones = () => {
 
   // Estado de filtros del listado
   const [filters, setFilters] = useState<RecepcionFilters>({
-    fecha_inicio: "",
-    fecha_fin: "",
+    fecha_inicio: getTodayString(),
+    fecha_fin: getTodayString(),
     numero_placa: "",
     serie_placa: "",
     id_empresa_transporte: undefined,
@@ -89,8 +97,8 @@ export const useRecepciones = () => {
 
   const clearFilters = () => {
     const cleared: RecepcionFilters = {
-      fecha_inicio: "",
-      fecha_fin: "",
+      fecha_inicio: getTodayString(),
+      fecha_fin: getTodayString(),
       numero_placa: "",
       serie_placa: "",
       id_empresa_transporte: undefined,

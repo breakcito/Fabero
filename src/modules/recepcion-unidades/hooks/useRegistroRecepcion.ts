@@ -7,12 +7,15 @@ import type { RES_TipoVehiculo } from "../../../service/responses/tipo-vehiculo"
 import type { RecepcionUnidadResponse } from "../service/recepcion-unidades.responses";
 import type { CrearRecepcionRequest } from "../service/recepcion-unidades.requests";
 import type { RES_Vehiculo } from "../../../service/responses/vehiculo";
-import { TipoIngreso, TipoCarga } from "../enums";
+import { TipoIngreso } from "../../../shared/enums/_generic/tipo-ingreso";
+import { TipoCarga } from "../../../shared/enums/_generic/tipo-carga";
 import { useNotify } from "../../../hooks/useNotify";
+import { useUIStore } from "../../../stores/ui.store";
 
 export const useRegistroRecepcion = (
   onSuccess: (r: RecepcionUnidadResponse) => void
 ) => {
+  const sucursal_elegida = useUIStore((state) => state.sucursal_elegida);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { notifySuccess, notifyError } = useNotify();
@@ -116,7 +119,7 @@ export const useRegistroRecepcion = (
           id_vehiculo: found.id_vehiculo,
           id_empresa_transporte: found.id_empresa_transporte,
           id_tipo_vehiculo: found.id_tipo_vehiculo,
-          id_conductor: prev.id_conductor || 0,
+          id_conductor: found.last_id_conductor || prev.id_conductor || 0,
         }));
         notifySuccess("Vehículo localizado correctamente");
       } else {
@@ -178,6 +181,10 @@ export const useRegistroRecepcion = (
       setError("El tipo de carga es obligatorio.");
       return;
     }
+    if (!sucursal_elegida || !sucursal_elegida.id_sucursal) {
+      setError("Debe seleccionar una sucursal en el encabezado antes de registrar el ingreso.");
+      return;
+    }
 
     setLoading(true);
     try {
@@ -209,15 +216,23 @@ export const useRegistroRecepcion = (
       const finalPayload = {
         ...payload,
         id_vehiculo: finalVehiculoId,
+        id_sucursal: sucursal_elegida.id_sucursal,
       };
 
       const created = await RecepcionUnidadesService.crearRecepcion(finalPayload);
       notifySuccess("Recepción de unidad registrada correctamente");
       onSuccess(created);
     } catch (err: unknown) {
-      console.error(err);
-      const axiosError = err as { response?: { data?: { message?: string } } };
-      const msg = axiosError.response?.data?.message || "Ocurrió un error al registrar la recepción.";
+      console.error("Error al registrar la recepción de unidad:", err);
+      const axiosError = err as { response?: { status?: number; data?: { message?: string } } };
+      const status = axiosError.response?.status;
+      const rawMsg = axiosError.response?.data?.message;
+      
+      const isInternalError = status === 500 || (rawMsg && (rawMsg.includes("SQLSTATE") || rawMsg.includes("database") || rawMsg.includes("column")));
+      const msg = isInternalError
+        ? "Ocurrió un error en el servidor al registrar la recepción de unidad."
+        : (rawMsg || "Ocurrió un error al registrar la recepción.");
+
       notifyError(msg);
       setError(msg);
     } finally {

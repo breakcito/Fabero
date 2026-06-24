@@ -13,7 +13,7 @@ export interface VisitanteLocal {
   apellido: string;
   dni: string;
   telefono: string;
-  foto_documento: File | null;
+  foto_documento: File[];
 }
 
 export const useRegistroVisita = (onSuccess: (r: RecepcionVisitaResponse) => void) => {
@@ -65,13 +65,24 @@ export const useRegistroVisita = (onSuccess: (r: RecepcionVisitaResponse) => voi
     setPayload((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleAgregarVisitante = (nuevoVisitante: VisitanteLocal) => {
+  const handleAgregarVisitante = (nuevoVisitante: VisitanteLocal): boolean => {
     // Evitar DNI duplicado en la lista actual
     if (visitantes.some((v) => v.dni === nuevoVisitante.dni)) {
       notifyError("Este visitante ya ha sido agregado a la lista.");
-      return;
+      return false;
     }
     setVisitantes((prev) => [...prev, nuevoVisitante]);
+    return true;
+  };
+
+  const handleActualizarVisitante = (index: number, visitanteActualizado: VisitanteLocal): boolean => {
+    // Evitar DNI duplicado en los demás visitantes de la lista
+    if (visitantes.some((v, i) => i !== index && v.dni === visitanteActualizado.dni)) {
+      notifyError("Este DNI ya pertenece a otro visitante en la lista.");
+      return false;
+    }
+    setVisitantes((prev) => prev.map((v, i) => i === index ? visitanteActualizado : v));
+    return true;
   };
 
   const handleRemoverVisitante = (index: number) => {
@@ -102,9 +113,9 @@ export const useRegistroVisita = (onSuccess: (r: RecepcionVisitaResponse) => voi
     }
 
     // Validar foto documento
-    const faltanFotos = visitantes.some((v) => !v.foto_documento);
+    const faltanFotos = visitantes.some((v) => !v.foto_documento || v.foto_documento.length === 0);
     if (faltanFotos) {
-      setError("Todos los visitantes de la lista deben tener una foto del documento cargada.");
+      setError("Todos los visitantes de la lista deben tener al menos un documento cargado.");
       return;
     }
 
@@ -119,7 +130,7 @@ export const useRegistroVisita = (onSuccess: (r: RecepcionVisitaResponse) => voi
           apellido: v.apellido,
           dni: v.dni,
           telefono: v.telefono,
-          foto_documento: v.foto_documento || undefined,
+          foto_documento: v.foto_documento,
         })),
       };
 
@@ -128,9 +139,32 @@ export const useRegistroVisita = (onSuccess: (r: RecepcionVisitaResponse) => voi
       onSuccess(response);
     } catch (err: unknown) {
       console.error(err);
-      const axiosError = err as { response?: { data?: { message?: string } } };
-      const msg = axiosError.response?.data?.message || "Ocurrió un error inesperado al registrar la visita.";
-      setError(msg);
+      
+      const errorWithResponse = err as { response?: { data?: { message?: string } }; message?: string };
+      // Extraer el mensaje del error
+      let rawMsg = "Ocurrió un error inesperado al registrar la visita.";
+      if (errorWithResponse.response?.data?.message) {
+        rawMsg = errorWithResponse.response.data.message;
+      } else if (errorWithResponse.message) {
+        rawMsg = errorWithResponse.message;
+      }
+
+      // Sanitizar el mensaje para la alerta de la interfaz
+      let sanitizedMsg = rawMsg;
+      const lower = rawMsg ? rawMsg.toLowerCase() : "";
+      if (
+        lower.includes("sqlstate") ||
+        lower.includes("database") ||
+        lower.includes("column") ||
+        lower.includes("table not found") ||
+        lower.includes("unknown column") ||
+        lower.includes("500") ||
+        lower.includes("incorrect integer value")
+      ) {
+        sanitizedMsg = "Ocurrió un error interno en el servidor.";
+      }
+      
+      setError(sanitizedMsg);
     } finally {
       setLoading(false);
     }
@@ -141,6 +175,7 @@ export const useRegistroVisita = (onSuccess: (r: RecepcionVisitaResponse) => voi
     handleChange,
     visitantes,
     handleAgregarVisitante,
+    handleActualizarVisitante,
     handleRemoverVisitante,
     submit,
     loading,

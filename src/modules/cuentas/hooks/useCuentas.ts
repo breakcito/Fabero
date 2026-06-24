@@ -1,11 +1,13 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { CuentasService } from "../service/cuentas.service";
+import { SucursalesService } from "../../sucursales/service/sucursales.service";
 import { useDisclosure } from "@mantine/hooks";
 import type {
   RES_Cuenta,
   RES_RolDisponible,
 } from "../service/cuentas.responses";
 import type { RES_Empleado } from "../../../service/responses/empleado";
+import type { RES_Sucursal } from "../../sucursales/service/sucursales.responses";
 import { useNotify } from "../../../hooks/useNotify";
 
 export const useCuentas = () => {
@@ -14,6 +16,7 @@ export const useCuentas = () => {
   const [empleadosSinCuenta, setEmpleadosSinCuenta] = useState<RES_Empleado[]>(
     [],
   );
+  const [sucursalesDisponibles, setSucursalesDisponibles] = useState<RES_Sucursal[]>([]);
   const [loading, setLoading] = useState(false);
 
   const [busqueda, setBusqueda] = useState("");
@@ -29,15 +32,17 @@ export const useCuentas = () => {
   const cargarDatos = useCallback(async () => {
     setLoading(true);
     try {
-      const [resCuentas, resRoles, resEmpleados] = await Promise.all([
+      const [resCuentas, resRoles, resEmpleados, resSucursales] = await Promise.all([
         CuentasService.fetchCuentas(),
         CuentasService.fetchRolesDisponibles(),
         CuentasService.fetchEmpleadosSinCuenta(),
+        SucursalesService.get_sucursales(),
       ]);
 
       if (resCuentas.success) setCuentas(resCuentas.data);
       if (resRoles.success) setRoles(resRoles.data);
       if (resEmpleados.success) setEmpleadosSinCuenta(resEmpleados.data);
+      if (resSucursales.success) setSucursalesDisponibles(resSucursales.data);
     } catch (error) {
       console.error("Error cargando datos de cuentas:", error);
     } finally {
@@ -92,6 +97,7 @@ export const useCuentas = () => {
     cuentasFiltradas,
     roles,
     empleadosSinCuenta,
+    sucursalesDisponibles,
     loading,
     busqueda,
     setBusqueda,

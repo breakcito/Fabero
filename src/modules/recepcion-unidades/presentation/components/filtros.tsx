@@ -2,7 +2,7 @@ import { IconSearch, IconCalendar, IconTruck, IconArrowsUpDown, IconX } from "@t
 import { TextInput, Select, Grid, Group, ActionIcon } from "@mantine/core";
 import type { RecepcionFilters } from "../../service/recepcion-unidades.requests";
 import type { RES_EmpresaTransporte } from "../../../../service/responses/empresa-transporte";
-import { TipoIngreso } from "../../enums";
+import { TipoIngreso } from "../../../../shared/enums/_generic/tipo-ingreso";
 
 interface Props {
   filters: RecepcionFilters;

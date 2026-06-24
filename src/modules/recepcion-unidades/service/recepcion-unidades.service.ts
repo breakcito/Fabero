@@ -28,6 +28,9 @@ export const RecepcionUnidadesService = {
     formData.append("id_conductor", String(payload.id_conductor));
     formData.append("tipo_ingreso", payload.tipo_ingreso);
     formData.append("tipo_carga", payload.tipo_carga);
+    if (payload.id_sucursal) {
+      formData.append("id_sucursal", String(payload.id_sucursal));
+    }
     
     if (payload.segunda_placa) {
       formData.append("segunda_placa", payload.segunda_placa);

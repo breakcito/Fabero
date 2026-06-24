@@ -8,7 +8,7 @@ import type { RecepcionUnidadResponse } from "../../service/recepcion-unidades.r
 import type { IArchivo } from "../../../../shared/interfaces/archivo";
 import { RecepcionUnidadesService } from "../../service/recepcion-unidades.service";
 import { useNotify } from "../../../../hooks/useNotify";
-import { EstadoSalida } from "../../enums";
+import { EstadoSalida } from "../../../../shared/enums/_generic/estado-salida";
 
 interface Props {
   recepciones: RecepcionUnidadResponse[];
@@ -148,7 +148,7 @@ export const TablaRecepciones = ({ recepciones, loading, onUpdateRecepcion }: Pr
                   {r.conductor_nombre_completo}
                 </Text>
                 <Text size="xs" className="text-zinc-500">
-                  DNI: {r.conductor_dni}
+                  Licencia: {r.conductor_numero_licencia}
                 </Text>
               </div>
             ),

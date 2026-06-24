@@ -9,7 +9,7 @@ import { useState } from "react";
 import { IconPlus, IconX } from "@tabler/icons-react";
 
 export const RecepcionUnidadesPage = () => {
-  useTitlePage("Recepción de Unidades");
+  useTitlePage("Recepción de Unidades", true);
 
   const {
     recepciones,

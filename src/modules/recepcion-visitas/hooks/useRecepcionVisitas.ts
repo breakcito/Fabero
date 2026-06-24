@@ -4,14 +4,22 @@ import type { RecepcionVisitaFilters } from "../service/recepcion-visitas.reques
 import type { RecepcionVisitaResponse } from "../service/recepcion-visitas.responses";
 import { useNotify } from "../../../hooks/useNotify";
 
+const getTodayString = () => {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 export const useRecepcionVisitas = () => {
   const [recepciones, setRecepciones] = useState<RecepcionVisitaResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const { notifyError, notifySuccess } = useNotify();
 
   const [filters, setFilters] = useState<RecepcionVisitaFilters>({
-    fecha_inicio: "",
-    fecha_fin: "",
+    fecha_inicio: getTodayString(),
+    fecha_fin: getTodayString(),
   });
 
   const fetchRecepciones = async () => {
@@ -40,17 +48,19 @@ export const useRecepcionVisitas = () => {
   };
 
   const insertRecepcion = (r: RecepcionVisitaResponse) => {
+    if (!r) return;
     setRecepciones((prev) => [r, ...prev]);
   };
 
   const updateRecepcion = (r: RecepcionVisitaResponse) => {
-    setRecepciones((prev) => prev.map((item) => (item.id === r.id ? r : item)));
+    if (!r) return;
+    setRecepciones((prev) => prev.map((item) => (item && item.id === r.id ? r : item)));
   };
 
   const clearFilters = () => {
     const cleared: RecepcionVisitaFilters = {
-      fecha_inicio: "",
-      fecha_fin: "",
+      fecha_inicio: getTodayString(),
+      fecha_fin: getTodayString(),
     };
     setFilters(cleared);
   };

@@ -9,7 +9,7 @@ import { ModalEstandar } from "../../../presentation/utils/modal-estandar";
 import { IconPlus, IconX } from "@tabler/icons-react";
 
 export const RecepcionVisitasPage = () => {
-  useTitlePage("Recepción de Visitas");
+  useTitlePage("Recepción de Visitas",true);
 
   const {
     recepciones,

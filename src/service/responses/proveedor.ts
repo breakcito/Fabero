@@ -3,4 +3,5 @@ export interface RES_Proveedor {
   razon_social: string;
   direccion: string | null;
   documento: string | null;
+  telefono: string | null;
 }

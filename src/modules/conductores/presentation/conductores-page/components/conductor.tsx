@@ -47,24 +47,19 @@ export const Conductor = ({
               <ThemeIcon variant="light" color="indigo" radius="xl" size="lg">
                 <IconUser className="w-5 h-5" />
               </ThemeIcon>
-              <div>
-                <Text size="sm" fw={500} className="text-zinc-200">
-                  {r.nombre} {r.apellido}
-                </Text>
-                <Text size="xs" className="text-zinc-500">
-                  DNI: {r.dni}
-                </Text>
-              </div>
+              <Text size="sm" fw={500} className="text-zinc-200">
+                {r.nombre} {r.apellido}
+              </Text>
             </Group>
           ),
         },
         {
-          accessor: "ruc",
-          title: "RUC",
-          width: 150,
+          accessor: "dni",
+          title: "DNI",
+          width: 120,
           render: (r: RES_Conductor) => (
-            <Text size="sm" className="text-zinc-300">
-              {r.ruc || "—"}
+            <Text size="sm" className="text-zinc-300 font-mono">
+              {r.dni}
             </Text>
           ),
         },

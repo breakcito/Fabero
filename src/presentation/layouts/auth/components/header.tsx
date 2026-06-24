@@ -1,6 +1,10 @@
+import { useEffect } from "react";
+import { Select } from "@mantine/core";
 import { Bars3Icon } from "@heroicons/react/24/outline";
 import { UserMenu } from "./user-menu";
 import { useTitlePage } from "../../../../hooks/useTitlePage";
+import { useUIStore } from "../../../../stores/ui.store";
+import { AuxService } from "../../../../service/auxiliar.service";
 
 interface HeaderProps {
   onMenuToggle: () => void;
@@ -8,6 +12,23 @@ interface HeaderProps {
 
 export const Header = ({ onMenuToggle }: HeaderProps) => {
   const { title } = useTitlePage();
+  const ver_sucursal = useUIStore((state) => state.ver_sucursal);
+  const sucursales = useUIStore((state) => state.sucursales);
+  const set_sucursales = useUIStore((state) => state.set_sucursales);
+  const sucursal_elegida = useUIStore((state) => state.sucursal_elegida);
+  const set_sucursal_elegida = useUIStore((state) => state.set_sucursal_elegida);
+
+  useEffect(() => {
+    if (ver_sucursal && sucursales.length === 0) {
+      AuxService.get_sucursales()
+        .then((data) => {
+          set_sucursales(data);
+        })
+        .catch((err) => {
+          console.error("Error al cargar sucursales:", err);
+        });
+    }
+  }, [ver_sucursal, sucursales.length, set_sucursales]);
 
   return (
     <header
@@ -44,6 +65,25 @@ export const Header = ({ onMenuToggle }: HeaderProps) => {
         >
           <Bars3Icon className="w-5 h-5" />
         </button>
+        
+        {ver_sucursal && (
+          <Select
+            placeholder="Seleccione sucursal"
+            data={sucursales.map((s) => ({ value: String(s.id_sucursal), label: s.nombre }))}
+            value={sucursal_elegida ? String(sucursal_elegida.id_sucursal) : null}
+            onChange={(val) => {
+              const selected = sucursales.find((s) => String(s.id_sucursal) === val) || null;
+              set_sucursal_elegida(selected);
+            }}
+            classNames={{
+              input: "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 transition-all h-[36px]",
+              dropdown: "bg-zinc-950 border-zinc-800 text-white rounded-lg shadow-2xl",
+              option: "hover:bg-zinc-900 rounded-lg text-sm text-zinc-300 hover:text-white transition-colors py-2 px-3 data-[selected]:bg-indigo-600 data-[selected]:text-white",
+            }}
+            size="xs"
+            w={180}
+          />
+        )}
       </div>
 
       {/* Título (Centrado Absoluto) */}

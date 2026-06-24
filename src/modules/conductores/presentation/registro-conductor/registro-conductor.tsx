@@ -33,7 +33,7 @@ export const RegistroConductor = ({
       )}
 
       <Grid>
-        <Grid.Col span={{ base: 12, md: 6 }}>
+        <Grid.Col span={{ base: 12 }}>
           <TextInput
             withAsterisk
             label="DNI"
@@ -44,24 +44,6 @@ export const RegistroConductor = ({
             onChange={(e) => {
               const val = e.target.value.replace(/\D/g, "");
               handleChange("dni", val);
-            }}
-            classNames={{
-              input:
-                "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 transition-all",
-              label: "text-zinc-400 font-medium text-xs mb-1.5",
-            }}
-          />
-        </Grid.Col>
-        <Grid.Col span={{ base: 12, md: 6 }}>
-          <TextInput
-            label="RUC (Opcional)"
-            placeholder="10123456789"
-            radius="xl"
-            maxLength={11}
-            value={payload.ruc || ""}
-            onChange={(e) => {
-              const val = e.target.value.replace(/\D/g, "");
-              handleChange("ruc", val);
             }}
             classNames={{
               input:

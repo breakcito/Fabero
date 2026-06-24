@@ -48,8 +48,10 @@ export const RecepcionVisitasService = {
         formData.append(`visitantes[${index}][telefono]`, v.telefono);
       }
       
-      if (v.foto_documento) {
-        formData.append(`visitantes[${index}][foto_documento]`, v.foto_documento);
+      if (v.foto_documento && v.foto_documento.length > 0) {
+        v.foto_documento.forEach((file) => {
+          formData.append(`visitantes[${index}][foto_documento][]`, file);
+        });
       }
     });
 
@@ -58,6 +60,9 @@ export const RecepcionVisitasService = {
         "Content-Type": "multipart/form-data",
       },
     });
+    if (!data.success) {
+      throw new Error(data.message || "Error al crear la recepción de visita");
+    }
     return data.data;
   },
 
@@ -69,6 +74,9 @@ export const RecepcionVisitasService = {
     payload: { observacion_salida?: string }
   ): Promise<RecepcionVisitaResponse> => {
     const { data } = await api.put(`/recepcion-visitas/${id}/salida`, payload);
+    if (!data.success) {
+      throw new Error(data.message || "Error al registrar la salida");
+    }
     return data.data;
   },
 };

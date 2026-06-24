@@ -10,6 +10,7 @@ export interface RES_Cuenta {
   id_empresa_pertenece: number;
   path_foto: string | null;
   empresa_pertenece: string;
+  sucursales: number[];
 }
 
 export interface RES_RolDisponible {

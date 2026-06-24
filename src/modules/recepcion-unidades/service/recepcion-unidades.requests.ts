@@ -1,4 +1,5 @@
-import type { TipoIngreso, TipoCarga } from "../enums";
+import type { TipoIngreso } from "../../../shared/enums/_generic/tipo-ingreso";
+import type { TipoCarga } from "../../../shared/enums/_generic/tipo-carga";
 
 export interface CrearRecepcionRequest {
   id_vehiculo: number;
@@ -10,6 +11,7 @@ export interface CrearRecepcionRequest {
   segunda_placa?: string;
   observacion?: string;
   evidencias?: File[];
+  id_sucursal?: number;
 }
 
 export interface RecepcionFilters {
