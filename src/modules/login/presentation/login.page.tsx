@@ -1,9 +1,8 @@
-import { useState, useRef } from "react";
 import { TextInput, PasswordInput, Button } from "@mantine/core";
 import { IconUser, IconLock } from "@tabler/icons-react";
 import {
-  LoginVideo,
-  BlackcitoSinPatitas,
+  FaberoLogo,
+  Wallpapers,
 } from "../../../presentation/assets/imports";
 import { useLogin } from "../hooks/useLogin";
 import { motion } from "motion/react";
@@ -11,6 +10,7 @@ import { motion } from "motion/react";
 export const LoginPage = () => {
   const {
     isLoading,
+    currentImageIndex,
     error,
     username,
     setUsername,
@@ -19,45 +19,40 @@ export const LoginPage = () => {
     handleSubmit,
   } = useLogin();
 
-  const [isVideoEnding, setIsVideoEnding] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-
-  const handleTimeUpdate = () => {
-    if (!videoRef.current) return;
-    const duration = videoRef.current.duration;
-    const currentTime = videoRef.current.currentTime;
-    if (duration - currentTime < 1 && !isVideoEnding) {
-      setIsVideoEnding(true);
-    }
-  };
-
-  const handleEnded = () => {
-    if (videoRef.current) {
-      videoRef.current.currentTime = 0;
-      videoRef.current.play();
-      setIsVideoEnding(false);
-    }
-  };
-
   return (
     <div className="relative min-h-screen w-full flex items-center justify-center p-4 sm:p-8 overflow-hidden bg-black">
-      {/* Background Video */}
-      <div
-        className={`absolute inset-0 w-full h-full transition-opacity duration-1000 ease-in-out ${
-          isVideoEnding ? "opacity-0" : "opacity-100"
-        }`}
-      >
-        <video
-          ref={videoRef}
-          src={LoginVideo}
-          autoPlay
-          muted
-          playsInline
-          onTimeUpdate={handleTimeUpdate}
-          onEnded={handleEnded}
-          className="w-full h-full object-cover"
-        />
-      </div>
+      {/* Background Images */}
+      {Wallpapers.map((bg: string, index: number) => {
+        const kbVariants = [
+          { animationName: "kb0", animationDuration: "8s" },
+          { animationName: "kb1", animationDuration: "10s" },
+          { animationName: "kb2", animationDuration: "7s" },
+          { animationName: "kb3", animationDuration: "9s" },
+          { animationName: "kb4", animationDuration: "11s" },
+        ];
+        const variant = kbVariants[index % kbVariants.length];
+        const isActive = index === currentImageIndex;
+        return (
+          <div
+            key={index}
+            className={`absolute inset-0 w-full h-full transition-opacity duration-1000 ease-in-out ${isActive ? "opacity-100" : "opacity-0"
+              }`}
+          >
+            <img
+              src={bg}
+              alt={`Background ${index + 1}`}
+              className="w-full h-full object-cover"
+              style={{
+                ...variant,
+                animationTimingFunction: "ease-in-out",
+                animationFillMode: "forwards",
+                transformOrigin: "center center",
+                animationPlayState: isActive ? "running" : "paused",
+              }}
+            />
+          </div>
+        );
+      })}
 
       {/* Black background to show during transition opacity 0 */}
       <div className="absolute inset-0 bg-black -z-10"></div>
@@ -94,18 +89,34 @@ export const LoginPage = () => {
                   50% { transform: translateY(-8px); }
                 }
                 .animate-float { animation: float 2.5s ease-in-out infinite; }
+
+                @keyframes kb0 {
+                  0%   { transform: scale(1)    translate(0%, 0%); }
+                  100% { transform: scale(1.1)  translate(-2%, -1.5%); }
+                }
+                @keyframes kb1 {
+                  0%   { transform: scale(1.05) translate(1.5%, 1%); }
+                  100% { transform: scale(1)    translate(-1%, 2%); }
+                }
+                @keyframes kb2 {
+                  0%   { transform: scale(1)    translate(-1%, 1.5%); }
+                  100% { transform: scale(1.08) translate(2%, -0.5%); }
+                }
+                @keyframes kb3 {
+                  0%   { transform: scale(1.03) translate(0%, -1%); }
+                  100% { transform: scale(1.1)  translate(-1.5%, 1.5%); }
+                }
+                @keyframes kb4 {
+                  0%   { transform: scale(1.08) translate(-2%, 0.5%); }
+                  100% { transform: scale(1)    translate(1.5%, -1%); }
+                }
               `}
               </style>
-              <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 flex items-center justify-center animate-float relative">
-                <img
-                  src={BlackcitoSinPatitas}
-                  alt="Fabero Logo"
-                  className="w-full h-full object-contain drop-shadow-[0_0_15px_rgba(255,255,255,0.15)] relative z-10"
-                />
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-white mb-2 tracking-wide font-pacifico drop-shadow-md">
-                Fabero
-              </h1>
+              <img
+                src={FaberoLogo}
+                alt="Fabero"
+                className="mx-auto mb-8 mt-3 h-8 sm:h-14 w-auto drop-shadow-md"
+              />
               <p className="text-[10px] sm:text-xs text-zinc-400 font-medium tracking-[0.2em] relative inline-block">
                 SISTEMA DE GESTIÓN MINERA
                 <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-16 h-0.5 bg-linear-to-r from-transparent via-amber-500 to-transparent" />

@@ -1,10 +1,9 @@
-import { useEffect, useRef } from "react";
-import { Loader, Select } from "@mantine/core";
+import { useEffect } from "react";
+import { Select } from "@mantine/core";
 import { Bars3Icon } from "@heroicons/react/24/outline";
 import { UserMenu } from "./user-menu";
 import { useTitlePage } from "../../../../hooks/useTitlePage";
 import { useUIStore } from "../../../../stores/ui.store";
-import { AuxService } from "../../../../service/auxiliar.service";
 import logoSac from "../../../assets/svg/logo.svg";
 
 interface HeaderProps {
@@ -15,29 +14,17 @@ export const Header = ({ onMenuToggle }: HeaderProps) => {
   const { title } = useTitlePage();
   const ver_sucursal = useUIStore((state) => state.ver_sucursal);
   const sucursales = useUIStore((state) => state.sucursales);
-  const set_sucursales = useUIStore((state) => state.set_sucursales);
   const sucursal_elegida = useUIStore((state) => state.sucursal_elegida);
   const set_sucursal_elegida = useUIStore((state) => state.set_sucursal_elegida);
 
-  const fetchingRef = useRef(false);
-  const loadingSucursales = ver_sucursal && sucursales.length === 0;
-
+  // Auto-selecciona la primera sucursal cuando ver_sucursal se activa y no hay ninguna elegida
   useEffect(() => {
-    if (!ver_sucursal || sucursales.length > 0 || fetchingRef.current) return;
+    if (ver_sucursal && sucursales.length > 0 && sucursal_elegida === null) {
+      set_sucursal_elegida(sucursales[0]);
+    }
+  }, [ver_sucursal, sucursales, sucursal_elegida, set_sucursal_elegida]);
 
-    fetchingRef.current = true;
-    AuxService.get_sucursales()
-      .then((data) => {
-        set_sucursales(data);
-        if (data.length > 0) set_sucursal_elegida(data[0]);
-      })
-      .catch((err) => {
-        console.error("Error al cargar sucursales:", err);
-      })
-      .finally(() => {
-        fetchingRef.current = false;
-      });
-  }, [ver_sucursal, sucursales.length, set_sucursales, set_sucursal_elegida]);
+
 
   return (
     <header
@@ -74,7 +61,7 @@ export const Header = ({ onMenuToggle }: HeaderProps) => {
         >
           <Bars3Icon className="w-5 h-5" />
         </button>
-        <img src={logoSac} alt="Logo SAC" className="h-5 w-auto" />
+        <img src={logoSac} alt="Logo SAC" className="h-6 w-auto" />
         
 
         {ver_sucursal && (
@@ -86,9 +73,6 @@ export const Header = ({ onMenuToggle }: HeaderProps) => {
               const selected = sucursales.find((s) => String(s.id_sucursal) === val) || null;
               set_sucursal_elegida(selected);
             }}
-            disabled={loadingSucursales}
-            rightSection={loadingSucursales ? <Loader size={12} color="white" /> : undefined}
-            rightSectionPointerEvents="none"
             searchable
             size="xs"
             radius="lg"

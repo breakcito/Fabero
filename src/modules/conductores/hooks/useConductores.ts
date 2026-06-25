@@ -37,7 +37,6 @@ export const useConductores = () => {
         c.nombre.toLowerCase().includes(q) ||
         c.apellido.toLowerCase().includes(q) ||
         c.dni.includes(q) ||
-        (c.ruc && c.ruc.includes(q)) ||
         c.numero_licencia.toLowerCase().includes(q),
     );
   }, [conductores, searchQuery]);

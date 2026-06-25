@@ -10,7 +10,8 @@ import bg9 from "./wallpapers/persona-en-mina.jpg";
 import LoginVideo from "./videos/login-fondo.mp4";
 import Blackcito from "./png/blackcito.png";
 import BlackcitoSinPatitas from "./png/blackcito-sin-patitas.png";
+import FaberoLogo from "./svg/logo.svg";
 
 export const Wallpapers = [bg1, bg2, bg3, bg4, bg5, bg6, bg7, bg8, bg9];
 
-export { Blackcito, BlackcitoSinPatitas, LoginVideo };
+export { Blackcito, BlackcitoSinPatitas, LoginVideo, FaberoLogo };

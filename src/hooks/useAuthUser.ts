@@ -2,6 +2,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../stores/auth.store";
 import { useMenuNavegacionStore } from "../stores/menu.store";
 import { usePerfilStore } from "../modules/perfil/hooks/usePerfilStore";
+import { useUIStore } from "../stores/ui.store";
 import { useCallback, useMemo } from "react";
 
 export const useAuthUser = () => {
@@ -11,6 +12,7 @@ export const useAuthUser = () => {
   const menu = useMenuNavegacionStore((state) => state.menu);
   const clearMenu = useMenuNavegacionStore((state) => state.clearMenu);
   const resetPerfil = usePerfilStore((state) => state.reset);
+  const clear_sucursales = useUIStore((state) => state.clear_sucursales);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -18,9 +20,10 @@ export const useAuthUser = () => {
     clearAuth();
     clearMenu();
     resetPerfil();
+    clear_sucursales();
     sessionStorage.removeItem("blackcito_saludo_inicial");
     navigate("/login", { viewTransition: true });
-  }, [clearAuth, clearMenu, resetPerfil, navigate]);
+  }, [clearAuth, clearMenu, resetPerfil, clear_sucursales, navigate]);
 
   const isAuthorized = useMemo(() => {
     // Rutas que siempre están permitidas
