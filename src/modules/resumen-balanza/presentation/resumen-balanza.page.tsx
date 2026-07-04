@@ -442,63 +442,51 @@ export const ResumenBalanzaPage = () => {
             },
             {
               accessor: "peso_inicial",
-              title: "Peso Inicial",
-              width: 140,
-              textAlign: "right",
-              render: (r: RES_ResumenBalanzaItem) => (
-                <span className="font-mono text-sm text-zinc-400">
-                  {r.peso_inicial !== null
-                    ? `${r.peso_inicial.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })} Kg`
-                    : "---"}
-                </span>
-              ),
-            },
-            {
-              accessor: "peso_final",
-              title: "Peso Final",
-              width: 140,
-              textAlign: "right",
-              render: (r: RES_ResumenBalanzaItem) => (
-                <span className="font-mono text-sm text-zinc-400">
-                  {r.peso_final !== null
-                    ? `${r.peso_final.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })} Kg`
-                    : "---"}
-                </span>
-              ),
-            },
-            {
-              accessor: "peso_neto",
-              title: "Peso Neto",
-              width: 150,
-              textAlign: "right",
-              render: (r: RES_ResumenBalanzaItem) => (
-                <div className="flex justify-end">
-                  {r.peso_neto !== null ? (
-                    <Badge
-                      variant="gradient"
-                      gradient={{ from: "teal", to: "green", deg: 45 }}
-                      size="md"
-                      radius="md"
-                      className="font-extrabold text-zinc-950 px-2.5 py-2.5 shadow-sm shadow-emerald-500/10"
-                    >
-                      {r.peso_neto.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })} Kg
-                    </Badge>
-                  ) : (
-                    <Text size="xs" c="dimmed">
-                      ---
-                    </Text>
-                  )}
-                </div>
-              ),
+              title: "Pesos",
+              width: 230,
+              render: (r: RES_ResumenBalanzaItem) => {
+                const formatTonelada = (valor: number | null) => {
+                  if (valor === null) return "---";
+                  return `${(valor / 1000).toLocaleString(undefined, {
+                    minimumFractionDigits: 3,
+                    maximumFractionDigits: 3,
+                  })} T`;
+                };
+                return (
+                  <div className="flex flex-col gap-1.5 items-end">
+                    <div className="flex items-center justify-between gap-3 w-full">
+                      <span className="text-[11px] text-zinc-500 font-medium  tracking-wide">Inicial</span>
+                      <span className="font-mono text-sm text-zinc-400">
+                        {formatTonelada(r.peso_inicial)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 w-full">
+                      <span className="text-[11px] text-zinc-500 font-medium  tracking-wide">Final</span>
+                      <span className="font-mono text-sm text-zinc-400">
+                        {formatTonelada(r.peso_final)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 w-full pt-1 border-t border-zinc-800/60">
+                      <span className="text-[11px] text-emerald-400 font-bold  tracking-wide">Neto</span>
+                      {r.peso_neto !== null ? (
+                        <Badge
+                          variant="gradient"
+                          gradient={{ from: "teal", to: "green", deg: 45 }}
+                          size="md"
+                          radius="md"
+                          className="font-extrabold text-zinc-950 px-2.5 py-2.5 shadow-sm shadow-emerald-500/10"
+                        >
+                          {formatTonelada(r.peso_neto)}
+                        </Badge>
+                      ) : (
+                        <Text size="xs" c="dimmed">
+                          ---
+                        </Text>
+                      )}
+                    </div>
+                  </div>
+                );
+              },
             },
             {
               accessor: "evidencias",
