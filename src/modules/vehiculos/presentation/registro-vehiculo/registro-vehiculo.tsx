@@ -175,12 +175,11 @@ export const RegistroVehiculo = ({ vehiculo, onCancel, onSuccess }: Props) => {
           {/* Placa y Serie */}
           <Grid.Col span={{ base: 12, md: 4 }}>
             <TextInput
-              withAsterisk
-              label="Número de Placa"
-              placeholder="Ej. F1B-890"
+              label="Serie Placa"
+              placeholder="Opcional"
               radius="xl"
-              value={payload.numero_placa || ""}
-              onChange={(e) => handleChange("numero_placa", e.target.value.toUpperCase())}
+              value={payload.serie_placa || ""}
+              onChange={(e) => handleChange("serie_placa", e.target.value.toUpperCase())}
               classNames={{
                 input:
                   "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 transition-all",
@@ -190,11 +189,12 @@ export const RegistroVehiculo = ({ vehiculo, onCancel, onSuccess }: Props) => {
           </Grid.Col>
           <Grid.Col span={{ base: 12, md: 4 }}>
             <TextInput
-              label="Serie Placa"
-              placeholder="Opcional"
+              withAsterisk
+              label="Número de Placa"
+              placeholder="Ej. F1B-890"
               radius="xl"
-              value={payload.serie_placa || ""}
-              onChange={(e) => handleChange("serie_placa", e.target.value.toUpperCase())}
+              value={payload.numero_placa || ""}
+              onChange={(e) => handleChange("numero_placa", e.target.value.toUpperCase())}
               classNames={{
                 input:
                   "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 transition-all",

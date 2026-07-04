@@ -9,7 +9,7 @@ export const Schema_CrearVehiculo = z.object({
   serie_placa: z.string().optional().nullable().or(z.literal("")),
   numero_placa: z
     .string()
-    .min(5, "La placa debe tener al menos 5 caracteres")
+    .min(3, "La placa debe tener al menos 3 caracteres")
     .max(15, "La placa es muy larga"),
   numero_constancia_mtc: z.string().optional().nullable().or(z.literal("")),
   capacidad: z.coerce

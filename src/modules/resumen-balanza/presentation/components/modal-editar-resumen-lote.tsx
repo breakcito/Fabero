@@ -23,11 +23,13 @@ import type { RES_EncargadoMuestraGlobal } from "../../../../service/responses/e
 import type { RES_ZonaOrigen } from "../../../../service/responses/zona-origen";
 import type { RES_Conductor } from "../../../../service/responses/conductor";
 import type { RES_Vehiculo } from "../../../../service/responses/vehiculo";
+import type { RES_TipoVehiculo } from "../../../../service/responses/tipo-vehiculo";
 import type { RES_EmpresaTransporte } from "../../../../service/responses/empresa-transporte";
 import type { RES_ResumenBalanzaItem } from "../../service/resumen-balanza.responses";
 import type { DTO_PesoFinal } from "../../../recepcion-mineral/service/recepcion-mineral.requests";
 import type { IArchivo } from "../../../../shared/interfaces/archivo";
 import { useNotify } from "../../../../hooks/useNotify";
+import { RegistroVehiculoSimple } from "../../../../presentation/utils/registro-vehiculo-simple";
 
 interface Props {
   opened: boolean;
@@ -45,6 +47,7 @@ export const ModalEditarResumenLote = ({ opened, lote, onClose, onSuccess }: Pro
   const [zonas, setZonas] = useState<RES_ZonaOrigen[]>([]);
   const [conductores, setConductores] = useState<RES_Conductor[]>([]);
   const [vehiculos, setVehiculos] = useState<RES_Vehiculo[]>([]);
+  const [tiposVehiculo, setTiposVehiculo] = useState<RES_TipoVehiculo[]>([]);
   const [empresasTransporte, setEmpresasTransporte] = useState<RES_EmpresaTransporte[]>([]);
   const [loadingCatalogos, setLoadingCatalogos] = useState(false);
 
@@ -52,6 +55,7 @@ export const ModalEditarResumenLote = ({ opened, lote, onClose, onSuccess }: Pro
   const [openZonaModal, setOpenZonaModal] = useState(false);
   const [nuevaZonaNombre, setNuevaZonaNombre] = useState("");
   const [openEncargadoModal, setOpenEncargadoModal] = useState(false);
+  const [openVehiculoModal, setOpenVehiculoModal] = useState(false);
 
   // Estados Formulario
   const [tipoCarga, setTipoCarga] = useState<string>(lote.lote_tipo_carga || "Granel");
@@ -87,12 +91,13 @@ export const ModalEditarResumenLote = ({ opened, lote, onClose, onSuccess }: Pro
   const fetchCatalogos = async () => {
     setLoadingCatalogos(true);
     try {
-      const [resProv, resEnc, resZonas, resCond, resVeh, resEmp] = await Promise.all([
+      const [resProv, resEnc, resZonas, resCond, resVeh, resTipos, resEmp] = await Promise.all([
         AuxService.get_proveedores(),
         AuxService.get_encargados_muestra(),
         AuxService.get_zonas_origen(),
         AuxService.get_conductores(),
         AuxService.get_vehiculos(),
+        AuxService.get_tipos_vehiculo(),
         AuxService.get_empresas_transporte(),
       ]);
 
@@ -101,6 +106,7 @@ export const ModalEditarResumenLote = ({ opened, lote, onClose, onSuccess }: Pro
       setZonas(resZonas || []);
       setConductores(resCond || []);
       setVehiculos(resVeh || []);
+      setTiposVehiculo(resTipos || []);
       setEmpresasTransporte(resEmp || []);
     } catch (e) {
       console.error("Error al cargar catálogos en edición de lote", e);
@@ -422,21 +428,36 @@ export const ModalEditarResumenLote = ({ opened, lote, onClose, onSuccess }: Pro
                 </Text>
 
                 <Stack gap="md">
-                  <Select
-                    label="Vehículo / Placa:"
-                    placeholder="Seleccione placa"
-                    searchable
-                    disabled={loadingCatalogos}
-                    data={vehiculos.map((v) => ({
-                      value: String(v.id_vehiculo),
-                      label: v.serie_placa ? `${v.serie_placa}-${v.numero_placa}` : v.numero_placa,
-                    }))}
-                    value={idVehiculo}
-                    onChange={setIdVehiculo}
-                    classNames={selectClassNames}
-                    radius="lg"
-                    comboboxProps={selectComboboxProps}
-                  />
+                  <div className="flex gap-1.5 items-end">
+                    <Select
+                      label="Vehículo / Placa:"
+                      placeholder="Seleccione placa"
+                      searchable
+                      disabled={loadingCatalogos}
+                      data={vehiculos.map((v) => ({
+                        value: String(v.id_vehiculo),
+                        label: v.serie_placa ? `${v.serie_placa}-${v.numero_placa}` : v.numero_placa,
+                      }))}
+                      value={idVehiculo}
+                      onChange={setIdVehiculo}
+                      classNames={selectClassNames}
+                      radius="lg"
+                      comboboxProps={selectComboboxProps}
+                      className="flex-1"
+                    />
+                    <Tooltip label="Agregar Vehículo" withArrow>
+                      <ActionIcon
+                        type="button"
+                        variant="filled"
+                        color="zinc"
+                        radius="lg"
+                        onClick={() => setOpenVehiculoModal(true)}
+                        className="bg-zinc-800 text-zinc-300 hover:bg-zinc-700 h-[36px] w-[36px] mb-0.5"
+                      >
+                        <IconPlus size={16} />
+                      </ActionIcon>
+                    </Tooltip>
+                  </div>
 
                   <Select
                     label="Empresa de Transporte:"
@@ -577,6 +598,25 @@ export const ModalEditarResumenLote = ({ opened, lote, onClose, onSuccess }: Pro
             setEncargados((prev) => [...prev, formatted]);
             setIdEncargado(String(nuevo.id_encargado_muestra));
             setOpenEncargadoModal(false);
+          }}
+        />
+      </ModalEstandar>
+
+      {/* Sub-Modal: Registro Rápido de Nuevo Vehículo */}
+      <ModalEstandar
+        opened={openVehiculoModal}
+        close={() => setOpenVehiculoModal(false)}
+        title="Registrar Vehículo (Rápido)"
+        size="sm"
+      >
+        <RegistroVehiculoSimple
+          idEmpresaTransporte={idEmpresaTransporte ? Number(idEmpresaTransporte) : null}
+          idTipoVehiculo={tiposVehiculo.find((t) => t.estado === "Activo")?.id_tipo_vehiculo ?? null}
+          onCancel={() => setOpenVehiculoModal(false)}
+          onSuccess={(nuevo) => {
+            setVehiculos((prev) => [...prev, nuevo]);
+            setIdVehiculo(String(nuevo.id_vehiculo));
+            setOpenVehiculoModal(false);
           }}
         />
       </ModalEstandar>
