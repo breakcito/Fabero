@@ -3,11 +3,14 @@ import { EstadoBase } from "../../../shared/enums/_generic/estado-base";
 import type {
   CrearCuentaBancariaRequest,
   CrearProveedorRequest,
+  EditarCuentaBancariaRequest,
 } from "./proveedores.requests";
 import type {
   CuentaBancariaResponse,
   ProveedorResponse,
 } from "./proveedores.responses";
+import type { RES_Concesion } from "./concesiones.responses";
+
 
 export const ProveedoresService = {
   getProveedores: async (): Promise<ProveedorResponse[]> => {
@@ -54,7 +57,7 @@ export const ProveedoresService = {
   },
   getConcesionesProveedor: async (
     idProveedor: number,
-  ): Promise<any[]> => {
+  ): Promise<RES_Concesion[]> => {
     const { data } = await api.get(`/proveedores/${idProveedor}/concesiones`);
     return data.data;
   },
@@ -76,7 +79,7 @@ export const ProveedoresService = {
 
   editarCuentaBancaria: async (
     id: number,
-    payload: any,
+    payload: EditarCuentaBancariaRequest,
   ): Promise<CuentaBancariaResponse> => {
     const { data } = await api.put(`/proveedores/cuentas-bancarias/${id}`, payload);
     return data.data;

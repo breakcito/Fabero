@@ -10,8 +10,9 @@ import {
   Tooltip,
   ActionIcon,
   Paper,
+  Input,
 } from "@mantine/core";
-import { IconPlus, IconTrash, IconDeviceFloppy } from "@tabler/icons-react";
+import { IconPlus, IconDeviceFloppy } from "@tabler/icons-react";
 import { MultiFilePicker } from "../../../../presentation/utils/archivo/multifile-picker";
 import { FormZonaOrigen } from "../../../../presentation/utils/form-zona-origen";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
@@ -231,311 +232,281 @@ export const ModalEditarResumenLote = ({ opened, lote, onClose, onSuccess }: Pro
       size="xl"
     >
       <Stack gap="md" className="max-h-[80vh] overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
-        <Grid gutter="md">
-          {/* Columna Izquierda: Información de Pesaje y Lote */}
-          <Grid.Col span={{ base: 12, md: 7 }}>
-            <Paper radius="xl" p="md" className="bg-zinc-900/10 border border-zinc-900/80">
-              <Text size="xs" fw={800} className="text-indigo-400 uppercase tracking-widest mb-3 pb-1 border-b border-zinc-900">
-                Detalles del Lote y Mineral
-              </Text>
+        {/* Sección 1: Detalles del Lote y Mineral (3 columnas) */}
+        <Paper radius="xl" p="md" className="bg-zinc-900/10 border border-zinc-900/80">
+          <Text size="xs" fw={800} className="text-indigo-400 uppercase tracking-widest mb-3 pb-1 border-b border-zinc-900">
+            Detalles del Lote y Mineral
+          </Text>
 
-              <Grid gutter="sm">
-                <Grid.Col span={6}>
-                  <Select
-                    label="Tipo Carga:"
-                    placeholder="Seleccione"
-                    data={["Granel", "Sacos", "Mixto"]}
-                    value={tipoCarga}
-                    onChange={(val) => setTipoCarga(val || "Granel")}
-                    classNames={selectClassNames}
-                    radius="lg"
-                    comboboxProps={selectComboboxProps}
-                    required
-                  />
-                </Grid.Col>
-                <Grid.Col span={6}>
-                  <Select
-                    label="Proveedor Minero:"
-                    placeholder="Seleccione"
-                    searchable
-                    disabled={loadingCatalogos}
-                    data={proveedores.map((p) => ({ value: String(p.id_proveedor), label: `${p.razon_social} (${p.documento})` }))}
-                    value={idProveedor}
-                    onChange={handleProveedorChange}
-                    classNames={selectClassNames}
-                    radius="lg"
-                    comboboxProps={selectComboboxProps}
-                  />
-                </Grid.Col>
+          <Grid gutter="sm">
+            <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
+              <Select
+                label="Tipo Carga:"
+                placeholder="Seleccione"
+                data={["Granel", "Sacos", "Mixto"]}
+                value={tipoCarga}
+                onChange={(val) => setTipoCarga(val || "Granel")}
+                classNames={selectClassNames}
+                radius="lg"
+                comboboxProps={selectComboboxProps}
+                required
+              />
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
+              <Select
+                label="Proveedor Minero:"
+                placeholder="Seleccione"
+                searchable
+                disabled={loadingCatalogos}
+                data={proveedores.map((p) => ({ value: String(p.id_proveedor), label: `${p.razon_social} (${p.documento})` }))}
+                value={idProveedor}
+                onChange={handleProveedorChange}
+                classNames={selectClassNames}
+                radius="lg"
+                comboboxProps={selectComboboxProps}
+              />
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
+              <Select
+                label="Producto:"
+                placeholder="Seleccione"
+                data={["Aurífero", "Polimetálico"]}
+                value={producto}
+                onChange={(val) => setProducto(val || "Aurífero")}
+                classNames={selectClassNames}
+                radius="lg"
+                comboboxProps={selectComboboxProps}
+                required
+              />
+            </Grid.Col>
 
-                <Grid.Col span={6}>
-                  <Select
-                    label="Producto:"
-                    placeholder="Seleccione"
-                    data={["Aurífero", "Polimetálico"]}
-                    value={producto}
-                    onChange={(val) => setProducto(val || "Aurífero")}
-                    classNames={selectClassNames}
-                    radius="lg"
-                    comboboxProps={selectComboboxProps}
-                    required
-                  />
-                </Grid.Col>
-                <Grid.Col span={6}>
-                  <Select
-                    label="Tipo Material:"
-                    placeholder="Seleccione"
-                    data={["Mixto", "Óxido", "Sulfuro"]}
-                    value={material}
-                    onChange={(val) => setMaterial(val || "Mixto")}
-                    classNames={selectClassNames}
-                    radius="lg"
-                    comboboxProps={selectComboboxProps}
-                    required
-                  />
-                </Grid.Col>
-
-                <Grid.Col span={6}>
-                  <div className="flex gap-1.5 items-end">
-                    <Select
-                      label="Zona Origen:"
-                      placeholder="Seleccione..."
-                      searchable
-                      disabled={loadingCatalogos}
-                      data={zonas.map((z) => ({ value: String(z.id), label: z.nombre }))}
-                      value={idZona}
-                      onChange={setIdZona}
-                      classNames={selectClassNames}
-                      radius="lg"
-                      comboboxProps={selectComboboxProps}
-                      className="flex-1"
-                    />
-                    <Tooltip label="Agregar Zona" withArrow>
-                      <ActionIcon
-                        type="button"
-                        variant="filled"
-                        color="zinc"
-                        radius="lg"
-                        onClick={() => setOpenZonaModal(true)}
-                        className="bg-zinc-800 text-zinc-300 hover:bg-zinc-700 h-[36px] w-[36px] mb-0.5"
-                      >
-                        <IconPlus size={16} />
-                      </ActionIcon>
-                    </Tooltip>
-                  </div>
-                </Grid.Col>
-                <Grid.Col span={6}>
-                  <div className="flex gap-1.5 items-end">
-                    <Select
-                      label="Encargado Muestra:"
-                      placeholder="Seleccione..."
-                      searchable
-                      disabled={loadingCatalogos}
-                      data={encargados.map((e) => ({ value: String(e.id_encargado_muestra), label: e.nombre }))}
-                      value={idEncargado}
-                      onChange={setIdEncargado}
-                      classNames={selectClassNames}
-                      radius="lg"
-                      comboboxProps={selectComboboxProps}
-                      className="flex-1"
-                    />
-                    <Tooltip label="Agregar Encargado" withArrow>
-                      <ActionIcon
-                        type="button"
-                        variant="filled"
-                        color="zinc"
-                        radius="lg"
-                        onClick={() => setOpenEncargadoModal(true)}
-                        className="bg-zinc-800 text-zinc-300 hover:bg-zinc-700 h-[36px] w-[36px] mb-0.5"
-                      >
-                        <IconPlus size={16} />
-                      </ActionIcon>
-                    </Tooltip>
-                  </div>
-                </Grid.Col>
-
-                <Grid.Col span={6}>
-                  <TextInput
-                    label="N° Contacto:"
-                    value={contacto}
-                    onChange={(e) => setContacto(e.currentTarget.value)}
-                    classNames={fieldClasses}
-                    radius="lg"
-                  />
-                </Grid.Col>
-                <Grid.Col span={6}>
-                  <TextInput
-                    label="Peso Inicial (Kg):"
-                    value={pesoInicial}
-                    onChange={(e) => setPesoInicial(e.currentTarget.value.replace(/\D/g, ""))}
-                    classNames={fieldClasses}
-                    radius="lg"
-                    required
-                  />
-                </Grid.Col>
-
-                <Grid.Col span={6}>
-                  <TextInput
-                    label="Peso Final / Tara (Kg):"
-                    value={pesoFinal}
-                    onChange={(e) => setPesoFinal(e.currentTarget.value.replace(/\D/g, ""))}
-                    classNames={fieldClasses}
-                    radius="lg"
-                  />
-                </Grid.Col>
-                <Grid.Col span={6} className="flex items-end">
-                  <div className="bg-zinc-950/60 border border-zinc-900/80 p-2 rounded-xl flex justify-between items-center gap-3 w-full h-[40px]">
-                    <div className="flex-1 text-center border-r border-zinc-900">
-                      <Text size="8px" fw={700} c="dimmed">NETO CALCULADO</Text>
-                      <Text size="xs" fw={900} c="emerald.4" className="font-mono">{pesoNeto >= 0 ? pesoNeto.toLocaleString() : "0"} Kg</Text>
-                    </div>
-                  </div>
-                </Grid.Col>
-
-                <Grid.Col span={12}>
-                  <Textarea
-                    label="Observación Peso Inicial:"
-                    placeholder="Observaciones de ingreso..."
-                    value={observacionInicial}
-                    onChange={(e) => setObservacionInicial(e.currentTarget.value)}
-                    classNames={fieldClasses}
-                    radius="lg"
-                    minRows={1}
-                  />
-                </Grid.Col>
-
-                <Grid.Col span={12}>
-                  <Textarea
-                    label="Observación Peso Final (Tara):"
-                    placeholder="Observaciones de salida..."
-                    value={observacionFinal}
-                    onChange={(e) => setObservacionFinal(e.currentTarget.value)}
-                    classNames={fieldClasses}
-                    radius="lg"
-                    minRows={1}
-                  />
-                </Grid.Col>
-              </Grid>
-            </Paper>
-          </Grid.Col>
-
-          {/* Columna Derecha: Transporte e Imágenes */}
-          <Grid.Col span={{ base: 12, md: 5 }}>
-            <Stack gap="md">
-              <Paper radius="xl" p="md" className="bg-zinc-900/10 border border-zinc-900/80">
-                <Text size="xs" fw={800} className="text-amber-500 uppercase tracking-widest mb-3 pb-1 border-b border-zinc-900">
-                  Datos de Transporte
-                </Text>
-
-                <Stack gap="md">
-                  <div className="flex gap-1.5 items-end">
-                    <Select
-                      label="Vehículo / Placa:"
-                      placeholder="Seleccione placa"
-                      searchable
-                      disabled={loadingCatalogos}
-                      data={vehiculos.map((v) => ({
-                        value: String(v.id_vehiculo),
-                        label: v.serie_placa ? `${v.serie_placa}-${v.numero_placa}` : v.numero_placa,
-                      }))}
-                      value={idVehiculo}
-                      onChange={setIdVehiculo}
-                      classNames={selectClassNames}
-                      radius="lg"
-                      comboboxProps={selectComboboxProps}
-                      className="flex-1"
-                    />
-                    <Tooltip label="Agregar Vehículo" withArrow>
-                      <ActionIcon
-                        type="button"
-                        variant="filled"
-                        color="zinc"
-                        radius="lg"
-                        onClick={() => setOpenVehiculoModal(true)}
-                        className="bg-zinc-800 text-zinc-300 hover:bg-zinc-700 h-[36px] w-[36px] mb-0.5"
-                      >
-                        <IconPlus size={16} />
-                      </ActionIcon>
-                    </Tooltip>
-                  </div>
-
-                  <Select
-                    label="Empresa de Transporte:"
-                    placeholder="Particular / Propio"
-                    searchable
-                    clearable
-                    disabled={loadingCatalogos}
-                    data={empresasTransporte.map((et) => ({
-                      value: String(et.id_empresa_transporte),
-                      label: et.razon_social,
-                    }))}
-                    value={idEmpresaTransporte}
-                    onChange={setIdEmpresaTransporte}
-                    classNames={selectClassNames}
-                    radius="lg"
-                    comboboxProps={selectComboboxProps}
-                  />
-
-                  <Select
-                    label="Conductor:"
-                    placeholder="Seleccione conductor"
-                    searchable
-                    disabled={loadingCatalogos}
-                    data={conductores.map((c) => ({
-                      value: String(c.id_conductor),
-                      label: `${c.nombre_completo} (${c.numero_licencia || "Sin Licencia"})`,
-                    }))}
-                    value={idConductor}
-                    onChange={setIdConductor}
-                    classNames={selectClassNames}
-                    radius="lg"
-                    comboboxProps={selectComboboxProps}
-                  />
-                </Stack>
-              </Paper>
-
-              {/* Evidencias Existentes */}
-              {evidenciasExistentes.length > 0 && (
-                <Paper radius="xl" p="md" className="bg-zinc-900/10 border border-zinc-900/80">
-                  <Text size="xs" fw={800} className="text-zinc-400 uppercase tracking-widest mb-3 pb-1 border-b border-zinc-900">
-                    Evidencias Existentes
-                  </Text>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {evidenciasExistentes.map((file, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-2 rounded-xl bg-zinc-950/40 border border-zinc-900 overflow-hidden">
-                        <div className="flex items-center gap-2 overflow-hidden flex-1 mr-2">
-                          {file.extension?.match(/(jpg|jpeg|png|webp|gif)/i) ? (
-                            <img src={file.url} className="w-8 h-8 object-cover rounded-md shrink-0" alt="" />
-                          ) : (
-                            <div className="w-8 h-8 bg-zinc-800 rounded-md flex items-center justify-center text-[10px] text-zinc-500 font-bold uppercase shrink-0">
-                              {file.extension || "FILE"}
-                            </div>
-                          )}
-                          <Text size="xs" className="text-zinc-300 truncate" title={file.nombre_original || undefined}>
-                            {file.nombre_original}
-                          </Text>
-                        </div>
-                        <ActionIcon color="red" variant="subtle" size="sm" onClick={() => handleRemoveExistente(file.path_relativo)}>
-                          <IconTrash size={14} />
-                        </ActionIcon>
-                      </div>
-                    ))}
-                  </div>
-                </Paper>
-              )}
-
-              {/* Evidencias adicionales */}
-              <div className="bg-zinc-900/30 border border-zinc-800/80 p-3 rounded-2xl">
-                <MultiFilePicker
-                  files={evidencias}
-                  onFilesChange={setEvidencias}
-                  label="Anexar Nuevas Evidencias"
-                  description="Adjunte imágenes adicionales"
+            <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
+              <Select
+                label="Tipo Material:"
+                placeholder="Seleccione"
+                data={["Mixto", "Óxido", "Sulfuro"]}
+                value={material}
+                onChange={(val) => setMaterial(val || "Mixto")}
+                classNames={selectClassNames}
+                radius="lg"
+                comboboxProps={selectComboboxProps}
+                required
+              />
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
+              <div className="flex gap-1.5 items-end">
+                <Select
+                  label="Zona Origen:"
+                  placeholder="Seleccione..."
+                  searchable
+                  disabled={loadingCatalogos}
+                  data={zonas.map((z) => ({ value: String(z.id), label: z.nombre }))}
+                  value={idZona}
+                  onChange={setIdZona}
+                  classNames={selectClassNames}
+                  radius="lg"
+                  comboboxProps={selectComboboxProps}
+                  className="flex-1"
                 />
+                <Tooltip label="Agregar Zona" withArrow>
+                  <ActionIcon
+                    type="button"
+                    variant="filled"
+                    color="zinc"
+                    radius="lg"
+                    onClick={() => setOpenZonaModal(true)}
+                    className="bg-zinc-800 text-zinc-300 hover:bg-zinc-700 h-[36px] w-[36px] mb-0.5"
+                  >
+                    <IconPlus size={16} />
+                  </ActionIcon>
+                </Tooltip>
               </div>
-            </Stack>
-          </Grid.Col>
-        </Grid>
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
+              <div className="flex gap-1.5 items-end">
+                <Select
+                  label="Encargado Muestra:"
+                  placeholder="Seleccione..."
+                  searchable
+                  disabled={loadingCatalogos}
+                  data={encargados.map((e) => ({ value: String(e.id_encargado_muestra), label: e.nombre }))}
+                  value={idEncargado}
+                  onChange={setIdEncargado}
+                  classNames={selectClassNames}
+                  radius="lg"
+                  comboboxProps={selectComboboxProps}
+                  className="flex-1"
+                />
+                <Tooltip label="Agregar Encargado" withArrow>
+                  <ActionIcon
+                    type="button"
+                    variant="filled"
+                    color="zinc"
+                    radius="lg"
+                    onClick={() => setOpenEncargadoModal(true)}
+                    className="bg-zinc-800 text-zinc-300 hover:bg-zinc-700 h-[36px] w-[36px] mb-0.5"
+                  >
+                    <IconPlus size={16} />
+                  </ActionIcon>
+                </Tooltip>
+              </div>
+            </Grid.Col>
+
+            <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+              <TextInput
+                label="N° Contacto:"
+                value={contacto}
+                onChange={(e) => setContacto(e.currentTarget.value)}
+                classNames={fieldClasses}
+                radius="lg"
+              />
+            </Grid.Col>
+
+            {/* Bloque Pesos: 4 columnas (Contacto · P. Inicial · P. Final · Neto) */}
+            <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+              <TextInput
+                label="Peso Inicial (Kg):"
+                value={pesoInicial}
+                onChange={(e) => setPesoInicial(e.currentTarget.value.replace(/\D/g, ""))}
+                classNames={fieldClasses}
+                radius="lg"
+                required
+              />
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+              <TextInput
+                label="Peso Final / Tara (Kg):"
+                value={pesoFinal}
+                onChange={(e) => setPesoFinal(e.currentTarget.value.replace(/\D/g, ""))}
+                classNames={fieldClasses}
+                radius="lg"
+              />
+            </Grid.Col>
+<Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+              <Input.Wrapper label="Peso Neto (Kg):" classNames={fieldClasses}>
+                <Tooltip label="Calculado automáticamente (Peso Inicial − Tara)" withArrow>
+                  <div className="bg-gradient from-emerald-950/40 to-zinc-950/60 border border-emerald-500/30 rounded-xl flex flex-col items-center justify-center h-[38px] shadow-inner shadow-emerald-900/20">
+                    <Text size="sm" fw={900} c="emerald.3" className="font-mono leading-none">
+                      {pesoNeto >= 0 ? pesoNeto.toLocaleString() : "0"} 
+                    </Text>
+                  </div>
+                </Tooltip>
+              </Input.Wrapper>
+            </Grid.Col>
+
+            <Grid.Col span={12}>
+              <Textarea
+                label="Observación Peso Inicial:"
+                placeholder="Observaciones de ingreso..."
+                value={observacionInicial}
+                onChange={(e) => setObservacionInicial(e.currentTarget.value)}
+                classNames={fieldClasses}
+                radius="lg"
+                minRows={1}
+              />
+            </Grid.Col>
+            <Grid.Col span={12}>
+              <Textarea
+                label="Observación Peso Final:"
+                placeholder="Observaciones de salida..."
+                value={observacionFinal}
+                onChange={(e) => setObservacionFinal(e.currentTarget.value)}
+                classNames={fieldClasses}
+                radius="lg"
+                minRows={1}
+              />
+            </Grid.Col>
+          </Grid>
+        </Paper>
+
+        {/* Sección 2: Datos de Transporte (3 columnas) */}
+        <Paper radius="xl" p="md" className="bg-zinc-900/10 border border-zinc-900/80">
+          <Text size="xs" fw={800} className="text-amber-500 uppercase tracking-widest mb-3 pb-1 border-b border-zinc-900">
+            Datos de Transporte
+          </Text>
+
+          <Grid gutter="sm">
+            <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
+              <div className="flex gap-1.5 items-end">
+                <Select
+                  label="Vehículo / Placa:"
+                  placeholder="Seleccione placa"
+                  searchable
+                  disabled={loadingCatalogos}
+                  data={vehiculos.map((v) => ({
+                    value: String(v.id_vehiculo),
+                    label: v.serie_placa ? `${v.serie_placa}-${v.numero_placa}` : v.numero_placa,
+                  }))}
+                  value={idVehiculo}
+                  onChange={setIdVehiculo}
+                  classNames={selectClassNames}
+                  radius="lg"
+                  comboboxProps={selectComboboxProps}
+                  className="flex-1"
+                />
+                <Tooltip label="Agregar Vehículo" withArrow>
+                  <ActionIcon
+                    type="button"
+                    variant="filled"
+                    color="zinc"
+                    radius="lg"
+                    onClick={() => setOpenVehiculoModal(true)}
+                    className="bg-zinc-800 text-zinc-300 hover:bg-zinc-700 h-[36px] w-[36px] mb-0.5"
+                  >
+                    <IconPlus size={16} />
+                  </ActionIcon>
+                </Tooltip>
+              </div>
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
+              <Select
+                label="Empresa de Transporte:"
+                placeholder="Particular / Propio"
+                searchable
+                clearable
+                disabled={loadingCatalogos}
+                data={empresasTransporte.map((et) => ({
+                  value: String(et.id_empresa_transporte),
+                  label: et.razon_social,
+                }))}
+                value={idEmpresaTransporte}
+                onChange={setIdEmpresaTransporte}
+                classNames={selectClassNames}
+                radius="lg"
+                comboboxProps={selectComboboxProps}
+              />
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
+              <Select
+                label="Conductor:"
+                placeholder="Seleccione conductor"
+                searchable
+                disabled={loadingCatalogos}
+                data={conductores.map((c) => ({
+                  value: String(c.id_conductor),
+                  label: `${c.nombre_completo} (${c.numero_licencia || "Sin Licencia"})`,
+                }))}
+                value={idConductor}
+                onChange={setIdConductor}
+                classNames={selectClassNames}
+                radius="lg"
+                comboboxProps={selectComboboxProps}
+              />
+            </Grid.Col>
+          </Grid>
+        </Paper>
+
+        {/* Sección 3: Gestor de Evidencias (ancho completo) */}
+        <div className="bg-zinc-900/30 border border-zinc-800/80 p-3 rounded-2xl">
+          <MultiFilePicker
+            files={evidencias}
+            onFilesChange={setEvidencias}
+            existingFiles={evidenciasExistentes}
+            onRemoveExisting={handleRemoveExistente}
+            label="Gestor de Evidencias"
+            description="Archivos existentes en el servidor y nuevos por adjuntar"
+          />
+        </div>
 
         {/* Botones de acción */}
         <div className="flex justify-end gap-3 mt-2 pt-4 border-t border-zinc-800">
