@@ -219,13 +219,16 @@ export const useRecepcionMineral = () => {
     }
   };
 
-  const crearUnidadFicticia = async () => {
+  const crearUnidadFicticia = async (fechaHoraIngreso?: string | null) => {
     if (!idSucursal) {
       notifyError("Debe seleccionar una sucursal en el encabezado");
       return;
     }
     try {
-      const ficticia = await RecepcionMineralService.crear_unidad_ficticia(idSucursal);
+      const ficticia = await RecepcionMineralService.crear_unidad_ficticia(
+        idSucursal,
+        fechaHoraIngreso
+      );
       notifySuccess("Unidad ficticia creada correctamente");
       await loadRecepciones();
       setSelectedRecepcion(ficticia);

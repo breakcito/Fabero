@@ -21,8 +21,17 @@ export const RecepcionMineralService = {
   /**
    * Crear unidad ficticia
    */
-  crear_unidad_ficticia: async (idSucursal: number): Promise<RecepcionMineralResponse> => {
-    const { data } = await api.post(`${PATH}/ficticio`, { id_sucursal: idSucursal });
+  crear_unidad_ficticia: async (
+    idSucursal: number,
+    fechaHoraIngreso?: string | null
+  ): Promise<RecepcionMineralResponse> => {
+    const body: { id_sucursal: number; fecha_hora_ingreso?: string } = {
+      id_sucursal: idSucursal,
+    };
+    if (fechaHoraIngreso) {
+      body.fecha_hora_ingreso = fechaHoraIngreso;
+    }
+    const { data } = await api.post(`${PATH}/ficticio`, body);
     return data.data;
   },
 

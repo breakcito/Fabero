@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Grid, Paper, Text, Button, Table, Group, ActionIcon, Popover, Select, TextInput, Badge, Center, Loader, Stack } from "@mantine/core";
-import { IconCheck, IconTrash, IconScale, IconPlus, IconBarcode, IconChecklist } from "@tabler/icons-react";
+import { IconCheck, IconTrash, IconScale, IconPlus, IconBarcode, IconChecklist, IconPencil } from "@tabler/icons-react";
 import { useTitlePage } from "../../../hooks/useTitlePage";
 import { useRecepcionMineral } from "../hooks/useRecepcionMineral";
 import { AuxService } from "../../../service/auxiliar.service";
@@ -8,6 +8,7 @@ import { ModalEstandar } from "../../../presentation/utils/modal-estandar";
 import { RegistroConductor } from "../../../presentation/utils/registro-conductor";
 import { ModalPesoInicial } from "./components/modal-peso-inicial";
 import { ModalPesoFinal } from "./components/modal-peso-final";
+import { ModalUnidadFicticia } from "./components/modal-unidad-ficticia";
 import type { RES_EmpresaTransporte } from "../../../service/responses/empresa-transporte";
 import type { RES_TipoVehiculo } from "../../../service/responses/tipo-vehiculo";
 import type { RES_Conductor } from "../../../service/responses/conductor";
@@ -49,6 +50,8 @@ export const RecepcionMineralPage = () => {
   // Modales
   const [activeLotePesoInicial, setActiveLotePesoInicial] = useState<RES_LoteMineral | null>(null);
   const [activeLotePesoFinal, setActiveLotePesoFinal] = useState<RES_LoteMineral | null>(null);
+  const [openFicticiaModal, setOpenFicticiaModal] = useState(false);
+  const [editingFicticia, setEditingFicticia] = useState<RecepcionMineralResponse | null>(null);
   const [openNewConductorModal, setOpenNewConductorModal] = useState(false);
 
   // Popovers abiertos (estado de ID de recepción + clave del campo)
@@ -174,7 +177,7 @@ export const RecepcionMineralPage = () => {
                   radius="md"
                   size="xs"
                   leftSection={<IconPlus size={14} />}
-                  onClick={crearUnidadFicticia}
+                  onClick={() => setOpenFicticiaModal(true)}
                   disabled={!sucursal}
                   className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-900/10 px-3 py-1 text-xs shrink-0"
                 >
@@ -192,12 +195,17 @@ export const RecepcionMineralPage = () => {
                 ) : (
                   sinPesarList.map((ru) => {
                     const isSelected = selectedRecepcion?.id === ru.id;
-                    const formattedDate = ru.fecha_hora_ingreso
-                      ? new Date(ru.fecha_hora_ingreso).toLocaleDateString()
-                      : "---";
-                    const formattedTime = ru.fecha_hora_ingreso
-                      ? new Date(ru.fecha_hora_ingreso).toLocaleTimeString()
-                      : "---";
+                    const formatFechaHora = (s: string | null | undefined): { fecha: string; hora: string } => {
+                      if (!s) return { fecha: "---", hora: "---" };
+                      const d = new Date(s);
+                      if (isNaN(d.getTime())) return { fecha: "---", hora: "---" };
+                      const pad = (n: number) => n.toString().padStart(2, "0");
+                      return {
+                        fecha: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+                        hora: `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`,
+                      };
+                    };
+                    const { fecha: formattedDate, hora: formattedTime } = formatFechaHora(ru.fecha_hora_ingreso);
 
                     return (
                       <Paper
@@ -219,26 +227,14 @@ export const RecepcionMineralPage = () => {
                             setSelectedRecepcion(ru);
                           }
                         }}
-                        className={`cursor-pointer border transition-all duration-200 select-none overflow-hidden flex flex-col ${
-                          isSelected
-                            ? ru.tipo_ingreso === "Ficticio"
-                              ? "border-orange-500 shadow-md shadow-orange-500/10 bg-orange-950/5"
-                              : "border-amber-500 shadow-md shadow-amber-500/10 bg-amber-950/5"
-                            : "border-zinc-800/80 hover:border-zinc-700/80 bg-zinc-950/20"
-                        }`}
+                        className={`cursor-pointer border transition-all duration-200 select-none overflow-hidden flex flex-col relative bg-zinc-950/30 border-zinc-900/80 `}
                       >
                         {/* Header: Placa */}
                         <div
-                          className={`py-2 px-3 text-center font-bold text-xs tracking-wider border-b font-mono uppercase ${
-                            isSelected
-                              ? ru.tipo_ingreso === "Ficticio"
-                                ? "bg-orange-600 text-white border-orange-500/50"
-                                : "bg-amber-600 text-zinc-950 border-amber-500/50"
-                              : "bg-zinc-800 text-zinc-300 border-zinc-700/60"
-                          }`}
+                          className={`py-2 px-3 text-center font-bold text-xs tracking-wider font-mono uppercase bg-zinc-800 text-zinc-300`}
                         >
-                          <Group justify="center" gap={6} className="relative">
-                            <span>
+                          <Group justify="center" gap={8} wrap="nowrap">
+                            <span className="truncate">
                               {getFullPlaca(
                                 ru.tipo_ingreso === "Ficticio" ? null : ru.vehiculo_serie,
                                 ru.vehiculo_placa
@@ -246,14 +242,32 @@ export const RecepcionMineralPage = () => {
                             </span>
                             {ru.tipo_ingreso === "Ficticio" && (
                               <Badge
-                                color="orange"
                                 variant="filled"
-                                size="9px"
+                                size="xs"
                                 radius="md"
-                                className="absolute right-1 top-1/2 -translate-y-1/2 font-bold"
+                                className="font-extrabold tracking-wider shrink-0 bg-zinc-700 text-zinc-100 border border-zinc-600/60"
                               >
-                                Ficticia
+                                FICTICIA
                               </Badge>
+                            )}
+                            {ru.tipo_ingreso === "Ficticio" && (
+                              <ActionIcon
+                                size="xs"
+                                variant="subtle"
+                                radius="md"
+                                className={`shrink-0 transition-colors ${
+                                  isSelected
+                                    ? "text-zinc-950 hover:bg-zinc-950/30"
+                                    : "text-zinc-300 hover:bg-zinc-700/40"
+                                }`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingFicticia(ru);
+                                }}
+                                title="Editar fecha y hora"
+                              >
+                                <IconPencil size={12} stroke={2} />
+                              </ActionIcon>
                             )}
                           </Group>
                         </div>
@@ -322,17 +336,17 @@ export const RecepcionMineralPage = () => {
                           p="md"
                           className={`border transition-all duration-300 mb-4 ${
                             isFicticio
-                              ? "bg-orange-950/10 border-orange-500/50"
+                              ? "bg-indigo-950/10 border-indigo-500/50"
                               : "bg-amber-950/10 border-amber-500/50"
                           }`}
                         >
                           <Group justify="space-between">
                             <div>
-                              <Text size="xs" className={isFicticio ? "text-orange-400/80 font-bold" : "text-amber-500/80 font-bold"}>
+                              <Text size="xs" className={`font-bold ${isFicticio ? "text-indigo-400/80" : "text-amber-500/80"}`}>
                                 PROCESO DE BALANZA ACTIVO
                               </Text>
                               <Text size="md" fw={700} className="text-zinc-100">
-                                Unidad: <span className={isFicticio ? "text-orange-400 font-mono font-bold" : "text-amber-400 font-mono font-bold"}>
+                                Unidad: <span className={`font-mono font-bold ${isFicticio ? "text-indigo-400" : "text-amber-400"}`}>
                                   {getFullPlaca(isFicticio ? null : ru.vehiculo_serie, ru.vehiculo_placa)}
                                 </span>
                                 {ru.tipo_ingreso === "Ficticio" && " (Ficticia)"}
@@ -890,6 +904,26 @@ export const RecepcionMineralPage = () => {
           }}
         />
       </ModalEstandar>
+
+      {/* Modal: Unidad Ficticia (crear / editar fecha/hora) */}
+      <ModalUnidadFicticia
+        opened={openFicticiaModal || !!editingFicticia}
+        onClose={() => {
+          setOpenFicticiaModal(false);
+          setEditingFicticia(null);
+        }}
+        mode={editingFicticia ? "edit" : "create"}
+        initialFechaHoraIngreso={editingFicticia?.fecha_hora_ingreso ?? null}
+        onConfirm={async (fechaHoraIngreso) => {
+          if (editingFicticia) {
+            await validarCampo(editingFicticia.id, "fecha_hora_ingreso", fechaHoraIngreso);
+            setEditingFicticia(null);
+          } else {
+            await crearUnidadFicticia(fechaHoraIngreso);
+            setOpenFicticiaModal(false);
+          }
+        }}
+      />
     </div>
   );
 };
