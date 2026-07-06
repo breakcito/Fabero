@@ -6,6 +6,7 @@ export interface RES_Vehiculo {
   id_tipo_vehiculo: number;
   razon_social: string;
   tipo_vehiculo_nombre: string;
+  es_carreta?: boolean;
   serie_placa: string | null;
   numero_placa: string;
   estado: EstadoBase;

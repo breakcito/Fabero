@@ -158,8 +158,8 @@ export const ModalPesoFinal = ({ lote, onCancel, onSubmit }: Props) => {
       <Stack gap="md" className="max-h-[85vh] overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
         {/* 1. Editar Peso Inicial - Ancho completo, 3 columnas */}
         <Paper radius="xl" p="md" className="bg-zinc-900/20 border border-zinc-800/80">
-          <Group gap="xs" mb="sm" pb="xs" className="border-b border-zinc-800">
-            <span className="w-1 h-4 bg-indigo-500 rounded-full" />
+          <Group gap="xs" mb="xs" pb="xs" className="border-b border-zinc-800">
+           
             <Text size="xs" fw={800} className="text-indigo-400 uppercase tracking-widest">
               1. Editar Peso Inicial y Transporte
             </Text>
@@ -324,10 +324,10 @@ export const ModalPesoFinal = ({ lote, onCancel, onSubmit }: Props) => {
 
         {/* 2. Registrar Peso Final (Tara) */}
         <Paper radius="xl" p="md" className="bg-zinc-900/20 border border-zinc-800/80">
-          <Group gap="xs" mb="sm" pb="xs" className="border-b border-zinc-800">
-            <span className="w-1 h-4 bg-amber-500 rounded-full" />
+          <Group gap="xs" mb="xs" pb="xs" className="border-b border-zinc-800">
+            
             <Text size="xs" fw={800} className="text-amber-500 uppercase tracking-widest">
-              2. Registrar Peso Final (Tara)
+              2. Registrar Peso Final
             </Text>
           </Group>
 
@@ -361,21 +361,21 @@ export const ModalPesoFinal = ({ lote, onCancel, onSubmit }: Props) => {
         </Paper>
 
         {/* 3. Cálculo de Pesos - 3 badges independientes */}
-        <Paper radius="xl" p="md" className="bg-zinc-950/80 border border-zinc-800/80 shadow-inner">
+        <Paper radius="xl" p="xs" className="bg-zinc-950/80 border border-zinc-800/80 shadow-inner">
 
-          <Grid gutter="sm" align="stretch">
+          <Grid gutter="xs" align="stretch">
             <Grid.Col span={{ base: 12, sm: 4 }}>
               <Badge
                 variant="outline"
                 color="zinc"
                 radius="lg"
-                size="xl"
+                size="xs"
                 fullWidth
                 styles={{
                   root: {
                     height: "100%",
-                    paddingTop: 12,
-                    paddingBottom: 12,
+                    paddingTop: 6,
+                    paddingBottom: 6,
                     borderColor: "var(--mantine-color-zinc-8)",
                     backgroundColor: "rgba(24, 24, 27, 0.5)",
                   },
@@ -392,13 +392,13 @@ export const ModalPesoFinal = ({ lote, onCancel, onSubmit }: Props) => {
                 variant="outline"
                 color="zinc"
                 radius="lg"
-                size="xl"
+                size="xs"
                 fullWidth
                 styles={{
                   root: {
                     height: "100%",
-                    paddingTop: 12,
-                    paddingBottom: 12,
+                    paddingTop: 6,
+                    paddingBottom: 6,
                     borderColor: "var(--mantine-color-zinc-8)",
                     backgroundColor: "rgba(24, 24, 27, 0.5)",
                   },
@@ -415,13 +415,13 @@ export const ModalPesoFinal = ({ lote, onCancel, onSubmit }: Props) => {
                 variant="light"
                 color="emerald"
                 radius="lg"
-                size="xl"
+                size="xs"
                 fullWidth
                 styles={{
                   root: {
                     height: "100%",
-                    paddingTop: 12,
-                    paddingBottom: 12,
+                    paddingTop: 6,
+                    paddingBottom: 6,
                     borderColor: "var(--mantine-color-emerald-5)",
                     boxShadow: "0 0 15px rgba(16, 185, 129, 0.15)",
                   },
