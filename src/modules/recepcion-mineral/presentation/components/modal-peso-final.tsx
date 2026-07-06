@@ -4,12 +4,15 @@ import {
   Textarea,
   Button,
   Stack,
+  Group,
   Text,
   Grid,
   Select,
   Tooltip,
   ActionIcon,
   Paper,
+  Divider,
+  Badge,
 } from "@mantine/core";
 import { IconWeight, IconPlus } from "@tabler/icons-react";
 import { MultiFilePicker } from "../../../../presentation/utils/archivo/multifile-picker";
@@ -147,238 +150,311 @@ export const ModalPesoFinal = ({ lote, onCancel, onSubmit }: Props) => {
   const fieldClasses = {
     input:
       "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 transition-all",
-    label: "text-zinc-400 font-semibold text-xs mb-1.5",
-  };
-
-  const weightInputClasses = {
-    input:
-      "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 transition-all text-center font-bold text-lg h-[42px]",
-    label: "text-zinc-400 font-semibold text-xs mb-1.5",
+    label: "text-zinc-400 font-medium text-xs mb-1",
   };
 
   return (
     <>
       <Stack gap="md" className="max-h-[85vh] overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
-        {/* Distribución en dos columnas */}
-        <Grid gutter="md">
-          {/* Columna Izquierda: Edición del Peso Inicial */}
-          <Grid.Col span={{ base: 12, md: 7 }}>
-            <Paper radius="xl" p="md" className="bg-zinc-900/10 border border-zinc-900/80">
-              <Text size="xs" fw={800} className="text-indigo-400 uppercase tracking-widest mb-3 pb-1 border-b border-zinc-900">
-                1. Editar Peso Inicial y Transporte
-              </Text>
-              
-              <Grid gutter="sm">
-                <Grid.Col span={6}>
-                  <Select
-                    label="Tipo Carga:"
-                    placeholder="Seleccione"
-                    data={["Granel", "Sacos", "Mixto"]}
-                    value={tipoCarga}
-                    onChange={(val) => setTipoCarga(val || "Granel")}
-                    classNames={fieldClasses}
-                    radius="lg"
-                    required
-                  />
-                </Grid.Col>
-                <Grid.Col span={6}>
-                  <Select
-                    label="Proveedor Minero:"
-                    placeholder="Seleccione"
-                    searchable
-                    disabled={loadingCatalogos}
-                    data={proveedores.map((p) => ({ value: String(p.id_proveedor), label: `${p.razon_social} (${p.documento})` }))}
-                    value={idProveedor}
-                    onChange={handleProveedorChange}
-                    classNames={fieldClasses}
-                    radius="lg"
-                  />
-                </Grid.Col>
+        {/* 1. Editar Peso Inicial - Ancho completo, 3 columnas */}
+        <Paper radius="xl" p="md" className="bg-zinc-900/20 border border-zinc-800/80">
+          <Group gap="xs" mb="sm" pb="xs" className="border-b border-zinc-800">
+            <span className="w-1 h-4 bg-indigo-500 rounded-full" />
+            <Text size="xs" fw={800} className="text-indigo-400 uppercase tracking-widest">
+              1. Editar Peso Inicial y Transporte
+            </Text>
+          </Group>
 
-                <Grid.Col span={6}>
-                  <Select
-                    label="Producto:"
-                    placeholder="Seleccione"
-                    data={["Aurífero", "Polimetálico"]}
-                    value={producto}
-                    onChange={(val) => setProducto(val || "Aurífero")}
-                    classNames={fieldClasses}
-                    radius="lg"
-                    required
-                  />
-                </Grid.Col>
-                <Grid.Col span={6}>
-                  <Select
-                    label="Tipo Material:"
-                    placeholder="Seleccione"
-                    data={["Mixto", "Óxido", "Sulfuro"]}
-                    value={material}
-                    onChange={(val) => setMaterial(val || "Mixto")}
-                    classNames={fieldClasses}
-                    radius="lg"
-                    required
-                  />
-                </Grid.Col>
+          <Grid gutter="sm">
+            <Grid.Col span={{ base: 12, md: 4 }}>
+              <Select
+                label="Tipo Carga:"
+                placeholder="Seleccione"
+                data={["Granel", "Sacos", "Mixto"]}
+                value={tipoCarga}
+                onChange={(val) => setTipoCarga(val || "Granel")}
+                classNames={fieldClasses}
+                radius="lg"
+                size="xs"
+                required
+              />
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, md: 4 }}>
+              <Select
+                label="Producto:"
+                placeholder="Seleccione"
+                data={["Aurífero", "Polimetálico"]}
+                value={producto}
+                onChange={(val) => setProducto(val || "Aurífero")}
+                classNames={fieldClasses}
+                radius="lg"
+                size="xs"
+                required
+              />
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, md: 4 }}>
+              <Select
+                label="Tipo Material:"
+                placeholder="Seleccione"
+                data={["Mixto", "Óxido", "Sulfuro"]}
+                value={material}
+                onChange={(val) => setMaterial(val || "Mixto")}
+                classNames={fieldClasses}
+                radius="lg"
+                size="xs"
+                required
+              />
+            </Grid.Col>
 
-                <Grid.Col span={6}>
-                  <div className="flex gap-1.5 items-end">
-                    <Select
-                      label="Zona Origen:"
-                      placeholder="Seleccione..."
-                      searchable
-                      disabled={loadingCatalogos}
-                      data={zonas.map((z) => ({ value: String(z.id), label: z.nombre }))}
-                      value={idZona}
-                      onChange={setIdZona}
-                      classNames={fieldClasses}
-                      radius="lg"
-                      className="flex-1"
-                    />
-                    <Tooltip label="Agregar Zona" withArrow>
-                      <ActionIcon
-                        type="button"
-                        variant="filled"
-                        color="zinc"
-                        radius="lg"
-                        onClick={() => setOpenZonaModal(true)}
-                        className="bg-zinc-800 text-zinc-300 hover:bg-zinc-700 h-[36px] w-[36px] mb-0.5"
-                      >
-                        <IconPlus size={16} />
-                      </ActionIcon>
-                    </Tooltip>
-                  </div>
-                </Grid.Col>
-                <Grid.Col span={6}>
-                  <div className="flex gap-1.5 items-end">
-                    <Select
-                      label="Encargado Muestra:"
-                      placeholder="Seleccione..."
-                      searchable
-                      disabled={loadingCatalogos}
-                      data={encargados.map((e) => ({ value: String(e.id_encargado_muestra), label: e.nombre }))}
-                      value={idEncargado}
-                      onChange={setIdEncargado}
-                      classNames={fieldClasses}
-                      radius="lg"
-                      className="flex-1"
-                    />
-                    <Tooltip label="Agregar Encargado" withArrow>
-                      <ActionIcon
-                        type="button"
-                        variant="filled"
-                        color="zinc"
-                        radius="lg"
-                        onClick={() => setOpenEncargadoModal(true)}
-                        className="bg-zinc-800 text-zinc-300 hover:bg-zinc-700 h-[36px] w-[36px] mb-0.5"
-                      >
-                        <IconPlus size={16} />
-                      </ActionIcon>
-                    </Tooltip>
-                  </div>
-                </Grid.Col>
-
-                <Grid.Col span={6}>
-                  <TextInput
-                    label="N° Contacto:"
-                    value={contacto}
-                    onChange={(e) => setContacto(e.currentTarget.value)}
-                    classNames={fieldClasses}
-                    radius="lg"
-                  />
-                </Grid.Col>
-                <Grid.Col span={6}>
-                  <TextInput
-                    label="Peso Inicial (Kg):"
-                    value={pesoInicial}
-                    onChange={(e) => setPesoInicial(e.currentTarget.value.replace(/\D/g, ""))}
-                    classNames={fieldClasses}
-                    radius="lg"
-                    required
-                  />
-                </Grid.Col>
-
-                <Grid.Col span={12}>
-                  <Textarea
-                    label="Observación Peso Inicial:"
-                    placeholder="Escriba alguna observación sobre el peso inicial..."
-                    value={observacionInicial}
-                    onChange={(e) => setObservacionInicial(e.currentTarget.value)}
-                    classNames={fieldClasses}
-                    radius="lg"
-                    minRows={1}
-                  />
-                </Grid.Col>
-
-              </Grid>
-            </Paper>
-          </Grid.Col>
-
-          {/* Columna Derecha: Registro del Peso Final */}
-          <Grid.Col span={{ base: 12, md: 5 }}>
-            <Stack gap="md">
-              <Paper radius="xl" p="md" className="bg-zinc-900/10 border border-zinc-900/80">
-                <Text size="xs" fw={800} className="text-amber-500 uppercase tracking-widest mb-3 pb-1 border-b border-zinc-900">
-                  2. Registrar Peso Final (Tara)
-                </Text>
-
-                <Stack gap="md">
-                  <TextInput
-                    label="Peso Final / Tara (Kg):"
-                    placeholder="Ingrese tara en Kilos"
-                    value={pesoFinal}
-                    onChange={(e) => setPesoFinal(e.currentTarget.value.replace(/\D/g, ""))}
-                    classNames={weightInputClasses}
-                    radius="lg"
-                    required
-                  />
-
-                  <Textarea
-                    label="Observación Peso Final (Opcional):"
-                    placeholder="Escriba alguna observación..."
-                    value={observacionFinal}
-                    onChange={(e) => setObservacionFinal(e.currentTarget.value)}
-                    classNames={fieldClasses}
-                    radius="lg"
-                    minRows={2}
-                  />
-                </Stack>
-              </Paper>
-
-              {/* Resumen de Pesos */}
-              <div className="bg-zinc-950/60 border border-zinc-900/80 p-3 rounded-2xl flex justify-between items-center gap-3">
-                <div className="flex-1 text-center border-r border-zinc-900">
-                  <Text size="10px" fw={700} c="dimmed">P. BRUTO</Text>
-                  <Text size="sm" fw={700} c="zinc.2" className="font-mono mt-0.5">{pesoBruto.toLocaleString()} Kg</Text>
-                </div>
-                <div className="flex-1 text-center border-r border-zinc-900">
-                  <Text size="10px" fw={700} c="dimmed">TARA</Text>
-                  <Text size="sm" fw={700} c="zinc.2" className="font-mono mt-0.5">{tara.toLocaleString()} Kg</Text>
-                </div>
-                <div className="flex-1 text-center">
-                  <Text size="10px" fw={700} c="emerald.5">P. NETO</Text>
-                  <Text size="md" fw={900} c="emerald.4" className="font-mono mt-0.5">{pesoNeto >= 0 ? pesoNeto.toLocaleString() : "0"} Kg</Text>
-                </div>
-              </div>
-
-              {/* Evidencias adicionales */}
-              <div className="bg-zinc-900/30 border border-zinc-800/80 p-3 rounded-2xl">
-                <MultiFilePicker
-                  files={evidencias}
-                  onFilesChange={setEvidencias}
-                  label="Evidencias de Pesaje Final"
-                  description="Adjunte imágenes del pesaje final"
+            <Grid.Col span={{ base: 12, md: 4 }}>
+              <Select
+                label="Proveedor Minero:"
+                placeholder="Seleccione"
+                searchable
+                disabled={loadingCatalogos}
+                data={proveedores.map((p) => ({ value: String(p.id_proveedor), label: `${p.razon_social} (${p.documento})` }))}
+                value={idProveedor}
+                onChange={handleProveedorChange}
+                classNames={fieldClasses}
+                radius="lg"
+                size="xs"
+              />
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, md: 4 }}>
+              <Group gap="xs" align="flex-end" wrap="nowrap">
+                <Select
+                  label="Zona Origen:"
+                  placeholder="Seleccione..."
+                  searchable
+                  disabled={loadingCatalogos}
+                  data={zonas.map((z) => ({ value: String(z.id), label: z.nombre }))}
+                  value={idZona}
+                  onChange={setIdZona}
+                  classNames={fieldClasses}
+                  radius="lg"
+                  size="xs"
+                  className="flex-1"
                 />
-              </div>
-            </Stack>
-          </Grid.Col>
-        </Grid>
+                <Tooltip label="Agregar Zona" withArrow>
+                  <ActionIcon
+                    type="button"
+                    variant="filled"
+                    color="zinc"
+                    radius="lg"
+                    size="lg"
+                    onClick={() => setOpenZonaModal(true)}
+                    className="bg-zinc-800 text-zinc-300 hover:bg-zinc-700 border border-zinc-700"
+                  >
+                    <IconPlus size={16} />
+                  </ActionIcon>
+                </Tooltip>
+              </Group>
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, md: 4 }}>
+              <Group gap="xs" align="flex-end" wrap="nowrap">
+                <Select
+                  label="Encargado Muestra:"
+                  placeholder="Seleccione..."
+                  searchable
+                  disabled={loadingCatalogos}
+                  data={encargados.map((e) => ({ value: String(e.id_encargado_muestra), label: e.nombre }))}
+                  value={idEncargado}
+                  onChange={setIdEncargado}
+                  classNames={fieldClasses}
+                  radius="lg"
+                  size="xs"
+                  className="flex-1"
+                />
+                <Tooltip label="Agregar Encargado" withArrow>
+                  <ActionIcon
+                    type="button"
+                    variant="filled"
+                    color="zinc"
+                    radius="lg"
+                    size="lg"
+                    onClick={() => setOpenEncargadoModal(true)}
+                    className="bg-zinc-800 text-zinc-300 hover:bg-zinc-700 border border-zinc-700"
+                  >
+                    <IconPlus size={16} />
+                  </ActionIcon>
+                </Tooltip>
+              </Group>
+            </Grid.Col>
+
+            <Grid.Col span={{ base: 12, md: 4 }}>
+              <TextInput
+                label="N° Contacto:"
+                value={contacto}
+                onChange={(e) => setContacto(e.currentTarget.value)}
+                classNames={fieldClasses}
+                radius="lg"
+                size="xs"
+              />
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, md: 4 }}>
+              <TextInput
+                label="Peso Inicial (Kg):"
+                value={pesoInicial}
+                onChange={(e) => setPesoInicial(e.currentTarget.value.replace(/\D/g, ""))}
+                classNames={fieldClasses}
+                radius="lg"
+                size="xs"
+                required
+              />
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, md: 4 }}>
+              {/* Columna vacía para mantener el grid 3x3 balanceado */}
+            </Grid.Col>
+
+            <Grid.Col span={12}>
+              <Textarea
+                label="Observación Peso Inicial:"
+                placeholder="Escriba alguna observación sobre el peso inicial..."
+                value={observacionInicial}
+                onChange={(e) => setObservacionInicial(e.currentTarget.value)}
+                classNames={fieldClasses}
+                radius="lg"
+                size="xs"
+                minRows={1}
+                autosize
+              />
+            </Grid.Col>
+          </Grid>
+        </Paper>
+
+        {/* 2. Registrar Peso Final (Tara) */}
+        <Paper radius="xl" p="md" className="bg-zinc-900/20 border border-zinc-800/80">
+          <Group gap="xs" mb="sm" pb="xs" className="border-b border-zinc-800">
+            <span className="w-1 h-4 bg-amber-500 rounded-full" />
+            <Text size="xs" fw={800} className="text-amber-500 uppercase tracking-widest">
+              2. Registrar Peso Final (Tara)
+            </Text>
+          </Group>
+
+          <Grid gutter="sm">
+            <Grid.Col span={{ base: 12, sm: 6 }}>
+              <TextInput
+                label="Peso Final / Tara (Kg):"
+                placeholder="Ingrese tara en Kilos"
+                value={pesoFinal}
+                onChange={(e) => setPesoFinal(e.currentTarget.value.replace(/\D/g, ""))}
+                classNames={fieldClasses}
+                radius="lg"
+                size="xs"
+                required
+              />
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, sm: 6 }}>
+              <Textarea
+                label="Observación Peso Final (Opcional):"
+                placeholder="Escriba alguna observación..."
+                value={observacionFinal}
+                onChange={(e) => setObservacionFinal(e.currentTarget.value)}
+                classNames={fieldClasses}
+                radius="lg"
+                size="xs"
+                minRows={2}
+                autosize
+              />
+            </Grid.Col>
+          </Grid>
+        </Paper>
+
+        {/* 3. Cálculo de Pesos - 3 badges independientes */}
+        <Paper radius="xl" p="md" className="bg-zinc-950/80 border border-zinc-800/80 shadow-inner">
+
+          <Grid gutter="sm" align="stretch">
+            <Grid.Col span={{ base: 12, sm: 4 }}>
+              <Badge
+                variant="outline"
+                color="zinc"
+                radius="lg"
+                size="xl"
+                fullWidth
+                styles={{
+                  root: {
+                    height: "100%",
+                    paddingTop: 12,
+                    paddingBottom: 12,
+                    borderColor: "var(--mantine-color-zinc-8)",
+                    backgroundColor: "rgba(24, 24, 27, 0.5)",
+                  },
+                }}
+              >
+                <Stack gap={4} align="center">
+                  <Text size="xs" fw={700} c="dimmed" tt="uppercase" lts="0.05em">Peso Bruto (Kg)</Text>
+                  <Text size="sm" fw={700} c="zinc.2" className="font-mono">{Math.floor(pesoBruto).toLocaleString()}</Text>
+                </Stack>
+              </Badge>
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, sm: 4 }}>
+              <Badge
+                variant="outline"
+                color="zinc"
+                radius="lg"
+                size="xl"
+                fullWidth
+                styles={{
+                  root: {
+                    height: "100%",
+                    paddingTop: 12,
+                    paddingBottom: 12,
+                    borderColor: "var(--mantine-color-zinc-8)",
+                    backgroundColor: "rgba(24, 24, 27, 0.5)",
+                  },
+                }}
+              >
+                <Stack gap={4} align="center">
+                  <Text size="xs" fw={700} c="dimmed" tt="uppercase" lts="0.05em">Tara (Kg)</Text>
+                  <Text size="sm" fw={700} c="zinc.2" className="font-mono">{Math.floor(tara).toLocaleString()}</Text>
+                </Stack>
+              </Badge>
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, sm: 4 }}>
+              <Badge
+                variant="light"
+                color="emerald"
+                radius="lg"
+                size="xl"
+                fullWidth
+                styles={{
+                  root: {
+                    height: "100%",
+                    paddingTop: 12,
+                    paddingBottom: 12,
+                    borderColor: "var(--mantine-color-emerald-5)",
+                    boxShadow: "0 0 15px rgba(16, 185, 129, 0.15)",
+                  },
+                }}
+              >
+                <Stack gap={4} align="center">
+                  <Text size="xs" fw={800} c="emerald.4" tt="uppercase" lts="0.1em">Peso Neto (Kg)</Text>
+                  <Text size="sm" fw={900} c="emerald.3" className="font-mono">{Math.max(0, Math.floor(pesoNeto)).toLocaleString()}</Text>
+                </Stack>
+              </Badge>
+            </Grid.Col>
+          </Grid>
+        </Paper>
+
+        {/* Evidencias - Fila inferior de ancho completo */}
+        <div className="bg-zinc-900/30 border border-zinc-800/80 p-3 rounded-2xl">
+          <MultiFilePicker
+            files={evidencias}
+            onFilesChange={setEvidencias}
+            label="Evidencias de Pesaje Final"
+            description="Adjunte imágenes del pesaje final"
+          />
+        </div>
+
+        <Divider my="xs" color="zinc.8" />
 
         {/* Botones de acción */}
-        <div className="flex justify-end gap-3 mt-2 pt-4 border-t border-zinc-800">
+        <Group justify="flex-end" gap="sm">
           <Button
             variant="subtle"
             color="gray"
             radius="lg"
+            size="sm"
             onClick={onCancel}
             disabled={submitting}
             classNames={{ root: "text-zinc-400 hover:bg-zinc-800" }}
@@ -387,6 +463,7 @@ export const ModalPesoFinal = ({ lote, onCancel, onSubmit }: Props) => {
           </Button>
           <Button
             radius="lg"
+            size="sm"
             loading={submitting}
             onClick={handleConfirmar}
             leftSection={<IconWeight size={18} />}
@@ -394,7 +471,7 @@ export const ModalPesoFinal = ({ lote, onCancel, onSubmit }: Props) => {
           >
             Confirmar Peso Final
           </Button>
-        </div>
+        </Group>
       </Stack>
 
       {/* Sub-Modal: Registro de Nueva Zona de Origen */}

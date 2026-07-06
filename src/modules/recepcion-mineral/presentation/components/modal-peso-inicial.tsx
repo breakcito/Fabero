@@ -264,16 +264,6 @@ export const ModalPesoInicial = ({ lote, onCancel, onSubmit }: Props) => {
           {/* Fila inferior de ancho completo */}
           <Grid.Col span={12}>
             <Stack gap="md">
-              {/* Evidencias */}
-              <div className="bg-zinc-900/30 border border-zinc-800/80 p-4 rounded-2xl">
-                <MultiFilePicker
-                  files={evidencias}
-                  onFilesChange={setEvidencias}
-                  label="Evidencias de Pesaje Inicial"
-                  description="Adjunte imágenes del ingreso de balanza inicial"
-                />
-              </div>
-
               {/* Peso Inicial */}
               <div className="bg-zinc-950/40 p-4 rounded-2xl border border-zinc-900/80">
                 <Text className="text-zinc-300 font-bold text-sm mb-2">Peso Inicial (Kg):</Text>
@@ -286,6 +276,16 @@ export const ModalPesoInicial = ({ lote, onCancel, onSubmit }: Props) => {
                       "bg-zinc-900/60 border-zinc-800 text-center font-bold text-lg text-white focus:border-zinc-300 transition-all",
                   }}
                   radius="lg"
+                />
+              </div>
+
+              {/* Evidencias */}
+              <div className="bg-zinc-900/30 border border-zinc-800/80 p-4 rounded-2xl">
+                <MultiFilePicker
+                  files={evidencias}
+                  onFilesChange={setEvidencias}
+                  label="Evidencias de Pesaje Inicial"
+                  description="Adjunte imágenes del ingreso de balanza inicial"
                 />
               </div>
             </Stack>
