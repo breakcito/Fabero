@@ -56,7 +56,7 @@ export const GuiasPrimerTramoPage = () => {
       fetchFiltrosMetadata(idSucursal);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idSucursal]);
+  }, [idSucursal, fechaInicio, fechaFin]);
 
   const handleLimpiar = () => {
     const today = todayIso();

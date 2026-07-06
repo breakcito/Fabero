@@ -231,11 +231,11 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, onClose, onSubmit }: 
     }
   }, [idVehiculoCarreta, carretas]);
 
-  // Cuando cambia fecha_inicio_traslado, autocompletar fecha_emision y fecha_en_planta
+  // Cuando cambia fecha_inicio_traslado, sincronizar fecha_emision y fecha_en_planta
   const setFechas = (value: string | null) => {
     setFechaInicioTraslado(value);
-    setFechaEmision((current) => current ?? value);
-    setFechaEnPlanta((current) => current ?? value);
+    setFechaEmision(value);
+    setFechaEnPlanta(value);
   };
 
   // Cargar lotes disponibles (sin filtrar por proveedor) cuando se abre el sub-modal

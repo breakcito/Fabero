@@ -62,9 +62,15 @@ export const useGuiasPrimerTramo = () => {
         const guia = await GuiasPrimerTramoService.crear_guia(dto);
         notifySuccess("Guía de primer tramo registrada correctamente");
         return guia;
-      } catch (e) {
+      } catch (e: unknown) {
         console.error("Error al crear guía", e);
-        notifyError("No se pudo registrar la guía de primer tramo.");
+        // Extraer mensaje real del backend si está disponible
+        let msg = "No se pudo registrar la guía de primer tramo.";
+        const axiosErr = e as { response?: { data?: { message?: string } } };
+        if (axiosErr?.response?.data?.message) {
+          msg = axiosErr.response.data.message;
+        }
+        notifyError(msg);
         throw e;
       } finally {
         setSubmitting(false);
