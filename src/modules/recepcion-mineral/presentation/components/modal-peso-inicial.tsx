@@ -23,13 +23,13 @@ export const ModalPesoInicial = ({ lote, onCancel, onSubmit }: Props) => {
   const { notifyError } = useNotify();
 
   // Inputs
-  const [tipoCarga, setTipoCarga] = useState<string>("Granel");
+  const [tipoCarga, setTipoCarga] = useState<string | null>(null);
   const [idProveedor, setIdProveedor] = useState<string | null>(null);
   const [idEncargado, setIdEncargado] = useState<string | null>(null);
   const [idZona, setIdZona] = useState<string | null>(null);
   const [contacto, setContacto] = useState<string>("");
-  const [producto, setProducto] = useState<string>("Aurífero");
-  const [material, setMaterial] = useState<string>("Mixto");
+  const [producto, setProducto] = useState<string | null>(null);
+  const [material, setMaterial] = useState<string | null>(null);
   const [observacion, setObservacion] = useState<string>("");
   const [pesoInicial, setPesoInicial] = useState<string>("");
   const [evidencias, setEvidencias] = useState<File[]>([]);
@@ -84,6 +84,18 @@ export const ModalPesoInicial = ({ lote, onCancel, onSubmit }: Props) => {
   };
 
   const handleConfirmar = async () => {
+    if (!tipoCarga) {
+      notifyError("Debe seleccionar el tipo de carga.");
+      return;
+    }
+    if (!producto) {
+      notifyError("Debe seleccionar el producto.");
+      return;
+    }
+    if (!material) {
+      notifyError("Debe seleccionar el tipo de material.");
+      return;
+    }
     if (!pesoInicial || isNaN(Number(pesoInicial)) || Number(pesoInicial) <= 0) {
       notifyError("Debe ingresar un peso inicial válido y mayor a cero.");
       return;
@@ -132,7 +144,7 @@ export const ModalPesoInicial = ({ lote, onCancel, onSubmit }: Props) => {
                 placeholder="Seleccione"
                 data={["Granel", "Sacos", "Mixto"]}
                 value={tipoCarga}
-                onChange={(val) => setTipoCarga(val || "Granel")}
+                onChange={(val) => setTipoCarga(val)}
                 classNames={fieldClasses}
                 radius="lg"
                 required
@@ -157,7 +169,7 @@ export const ModalPesoInicial = ({ lote, onCancel, onSubmit }: Props) => {
                 placeholder="Seleccione"
                 data={["Aurífero", "Polimetálico"]}
                 value={producto}
-                onChange={(val) => setProducto(val || "Aurífero")}
+                onChange={(val) => setProducto(val)}
                 classNames={fieldClasses}
                 radius="lg"
                 required
@@ -169,7 +181,7 @@ export const ModalPesoInicial = ({ lote, onCancel, onSubmit }: Props) => {
                 placeholder="Seleccione"
                 data={["Mixto", "Óxido", "Sulfuro"]}
                 value={material}
-                onChange={(val) => setMaterial(val || "Mixto")}
+                onChange={(val) => setMaterial(val)}
                 classNames={fieldClasses}
                 radius="lg"
                 required

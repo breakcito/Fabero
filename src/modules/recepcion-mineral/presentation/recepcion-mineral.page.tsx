@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Grid, Paper, Text, Button, Table, Group, ActionIcon, Popover, Select, TextInput, Badge, Center, Loader, Stack } from "@mantine/core";
 import { IconCheck, IconTrash, IconScale, IconPlus, IconBarcode, IconChecklist, IconPencil } from "@tabler/icons-react";
 import { useTitlePage } from "../../../hooks/useTitlePage";
+import { mostrarConfirmacion } from "../../../presentation/utils/modal-confirmacion";
 import { useRecepcionMineral } from "../hooks/useRecepcionMineral";
 import { AuxService } from "../../../service/auxiliar.service";
 import { ModalEstandar } from "../../../presentation/utils/modal-estandar";
@@ -166,22 +167,24 @@ export const RecepcionMineralPage = () => {
       {!loading && (
         <Grid columns={24} gutter="md">
           {/* Lateral Izquierdo: Unidades en Planta (Sin Pesar) */}
-          <Grid.Col span={{ base: 24, sm: 8, md: 5, lg: 4 }}>
-            <Paper radius="2xl" p="md" className="bg-zinc-950/40 border border-zinc-900/80 min-h-[500px] h-full flex flex-col gap-4">
-              <div className="border-b border-zinc-900 pb-3 flex flex-wrap justify-between items-center gap-2">
-                <Text size="md" fw={700} className="text-zinc-100 flex items-center gap-2">
-                  <IconChecklist size={20} className="text-indigo-400" />
-                  Unidades en Planta
-                </Text>
+          <Grid.Col span={{ base: 24, sm: 8, md: 6, lg: 5 }}>
+            <Paper radius="lg" p="md" className="bg-zinc-950/40 border border-zinc-900/80 min-h-[500px] h-full flex flex-col gap-4">
+              <div className="border-b border-zinc-900 pb-3 flex justify-between items-center gap-1 w-full">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <IconChecklist size={18} className="text-indigo-400 shrink-0" />
+                  <Text size="sm" fw={700} className="text-zinc-100 truncate" title="Unidades en Planta">
+                    Unidades en Planta
+                  </Text>
+                </div>
                 <Button
                   radius="md"
                   size="xs"
-                  leftSection={<IconPlus size={14} />}
                   onClick={() => setOpenFicticiaModal(true)}
                   disabled={!sucursal}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-900/10 px-3 py-1 text-xs shrink-0"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-900/10 h-7 w-7 p-0 flex items-center justify-center shrink-0 hover:scale-105 active:scale-95 transition-all duration-200"
+                  title="Unidad Ficticia"
                 >
-                 Unidad Ficticia
+                  <IconPlus size={16} />
                 </Button>
               </div>
 
@@ -214,15 +217,23 @@ export const RecepcionMineralPage = () => {
                         p={0}
                         onClick={() => {
                           if (ru.estado_pesaje === "Sin Pesar") {
-                            const confirmStart = window.confirm(
-                              `¿Desea iniciar el proceso de pesaje para la unidad con placa "${getFullPlaca(
-                                ru.vehiculo_serie,
-                                ru.vehiculo_placa
-                              )}"?`
-                            );
-                            if (confirmStart) {
-                              iniciarProceso(ru.id);
-                            }
+                            mostrarConfirmacion({
+                              title: "Confirmar Inicio de Pesaje",
+                              confirmLabel: "Iniciar",
+                              cancelLabel: "Cancelar",
+                              message: (
+                                <>
+                                  ¿Desea iniciar el proceso de pesaje para la unidad con placa{" "}
+                                  <strong className="text-indigo-400">
+                                    "{getFullPlaca(ru.vehiculo_serie, ru.vehiculo_placa)}"
+                                  </strong>
+                                  ?
+                                </>
+                              ),
+                              onConfirm: () => {
+                                iniciarProceso(ru.id);
+                              },
+                            });
                           } else {
                             setSelectedRecepcion(ru);
                           }
@@ -296,8 +307,8 @@ export const RecepcionMineralPage = () => {
           </Grid.Col>
 
           {/* Área Central: Proceso de Pesaje y Lotes */}
-          <Grid.Col span={{ base: 24, sm: 16, md: 19, lg: 20 }}>
-            <Paper radius="2xl" p="md" className="bg-zinc-950/40 border border-zinc-900/80 min-h-[500px] h-full flex flex-col gap-4">
+          <Grid.Col span={{ base: 24, sm: 16, md: 18, lg: 19 }}>
+            <Paper radius="lg" p="md" className="bg-zinc-950/40 border border-zinc-900/80 min-h-[500px] h-full flex flex-col gap-4 ">
               <div className="border-b border-zinc-900 pb-3 flex justify-between items-center">
                 <div>
                   <Text size="md" fw={700} className="text-zinc-200">
@@ -316,7 +327,7 @@ export const RecepcionMineralPage = () => {
                   </Text>
                 </div>
               ) : (
-                <div className="flex-1 flex flex-col gap-8 overflow-y-auto max-h-[750px] pr-2">
+                <div className="flex-1 flex flex-col gap-8 overflow-y-auto min-h-0 pr-2">
 
                   {unidadesAOperar.map((ru) => {
                     const valComplete = isValidationComplete(ru);
