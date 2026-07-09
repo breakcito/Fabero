@@ -47,6 +47,7 @@ interface LoteFormItem {
   correlativo: string;
   peso_bruto: number;
   tara: number;
+  peso_neto: number;
 }
 
 const fieldClasses = {
@@ -254,20 +255,59 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, onClose, onSubmit }: 
     }
   };
 
+  const propagarDesdeAnchor = (lista: LoteFormItem[], anchorIndex: number): LoteFormItem[] => {
+    if (lista.length === 0) return [];
+    const copia = lista.map((l) => ({ ...l }));
+    const k = Math.min(Math.max(0, anchorIndex), copia.length - 1);
+
+    if (copia[k]) {
+      copia[k].peso_neto = Number(copia[k].peso_bruto) - Number(copia[k].tara);
+    }
+
+    // 1. Propagar hacia arriba (de k - 1 hacia 0)
+    for (let i = k - 1; i >= 0; i--) {
+      copia[i].tara = copia[i + 1].peso_bruto;
+      copia[i].peso_bruto = copia[i].tara + copia[i].peso_neto;
+    }
+
+    // 2. Propagar hacia abajo (de k + 1 hacia el final)
+    for (let i = k + 1; i < copia.length; i++) {
+      copia[i].peso_bruto = copia[i - 1].tara;
+      copia[i].tara = copia[i].peso_bruto - copia[i].peso_neto;
+    }
+
+    return copia;
+  };
+
   const handleAgregarLotes = (seleccionados: RES_LoteMineralDisponible[]) => {
-    const nuevos: LoteFormItem[] = seleccionados.map((l) => ({
-      tempId: `${l.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      id_lote_mineral: l.id,
-      correlativo: l.correlativo,
-      peso_bruto: l.peso_inicial ?? 0,
-      tara: l.peso_final ?? 0,
-    }));
-    setLotes((prev) => [...prev, ...nuevos]);
+    const nuevos: LoteFormItem[] = seleccionados.map((l) => {
+      const bruto = l.peso_inicial ?? 0;
+      const tara = l.peso_final ?? 0;
+      return {
+        tempId: `${l.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        id_lote_mineral: l.id,
+        correlativo: l.correlativo,
+        peso_bruto: bruto,
+        tara: tara,
+        peso_neto: bruto - tara,
+      };
+    });
+    setLotes((prev) => {
+      const combinada = [...prev, ...nuevos];
+      const anchor = Math.max(0, prev.length - 1);
+      return propagarDesdeAnchor(combinada, anchor);
+    });
     setOpenLoteModal(false);
   };
 
   const handleEliminarLote = (tempId: string) => {
-    setLotes((prev) => prev.filter((l) => l.tempId !== tempId));
+    setLotes((prev) => {
+      const idx = prev.findIndex((l) => l.tempId === tempId);
+      if (idx < 0) return prev;
+      const filtered = prev.filter((l) => l.tempId !== tempId);
+      const anchor = Math.max(0, idx - 1);
+      return propagarDesdeAnchor(filtered, anchor);
+    });
   };
 
   const handleMoverLote = (tempId: string, dir: -1 | 1) => {
@@ -279,7 +319,7 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, onClose, onSubmit }: 
       const copia = [...prev];
       const [item] = copia.splice(idx, 1);
       copia.splice(nuevoIdx, 0, item);
-      return copia;
+      return propagarDesdeAnchor(copia, nuevoIdx);
     });
   };
 
@@ -288,9 +328,19 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, onClose, onSubmit }: 
     field: keyof Pick<LoteFormItem, "peso_bruto" | "tara">,
     value: number,
   ) => {
-    setLotes((prev) =>
-      prev.map((l) => (l.tempId === tempId ? { ...l, [field]: value } : l)),
-    );
+    setLotes((prev) => {
+      const idx = prev.findIndex((l) => l.tempId === tempId);
+      if (idx < 0) return prev;
+      const nuevaLista = prev.map((l) => {
+        if (l.tempId === tempId) {
+          const actualizado = { ...l, [field]: value };
+          actualizado.peso_neto = actualizado.peso_bruto - actualizado.tara;
+          return actualizado;
+        }
+        return l;
+      });
+      return propagarDesdeAnchor(nuevaLista, idx);
+    });
   };
 
   const resetForm = () => {
@@ -736,9 +786,11 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, onClose, onSubmit }: 
                             step="0.01"
                             value={String(l.peso_bruto ?? "")}
                             onChange={(e) => handleLoteChange(l.tempId, "peso_bruto", Number(e.currentTarget.value) || 0)}
+                            disabled={idx > 0}
                             classNames={{
-                              input:
-                                "bg-zinc-900/40 border-zinc-800 text-white font-medium focus:border-emerald-500 focus:bg-zinc-900/80 transition-all text-center h-8",
+                              input: idx > 0
+                                ? "bg-zinc-950/40 border-transparent text-zinc-400 text-center h-8 cursor-not-allowed select-none opacity-90 font-medium"
+                                : "bg-zinc-900/40 border-zinc-800 text-white font-medium focus:border-emerald-500 focus:bg-zinc-900/80 transition-all text-center h-8",
                             }}
                             radius="md"
                           />
