@@ -5,7 +5,7 @@ import type {
   RES_FiltrosMetadataGuia,
   RES_GuiaPrimerTramo,
 } from "../service/guias-primer-tramo.responses";
-import type { DTO_CrearGuiaPrimerTramo } from "../service/guias-primer-tramo.requests";
+import type { DTO_CrearGuiaPrimerTramo, DTO_ActualizarGuiaPrimerTramo } from "../service/guias-primer-tramo.requests";
 
 export interface GuiaFilters {
   id_sucursal: number | null;
@@ -79,6 +79,51 @@ export const useGuiasPrimerTramo = () => {
     [notifySuccess, notifyError],
   );
 
+  const actualizarGuia = useCallback(
+    async (id: number, dto: DTO_ActualizarGuiaPrimerTramo) => {
+      setSubmitting(true);
+      try {
+        const guia = await GuiasPrimerTramoService.actualizar_guia(id, dto);
+        notifySuccess("Guía de primer tramo actualizada correctamente");
+        return guia;
+      } catch (e: unknown) {
+        console.error("Error al actualizar guía", e);
+        let msg = "No se pudo actualizar la guía de primer tramo.";
+        const axiosErr = e as { response?: { data?: { message?: string } } };
+        if (axiosErr?.response?.data?.message) {
+          msg = axiosErr.response.data.message;
+        }
+        notifyError(msg);
+        throw e;
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    [notifySuccess, notifyError],
+  );
+
+  const anularGuia = useCallback(
+    async (id: number) => {
+      setLoading(true);
+      try {
+        await GuiasPrimerTramoService.anular_guia(id);
+        notifySuccess("Guía de primer tramo anulada correctamente");
+      } catch (e: unknown) {
+        console.error("Error al anular guía", e);
+        let msg = "No se pudo anular la guía de primer tramo.";
+        const axiosErr = e as { response?: { data?: { message?: string } } };
+        if (axiosErr?.response?.data?.message) {
+          msg = axiosErr.response.data.message;
+        }
+        notifyError(msg);
+        throw e;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [notifySuccess, notifyError],
+  );
+
   useEffect(() => {
     return () => {
       setGuias([]);
@@ -94,5 +139,7 @@ export const useGuiasPrimerTramo = () => {
     fetchGuias,
     fetchFiltrosMetadata,
     crearGuia,
+    actualizarGuia,
+    anularGuia,
   };
 };

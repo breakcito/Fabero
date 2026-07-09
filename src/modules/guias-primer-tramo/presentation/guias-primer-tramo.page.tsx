@@ -6,16 +6,30 @@ import {
   TextInput,
   Table,
   Badge,
+  Tooltip,
+  ActionIcon,
 } from "@mantine/core";
-import { IconCalendar, IconPlus, IconX } from "@tabler/icons-react";
+import {
+  IconCalendar,
+  IconPlus,
+  IconX,
+  IconPencil,
+  IconTrash,
+  IconPaperclip,
+} from "@tabler/icons-react";
 import { useTitlePage } from "../../../hooks/useTitlePage";
 import { useUIStore } from "../../../stores/ui.store";
 import { useGuiasPrimerTramo } from "../hooks/useGuiasPrimerTramo";
 import { ModalGuiaPrimerTramo } from "./components/modal-guia-primer-tramo";
 import { DataTableEstandar } from "../../../presentation/utils/datatable-estandar";
-import type { DTO_CrearGuiaPrimerTramo } from "../service/guias-primer-tramo.requests";
+import type { DTO_CrearGuiaPrimerTramo, DTO_ActualizarGuiaPrimerTramo } from "../service/guias-primer-tramo.requests";
 import type { RES_GuiaPrimerTramo } from "../service/guias-primer-tramo.responses";
 import { MotivoTraslado } from "../../../shared/enums/_generic/motivo-traslado";
+import { EstadoBase } from "../../../shared/enums/_generic/estado-base";
+import type { IArchivo } from "../../../shared/interfaces/archivo";
+import { mostrarConfirmacion } from "../../../presentation/utils/modal-confirmacion";
+import { ModalEstandar } from "../../../presentation/utils/modal-estandar";
+import { ArchivoCard } from "../../../presentation/utils/archivo/archivo-card";
 
 export const GuiasPrimerTramoPage = () => {
   useTitlePage("Guías Primer Tramo", true);
@@ -27,6 +41,8 @@ export const GuiasPrimerTramoPage = () => {
     guias,
     loading,
     crearGuia,
+    actualizarGuia,
+    anularGuia,
     fetchGuias,
     fetchFiltrosMetadata,
   } = useGuiasPrimerTramo();
@@ -45,6 +61,11 @@ export const GuiasPrimerTramoPage = () => {
 
   // Modal
   const [openModal, setOpenModal] = useState(false);
+  const [editingGuia, setEditingGuia] = useState<RES_GuiaPrimerTramo | null>(null);
+
+  // Visor de evidencias
+  const [selectedEvidencias, setSelectedEvidencias] = useState<IArchivo[] | null>(null);
+  const [evidenceModalOpen, setEvidenceModalOpen] = useState(false);
 
   useEffect(() => {
     if (idSucursal) {
@@ -78,6 +99,48 @@ export const GuiasPrimerTramoPage = () => {
       });
       fetchFiltrosMetadata(idSucursal);
     }
+  };
+
+  const handleEditSubmit = async (id: number, dto: DTO_ActualizarGuiaPrimerTramo) => {
+    await actualizarGuia(id, dto);
+    setOpenModal(false);
+    setEditingGuia(null);
+    if (idSucursal) {
+      fetchGuias({
+        id_sucursal: idSucursal,
+        fecha_inicio: fechaInicio,
+        fecha_fin: fechaFin,
+      });
+      fetchFiltrosMetadata(idSucursal);
+    }
+  };
+
+  const handleAnular = (id: number) => {
+    mostrarConfirmacion({
+      title: "Anular Guía de Primer Tramo",
+      confirmLabel: "Anular",
+      cancelLabel: "Cancelar",
+      message: (
+        <>
+          ¿Está seguro de que desea <strong className="text-red-400">ANULAR</strong> esta guía de primer tramo? Esta acción no se puede deshacer y liberará los lotes asociados.
+        </>
+      ),
+      onConfirm: async () => {
+        try {
+          await anularGuia(id);
+          if (idSucursal) {
+            fetchGuias({
+              id_sucursal: idSucursal,
+              fecha_inicio: fechaInicio,
+              fecha_fin: fechaFin,
+            });
+            fetchFiltrosMetadata(idSucursal);
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      },
+    });
   };
 
 
@@ -299,6 +362,87 @@ export const GuiasPrimerTramoPage = () => {
             ),
           },
           {
+            accessor: "evidencias",
+            title: "Evidencias",
+            width: 130,
+            render: (g: RES_GuiaPrimerTramo) => {
+              if (!Array.isArray(g.evidencias) || g.evidencias.length === 0) {
+                return <Text size="xs" className="text-zinc-500 italic">Sin archivos</Text>;
+              }
+
+              return (
+                <Button
+                  size="xs"
+                  variant="light"
+                  color="indigo"
+                  radius="xl"
+                  leftSection={<IconPaperclip size={14} />}
+                  onClick={() => {
+                    setSelectedEvidencias(g.evidencias as unknown as IArchivo[]);
+                    setEvidenceModalOpen(true);
+                  }}
+                  className="bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 border border-indigo-500/10"
+                >
+                  Ver ({g.evidencias.length})
+                </Button>
+              );
+            },
+          },
+          {
+            accessor: "estado",
+            title: "Estado",
+            textAlign: "center",
+            width: 100,
+            render: (g: RES_GuiaPrimerTramo) => {
+              const isActivo = g.estado === EstadoBase.Activo;
+              return (
+                <Badge color={isActivo ? "emerald" : "red"} variant="light" size="xs" radius="md">
+                  {isActivo ? "ACTIVO" : "ANULADA"}
+                </Badge>
+              );
+            },
+          },
+          {
+            accessor: "acciones",
+            title: "Acciones",
+            textAlign: "center",
+            width: 120,
+            render: (g: RES_GuiaPrimerTramo) => {
+              const isActivo = g.estado === EstadoBase.Activo;
+              return (
+                <div className="flex gap-2 justify-center">
+                  <Tooltip label="Editar Guía" withArrow disabled={!isActivo}>
+                    <ActionIcon
+                      size="sm"
+                      variant="subtle"
+                      color="blue"
+                      onClick={() => {
+                        setEditingGuia(g);
+                        setOpenModal(true);
+                      }}
+                      disabled={!isActivo}
+                      className="text-zinc-400 hover:text-blue-400 disabled:opacity-20"
+                    >
+                      <IconPencil size={14} />
+                    </ActionIcon>
+                  </Tooltip>
+                  <Tooltip label="Anular Guía" withArrow disabled={!isActivo}>
+                    <ActionIcon
+                      size="sm"
+                      variant="subtle"
+                      color="red"
+                      onClick={() => handleAnular(g.id)}
+                      disabled={!isActivo}
+                      className="text-zinc-400 hover:text-rose-400 disabled:opacity-20"
+                    >
+                      <IconTrash size={14} />
+                    </ActionIcon>
+                  </Tooltip>
+                </div>
+              );
+            },
+          },
+          {
             accessor: "lotes_count",
             title: "Lotes",
             textAlign: "center",
@@ -311,7 +455,7 @@ export const GuiasPrimerTramoPage = () => {
         ]}
         rowExpansion={{
           content: ({ record: g }: { record: RES_GuiaPrimerTramo }) => (
-            <div className="p-4 bg-zinc-950/40 border-l-2 border-blue-500/50">
+            <div className="p-4 border border-zinc-800/80 rounded-xl bg-transparent m-3">
               {/* Lotes asociados */}
               <div>
                 <Text size="xs" fw={700} c="blue.4" tt="uppercase" lts="0.1em" mb="xs">
@@ -320,7 +464,7 @@ export const GuiasPrimerTramoPage = () => {
                 {g.lotes && g.lotes.length > 0 ? (
                   <div className="rounded-lg border border-zinc-800/85 overflow-hidden">
                     <Table verticalSpacing="xs" className="w-full">
-                      <thead className="bg-zinc-900/50">
+                      <thead >
                         <tr className="text-zinc-400 text-[10px] uppercase tracking-wider">
                           <th style={{ width: 50 }} className="text-center py-2 pl-4">#</th>
                           <th className="text-left py-2">Lote Mineral</th>
@@ -334,7 +478,7 @@ export const GuiasPrimerTramoPage = () => {
                       </thead>
                       <tbody>
                         {g.lotes.map((l, idx) => (
-                          <tr key={l.id} className="border-b border-zinc-900/40 ">
+                          <tr key={l.id} className="border-b border-zinc-900/40 bg-transparent hover:bg-transparent">
                             <td className="text-zinc-400 font-mono text-xs text-center py-2 pl-4">{idx + 1}</td>
                             <td className="font-mono text-zinc-100 text-xs py-2 fw-semibold">{l.lote_correlativo ?? "—"}</td>
                             <td className="font-mono text-zinc-400 text-xs py-2">{l.correlativo}</td>
@@ -357,15 +501,37 @@ export const GuiasPrimerTramoPage = () => {
         }}
       />
 
-      {/* Modal de creación */}
+      {/* Modal de creación/edición */}
       {idSucursal && (
         <ModalGuiaPrimerTramo
           opened={openModal}
           idSucursal={idSucursal}
-          onClose={() => setOpenModal(false)}
+          guia={editingGuia}
+          onClose={() => {
+            setOpenModal(false);
+            setEditingGuia(null);
+          }}
           onSubmit={handleSubmit}
+          onUpdate={handleEditSubmit}
         />
       )}
+
+      {/* Modal: Evidencias Registradas */}
+      <ModalEstandar
+        opened={evidenceModalOpen}
+        close={() => {
+          setEvidenceModalOpen(false);
+          setSelectedEvidencias(null);
+        }}
+        title="Evidencias de la Guía"
+        size="md"
+      >
+        <div className="flex flex-col gap-3">
+          {selectedEvidencias?.map((e, idx) => (
+            <ArchivoCard key={idx} archivo={e} />
+          ))}
+        </div>
+      </ModalEstandar>
     </div>
   );
 };

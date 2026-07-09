@@ -1,4 +1,5 @@
 import type { MotivoTraslado } from "../../../shared/enums/_generic/motivo-traslado";
+import { EstadoBase } from "../../../shared/enums/_generic/estado-base";
 
 export interface RES_ConcesionPorProveedor {
   id_concesion: number;
@@ -63,6 +64,7 @@ export interface RES_GuiaPrimerTramo {
   serie_guia_transportista: string | null;
   numero_guia_transportista: string | null;
   sin_guia_transportista: boolean;
+  estado: EstadoBase;
   created_at: string;
   lotes: RES_LoteGuia[];
 }

@@ -1,4 +1,5 @@
 import type { MotivoTraslado } from "../../../shared/enums/_generic/motivo-traslado";
+import type { IArchivo } from "../../../shared/interfaces/archivo";
 
 export interface DTO_LoteGuiaInput {
   id_lote_mineral: number;
@@ -27,4 +28,9 @@ export interface DTO_CrearGuiaPrimerTramo {
   sin_guia_transportista: boolean;
   lotes: DTO_LoteGuiaInput[];
   evidencias: File[];
+}
+
+export interface DTO_ActualizarGuiaPrimerTramo extends Omit<DTO_CrearGuiaPrimerTramo, "evidencias"> {
+  evidencias: File[];
+  evidencias_existentes?: IArchivo[];
 }

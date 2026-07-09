@@ -32,13 +32,17 @@ import type { RES_Vehiculo } from "../../../../service/responses/vehiculo";
 import type { RES_EmpresaTransporte } from "../../../../service/responses/empresa-transporte";
 import type { RES_Conductor } from "../../../../service/responses/conductor";
 import { MOTIVO_TRASLADO_OPTIONS } from "../../../../shared/enums/_generic/motivo-traslado";
-import type { DTO_CrearGuiaPrimerTramo, DTO_LoteGuiaInput } from "../../service/guias-primer-tramo.requests";
+import type { DTO_CrearGuiaPrimerTramo, DTO_ActualizarGuiaPrimerTramo } from "../../service/guias-primer-tramo.requests";
+import type { RES_GuiaPrimerTramo } from "../../service/guias-primer-tramo.responses";
+import type { IArchivo } from "../../../../shared/interfaces/archivo";
 
 interface Props {
   opened: boolean;
   idSucursal: number;
+  guia?: RES_GuiaPrimerTramo | null;
   onClose: () => void;
   onSubmit: (dto: DTO_CrearGuiaPrimerTramo) => Promise<void>;
+  onUpdate?: (id: number, dto: DTO_ActualizarGuiaPrimerTramo) => Promise<void>;
 }
 
 interface LoteFormItem {
@@ -56,7 +60,7 @@ const fieldClasses = {
   label: "text-zinc-400 font-medium text-xs mb-1 whitespace-nowrap",
 };
 
-export const ModalGuiaPrimerTramo = ({ opened, idSucursal, onClose, onSubmit }: Props) => {
+export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubmit, onUpdate }: Props) => {
   const { notifyError } = useNotify();
 
   // Catálogos
@@ -85,7 +89,7 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, onClose, onSubmit }: 
   const [idVehiculoCarreta, setIdVehiculoCarreta] = useState<string | null>(null);
   const [idEmpresaTransporteCarreta, setIdEmpresaTransporteCarreta] = useState<string | null>(null);
 
-  const [motivoTraslado, setMotivoTraslado] = useState<string | null>("Venta");
+  const [motivoTraslado, setMotivoTraslado] = useState<string | null>(null);
   const [fechaInicioTraslado, setFechaInicioTraslado] = useState<string | null>(null);
   const [fechaEmision, setFechaEmision] = useState<string | null>(null);
   const [fechaEnPlanta, setFechaEnPlanta] = useState<string | null>(null);
@@ -97,6 +101,7 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, onClose, onSubmit }: 
   const [sinGuiaTransportista, setSinGuiaTransportista] = useState(false);
 
   const [evidencias, setEvidencias] = useState<File[]>([]);
+  const [evidenciasExistentes, setEvidenciasExistentes] = useState<IArchivo[]>([]);
   const [lotes, setLotes] = useState<LoteFormItem[]>([]);
 
   // Sub-modal selección de lote
@@ -105,6 +110,44 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, onClose, onSubmit }: 
   const [loadingLotes, setLoadingLotes] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
+
+  // Cargar datos al abrir en modo Edición o limpiar en creación
+  useEffect(() => {
+    if (opened) {
+      if (guia) {
+        setIdProveedor(guia.id_proveedor ? String(guia.id_proveedor) : null);
+        setIdConcesion(guia.id_concesion ? String(guia.id_concesion) : null);
+        setIdConductor(guia.id_conductor ? String(guia.id_conductor) : null);
+        setIdVehiculo(guia.id_vehiculo ? String(guia.id_vehiculo) : null);
+        setIdEmpresaTransporte(guia.id_empresa_transporte ? String(guia.id_empresa_transporte) : null);
+        setIdVehiculoCarreta(guia.id_vehiculo_carreta ? String(guia.id_vehiculo_carreta) : null);
+        setIdEmpresaTransporteCarreta(guia.id_empresa_transporte_carreta ? String(guia.id_empresa_transporte_carreta) : null);
+        setMotivoTraslado(guia.motivo_traslado || null);
+        setFechaInicioTraslado(guia.fecha_inicio_traslado ? guia.fecha_inicio_traslado.slice(0, 10) : null);
+        setFechaEmision(guia.fecha_emision ? guia.fecha_emision.slice(0, 10) : null);
+        setFechaEnPlanta(guia.fecha_en_planta ? guia.fecha_en_planta.slice(0, 10) : null);
+        setSerieGuiaRemitente(guia.serie_guia_remitente || "");
+        setNumeroGuiaRemitente(guia.numero_guia_remitente || "");
+        setSerieGuiaTransportista(guia.serie_guia_transportista || "");
+        setNumeroGuiaTransportista(guia.numero_guia_transportista || "");
+        setSinGuiaTransportista(!!guia.sin_guia_transportista);
+        setEvidencias([]);
+        setEvidenciasExistentes((guia.evidencias as unknown as IArchivo[]) || []);
+
+        const mappedLotes: LoteFormItem[] = (guia.lotes || []).map((l) => ({
+          tempId: `${l.id_lote_mineral}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          id_lote_mineral: l.id_lote_mineral,
+          correlativo: l.lote_correlativo || "",
+          peso_bruto: l.peso_bruto ?? 0,
+          tara: l.tara ?? 0,
+          peso_neto: (l.peso_bruto ?? 0) - (l.tara ?? 0),
+        }));
+        setLotes(mappedLotes);
+      } else {
+        resetForm();
+      }
+    }
+  }, [opened, guia]);
 
   // Cargar catálogos globales al abrir el modal
   useEffect(() => {
@@ -362,6 +405,7 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, onClose, onSubmit }: 
     setNumeroGuiaTransportista("");
     setSinGuiaTransportista(false);
     setEvidencias([]);
+    setEvidenciasExistentes([]);
     setLotes([]);
   };
 
@@ -382,38 +426,86 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, onClose, onSubmit }: 
       return notifyError("Debe ingresar la serie y número de guía del remitente.");
     }
 
-    const dto: DTO_CrearGuiaPrimerTramo = {
-      id_sucursal: idSucursal,
-      id_proveedor: Number(idProveedor),
-      id_concesion: Number(idConcesion),
-      id_conductor: Number(idConductor),
-      id_vehiculo: Number(idVehiculo),
-      id_empresa_transporte: idEmpresaTransporte ? Number(idEmpresaTransporte) : null,
-      id_vehiculo_carreta: idVehiculoCarreta ? Number(idVehiculoCarreta) : null,
-      id_empresa_transporte_carreta: idEmpresaTransporteCarreta
-        ? Number(idEmpresaTransporteCarreta)
-        : null,
-      motivo_traslado: motivoTraslado,
-      fecha_inicio_traslado: fechaInicioTraslado,
-      fecha_emision: fechaEmision,
-      fecha_en_planta: fechaEnPlanta,
-      serie_guia_remitente: serieGuiaRemitente || null,
-      numero_guia_remitente: numeroGuiaRemitente || null,
-      serie_guia_transportista: serieGuiaTransportista || null,
-      numero_guia_transportista: numeroGuiaTransportista || null,
-      sin_guia_transportista: sinGuiaTransportista,
-      lotes: lotes.map<DTO_LoteGuiaInput>((l) => ({
-        id_lote_mineral: l.id_lote_mineral,
-        correlativo: l.correlativo,
-        peso_bruto: l.peso_bruto,
-        tara: l.tara,
-      })),
-      evidencias,
+    const getFinalDateTime = (
+      currentVal: string | null,
+      originalVal: string | null | undefined
+    ): string | null => {
+      if (!currentVal) return null;
+      if (originalVal && originalVal.startsWith(currentVal)) {
+        return originalVal;
+      }
+      const now = new Date();
+      const hrs = String(now.getHours()).padStart(2, "0");
+      const mins = String(now.getMinutes()).padStart(2, "0");
+      const secs = String(now.getSeconds()).padStart(2, "0");
+      return `${currentVal} ${hrs}:${mins}:${secs}`;
     };
 
     setSubmitting(true);
     try {
-      await onSubmit(dto);
+      if (guia) {
+        if (!onUpdate) return;
+        const dto: DTO_ActualizarGuiaPrimerTramo = {
+          id_sucursal: idSucursal,
+          id_proveedor: Number(idProveedor),
+          id_concesion: Number(idConcesion),
+          id_conductor: Number(idConductor),
+          id_vehiculo: Number(idVehiculo),
+          id_empresa_transporte: idEmpresaTransporte ? Number(idEmpresaTransporte) : null,
+          id_vehiculo_carreta: idVehiculoCarreta ? Number(idVehiculoCarreta) : null,
+          id_empresa_transporte_carreta: idEmpresaTransporteCarreta
+            ? Number(idEmpresaTransporteCarreta)
+            : null,
+          motivo_traslado: motivoTraslado,
+          fecha_inicio_traslado: getFinalDateTime(fechaInicioTraslado, guia.fecha_inicio_traslado),
+          fecha_emision: getFinalDateTime(fechaEmision, guia.fecha_emision),
+          fecha_en_planta: getFinalDateTime(fechaEnPlanta, guia.fecha_en_planta),
+          serie_guia_remitente: serieGuiaRemitente || null,
+          numero_guia_remitente: numeroGuiaRemitente || null,
+          serie_guia_transportista: serieGuiaTransportista || null,
+          numero_guia_transportista: numeroGuiaTransportista || null,
+          sin_guia_transportista: sinGuiaTransportista,
+          lotes: lotes.map((l) => ({
+            id_lote_mineral: l.id_lote_mineral,
+            correlativo: l.correlativo,
+            peso_bruto: l.peso_bruto,
+            tara: l.tara,
+          })),
+          evidencias,
+          evidencias_existentes: evidenciasExistentes,
+        };
+        await onUpdate(guia.id, dto);
+      } else {
+        const dto: DTO_CrearGuiaPrimerTramo = {
+          id_sucursal: idSucursal,
+          id_proveedor: Number(idProveedor),
+          id_concesion: Number(idConcesion),
+          id_conductor: Number(idConductor),
+          id_vehiculo: Number(idVehiculo),
+          id_empresa_transporte: idEmpresaTransporte ? Number(idEmpresaTransporte) : null,
+          id_vehiculo_carreta: idVehiculoCarreta ? Number(idVehiculoCarreta) : null,
+          id_empresa_transporte_carreta: idEmpresaTransporteCarreta
+            ? Number(idEmpresaTransporteCarreta)
+            : null,
+          motivo_traslado: motivoTraslado,
+          fecha_inicio_traslado: getFinalDateTime(fechaInicioTraslado, null),
+          fecha_emision: getFinalDateTime(fechaEmision, null),
+          fecha_en_planta: getFinalDateTime(fechaEnPlanta, null),
+          serie_guia_remitente: serieGuiaRemitente || null,
+          numero_guia_remitente: numeroGuiaRemitente || null,
+          serie_guia_transportista: serieGuiaTransportista || null,
+          numero_guia_transportista: numeroGuiaTransportista || null,
+          sin_guia_transportista: sinGuiaTransportista,
+          lotes: lotes.map((l) => ({
+            id_lote_mineral: l.id_lote_mineral,
+            correlativo: l.correlativo,
+            peso_bruto: l.peso_bruto,
+            tara: l.tara,
+          })),
+          evidencias,
+        };
+        await onSubmit(dto);
+      }
       resetForm();
     } catch (e) {
       console.error(e);
@@ -432,7 +524,7 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, onClose, onSubmit }: 
       <ModalEstandar
         opened={opened}
         close={handleClose}
-        title="Registrar Guía de Primer Tramo"
+        title={guia ? "Editar Guía de Primer Tramo" : "Registrar Guía de Primer Tramo"}
         size="xl"
       >
         <Stack gap="md" className="max-h-[85vh] overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
@@ -522,7 +614,7 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, onClose, onSubmit }: 
               <TextInput
                 label="Serie Remitente:"
                 value={serieGuiaRemitente}
-                onChange={(e) => setSerieGuiaRemitente(e.currentTarget.value)}
+                onChange={(e) => setSerieGuiaRemitente(e.currentTarget.value.toUpperCase())}
                 classNames={fieldClasses}
                 radius="lg"
                 size="xs"
@@ -543,7 +635,7 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, onClose, onSubmit }: 
               <TextInput
                 label="Serie Transportista:"
                 value={serieGuiaTransportista}
-                onChange={(e) => setSerieGuiaTransportista(e.currentTarget.value)}
+                onChange={(e) => setSerieGuiaTransportista(e.currentTarget.value.toUpperCase())}
                 classNames={fieldClasses}
                 radius="lg"
                 size="xs"
@@ -834,6 +926,8 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, onClose, onSubmit }: 
           <MultiFilePicker
             files={evidencias}
             onFilesChange={setEvidencias}
+            existingFiles={evidenciasExistentes}
+            onRemoveExisting={(path: string) => setEvidenciasExistentes((prev) => prev.filter((e) => e.path_relativo !== path))}
             label="Evidencias de la Guía"
             description="Adjunte imágenes/fotos de la guía (opcional)"
           />
@@ -852,7 +946,7 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, onClose, onSubmit }: 
               onClick={handleConfirmar}
               className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-lg shadow-indigo-900/20 px-6"
             >
-              Registrar Guía
+              {guia ? "Editar Guía" : "Registrar Guía"}
             </Button>
           </div>
         </Stack>
