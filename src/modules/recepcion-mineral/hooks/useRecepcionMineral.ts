@@ -4,6 +4,7 @@ import type { RecepcionMineralResponse } from "../service/recepcion-mineral.resp
 import type { DTO_PesoInicial, DTO_PesoFinal } from "../service/recepcion-mineral.requests";
 import { useUIStore } from "../../../stores/ui.store";
 import { useNotify } from "../../../hooks/useNotify";
+import { mostrarConfirmacion } from "../../../presentation/utils/modal-confirmacion";
 
 export const useRecepcionMineral = () => {
   const sucursal = useUIStore((state) => state.sucursal_elegida);
@@ -115,34 +116,40 @@ export const useRecepcionMineral = () => {
     }
   };
 
-  const eliminarLote = async (recepcionId: number, loteId: number) => {
-    const confirmDelete = window.confirm("¿Está seguro de que desea eliminar este lote de mineral? Se perderán todos los datos y pesajes asociados.");
-    if (!confirmDelete) return;
+  const eliminarLote = (recepcionId: number, loteId: number) => {
+    mostrarConfirmacion({
+      title: "Eliminar Lote",
+      message: "¿Está seguro de que desea eliminar este lote de mineral? Se perderán todos los datos y pesajes asociados.",
+      confirmLabel: "Eliminar",
+      cancelLabel: "Cancelar",
+      tipo: "peligro",
+      onConfirm: async () => {
+        try {
+          await RecepcionMineralService.eliminar_lote(loteId);
+          notifySuccess("Lote eliminado correctamente");
 
-    try {
-      await RecepcionMineralService.eliminar_lote(loteId);
-      notifySuccess("Lote eliminado correctamente");
+          setEnProcesoList((prev) =>
+            prev.map((r) => {
+              if (r.id === recepcionId) {
+                const lotes = (r.lotes || []).filter((l) => l.id !== loteId);
+                return { ...r, lotes };
+              }
+              return r;
+            })
+          );
 
-      setEnProcesoList((prev) =>
-        prev.map((r) => {
-          if (r.id === recepcionId) {
-            const lotes = (r.lotes || []).filter((l) => l.id !== loteId);
-            return { ...r, lotes };
+          if (selectedRecepcion?.id === recepcionId) {
+            setSelectedRecepcion((prev) => {
+              if (!prev) return null;
+              return { ...prev, lotes: (prev.lotes || []).filter((l) => l.id !== loteId) };
+            });
           }
-          return r;
-        })
-      );
-
-      if (selectedRecepcion?.id === recepcionId) {
-        setSelectedRecepcion((prev) => {
-          if (!prev) return null;
-          return { ...prev, lotes: (prev.lotes || []).filter((l) => l.id !== loteId) };
-        });
-      }
-    } catch (e: unknown) {
-      console.error(e);
-      notifyError("No se pudo eliminar el lote");
-    }
+        } catch (e: unknown) {
+          console.error(e);
+          notifyError("No se pudo eliminar el lote");
+        }
+      },
+    });
   };
 
   const registrarPesoInicial = async (recepcionId: number, loteId: number, dto: DTO_PesoInicial) => {
@@ -169,9 +176,11 @@ export const useRecepcionMineral = () => {
           };
         });
       }
+      return loteActualizado;
     } catch (e: unknown) {
       console.error(e);
       notifyError("Error al registrar el peso inicial");
+      return null;
     }
   };
 
@@ -199,9 +208,11 @@ export const useRecepcionMineral = () => {
           };
         });
       }
+      return loteActualizado;
     } catch (e: unknown) {
       console.error(e);
       notifyError("Error al registrar el peso final");
+      return null;
     }
   };
 

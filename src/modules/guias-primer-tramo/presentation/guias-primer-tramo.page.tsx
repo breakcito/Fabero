@@ -16,10 +16,14 @@ import {
   IconPencil,
   IconTrash,
   IconPaperclip,
+  IconPrinter,
 } from "@tabler/icons-react";
 import { useTitlePage } from "../../../hooks/useTitlePage";
 import { useUIStore } from "../../../stores/ui.store";
 import { useGuiasPrimerTramo } from "../hooks/useGuiasPrimerTramo";
+// Forzar a Vite a resolver usePrintGuiaRemitente como .tsx y no como el antiguo .ts
+import { usePrintGuiaRemitente } from "../hooks/usePrintGuiaRemitente";
+import { usePrintGuiaTransportista } from "../hooks/usePrintGuiaTransportista";
 import { ModalGuiaPrimerTramo } from "./components/modal-guia-primer-tramo";
 import { DataTableEstandar } from "../../../presentation/utils/datatable-estandar";
 import type { DTO_CrearGuiaPrimerTramo, DTO_ActualizarGuiaPrimerTramo } from "../service/guias-primer-tramo.requests";
@@ -46,6 +50,13 @@ export const GuiasPrimerTramoPage = () => {
     fetchGuias,
     fetchFiltrosMetadata,
   } = useGuiasPrimerTramo();
+
+  const { printGuia, isPrinting, printingId } = usePrintGuiaRemitente();
+  const {
+    printGuiaTransportista,
+    isPrinting: isPrintingTransportista,
+    printingId: printingIdTransportista,
+  } = usePrintGuiaTransportista();
 
   const todayIso = () => {
     const d = new Date();
@@ -254,13 +265,32 @@ export const GuiasPrimerTramoPage = () => {
           {
             accessor: "guia_remitente",
             title: "Guía Remitente",
-            render: (g: RES_GuiaPrimerTramo) => (
-              <Text size="xs" fw={500} className="text-zinc-200 font-mono">
-                {g.serie_guia_remitente || g.numero_guia_remitente
-                  ? `${g.serie_guia_remitente ?? ""}-${g.numero_guia_remitente ?? ""}`
-                  : "—"}
-              </Text>
-            ),
+            render: (g: RES_GuiaPrimerTramo) => {
+              const hasGuia = !!(g.serie_guia_remitente || g.numero_guia_remitente);
+              return (
+                <div className="flex items-center gap-2">
+                  <Text size="xs" fw={500} className="text-zinc-200 font-mono">
+                    {hasGuia
+                      ? `${g.serie_guia_remitente ?? ""}-${g.numero_guia_remitente ?? ""}`
+                      : "—"}
+                  </Text>
+                  {hasGuia && (
+                    <Tooltip label="Imprimir Guía Remitente" withArrow>
+                      <ActionIcon
+                        size="xs"
+                        variant="subtle"
+                        color="blue"
+                        loading={isPrinting && printingId === g.id}
+                        onClick={() => printGuia(g)}
+                        className="text-zinc-400 hover:text-blue-400"
+                      >
+                        <IconPrinter size={16} />
+                      </ActionIcon>
+                    </Tooltip>
+                  )}
+                </div>
+              );
+            },
           },
           {
             accessor: "guia_transportista",
@@ -273,12 +303,29 @@ export const GuiasPrimerTramoPage = () => {
                   </Badge>
                 );
               }
+              const hasGuia = !!(g.serie_guia_transportista || g.numero_guia_transportista);
               return (
-                <Text size="xs" className="text-zinc-300 font-mono">
-                  {g.serie_guia_transportista || g.numero_guia_transportista
-                    ? `${g.serie_guia_transportista ?? ""}-${g.numero_guia_transportista ?? ""}`
-                    : "—"}
-                </Text>
+                <div className="flex items-center gap-2">
+                  <Text size="xs" className="text-zinc-300 font-mono">
+                    {hasGuia
+                      ? `${g.serie_guia_transportista ?? ""}-${g.numero_guia_transportista ?? ""}`
+                      : "—"}
+                  </Text>
+                  {hasGuia && (
+                    <Tooltip label="Imprimir Guía Transportista" withArrow>
+                      <ActionIcon
+                        size="xs"
+                        variant="subtle"
+                        color="blue"
+                        loading={isPrintingTransportista && printingIdTransportista === g.id}
+                        onClick={() => printGuiaTransportista(g)}
+                        className="text-zinc-400 hover:text-blue-400"
+                      >
+                        <IconPrinter size={16} />
+                      </ActionIcon>
+                    </Tooltip>
+                  )}
+                </div>
               );
             },
           },

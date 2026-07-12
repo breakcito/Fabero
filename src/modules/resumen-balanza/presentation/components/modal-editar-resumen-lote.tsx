@@ -585,7 +585,12 @@ export const ModalEditarResumenLote = ({ opened, lote, onClose, onSuccess }: Pro
           idTipoVehiculo={tiposVehiculo.find((t) => t.estado === "Activo")?.id_tipo_vehiculo ?? null}
           onCancel={() => setOpenVehiculoModal(false)}
           onSuccess={(nuevo) => {
-            setVehiculos((prev) => [...prev, nuevo]);
+            setVehiculos((prev) => {
+              if (prev.some((v) => v.id_vehiculo === nuevo.id_vehiculo)) {
+                return prev;
+              }
+              return [...prev, nuevo];
+            });
             setIdVehiculo(String(nuevo.id_vehiculo));
             setOpenVehiculoModal(false);
           }}

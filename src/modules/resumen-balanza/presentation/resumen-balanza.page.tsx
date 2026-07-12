@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Grid, Text, Button, Select, Badge, ActionIcon, Tooltip, Stack, TextInput } from "@mantine/core";
-import { IconNote, IconPaperclip, IconX, IconCalendar, IconPencil } from "@tabler/icons-react";
+import { Grid, Text, Button, Select, Badge, ActionIcon, Tooltip, Stack, TextInput, Group } from "@mantine/core";
+import { IconNote, IconPaperclip, IconX, IconCalendar, IconPencil, IconBarcode, IconScale } from "@tabler/icons-react";
 import { useTitlePage } from "../../../hooks/useTitlePage";
 import { useResumenBalanza } from "../hooks/useResumenBalanza";
 import { useUIStore } from "../../../stores/ui.store";
@@ -11,11 +11,16 @@ import { ArchivoCard } from "../../../presentation/utils/archivo/archivo-card";
 import type { IArchivo } from "../../../shared/interfaces/archivo";
 import { TipoIngreso } from "../../../shared/enums/_generic/tipo-ingreso";
 import { ModalEditarResumenLote } from "./components/modal-editar-resumen-lote";
+import { useTicketLote } from "../../recepcion-mineral/hooks/useTicketLote";
+import { useTicketBalanza } from "../../recepcion-mineral/hooks/useTicketBalanza";
 
 export const ResumenBalanzaPage = () => {
   useTitlePage("Resumen de Balanza", true);
 
   const sucursal = useUIStore((state) => state.sucursal_elegida);
+
+  const { printTicket } = useTicketLote();
+  const { printTicketBalanza } = useTicketBalanza();
 
   const formatFecha = (fechaStr: string | null) => {
     if (!fechaStr) return "—";
@@ -258,6 +263,71 @@ export const ResumenBalanzaPage = () => {
               textAlign: "center",
               width: 50,
               render: (_: RES_ResumenBalanzaItem, index: number) => index + 1,
+            },
+            {
+              accessor: "tickets",
+              title: "Tickets",
+              width: 100,
+              textAlign: "center",
+              render: (r: RES_ResumenBalanzaItem) => {
+                const emp = empresasTransporte.find(e => e.id_empresa_transporte === r.id_empresa_transporte);
+                const ruc = emp ? emp.ruc : "";
+
+                const loteTicketDto = {
+                  id: r.id_lote,
+                  correlativo: r.lote_correlativo,
+                  fecha_hora_registro: r.lote_fecha_creacion,
+                };
+
+                const loteBalanzaDto = {
+                  id: r.id_lote,
+                  correlativo: r.lote_correlativo,
+                  numero_correlativo: r.lote_numero_correlativo,
+                  vehiculo_placa: r.vehiculo_placa,
+                  vehiculo_serie: r.vehiculo_serie,
+                  tipo_carga: r.lote_tipo_carga,
+                  empresa_transporte_ruc: ruc,
+                  empresa_transporte_razon_social: r.empresa_transporte_razon_social,
+                  tipo_vehiculo_nombre: r.tipo_vehiculo_nombre,
+                  conductor_nombre_completo: r.conductor_nombre_completo,
+                  proveedor_nombre: r.proveedor_razon_social,
+                  observacion_peso_inicial: r.observacion_peso_inicial,
+                  observacion_peso_final: r.observacion_peso_final,
+                  peso_inicial: r.peso_inicial,
+                  fecha_hora_peso_inicial: r.fecha_hora_peso_inicial,
+                  peso_final: r.peso_final,
+                  fecha_hora_peso_final: r.fecha_hora_peso_final,
+                  peso_neto: r.peso_neto,
+                };
+
+                return (
+                  <Group gap={6} justify="center" wrap="nowrap">
+                    <Tooltip label="Ticket Humedad (Código Barras)" withArrow>
+                      <ActionIcon
+                        variant="subtle"
+                        color="indigo"
+                        radius="md"
+                        onClick={() => printTicket(loteTicketDto)}
+                        className="text-indigo-400 hover:bg-white/5"
+                      >
+                        <IconBarcode size={16} />
+                      </ActionIcon>
+                    </Tooltip>
+
+                    <Tooltip label="Ticket de Balanza" withArrow>
+                      <ActionIcon
+                        variant="subtle"
+                        color="teal"
+                        radius="md"
+                        onClick={() => printTicketBalanza(loteBalanzaDto)}
+                        className="text-teal-400 hover:bg-white/5"
+                      >
+                        <IconScale size={16} />
+                      </ActionIcon>
+                    </Tooltip>
+                  </Group>
+                );
+              },
             },
             {
               accessor: "lote_correlativo",

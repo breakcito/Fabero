@@ -62,7 +62,11 @@ export const useRegistroVehiculoSimple = (
         id_empresa_transporte: idEmpresaTransporte,
         id_tipo_vehiculo: idTipoVehiculo,
       });
-      notifySuccess("Vehículo registrado exitosamente");
+      if (response.ya_existia) {
+        notifySuccess("El vehículo ya se encontraba registrado. Seleccionado automáticamente.");
+      } else {
+        notifySuccess("Vehículo registrado exitosamente");
+      }
       setPayload({ serie_placa: "", numero_placa: "" });
       onSuccess(response);
     } catch (err: unknown) {

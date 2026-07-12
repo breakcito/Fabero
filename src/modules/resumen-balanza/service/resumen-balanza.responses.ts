@@ -28,6 +28,8 @@ export interface RES_ResumenBalanzaItem {
   vehiculo_placa: string | null;
   id_empresa_transporte: number | null;
   empresa_transporte_razon_social: string | null;
+  id_tipo_vehiculo: number | null;
+  tipo_vehiculo_nombre: string | null;
   id_proveedor: number | null;
   proveedor_razon_social: string | null;
   id_zona_origen: number | null;

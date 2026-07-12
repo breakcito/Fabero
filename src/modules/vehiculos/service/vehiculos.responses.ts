@@ -18,4 +18,5 @@ export interface VehiculoResponse {
   ancho: number | null;
   alto: number | null;
   estado: EstadoBase;
+  ya_existia?: boolean;
 }

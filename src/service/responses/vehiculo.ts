@@ -11,4 +11,5 @@ export interface RES_Vehiculo {
   numero_placa: string;
   estado: EstadoBase;
   last_id_conductor?: number | null;
+  ya_existia?: boolean;
 }

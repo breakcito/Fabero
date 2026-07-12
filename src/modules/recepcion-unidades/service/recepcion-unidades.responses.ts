@@ -5,6 +5,7 @@ import type { EstadoUnidad } from "../../../shared/enums/_generic/estado-unidad"
 import type { EstadoSalida } from "../../../shared/enums/_generic/estado-salida";
 import type { EstadoPesaje } from "../../../shared/enums/_generic/estado-pesaje";
 
+
 export interface RecepcionUnidadResponse {
   id: number;
   id_empleado_registro: number;
@@ -33,6 +34,13 @@ export interface RecepcionUnidadResponse {
   id_sucursal?: number;
   fecha_hora_inicio_pesaje?: string | null;
   fecha_hora_final_pesaje?: string | null;
-  validacion_datos?: any[];
+  validacion_datos?: {
+    condicion_ingreso: boolean;
+    placa: boolean;
+    empresa_transporte: boolean;
+    tipo_vehiculo: boolean;
+    segunda_placa: boolean;
+    conductor: boolean;
+  };
   estado_pesaje: EstadoPesaje;
 }

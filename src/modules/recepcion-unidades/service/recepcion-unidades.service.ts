@@ -14,7 +14,7 @@ export const RecepcionUnidadesService = {
     });
     return data.data;
   },
-
+  
   /**
    * Registrar un nuevo ingreso de unidad con sus evidencias físicas
    */
@@ -64,4 +64,5 @@ export const RecepcionUnidadesService = {
     const { data } = await api.put(`/recepcion-unidades/${id}/salida`, payload);
     return data.data;
   },
+
 };

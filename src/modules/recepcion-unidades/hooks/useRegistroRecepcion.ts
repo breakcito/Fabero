@@ -199,6 +199,9 @@ export const useRegistroRecepcion = (
           id_tipo_vehiculo: payload.id_tipo_vehiculo,
         });
         finalVehiculoId = nuevoVehiculo.id_vehiculo;
+        if (nuevoVehiculo.ya_existia) {
+          notifySuccess("El vehículo ya se encontraba registrado. Seleccionado automáticamente.");
+        }
       } 
       // 2. Si existe pero cambió transportista o tipo
       else if (

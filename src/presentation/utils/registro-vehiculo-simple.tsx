@@ -64,7 +64,7 @@ export const RegistroVehiculoSimple = ({
         />
         <TextInput
           label="N° de Placa"
-          placeholder="Ej. F1B-890"
+          placeholder="Ej. 890"
           radius="lg"
           size="xs"
           required

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Grid, Paper, Text, Button, Table, Group, ActionIcon, Popover, Select, TextInput, Badge, Center, Loader, Stack } from "@mantine/core";
+import { Grid, Paper, Text, Button, Table, Group, ActionIcon, Popover, Select, TextInput, Badge, Center, Loader, Stack, Tooltip } from "@mantine/core";
 import { IconCheck, IconTrash, IconScale, IconPlus, IconBarcode, IconChecklist, IconPencil } from "@tabler/icons-react";
 import { useTitlePage } from "../../../hooks/useTitlePage";
 import { mostrarConfirmacion } from "../../../presentation/utils/modal-confirmacion";
@@ -15,11 +15,15 @@ import type { RES_TipoVehiculo } from "../../../service/responses/tipo-vehiculo"
 import type { RES_Conductor } from "../../../service/responses/conductor";
 import type { RES_LoteMineral, RecepcionMineralResponse } from "../service/recepcion-mineral.responses";
 import { useUIStore } from "../../../stores/ui.store";
+import { useTicketLote } from "../hooks/useTicketLote";
+import { useTicketBalanza } from "../hooks/useTicketBalanza";
 
 export const RecepcionMineralPage = () => {
   useTitlePage("Recepción de Mineral", true);
 
   const sucursal = useUIStore((state) => state.sucursal_elegida);
+  const { printTicket, getBarcodePreviewUrl } = useTicketLote();
+  const { printTicketBalanza } = useTicketBalanza();
 
   const {
     sinPesarList,
@@ -736,7 +740,7 @@ export const RecepcionMineralPage = () => {
                             <Table verticalSpacing="md" horizontalSpacing="sm" className="w-full">
                               <thead>
                                 <tr className="bg-zinc-900/40 border-b border-zinc-900 text-zinc-400 font-bold text-xs text-left">
-                                  <th>Acción</th>
+                                  <th style={{ width: 60 }}>Acción</th>
                                   <th>Código</th>
                                   <th>Ticket</th>
                                   <th className="text-right">Peso Inicial (Bruto)</th>
@@ -753,74 +757,104 @@ export const RecepcionMineralPage = () => {
                                     </td>
                                   </tr>
                                 ) : (
-                                  lotesAMostrar.map((lote) => (
-                                    <tr key={lote.id} className="border-b border-zinc-900/40">
-                                      <td>
-                                        <ActionIcon color="red" variant="subtle" radius="md" onClick={() => eliminarLote(ru.id, lote.id)}>
-                                          <IconTrash size={16} />
-                                        </ActionIcon>
-                                      </td>
-                                      <td>
-                                        <Group gap={6}>
-                                          <IconBarcode size={18} className="text-zinc-500" />
-                                          <Text size="xs" fw={700} className="text-zinc-200 font-mono">
-                                            {lote.correlativo}
+                                  lotesAMostrar.map((lote) => {
+                                    const barcodeUrl = getBarcodePreviewUrl(lote);
+                                    return (
+                                      <tr key={lote.id} className="border-b border-zinc-900/40">
+                                        <td>
+                                          <Tooltip label="Eliminar lote" withArrow>
+                                            <ActionIcon color="red" variant="subtle" radius="md" onClick={() => eliminarLote(ru.id, lote.id)}>
+                                              <IconTrash size={16} />
+                                            </ActionIcon>
+                                          </Tooltip>
+                                        </td>
+                                        <td>
+                                          <Group gap={6} wrap="nowrap">
+                                            {barcodeUrl ? (
+                                              <Tooltip label="Ver / reimprimir ticket" withArrow>
+                                                <ActionIcon
+                                                  variant="default"
+                                                  radius="sm"
+                                                  size="md"
+                                                  onClick={() => {
+                                                    const emp = empresas.find(e => e.id_empresa_transporte === lote.id_empresa_transporte);
+                                                    printTicketBalanza({
+                                                      ...lote,
+                                                      empresa_transporte_ruc: emp ? emp.ruc : ""
+                                                    });
+                                                  }}
+                                                  aria-label="Ver ticket"
+                                                  className="bg-white hover:bg-zinc-100 p-0.5 border border-zinc-700/80 shrink-0 h-6 w-12"
+                                                >
+                                                  <img
+                                                    src={barcodeUrl}
+                                                    alt={`barcode ${lote.correlativo}`}
+                                                    className="h-full w-full object-contain"
+                                                  />
+                                                </ActionIcon>
+                                              </Tooltip>
+                                            ) : (
+                                              <IconBarcode size={18} className="text-zinc-500 shrink-0" />
+                                            )}
+                                            <Text size="xs" fw={700} className="text-zinc-200 font-mono">
+                                              {lote.correlativo}
+                                            </Text>
+                                          </Group>
+                                        </td>
+                                        <td>
+                                          <Text size="xs" className="text-zinc-300">
+                                            {lote.numero_correlativo}
                                           </Text>
-                                        </Group>
-                                      </td>
-                                      <td>
-                                        <Text size="xs" className="text-zinc-300">
-                                          {lote.numero_correlativo}
-                                        </Text>
-                                      </td>
-                                      <td className="text-right">
-                                        {lote.peso_inicial !== null ? (
-                                          <Badge
-                                            variant="gradient"
-                                            gradient={{ from: "teal", to: "green", deg: 45 }}
-                                            size="md"
-                                            radius="md"
-                                            className="font-bold text-zinc-950 px-2.5 py-2.5 shadow-sm shadow-emerald-500/10"
-                                          >
-                                            {lote.peso_inicial.toLocaleString()} Kg
-                                          </Badge>
-                                        ) : (
-                                          <Button
-                                            size="xs"
-                                            radius="md"
-                                            className="bg-linear-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-zinc-950 font-extrabold shadow-sm shadow-amber-500/10 transition-all hover:scale-105"
-                                            onClick={() => setActiveLotePesoInicial(lote)}
-                                          >
-                                            Pesar
-                                          </Button>
-                                        )}
-                                      </td>
-                                      <td className="text-right">
-                                        {lote.peso_final !== null ? (
-                                          <Badge
-                                            variant="gradient"
-                                            gradient={{ from: "teal", to: "green", deg: 45 }}
-                                            size="md"
-                                            radius="md"
-                                            className="font-bold text-zinc-950 px-2.5 py-2.5 shadow-sm shadow-emerald-500/10"
-                                          >
-                                            {lote.peso_final.toLocaleString()} Kg
-                                          </Badge>
-                                        ) : lote.peso_inicial !== null ? (
-                                          <Button
-                                            size="xs"
-                                            radius="md"
-                                            className="bg-linear-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-zinc-950 font-extrabold shadow-sm shadow-amber-500/10 transition-all hover:scale-105"
-                                            onClick={() => setActiveLotePesoFinal(lote)}
-                                          >
-                                            Pesar
-                                          </Button>
-                                        ) : (
-                                          <Text size="xs" c="dimmed">---</Text>
-                                        )}
-                                      </td>
-                                    </tr>
-                                  ))
+                                        </td>
+                                        <td className="text-right">
+                                          {lote.peso_inicial !== null ? (
+                                            <Badge
+                                              variant="gradient"
+                                              gradient={{ from: "teal", to: "green", deg: 45 }}
+                                              size="md"
+                                              radius="md"
+                                              className="font-bold text-zinc-950 px-2.5 py-2.5 shadow-sm shadow-emerald-500/10"
+                                            >
+                                              {lote.peso_inicial.toLocaleString()} Kg
+                                            </Badge>
+                                          ) : (
+                                            <Button
+                                              size="xs"
+                                              radius="md"
+                                              className="bg-linear-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-zinc-950 font-extrabold shadow-sm shadow-amber-500/10 transition-all hover:scale-105"
+                                              onClick={() => setActiveLotePesoInicial(lote)}
+                                            >
+                                              Pesar
+                                            </Button>
+                                          )}
+                                        </td>
+                                        <td className="text-right">
+                                          {lote.peso_final !== null ? (
+                                            <Badge
+                                              variant="gradient"
+                                              gradient={{ from: "teal", to: "green", deg: 45 }}
+                                              size="md"
+                                              radius="md"
+                                              className="font-bold text-zinc-950 px-2.5 py-2.5 shadow-sm shadow-emerald-500/10"
+                                            >
+                                              {lote.peso_final.toLocaleString()} Kg
+                                            </Badge>
+                                          ) : lote.peso_inicial !== null ? (
+                                            <Button
+                                              size="xs"
+                                              radius="md"
+                                              className="bg-linear-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-zinc-950 font-extrabold shadow-sm shadow-amber-500/10 transition-all hover:scale-105"
+                                              onClick={() => setActiveLotePesoFinal(lote)}
+                                            >
+                                              Pesar
+                                            </Button>
+                                          ) : (
+                                            <Text size="xs" c="dimmed">---</Text>
+                                          )}
+                                        </td>
+                                      </tr>
+                                    );
+                                  })
                                 )}
                               </tbody>
                             </Table>
@@ -866,8 +900,15 @@ export const RecepcionMineralPage = () => {
             onSubmit={async (loteId, dto) => {
               const ru = enProcesoList.find((r) => r.lotes?.some((l) => l.id === loteId));
               if (ru) {
-                await registrarPesoInicial(ru.id, loteId, dto);
+                const loteActualizado = await registrarPesoInicial(ru.id, loteId, dto);
                 setActiveLotePesoInicial(null);
+                if (loteActualizado) {
+                  const emp = empresas.find(e => e.id_empresa_transporte === loteActualizado.id_empresa_transporte);
+                  printTicketBalanza({
+                    ...loteActualizado,
+                    empresa_transporte_ruc: emp ? emp.ruc : ""
+                  });
+                }
               }
             }}
           />
@@ -888,8 +929,15 @@ export const RecepcionMineralPage = () => {
             onSubmit={async (loteId, dto) => {
               const ru = enProcesoList.find((r) => r.lotes?.some((l) => l.id === loteId));
               if (ru) {
-                await registrarPesoFinal(ru.id, loteId, dto);
+                const loteActualizado = await registrarPesoFinal(ru.id, loteId, dto);
                 setActiveLotePesoFinal(null);
+                if (loteActualizado) {
+                  const emp = empresas.find(e => e.id_empresa_transporte === loteActualizado.id_empresa_transporte);
+                  printTicketBalanza({
+                    ...loteActualizado,
+                    empresa_transporte_ruc: emp ? emp.ruc : ""
+                  });
+                }
               }
             }}
           />

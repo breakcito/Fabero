@@ -117,7 +117,11 @@ export const useRegistroVehiculo = (
         onSuccess(updated);
       } else {
         const created = await VehiculosService.crearVehiculo(validation.data);
-        notifySuccess("Vehículo registrado exitosamente");
+        if (created.ya_existia) {
+          notifySuccess("El vehículo ya se encontraba registrado.");
+        } else {
+          notifySuccess("Vehículo registrado exitosamente");
+        }
         onSuccess(created);
       }
     } catch (err: unknown) {
