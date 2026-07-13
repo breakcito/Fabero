@@ -254,8 +254,27 @@ export const ModalPesoInicial = ({ lote, onCancel, onSubmit }: Props) => {
               <TextInput
                 label="N° Contacto:"
                 placeholder="Autocompletado con teléfono del proveedor"
+                type="tel"
+                inputMode="tel"
+                maxLength={20}
                 value={contacto}
-                onChange={(e) => setContacto(e.currentTarget.value)}
+                onChange={(e) => {
+                  const sanitizado = e.currentTarget.value.replace(/[^0-9+\-\s()]/g, "");
+                  setContacto(sanitizado);
+                }}
+                onKeyDown={(e) => {
+                  if (
+                    !/[0-9+\-\s()\bBackspace\bDelete\bArrowLeft\bArrowRight\bTab\bEnter]/.test(e.key)
+                  ) {
+                    e.preventDefault();
+                  }
+                }}
+                onPaste={(e) => {
+                  const textoPegado = e.clipboardData.getData("text");
+                  if (/[a-zA-Z]/.test(textoPegado)) {
+                    e.preventDefault();
+                  }
+                }}
                 classNames={fieldClasses}
                 radius="lg"
               />

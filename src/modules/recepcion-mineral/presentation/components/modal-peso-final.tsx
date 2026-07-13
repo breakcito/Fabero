@@ -284,8 +284,27 @@ export const ModalPesoFinal = ({ lote, onCancel, onSubmit }: Props) => {
             <Grid.Col span={{ base: 12, md: 4 }}>
               <TextInput
                 label="N° Contacto:"
+                type="tel"
+                inputMode="tel"
+                maxLength={20}
                 value={contacto}
-                onChange={(e) => setContacto(e.currentTarget.value)}
+                onChange={(e) => {
+                  const sanitizado = e.currentTarget.value.replace(/[^0-9+\-\s()]/g, "");
+                  setContacto(sanitizado);
+                }}
+                onKeyDown={(e) => {
+                  if (
+                    !/[0-9+\-\s()\bBackspace\bDelete\bArrowLeft\bArrowRight\bTab\bEnter]/.test(e.key)
+                  ) {
+                    e.preventDefault();
+                  }
+                }}
+                onPaste={(e) => {
+                  const textoPegado = e.clipboardData.getData("text");
+                  if (/[a-zA-Z]/.test(textoPegado)) {
+                    e.preventDefault();
+                  }
+                }}
                 classNames={fieldClasses}
                 radius="lg"
                 size="xs"

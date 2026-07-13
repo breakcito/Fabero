@@ -11,6 +11,7 @@ import {
 } from "@mantine/core";
 import {
   IconCalendar,
+  IconHistory,
   IconPlus,
   IconX,
   IconPencil,
@@ -25,6 +26,7 @@ import { useGuiasPrimerTramo } from "../hooks/useGuiasPrimerTramo";
 import { usePrintGuiaRemitente } from "../hooks/usePrintGuiaRemitente";
 import { usePrintGuiaTransportista } from "../hooks/usePrintGuiaTransportista";
 import { ModalGuiaPrimerTramo } from "./components/modal-guia-primer-tramo";
+import { HistorialModal } from "./components/historial-modal";
 import { DataTableEstandar } from "../../../presentation/utils/datatable-estandar";
 import type { DTO_CrearGuiaPrimerTramo, DTO_ActualizarGuiaPrimerTramo } from "../service/guias-primer-tramo.requests";
 import type { RES_GuiaPrimerTramo } from "../service/guias-primer-tramo.responses";
@@ -77,6 +79,10 @@ export const GuiasPrimerTramoPage = () => {
   // Visor de evidencias
   const [selectedEvidencias, setSelectedEvidencias] = useState<IArchivo[] | null>(null);
   const [evidenceModalOpen, setEvidenceModalOpen] = useState(false);
+
+  // Historial de cambios (modal independiente del de edición)
+  const [historialModalOpen, setHistorialModalOpen] = useState(false);
+  const [guiaHistorialId, setGuiaHistorialId] = useState<number | null>(null);
 
   useEffect(() => {
     if (idSucursal) {
@@ -473,6 +479,20 @@ export const GuiasPrimerTramoPage = () => {
                       <IconPencil size={14} />
                     </ActionIcon>
                   </Tooltip>
+                  <Tooltip label="Historial de cambios" withArrow>
+                    <ActionIcon
+                      size="sm"
+                      variant="subtle"
+                      color="yellow"
+                      onClick={() => {
+                        setGuiaHistorialId(g.id);
+                        setHistorialModalOpen(true);
+                      }}
+                      className="text-zinc-400 hover:text-amber-400"
+                    >
+                      <IconHistory size={14} />
+                    </ActionIcon>
+                  </Tooltip>
                   <Tooltip label="Anular Guía" withArrow disabled={!isActivo}>
                     <ActionIcon
                       size="sm"
@@ -579,6 +599,16 @@ export const GuiasPrimerTramoPage = () => {
           ))}
         </div>
       </ModalEstandar>
+
+      {/* Modal: Historial de cambios */}
+      <HistorialModal
+        idGuia={guiaHistorialId}
+        opened={historialModalOpen}
+        onClose={() => {
+          setHistorialModalOpen(false);
+          setGuiaHistorialId(null);
+        }}
+      />
     </div>
   );
 };

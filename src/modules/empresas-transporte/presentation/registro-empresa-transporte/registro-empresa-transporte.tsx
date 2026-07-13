@@ -120,8 +120,27 @@ export const RegistroEmpresaTransporte = ({ empresa, onCancel, onSuccess }: Prop
             label="Teléfono"
             placeholder="Ej. 987654321"
             radius="xl"
+            type="tel"
+            inputMode="tel"
+            maxLength={20}
             value={payload.telefono || ""}
-            onChange={(e) => handleChange("telefono", e.target.value)}
+            onChange={(e) => {
+              const sanitizado = e.target.value.replace(/[^0-9+\-\s()]/g, "");
+              handleChange("telefono", sanitizado);
+            }}
+            onKeyDown={(e) => {
+              if (
+                !/[0-9+\-\s()\bBackspace\bDelete\bArrowLeft\bArrowRight\bTab\bEnter]/.test(e.key)
+              ) {
+                e.preventDefault();
+              }
+            }}
+            onPaste={(e) => {
+              const textoPegado = e.clipboardData.getData("text");
+              if (/[a-zA-Z]/.test(textoPegado)) {
+                e.preventDefault();
+              }
+            }}
             classNames={{
               input:
                 "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 transition-all",

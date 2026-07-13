@@ -298,28 +298,29 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
     }
   };
 
-  const propagarDesdeAnchor = (lista: LoteFormItem[], anchorIndex: number): LoteFormItem[] => {
+  /**
+   * Iguala los peso_neto de todos los lotes al del lote `anchorIndex`.
+   * Cada lote mantiene su propio `peso_bruto`; se recalcula su `tara`
+   * para que `bruto - tara = netoCompartido`.
+   *
+   * Por qué: cada lote representa una pesada del mismo camión en una balanza;
+   * el peso de la carga (neto) debe ser idéntico en todas las pesadas.
+   */
+  const propagarNetoIgual = (lista: LoteFormItem[], anchorIndex: number): LoteFormItem[] => {
     if (lista.length === 0) return [];
     const copia = lista.map((l) => ({ ...l }));
     const k = Math.min(Math.max(0, anchorIndex), copia.length - 1);
 
-    if (copia[k]) {
-      copia[k].peso_neto = Number(copia[k].peso_bruto) - Number(copia[k].tara);
-    }
+    const netoCompartido = Number(copia[k].peso_bruto ?? 0) - Number(copia[k].tara ?? 0);
 
-    // 1. Propagar hacia arriba (de k - 1 hacia 0)
-    for (let i = k - 1; i >= 0; i--) {
-      copia[i].tara = copia[i + 1].peso_bruto;
-      copia[i].peso_bruto = copia[i].tara + copia[i].peso_neto;
-    }
-
-    // 2. Propagar hacia abajo (de k + 1 hacia el final)
-    for (let i = k + 1; i < copia.length; i++) {
-      copia[i].peso_bruto = copia[i - 1].tara;
-      copia[i].tara = copia[i].peso_bruto - copia[i].peso_neto;
-    }
-
-    return copia;
+    return copia.map((l) => {
+      const tara = Number(l.peso_bruto ?? 0) - netoCompartido;
+      return {
+        ...l,
+        tara,
+        peso_neto: netoCompartido,
+      };
+    });
   };
 
   const handleAgregarLotes = (seleccionados: RES_LoteMineralDisponible[]) => {
@@ -338,7 +339,7 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
     setLotes((prev) => {
       const combinada = [...prev, ...nuevos];
       const anchor = Math.max(0, prev.length - 1);
-      return propagarDesdeAnchor(combinada, anchor);
+      return propagarNetoIgual(combinada, anchor);
     });
     setOpenLoteModal(false);
   };
@@ -349,7 +350,7 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
       if (idx < 0) return prev;
       const filtered = prev.filter((l) => l.tempId !== tempId);
       const anchor = Math.max(0, idx - 1);
-      return propagarDesdeAnchor(filtered, anchor);
+      return propagarNetoIgual(filtered, anchor);
     });
   };
 
@@ -362,7 +363,7 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
       const copia = [...prev];
       const [item] = copia.splice(idx, 1);
       copia.splice(nuevoIdx, 0, item);
-      return propagarDesdeAnchor(copia, nuevoIdx);
+      return propagarNetoIgual(copia, nuevoIdx);
     });
   };
 
@@ -374,15 +375,10 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
     setLotes((prev) => {
       const idx = prev.findIndex((l) => l.tempId === tempId);
       if (idx < 0) return prev;
-      const nuevaLista = prev.map((l) => {
-        if (l.tempId === tempId) {
-          const actualizado = { ...l, [field]: value };
-          actualizado.peso_neto = actualizado.peso_bruto - actualizado.tara;
-          return actualizado;
-        }
-        return l;
-      });
-      return propagarDesdeAnchor(nuevaLista, idx);
+      const nuevaLista = prev.map((l) =>
+        l.tempId === tempId ? { ...l, [field]: value } : l,
+      );
+      return propagarNetoIgual(nuevaLista, idx);
     });
   };
 

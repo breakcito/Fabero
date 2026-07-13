@@ -771,22 +771,16 @@ export const RecepcionMineralPage = () => {
                                         <td>
                                           <Group gap={6} wrap="nowrap">
                                             {barcodeUrl ? (
-                                              <Tooltip label="Ver / reimprimir ticket" withArrow>
-                                                <ActionIcon
-                                                  variant="default"
-                                                  radius="sm"
-                                                  size="md"
-                                                  onClick={() => {
-                                                    const emp = empresas.find(e => e.id_empresa_transporte === lote.id_empresa_transporte);
-                                                    printTicketBalanza({
-                                                      ...lote,
-                                                      empresa_transporte_ruc: emp ? emp.ruc : ""
-                                                    });
-                                                  }}
-                                                  aria-label="Ver ticket"
-                                                  className="bg-white hover:bg-zinc-100 p-0.5 border border-zinc-700/80 shrink-0 h-6 w-12"
-                                                >
-                                                  <img
+                                          <Tooltip label="Ver / reimprimir ticket" withArrow>
+                                            <ActionIcon
+                                              variant="default"
+                                              radius="sm"
+                                              size="md"
+                                              onClick={() => printTicket(lote)}
+                                              aria-label="Ver ticket"
+                                              className="bg-white hover:bg-zinc-100 p-0.5 border border-zinc-700/80 shrink-0 h-6 w-12"
+                                            >
+                                              <img
                                                     src={barcodeUrl}
                                                     alt={`barcode ${lote.correlativo}`}
                                                     className="h-full w-full object-contain"
