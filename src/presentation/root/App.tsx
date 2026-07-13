@@ -36,6 +36,7 @@ import { onSocketEvent } from "../../service/_socket.ts";
 import { useAuditoriaStore } from "../../stores/auditoria.store.ts";
 import ModoAuditoriaPage from "../../modules/modo-auditoria/presentation/ModoAuditoriaPage.tsx";
 import { SucursalesPage } from "../../modules/sucursales/presentation/sucursales.page.tsx";
+import { GestionLeyesPage } from "../../modules/gestion-leyes/presentation/gestion-leyes.page.tsx";
 
 export const App = () => {
   const { setModoAuditoria } = useAuditoriaStore();
@@ -122,6 +123,7 @@ export const App = () => {
             <Route path="empresas-transporte" element={<EmpresasTransportePage />} />
             <Route path="vehiculos" element={<VehiculosPage />} />
           </Route>
+          
         </Route>
 
         {/* Operaciones */}
@@ -142,6 +144,10 @@ export const App = () => {
           <Route path="primer-tramo" element={<UsuariosLayout />}>
             {/* Recepción de Minerales */}
             <Route path="gestion-guias" element={<GuiasPrimerTramoPage />} />
+          </Route>
+          {/* Gestion Leyes */}
+          <Route path="gestion-leyes" element={<UsuariosLayout />}>
+            <Route path="configuracion" element={<GestionLeyesPage />} />
           </Route>
         </Route>
 
