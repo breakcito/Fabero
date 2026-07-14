@@ -21,6 +21,7 @@ import type {
 } from "../../service/gestion-leyes.service";
 import { useNotify } from "../../../../hooks/useNotify";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
+import { EstadoBase } from "../../../../shared/enums/_generic/estado-base";
 
 interface RegistroGrupoProps {
   grupo: GrupoAnalisisResponse | null;
@@ -65,8 +66,9 @@ export const RegistroGrupo = ({
           para_valorizacion_plata: a.para_valorizacion_plata,
           para_valorizacion_humedad: a.para_valorizacion_humedad,
           para_valorizacion_recuperacion: a.para_valorizacion_recuperacion,
+          es_desplegable: a.es_desplegable,
         }))
-      : []
+      : [],
   );
   const [analitoSeleccionado, setAnalitoSeleccionado] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -109,7 +111,7 @@ export const RegistroGrupo = ({
   }, [todosLosGrupos, grupo]);
 
   const handleStartEditarAnalito = (idAnalito: number, nombre: string, esDesplegable: boolean) => {
-    setAnalitoEditar({ id: idAnalito, nombre, es_desplegable: esDesplegable, estado: "Activo" as any });
+    setAnalitoEditar({ id: idAnalito, nombre, es_desplegable: esDesplegable, estado: EstadoBase.Activo });
     setNombreEditarAnalito(nombre);
     setDesplegableEditarAnalito(esDesplegable);
   };
