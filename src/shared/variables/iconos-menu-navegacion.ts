@@ -3,7 +3,12 @@ import {
   UserGroupIcon,
   UsersIcon,
   Cog6ToothIcon,
+  BeakerIcon,
+  DocumentTextIcon,
+  PresentationChartBarIcon,
+  ScaleIcon,
 } from "@heroicons/react/24/outline";
+import { ShieldCheck } from "lucide-react";
 
 // Asociacion de iconos a cada nivel de menú mediante
 // el campo "path". Visible en el menu de navegacion.
@@ -17,6 +22,16 @@ export const iconos_menu_navegacion = [
       { submenu_path: "empresas", icono: BuildingOffice2Icon },
       { submenu_path: "personal", icono: UserGroupIcon },
       { submenu_path: "usuarios", icono: UsersIcon },
+    ],
+  },
+  {
+    menu_path: "operaciones",
+    icono: PresentationChartBarIcon,
+    submenus: [
+      { submenu_path: "vigilancia", icono: ShieldCheck },
+      { submenu_path: "balanza", icono: ScaleIcon },
+      { submenu_path: "guias", icono: DocumentTextIcon },
+      { submenu_path: "leyes", icono: BeakerIcon },
     ],
   },
 ];

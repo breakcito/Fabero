@@ -88,8 +88,6 @@ export const App = () => {
         {/* Perfil */}
         <Route path="/perfil" element={<PerfilPage />} />
 
-
-
         {/* Configuracion */}
         <Route path="/configuracion" element={<ConfiguracionLayout />}>
           {/* Empresas */}
@@ -102,7 +100,10 @@ export const App = () => {
           <Route path="personal" element={<PersonalLayout />}>
             <Route path="areas_cargos" element={<OrganigramaPage />} />
             <Route path="trabajadores" element={<PersonalPage />} />
-            <Route path="encargados-muestra" element={<EncargadosMuestraPage />} />
+            <Route
+              path="encargados-muestra"
+              element={<EncargadosMuestraPage />}
+            />
           </Route>
 
           {/* Usuarios */}
@@ -115,35 +116,44 @@ export const App = () => {
           <Route path="socios-comerciales" element={<UsuariosLayout />}>
             <Route path="proveedores-mineros" element={<ProveedoresPage />} />
             <Route path="plantas-destino" element={<PlantasDestinoPage />} />
-
           </Route>
           {/* Empresa de Transporte */}
           <Route path="empresa-transporte" element={<UsuariosLayout />}>
             <Route path="conductores" element={<ConductoresPage />} />
-            <Route path="empresas-transporte" element={<EmpresasTransportePage />} />
+            <Route
+              path="empresas-transporte"
+              element={<EmpresasTransportePage />}
+            />
             <Route path="vehiculos" element={<VehiculosPage />} />
           </Route>
-          
         </Route>
 
         {/* Operaciones */}
         <Route path="/operaciones" element={<ConfiguracionLayout />}>
-         
-          <Route path="gestion-vigilancia" element={<UsuariosLayout />}>
+          <Route path="vigilancia" element={<UsuariosLayout />}>
             {/* Recepción de Unidades */}
-            <Route path="recepcion-unidades" element={<RecepcionUnidadesPage />} />
+            <Route
+              path="recepcion-unidades"
+              element={<RecepcionUnidadesPage />}
+            />
             {/* Recepción de Visitas */}
-            <Route path="recepcion-visitas" element={<RecepcionVisitasPage />} />
+            <Route
+              path="recepcion-visitas"
+              element={<RecepcionVisitasPage />}
+            />
           </Route>
-          <Route path="gestion-balanza" element={<UsuariosLayout />}>
+          <Route path="balanza" element={<UsuariosLayout />}>
             {/* Recepción de Minerales */}
-            <Route path="recepcion-mineral" element={<RecepcionMineralPage />} />
+            <Route
+              path="recepcion-mineral"
+              element={<RecepcionMineralPage />}
+            />
             {/* Resumen de Balanza */}
             <Route path="resumen-balanza" element={<ResumenBalanzaPage />} />
           </Route>
-          <Route path="primer-tramo" element={<UsuariosLayout />}>
+          <Route path="guias" element={<UsuariosLayout />}>
             {/* Recepción de Minerales */}
-            <Route path="gestion-guias" element={<GuiasPrimerTramoPage />} />
+            <Route path="primer-tramo" element={<GuiasPrimerTramoPage />} />
           </Route>
           {/* Gestion Leyes */}
           <Route path="leyes" element={<UsuariosLayout />}>

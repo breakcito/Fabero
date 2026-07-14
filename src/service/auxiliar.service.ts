@@ -15,7 +15,10 @@ import type { RES_Conductor } from "./responses/conductor";
 import type { RES_TipoVehiculo } from "./responses/tipo-vehiculo";
 import type { RES_EmpresaTransporte } from "./responses/empresa-transporte";
 import type { RES_Vehiculo } from "./responses/vehiculo";
-import type { RES_MotivoIngreso, RES_Visitante } from "./responses/auxiliar-visitas";
+import type {
+  RES_MotivoIngreso,
+  RES_Visitante,
+} from "./responses/auxiliar-visitas";
 import type { EstadoBase } from "../shared/enums/_generic/estado-base";
 import type { RES_Sucursal } from "./responses/sucursal";
 import type { RES_ZonaOrigen } from "./responses/zona-origen";
@@ -25,8 +28,8 @@ const path = "/aux";
 
 export const AuxService = {
   get_empleados: async (filters?: {
-    id_empleado?: number;
-    estado?: string;
+    id_empleado?: number | number[];
+    estado?: EstadoBase;
   }): Promise<IRespuesta<RES_Empleado[]>> => {
     const { data } = await api.get(`${path}/empleados`, {
       params: filters,
@@ -39,7 +42,7 @@ export const AuxService = {
    */
   get_proveedores: async (filters?: {
     id_proveedor?: number;
-    estado?: string;
+    estado?: EstadoBase;
     tipo_entidad?: TipoEntidad;
   }): Promise<IRespuesta<RES_Proveedor[]>> => {
     const { data } = await api.get<IRespuesta<RES_Proveedor[]>>(
@@ -65,7 +68,7 @@ export const AuxService = {
    */
   get_marcas: async (filters?: {
     id_marca?: number;
-    estado?: string;
+    estado?: EstadoBase;
   }): Promise<IRespuesta<RES_Marca[]>> => {
     const { data } = await api.get<IRespuesta<RES_Marca[]>>(`${path}/marcas`, {
       params: filters,
@@ -164,7 +167,7 @@ export const AuxService = {
   crear_tipo_vehiculo: async (
     nombre: string,
     tieneCarreta: boolean,
-    esCarreta: boolean
+    esCarreta: boolean,
   ): Promise<RES_TipoVehiculo> => {
     const { data } = await api.post(`${path}/tipos-vehiculo`, {
       nombre,
@@ -181,7 +184,7 @@ export const AuxService = {
     id: number,
     nombre: string,
     tieneCarreta: boolean,
-    esCarreta: boolean
+    esCarreta: boolean,
   ): Promise<RES_TipoVehiculo> => {
     const { data } = await api.put(`${path}/tipos-vehiculo/${id}`, {
       nombre,
@@ -196,9 +199,11 @@ export const AuxService = {
    */
   cambiar_estado_tipo_vehiculo: async (
     id: number,
-    estado: EstadoBase
+    estado: EstadoBase,
   ): Promise<RES_TipoVehiculo> => {
-    const { data } = await api.patch(`${path}/tipos-vehiculo/${id}/estado`, { estado });
+    const { data } = await api.patch(`${path}/tipos-vehiculo/${id}/estado`, {
+      estado,
+    });
     return data.data;
   },
 
@@ -244,7 +249,7 @@ export const AuxService = {
     payload: {
       id_empresa_transporte: number;
       id_tipo_vehiculo: number;
-    }
+    },
   ): Promise<RES_Vehiculo> => {
     const { data } = await api.put(`${path}/vehiculos/${id}`, payload);
     return data.data;
@@ -255,7 +260,7 @@ export const AuxService = {
    */
   get_motivos_ingreso: async (): Promise<IRespuesta<RES_MotivoIngreso[]>> => {
     const { data } = await api.get<IRespuesta<RES_MotivoIngreso[]>>(
-      `${path}/motivos-ingreso`
+      `${path}/motivos-ingreso`,
     );
     return data;
   },
@@ -264,11 +269,11 @@ export const AuxService = {
    * Buscar visitante por DNI
    */
   buscar_visitante_por_dni: async (
-    dni: string
+    dni: string,
   ): Promise<IRespuesta<RES_Visitante>> => {
     const { data } = await api.get<IRespuesta<RES_Visitante>>(
       `${path}/visitantes/buscar`,
-      { params: { dni } }
+      { params: { dni } },
     );
     return data;
   },
@@ -284,7 +289,7 @@ export const AuxService = {
   }): Promise<IRespuesta<RES_Visitante>> => {
     const { data } = await api.post<IRespuesta<RES_Visitante>>(
       `${path}/visitantes`,
-      payload
+      payload,
     );
     return data;
   },
@@ -299,7 +304,9 @@ export const AuxService = {
     return data.data;
   },
 
-  crear_zona_origen: async (payload: { nombre: string }): Promise<RES_ZonaOrigen> => {
+  crear_zona_origen: async (payload: {
+    nombre: string;
+  }): Promise<RES_ZonaOrigen> => {
     const { data } = await api.post(`${path}/zonas-origen`, payload);
     return data.data;
   },

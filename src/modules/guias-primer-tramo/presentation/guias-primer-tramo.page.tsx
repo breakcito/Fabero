@@ -191,7 +191,8 @@ export const GuiasPrimerTramoPage = () => {
             w={200}
             classNames={{
               label: "text-zinc-400 text-xs font-semibold mb-1 ml-1",
-              input: "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 transition-all",
+              input:
+                "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 transition-all",
             }}
           />
           <TextInput
@@ -205,7 +206,8 @@ export const GuiasPrimerTramoPage = () => {
             w={200}
             classNames={{
               label: "text-zinc-400 text-xs font-semibold mb-1 ml-1",
-              input: "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 transition-all",
+              input:
+                "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 transition-all",
             }}
           />
         </div>
@@ -251,17 +253,17 @@ export const GuiasPrimerTramoPage = () => {
             render: (g: RES_GuiaPrimerTramo) => (
               <Stack gap={1}>
                 {g.fecha_emision && (
-                  <Text size="10px" c="dimmed" className="font-mono">
+                  <Text size="11px" c="teal" className="font-mono">
                     Emis: {g.fecha_emision}
                   </Text>
                 )}
                 {g.fecha_inicio_traslado && (
-                  <Text size="10px" c="dimmed" className="font-mono">
+                  <Text size="11px" c="indigo" className="font-mono">
                     Tras: {g.fecha_inicio_traslado}
                   </Text>
                 )}
                 {g.fecha_en_planta && (
-                  <Text size="10px" c="dimmed" className="font-mono">
+                  <Text size="11px" c="yellow" className="font-mono">
                     Plan: {g.fecha_en_planta}
                   </Text>
                 )}
@@ -272,7 +274,9 @@ export const GuiasPrimerTramoPage = () => {
             accessor: "guia_remitente",
             title: "Guía Remitente",
             render: (g: RES_GuiaPrimerTramo) => {
-              const hasGuia = !!(g.serie_guia_remitente || g.numero_guia_remitente);
+              const hasGuia = !!(
+                g.serie_guia_remitente || g.numero_guia_remitente
+              );
               return (
                 <div className="flex items-center gap-2">
                   <Text size="xs" fw={500} className="text-zinc-200 font-mono">
@@ -309,7 +313,9 @@ export const GuiasPrimerTramoPage = () => {
                   </Badge>
                 );
               }
-              const hasGuia = !!(g.serie_guia_transportista || g.numero_guia_transportista);
+              const hasGuia = !!(
+                g.serie_guia_transportista || g.numero_guia_transportista
+              );
               return (
                 <div className="flex items-center gap-2">
                   <Text size="xs" className="text-zinc-300 font-mono">
@@ -323,7 +329,10 @@ export const GuiasPrimerTramoPage = () => {
                         size="xs"
                         variant="subtle"
                         color="blue"
-                        loading={isPrintingTransportista && printingIdTransportista === g.id}
+                        loading={
+                          isPrintingTransportista &&
+                          printingIdTransportista === g.id
+                        }
                         onClick={() => printGuiaTransportista(g)}
                         className="text-zinc-400 hover:text-blue-400"
                       >
@@ -367,7 +376,11 @@ export const GuiasPrimerTramoPage = () => {
             accessor: "empresa_transporte",
             title: "Empresa Transporte",
             render: (g: RES_GuiaPrimerTramo) => (
-              <Text size="xs" className="text-zinc-300 font-semibold truncate max-w-[200px]" title={g.empresa_transporte_razon_social ?? ""}>
+              <Text
+                size="xs"
+                className="text-zinc-300 font-semibold truncate max-w-[200px]"
+                title={g.empresa_transporte_razon_social ?? ""}
+              >
                 {g.empresa_transporte_razon_social || "—"}
               </Text>
             ),
@@ -409,7 +422,12 @@ export const GuiasPrimerTramoPage = () => {
             title: "Motivo",
             textAlign: "center",
             render: (g: RES_GuiaPrimerTramo) => (
-              <Badge color={motivoColor(g.motivo_traslado)} variant="light" size="xs" radius="md">
+              <Badge
+                color={motivoColor(g.motivo_traslado)}
+                variant="light"
+                size="xs"
+                radius="md"
+              >
                 {g.motivo_traslado ?? "—"}
               </Badge>
             ),
@@ -420,7 +438,11 @@ export const GuiasPrimerTramoPage = () => {
             width: 130,
             render: (g: RES_GuiaPrimerTramo) => {
               if (!Array.isArray(g.evidencias) || g.evidencias.length === 0) {
-                return <Text size="xs" className="text-zinc-500 italic">Sin archivos</Text>;
+                return (
+                  <Text size="xs" className="text-zinc-500 italic">
+                    Sin archivos
+                  </Text>
+                );
               }
 
               return (
@@ -431,7 +453,9 @@ export const GuiasPrimerTramoPage = () => {
                   radius="xl"
                   leftSection={<IconPaperclip size={14} />}
                   onClick={() => {
-                    setSelectedEvidencias(g.evidencias as unknown as IArchivo[]);
+                    setSelectedEvidencias(
+                      g.evidencias as unknown as IArchivo[],
+                    );
                     setEvidenceModalOpen(true);
                   }}
                   className="bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 border border-indigo-500/10"
@@ -449,7 +473,12 @@ export const GuiasPrimerTramoPage = () => {
             render: (g: RES_GuiaPrimerTramo) => {
               const isActivo = g.estado === EstadoBase.Activo;
               return (
-                <Badge color={isActivo ? "emerald" : "red"} variant="light" size="xs" radius="md">
+                <Badge
+                  color={isActivo ? "emerald" : "red"}
+                  variant="light"
+                  size="xs"
+                  radius="md"
+                >
                   {isActivo ? "ACTIVO" : "ANULADA"}
                 </Badge>
               );
@@ -514,7 +543,12 @@ export const GuiasPrimerTramoPage = () => {
             title: "Lotes",
             textAlign: "center",
             render: (g: RES_GuiaPrimerTramo) => (
-              <Badge color={g.lotes && g.lotes.length > 0 ? "emerald" : "zinc"} variant="light" size="sm" radius="md">
+              <Badge
+                color={g.lotes && g.lotes.length > 0 ? "emerald" : "zinc"}
+                variant="light"
+                size="sm"
+                radius="md"
+              >
                 {g.lotes?.length ?? 0} Lote(s)
               </Badge>
             ),
@@ -525,15 +559,27 @@ export const GuiasPrimerTramoPage = () => {
             <div className="p-4 border border-zinc-800/80 rounded-xl bg-transparent m-3">
               {/* Lotes asociados */}
               <div>
-                <Text size="xs" fw={700} c="blue.4" tt="uppercase" lts="0.1em" mb="xs">
+                <Text
+                  size="xs"
+                  fw={700}
+                  c="blue.4"
+                  tt="uppercase"
+                  lts="0.1em"
+                  mb="xs"
+                >
                   Lotes asociados
                 </Text>
                 {g.lotes && g.lotes.length > 0 ? (
                   <div className="rounded-lg border border-zinc-800/85 overflow-hidden">
                     <Table verticalSpacing="xs" className="w-full">
-                      <thead >
+                      <thead>
                         <tr className="text-zinc-400 text-[10px] uppercase tracking-wider">
-                          <th style={{ width: 50 }} className="text-center py-2 pl-4">#</th>
+                          <th
+                            style={{ width: 50 }}
+                            className="text-center py-2 pl-4"
+                          >
+                            #
+                          </th>
                           <th className="text-left py-2">Lote Mineral</th>
                           <th className="text-left py-2">Correlativo</th>
                           <th className="text-left py-2">Producto</th>
@@ -545,22 +591,43 @@ export const GuiasPrimerTramoPage = () => {
                       </thead>
                       <tbody>
                         {g.lotes.map((l, idx) => (
-                          <tr key={l.id} className="border-b border-zinc-900/40 bg-transparent hover:bg-transparent">
-                            <td className="text-zinc-400 font-mono text-xs text-center py-2 pl-4">{idx + 1}</td>
-                            <td className="font-mono text-zinc-100 text-xs py-2 fw-semibold">{l.lote_correlativo ?? "—"}</td>
-                            <td className="font-mono text-zinc-400 text-xs py-2">{l.correlativo}</td>
-                            <td className="text-zinc-300 text-xs py-2">{l.tipo_producto ?? "—"}</td>
-                            <td className="text-zinc-300 text-xs py-2">{l.tipo_mineral ?? "—"}</td>
-                            <td className="text-right font-mono text-zinc-200 text-xs py-2">{l.peso_bruto?.toFixed(2) ?? "—"}</td>
-                            <td className="text-right font-mono text-zinc-200 text-xs py-2">{l.tara?.toFixed(2) ?? "—"}</td>
-                            <td className="text-right font-mono text-emerald-400 text-xs py-2 pr-4 fw-semibold">{l.peso_neto?.toFixed(2) ?? "—"}</td>
+                          <tr
+                            key={l.id}
+                            className="border-b border-zinc-900/40 bg-transparent hover:bg-transparent"
+                          >
+                            <td className="text-zinc-400 font-mono text-xs text-center py-2 pl-4">
+                              {idx + 1}
+                            </td>
+                            <td className="font-mono text-zinc-100 text-xs py-2 fw-semibold">
+                              {l.lote_correlativo ?? "—"}
+                            </td>
+                            <td className="font-mono text-zinc-400 text-xs py-2">
+                              {l.correlativo}
+                            </td>
+                            <td className="text-zinc-300 text-xs py-2">
+                              {l.tipo_producto ?? "—"}
+                            </td>
+                            <td className="text-zinc-300 text-xs py-2">
+                              {l.tipo_mineral ?? "—"}
+                            </td>
+                            <td className="text-right font-mono text-zinc-200 text-xs py-2">
+                              {l.peso_bruto?.toFixed(2) ?? "—"}
+                            </td>
+                            <td className="text-right font-mono text-zinc-200 text-xs py-2">
+                              {l.tara?.toFixed(2) ?? "—"}
+                            </td>
+                            <td className="text-right font-mono text-emerald-400 text-xs py-2 pr-4 fw-semibold">
+                              {l.peso_neto?.toFixed(2) ?? "—"}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
                     </Table>
                   </div>
                 ) : (
-                  <Text size="xs" c="dimmed">Esta guía no tiene lotes asociados.</Text>
+                  <Text size="xs" c="dimmed">
+                    Esta guía no tiene lotes asociados.
+                  </Text>
                 )}
               </div>
             </div>
