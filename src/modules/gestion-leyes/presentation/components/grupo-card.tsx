@@ -6,7 +6,7 @@ import {
   HashtagIcon,
   PowerIcon,
 } from "@heroicons/react/24/outline";
-import type { GrupoAnalisisResponse } from "../../service/gestion-leyes.service";
+import type { GrupoAnalisisResponse } from "../../service/gestion-leyes.responses";
 
 interface GrupoCardProps {
   grupo: GrupoAnalisisResponse;

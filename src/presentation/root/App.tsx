@@ -146,7 +146,7 @@ export const App = () => {
             <Route path="gestion-guias" element={<GuiasPrimerTramoPage />} />
           </Route>
           {/* Gestion Leyes */}
-          <Route path="gestion-leyes" element={<UsuariosLayout />}>
+          <Route path="leyes" element={<UsuariosLayout />}>
             <Route path="configuracion" element={<GestionLeyesPage />} />
           </Route>
         </Route>

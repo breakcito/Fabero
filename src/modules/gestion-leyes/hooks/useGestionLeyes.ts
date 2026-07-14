@@ -1,10 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { GestionLeyesService } from "../service/gestion-leyes.service";
-import type {
-  GrupoAnalisisResponse,
-  AnalitoResponse,
-  CrearGrupoPayload,
-} from "../service/gestion-leyes.service";
+import type { GrupoAnalisisResponse, AnalitoResponse } from "../service/gestion-leyes.responses";
+import type { CrearGrupoPayload } from "../service/gestion-leyes.requests";
 import { useNotify } from "../../../hooks/useNotify";
 import { EstadoBase } from "../../../shared/enums/_generic/estado-base";
 

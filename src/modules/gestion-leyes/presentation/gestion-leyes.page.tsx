@@ -8,7 +8,7 @@ import { useGestionLeyes } from "../hooks/useGestionLeyes";
 import { ModalEstandar } from "../../../presentation/utils/modal-estandar";
 import { GrupoCard } from "./components/grupo-card";
 import { RegistroGrupo } from "./components/registro-grupo";
-import type { GrupoAnalisisResponse } from "../service/gestion-leyes.service";
+import type { GrupoAnalisisResponse } from "../service/gestion-leyes.responses";
 
 export const GestionLeyesPage = () => {
   useTitlePage("Configuración Gestión Leyes");
