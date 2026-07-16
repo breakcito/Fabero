@@ -147,9 +147,10 @@ export const ModalProveedores = ({ planta, onProveedoresCountChange }: Props) =>
         <Group align="flex-end" gap="md">
           <div className="flex-1">
             <Select
-              placeholder="Seleccionar proveedor de la lista..."
+              placeholder={loadingTodos ? "Cargando proveedores..." : "Seleccionar proveedor de la lista..."}
               searchable
               disabled={loadingTodos || isLinking}
+              rightSection={loadingTodos ? <Loader size={16} /> : undefined}
               data={disponiblesParaAsociar}
               value={selectedProveedorId}
               onChange={setSelectedProveedorId}

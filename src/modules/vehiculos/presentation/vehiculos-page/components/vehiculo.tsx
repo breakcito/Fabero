@@ -7,6 +7,7 @@ import { EstadoBase } from "../../../../../shared/enums/_generic/estado-base";
 interface Props {
   vehiculos: VehiculoResponse[];
   loading: boolean;
+  togglingIds: Record<number, boolean>;
   onEdit: (vehiculo: VehiculoResponse) => void;
   onToggleEstado: (id: number, currentEstado: EstadoBase) => void;
 }
@@ -14,6 +15,7 @@ interface Props {
 export const Vehiculo = ({
   vehiculos,
   loading,
+  togglingIds,
   onEdit,
   onToggleEstado,
 }: Props) => {
@@ -145,33 +147,38 @@ export const Vehiculo = ({
           title: "Acciones",
           width: 120,
           textAlign: "center",
-          render: (r: VehiculoResponse) => (
-            <Group gap="xs" justify="center" wrap="nowrap">
-              <Tooltip label="Editar Vehículo" withArrow>
-                <ActionIcon
-                  variant="subtle"
-                  color="blue"
-                  radius="xl"
-                  size="sm"
-                  onClick={() => onEdit(r)}
-                >
-                  <IconPencil size={16} stroke={1.5} />
-                </ActionIcon>
-              </Tooltip>
+          render: (r: VehiculoResponse) => {
+            const isToggling = !!togglingIds[r.id];
+            return (
+              <Group gap="xs" justify="center" wrap="nowrap">
+                <Tooltip label="Editar Vehículo" withArrow>
+                  <ActionIcon
+                    variant="subtle"
+                    color="blue"
+                    radius="xl"
+                    size="sm"
+                    disabled={isToggling}
+                    onClick={() => onEdit(r)}
+                  >
+                    <IconPencil size={16} stroke={1.5} />
+                  </ActionIcon>
+                </Tooltip>
 
-              <Tooltip label={r.estado === EstadoBase.Activo ? "Inactivar Vehículo" : "Activar Vehículo"} withArrow>
-                <ActionIcon
-                  variant="subtle"
-                  color={r.estado === EstadoBase.Activo ? "orange" : "green"}
-                  radius="xl"
-                  size="sm"
-                  onClick={() => onToggleEstado(r.id, r.estado)}
-                >
-                  <IconPower size={16} stroke={1.5} />
-                </ActionIcon>
-              </Tooltip>
-            </Group>
-          ),
+                <Tooltip label={r.estado === EstadoBase.Activo ? "Inactivar Vehículo" : "Activar Vehículo"} withArrow>
+                  <ActionIcon
+                    variant="subtle"
+                    color={r.estado === EstadoBase.Activo ? "orange" : "green"}
+                    radius="xl"
+                    size="sm"
+                    loading={isToggling}
+                    onClick={() => onToggleEstado(r.id, r.estado)}
+                  >
+                    <IconPower size={16} stroke={1.5} />
+                  </ActionIcon>
+                </Tooltip>
+              </Group>
+            );
+          },
         },
       ]}
     />

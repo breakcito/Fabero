@@ -32,6 +32,7 @@ export const FormTipoVehiculo = ({ onSelectTipoVehiculo }: Props) => {
   const {
     tiposVehiculo,
     loading,
+    loadingById,
     addTipoVehiculo,
     updateTipoVehiculo,
     toggleEstadoTipoVehiculo,
@@ -284,6 +285,8 @@ export const FormTipoVehiculo = ({ onSelectTipoVehiculo }: Props) => {
                           }
                           radius="xl"
                           size="sm"
+                          loading={!!loadingById[tipo.id_tipo_vehiculo]}
+                          disabled={!!loadingById[tipo.id_tipo_vehiculo]}
                           onClick={() =>
                             toggleEstadoTipoVehiculo(tipo.id_tipo_vehiculo, tipo.estado)
                           }

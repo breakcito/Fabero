@@ -20,6 +20,7 @@ import { EstadoBase } from "../../../../../shared/enums/_generic/estado-base";
 interface Props {
   plantas: PlantaDestinoResponse[];
   loading: boolean;
+  togglingIds: Record<number, boolean>;
   onOpenCuentas: (planta: PlantaDestinoResponse) => void;
   onOpenProveedores: (planta: PlantaDestinoResponse) => void;
   onEdit: (planta: PlantaDestinoResponse) => void;
@@ -29,6 +30,7 @@ interface Props {
 export const Planta = ({
   plantas,
   loading,
+  togglingIds,
   onOpenCuentas,
   onOpenProveedores,
   onEdit,
@@ -192,33 +194,38 @@ export const Planta = ({
           title: "Acciones",
           width: 120,
           textAlign: "center",
-          render: (r: PlantaDestinoResponse) => (
-            <Group gap="xs" justify="center" wrap="nowrap">
-              <Tooltip label="Editar Planta" withArrow>
-                <ActionIcon
-                  variant="subtle"
-                  color="blue"
-                  radius="xl"
-                  size="sm"
-                  onClick={() => onEdit(r)}
-                >
-                  <IconPencil size={16} stroke={1.5} />
-                </ActionIcon>
-              </Tooltip>
+          render: (r: PlantaDestinoResponse) => {
+            const isToggling = !!togglingIds[r.id];
+            return (
+              <Group gap="xs" justify="center" wrap="nowrap">
+                <Tooltip label="Editar Planta" withArrow>
+                  <ActionIcon
+                    variant="subtle"
+                    color="blue"
+                    radius="xl"
+                    size="sm"
+                    disabled={isToggling}
+                    onClick={() => onEdit(r)}
+                  >
+                    <IconPencil size={16} stroke={1.5} />
+                  </ActionIcon>
+                </Tooltip>
 
-              <Tooltip label={r.estado === EstadoBase.Activo ? "Inactivar Planta" : "Activar Planta"} withArrow>
-                <ActionIcon
-                  variant="subtle"
-                  color={r.estado === EstadoBase.Activo ? "orange" : "green"}
-                  radius="xl"
-                  size="sm"
-                  onClick={() => onToggleEstado(r.id, r.estado as EstadoBase)}
-                >
-                  <IconPower size={16} stroke={1.5} />
-                </ActionIcon>
-              </Tooltip>
-            </Group>
-          ),
+                <Tooltip label={r.estado === EstadoBase.Activo ? "Inactivar Planta" : "Activar Planta"} withArrow>
+                  <ActionIcon
+                    variant="subtle"
+                    color={r.estado === EstadoBase.Activo ? "orange" : "green"}
+                    radius="xl"
+                    size="sm"
+                    loading={isToggling}
+                    onClick={() => onToggleEstado(r.id, r.estado as EstadoBase)}
+                  >
+                    <IconPower size={16} stroke={1.5} />
+                  </ActionIcon>
+                </Tooltip>
+              </Group>
+            );
+          },
         },
       ]}
     />

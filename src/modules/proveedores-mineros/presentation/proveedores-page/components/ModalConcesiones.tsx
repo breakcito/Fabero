@@ -183,9 +183,10 @@ export const ModalConcesiones = ({ proveedor }: Props) => {
         <Group align="flex-end" gap="md">
           <div className="flex-1">
             <Select
-              placeholder="Seleccionar concesión del sistema..."
+              placeholder={loadingTodas ? "Cargando concesiones..." : "Seleccionar concesión del sistema..."}
               searchable
               disabled={loadingTodas || isLinking}
+              rightSection={loadingTodas ? <Loader size={16} /> : undefined}
               data={concesionesDisponibles}
               value={selectedConcesionId}
               onChange={setSelectedConcesionId}

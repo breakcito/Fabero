@@ -14,6 +14,7 @@ export const VehiculosPage = () => {
   const {
     vehiculos,
     loading,
+    togglingIds,
     searchQuery,
     setSearchQuery,
     insertVehiculo,
@@ -36,6 +37,7 @@ export const VehiculosPage = () => {
         <Vehiculo
           vehiculos={vehiculos}
           loading={loading}
+          togglingIds={togglingIds}
           onEdit={(v) => setVehiculoAEditar(v)}
           onToggleEstado={toggleEstado}
         />

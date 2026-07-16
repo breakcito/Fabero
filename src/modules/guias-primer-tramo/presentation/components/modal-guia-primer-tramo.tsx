@@ -11,6 +11,7 @@ import {
   Divider,
   Table,
   Text,
+  Loader,
 } from "@mantine/core";
 import {
   IconCalendar,
@@ -583,13 +584,14 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
                 radius="lg"
                 size="xs"
                 disabled={loadingProveedores}
+                rightSection={loadingProveedores ? <Loader size={16} /> : undefined}
                 required
               />
             </Grid.Col>
             <Grid.Col span={{ base: 12, sm: 6 }}>
               <Select
                 label={labelConcesion}
-                placeholder="Seleccione"
+                placeholder={loadingConcesiones ? "Cargando..." : "Seleccione"}
                 searchable
                 clearable
                 data={concesiones.map((c) => ({ value: String(c.id_concesion), label: c.nombre }))}
@@ -600,6 +602,7 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
                 size="xs"
                 required
                 disabled={!idProveedor || loadingConcesiones}
+                rightSection={loadingConcesiones ? <Loader size={16} /> : undefined}
               />
             </Grid.Col>
           </Grid>
@@ -684,6 +687,7 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
                 radius="lg"
                 size="xs"
                 disabled={loadingVehiculos}
+                rightSection={loadingVehiculos ? <Loader size={16} /> : undefined}
                 required
               />
             </Grid.Col>
@@ -700,6 +704,7 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
                 radius="lg"
                 size="xs"
                 disabled={loadingEmpresasTransporte}
+                rightSection={loadingEmpresasTransporte ? <Loader size={16} /> : undefined}
               />
             </Grid.Col>
             <Grid.Col span={{ base: 12, sm: 6 }}>
@@ -718,6 +723,7 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
                 radius="lg"
                 size="xs"
                 disabled={loadingVehiculos}
+                rightSection={loadingVehiculos ? <Loader size={16} /> : undefined}
               />
             </Grid.Col>
             <Grid.Col span={{ base: 12, sm: 6 }}>
@@ -733,6 +739,7 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
                 radius="lg"
                 size="xs"
                 disabled={loadingEmpresasTransporte}
+                rightSection={loadingEmpresasTransporte ? <Loader size={16} /> : undefined}
               />
             </Grid.Col>
           </Grid>
@@ -755,6 +762,7 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
                 radius="lg"
                 size="xs"
                 disabled={loadingConductores}
+                rightSection={loadingConductores ? <Loader size={16} /> : undefined}
                 required
               />
             </Grid.Col>

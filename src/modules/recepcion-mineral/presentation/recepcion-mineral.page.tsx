@@ -31,6 +31,10 @@ export const RecepcionMineralPage = () => {
     loading,
     selectedRecepcion,
     setSelectedRecepcion,
+    validatingField,
+    creatingLoteId,
+    deletingLoteId,
+    closingProcesoId,
     iniciarProceso,
     validarCampo,
     crearLote,
@@ -426,7 +430,15 @@ export const RecepcionMineralPage = () => {
                                     radius="md"
                                     comboboxProps={{ withinPortal: false }}
                                   />
-                                  <Button fullWidth size="xs" color="indigo" radius="md" mt="sm" onClick={() => handleSaveField(ru.id, "condicion_ingreso")}>
+                                  <Button
+                                    fullWidth
+                                    size="xs"
+                                    color="indigo"
+                                    radius="md"
+                                    mt="sm"
+                                    loading={validatingField?.id === ru.id && validatingField?.field === "condicion_ingreso"}
+                                    onClick={() => handleSaveField(ru.id, "condicion_ingreso")}
+                                  >
                                     Validar
                                   </Button>
                                 </Popover.Dropdown>
@@ -485,7 +497,15 @@ export const RecepcionMineralPage = () => {
                                       classNames={fieldClasses}
                                       radius="md"
                                     />
-                                    <Button fullWidth size="xs" color="indigo" radius="md" mt="xs" onClick={() => handleSaveField(ru.id, "placa")}>
+                                    <Button
+                                      fullWidth
+                                      size="xs"
+                                      color="indigo"
+                                      radius="md"
+                                      mt="xs"
+                                      loading={validatingField?.id === ru.id && validatingField?.field === "placa"}
+                                      onClick={() => handleSaveField(ru.id, "placa")}
+                                    >
                                       Validar
                                     </Button>
                                   </Stack>
@@ -538,7 +558,15 @@ export const RecepcionMineralPage = () => {
                                     radius="md"
                                     comboboxProps={{ withinPortal: false }}
                                   />
-                                  <Button fullWidth size="xs" color="indigo" radius="md" mt="sm" onClick={() => handleSaveField(ru.id, "empresa_transporte")}>
+                                  <Button
+                                    fullWidth
+                                    size="xs"
+                                    color="indigo"
+                                    radius="md"
+                                    mt="sm"
+                                    loading={validatingField?.id === ru.id && validatingField?.field === "empresa_transporte"}
+                                    onClick={() => handleSaveField(ru.id, "empresa_transporte")}
+                                  >
                                     Validar
                                   </Button>
                                 </Popover.Dropdown>
@@ -590,7 +618,15 @@ export const RecepcionMineralPage = () => {
                                     radius="md"
                                     comboboxProps={{ withinPortal: false }}
                                   />
-                                  <Button fullWidth size="xs" color="indigo" radius="md" mt="sm" onClick={() => handleSaveField(ru.id, "tipo_vehiculo")}>
+                                  <Button
+                                    fullWidth
+                                    size="xs"
+                                    color="indigo"
+                                    radius="md"
+                                    mt="sm"
+                                    loading={validatingField?.id === ru.id && validatingField?.field === "tipo_vehiculo"}
+                                    onClick={() => handleSaveField(ru.id, "tipo_vehiculo")}
+                                  >
                                     Validar
                                   </Button>
                                 </Popover.Dropdown>
@@ -640,7 +676,15 @@ export const RecepcionMineralPage = () => {
                                     classNames={fieldClasses}
                                     radius="md"
                                   />
-                                  <Button fullWidth size="xs" color="indigo" radius="md" mt="sm" onClick={() => handleSaveField(ru.id, "segunda_placa")}>
+                                  <Button
+                                    fullWidth
+                                    size="xs"
+                                    color="indigo"
+                                    radius="md"
+                                    mt="sm"
+                                    loading={validatingField?.id === ru.id && validatingField?.field === "segunda_placa"}
+                                    onClick={() => handleSaveField(ru.id, "segunda_placa")}
+                                  >
                                     Validar
                                   </Button>
                                 </Popover.Dropdown>
@@ -698,7 +742,15 @@ export const RecepcionMineralPage = () => {
                                       <IconPlus size={16} />
                                     </ActionIcon>
                                   </div>
-                                  <Button fullWidth size="xs" color="indigo" radius="md" mt="sm" onClick={() => handleSaveField(ru.id, "conductor")}>
+                                  <Button
+                                    fullWidth
+                                    size="xs"
+                                    color="indigo"
+                                    radius="md"
+                                    mt="sm"
+                                    loading={validatingField?.id === ru.id && validatingField?.field === "conductor"}
+                                    onClick={() => handleSaveField(ru.id, "conductor")}
+                                  >
                                     Validar
                                   </Button>
                                 </Popover.Dropdown>
@@ -725,6 +777,7 @@ export const RecepcionMineralPage = () => {
                               radius="md"
                               leftSection={<IconPlus size={14} />}
                               disabled={!valComplete}
+                              loading={creatingLoteId === ru.id}
                               onClick={() => crearLote(ru.id)}
                               className={`font-bold ${
                                 valComplete
@@ -763,7 +816,13 @@ export const RecepcionMineralPage = () => {
                                       <tr key={lote.id} className="border-b border-zinc-900/40">
                                         <td>
                                           <Tooltip label="Eliminar lote" withArrow>
-                                            <ActionIcon color="red" variant="subtle" radius="md" onClick={() => eliminarLote(ru.id, lote.id)}>
+                                            <ActionIcon
+                                              color="red"
+                                              variant="subtle"
+                                              radius="md"
+                                              loading={deletingLoteId === lote.id}
+                                              onClick={() => eliminarLote(ru.id, lote.id)}
+                                            >
                                               <IconTrash size={16} />
                                             </ActionIcon>
                                           </Tooltip>
@@ -860,6 +919,7 @@ export const RecepcionMineralPage = () => {
                           <Button
                             radius="lg"
                             disabled={!canCloseProceso(ru)}
+                            loading={closingProcesoId === ru.id}
                             onClick={() => cerrarProceso(ru.id)}
                             className={`font-bold ${
                               canCloseProceso(ru)

@@ -46,6 +46,7 @@ export const GuiasPrimerTramoPage = () => {
   const {
     guias,
     loading,
+    anulandoId,
     crearGuia,
     actualizarGuia,
     anularGuia,
@@ -529,6 +530,7 @@ export const GuiasPrimerTramoPage = () => {
                       color="red"
                       onClick={() => handleAnular(g.id)}
                       disabled={!isActivo}
+                      loading={anulandoId === g.id}
                       className="text-zinc-400 hover:text-rose-400 disabled:opacity-20"
                     >
                       <IconTrash size={14} />

@@ -7,6 +7,7 @@ import { EstadoBase } from "../shared/enums/_generic/estado-base";
 export const useTiposVehiculo = () => {
   const [tiposVehiculo, setTiposVehiculo] = useState<RES_TipoVehiculo[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingById, setLoadingById] = useState<Record<number, boolean>>({});
   const { notifySuccess, notifyError } = useNotify();
 
   const fetchTiposVehiculo = async () => {
@@ -65,6 +66,7 @@ export const useTiposVehiculo = () => {
   const toggleEstadoTipoVehiculo = async (id: number, currentEstado: EstadoBase) => {
     const nuevoEstado =
       currentEstado === EstadoBase.Activo ? EstadoBase.Inactivo : EstadoBase.Activo;
+    setLoadingById((prev) => ({ ...prev, [id]: true }));
     try {
       const updated = await AuxService.cambiar_estado_tipo_vehiculo(id, nuevoEstado);
       setTiposVehiculo((prev) => prev.map((item) => (item.id_tipo_vehiculo === id ? updated : item)));
@@ -72,12 +74,19 @@ export const useTiposVehiculo = () => {
     } catch (e) {
       console.error(e);
       notifyError("No se pudo cambiar el estado del tipo de vehículo");
+    } finally {
+      setLoadingById((prev) => {
+        const copy = { ...prev };
+        delete copy[id];
+        return copy;
+      });
     }
   };
 
   return {
     tiposVehiculo,
     loading,
+    loadingById,
     fetchTiposVehiculo,
     addTipoVehiculo,
     updateTipoVehiculo,

@@ -22,6 +22,7 @@ import { EstadoBase } from "../../../../../shared/enums/_generic/estado-base";
 interface Props {
   proveedores: ProveedorResponse[];
   loading: boolean;
+  togglingIds: Record<number, boolean>;
   onOpenCuentas: (proveedor: ProveedorResponse) => void;
   onOpenConcesiones: (proveedor: ProveedorResponse) => void;
   onEdit: (proveedor: ProveedorResponse) => void;
@@ -32,6 +33,7 @@ interface Props {
 export const Proveedor = ({
   proveedores,
   loading,
+  togglingIds,
   onOpenCuentas,
   onOpenConcesiones,
   onEdit,
@@ -166,46 +168,52 @@ export const Proveedor = ({
           title: "Acciones",
           width: 200,
           textAlign: "center",
-          render: (r: ProveedorResponse) => (
-            <Group gap="xs" justify="center" wrap="nowrap">
-              <Tooltip label="Gestionar Concesiones" withArrow>
-                <ActionIcon
-                  variant="subtle"
-                  color="teal"
-                  radius="xl"
-                  size="sm"
-                  onClick={() => onOpenConcesiones(r)}
-                >
-                  <IconMapPin size={16} stroke={1.5} />
-                </ActionIcon>
-              </Tooltip>
+          render: (r: ProveedorResponse) => {
+            const isToggling = !!togglingIds[r.id_proveedor];
+            return (
+              <Group gap="xs" justify="center" wrap="nowrap">
+                <Tooltip label="Gestionar Concesiones" withArrow>
+                  <ActionIcon
+                    variant="subtle"
+                    color="teal"
+                    radius="xl"
+                    size="sm"
+                    disabled={isToggling}
+                    onClick={() => onOpenConcesiones(r)}
+                  >
+                    <IconMapPin size={16} stroke={1.5} />
+                  </ActionIcon>
+                </Tooltip>
 
-              <Tooltip label="Editar Proveedor" withArrow>
-                <ActionIcon
-                  variant="subtle"
-                  color="blue"
-                  radius="xl"
-                  size="sm"
-                  onClick={() => onEdit(r)}
-                >
-                  <IconPencil size={16} stroke={1.5} />
-                </ActionIcon>
-              </Tooltip>
+                <Tooltip label="Editar Proveedor" withArrow>
+                  <ActionIcon
+                    variant="subtle"
+                    color="blue"
+                    radius="xl"
+                    size="sm"
+                    disabled={isToggling}
+                    onClick={() => onEdit(r)}
+                  >
+                    <IconPencil size={16} stroke={1.5} />
+                  </ActionIcon>
+                </Tooltip>
 
-              <Tooltip label={r.estado === EstadoBase.Activo ? "Inactivar Proveedor" : "Activar Proveedor"} withArrow>
-                <ActionIcon
-                  variant="subtle"
-                  color={r.estado === EstadoBase.Activo ? "orange" : "green"}
-                  radius="xl"
-                  size="sm"
-                  onClick={() => onToggleEstado(r.id_proveedor, r.estado as EstadoBase)}
-                >
-                  <IconPower size={16} stroke={1.5} />
-                </ActionIcon>
-              </Tooltip>
+                <Tooltip label={r.estado === EstadoBase.Activo ? "Inactivar Proveedor" : "Activar Proveedor"} withArrow>
+                  <ActionIcon
+                    variant="subtle"
+                    color={r.estado === EstadoBase.Activo ? "orange" : "green"}
+                    radius="xl"
+                    size="sm"
+                    loading={isToggling}
+                    onClick={() => onToggleEstado(r.id_proveedor, r.estado as EstadoBase)}
+                  >
+                    <IconPower size={16} stroke={1.5} />
+                  </ActionIcon>
+                </Tooltip>
 
-            </Group>
-          ),
+              </Group>
+            );
+          },
         },
       ]}
     />

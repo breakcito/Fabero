@@ -1,4 +1,4 @@
-import { Button, Group, TextInput, Stack, Select, Box, Text } from "@mantine/core";
+import { Button, Group, TextInput, Stack, Select, Box, Text, Loader } from "@mantine/core";
 import { BriefcaseIcon } from "@heroicons/react/24/outline";
 import type { RES_Area } from "../service/organigrama.responses";
 
@@ -61,6 +61,7 @@ export const RegistroCargo = ({
         required
         withAsterisk
         disabled={loading}
+        rightSection={loading ? <Loader size={16} /> : undefined}
         radius="lg"
         classNames={fieldClasses}
         data={areasData}

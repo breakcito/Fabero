@@ -13,6 +13,7 @@ export const useEncargadosMuestra = (
   const { notifyError, notifySuccess } = useNotify();
   const [encargados, setEncargados] = useState<RES_EncargadoMuestra[]>([]);
   const [loading, setLoading] = useState(false);
+  const [togglingIds, setTogglingIds] = useState<Record<number, boolean>>({});
   const [busqueda, setBusqueda] = useState("");
 
   const initialValues: DTO_CrearEncargadoMuestra = {
@@ -81,8 +82,8 @@ export const useEncargadosMuestra = (
 
   const toggleEstado = async (id: number, currentEstado: EstadoBase) => {
     const nuevoEstado = currentEstado === EstadoBase.Activo ? EstadoBase.Inactivo : EstadoBase.Activo;
+    setTogglingIds((prev) => ({ ...prev, [id]: true }));
     try {
-      setLoading(true);
       const resp = await EncargadosMuestraService.cambiar_estado_encargado_muestra(id, nuevoEstado);
       if (resp.success) {
         updateEncargado(resp.data);
@@ -94,7 +95,11 @@ export const useEncargadosMuestra = (
       console.error(e);
       notifyError("No se pudo cambiar el estado del encargado");
     } finally {
-      setLoading(false);
+      setTogglingIds((prev) => {
+        const copy = { ...prev };
+        delete copy[id];
+        return copy;
+      });
     }
   };
 
@@ -150,6 +155,7 @@ export const useEncargadosMuestra = (
   return {
     encargados: filtrados,
     loading,
+    togglingIds,
     busqueda,
     setBusqueda,
     recargar: listar,

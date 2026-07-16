@@ -1,4 +1,4 @@
-import { Stack, Group, TextInput, Select, Button } from "@mantine/core";
+import { Stack, Group, TextInput, Select, Button, Loader } from "@mantine/core";
 import { useRegistroConcesion } from "../hooks/useRegistroConcesion";
 import type { RES_Concesion } from "../service/concesiones.responses";
 
@@ -96,6 +96,7 @@ export const RegistroConcesion = ({
         data={selectProvincias}
         value={form.id_provincia ? String(form.id_provincia) : null}
         onChange={(val) => handleProvinciaChange(val ? Number(val) : 0)}
+        rightSection={loadingProvincias ? <Loader size={16} /> : undefined}
         required
         withAsterisk
       />
@@ -110,6 +111,7 @@ export const RegistroConcesion = ({
         data={selectDistritos}
         value={form.id_distrito ? String(form.id_distrito) : null}
         onChange={(val) => setField("id_distrito", val ? Number(val) : 0)}
+        rightSection={loadingDistritos ? <Loader size={16} /> : undefined}
         required
         withAsterisk
       />

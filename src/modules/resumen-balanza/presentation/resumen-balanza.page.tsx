@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Grid, Text, Button, Select, Badge, ActionIcon, Tooltip, Stack, TextInput, Group } from "@mantine/core";
+import { Grid, Text, Button, Select, Badge, ActionIcon, Tooltip, Stack, TextInput, Group, Loader } from "@mantine/core";
 import { IconNote, IconPaperclip, IconX, IconCalendar, IconPencil, IconBarcode, IconScale } from "@tabler/icons-react";
 import { useTitlePage } from "../../../hooks/useTitlePage";
 import { useResumenBalanza } from "../hooks/useResumenBalanza";
@@ -170,6 +170,7 @@ export const ResumenBalanzaPage = () => {
                 searchable
                 clearable
                 disabled={loadingMetadata}
+                rightSection={loadingMetadata ? <Loader size={16} /> : undefined}
                 data={lotesData}
                 value={idLoteMineral}
                 onChange={setIdLoteMineral}
@@ -186,6 +187,7 @@ export const ResumenBalanzaPage = () => {
                 searchable
                 clearable
                 disabled={loadingMetadata}
+                rightSection={loadingMetadata ? <Loader size={16} /> : undefined}
                 data={placasData}
                 value={placa}
                 onChange={setPlaca}
@@ -201,6 +203,7 @@ export const ResumenBalanzaPage = () => {
                 placeholder={loadingMetadata ? "Cargando..." : "Seleccione"}
                 clearable
                 disabled={loadingMetadata}
+                rightSection={loadingMetadata ? <Loader size={16} /> : undefined}
                 data={conditionsData}
                 value={tipoIngreso}
                 onChange={setTipoIngreso}
@@ -217,6 +220,7 @@ export const ResumenBalanzaPage = () => {
                 searchable
                 clearable
                 disabled={loadingMetadata}
+                rightSection={loadingMetadata ? <Loader size={16} /> : undefined}
                 data={empresasData}
                 value={idEmpresaTransporte}
                 onChange={setIdEmpresaTransporte}

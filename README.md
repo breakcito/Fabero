@@ -136,6 +136,64 @@ Para mantener la salud del proyecto a largo plazo, se deben seguir estas reglas 
 - **Componentes "Dumb"**: Solo se debe priorizar la reutilización en componentes "tontos" (presentacionales) que no contengan lógica de negocio compleja o que solo abarquen una funcionalidad muy específica y bien definida de un caso de uso.
 - **Prioridad**: Se debe priorizar la **legibilidad y mantenibilidad** sobre la reutilización forzada. Es mejor tener dos procesos similares pero claros y rápidos de desarrollar, que uno solo sumamente complejo que intente ser "universal". Si eres una IA y el usuario te pide reutilizar, analiza e indicale si realmente es necesario o si es mejor crear algo nuevo y específico.
 
+### 3. Loading States Obligatorios en Mutaciones Asíncronas
+
+Toda acción que dispare una llamada a la API (POST/PUT/DELETE) **debe** indicar visualmente que está en curso para evitar doble submit y dar feedback al usuario. Esta regla aplica tanto a botones como a selects con catálogo asíncrono.
+
+#### 3.1. Botones de mutación (POST / PUT / DELETE)
+
+**Regla**: cualquier `<Button>` o `<ActionIcon>` que ejecute una mutación asíncrona **debe** tener `loading` y/o `disabled` vinculado al estado de carga real.
+
+- **Submit de formulario**: usar `loading={loading}` directo del hook (no crear estado local redundante).
+  ```tsx
+  const { payload, submit, loading } = useRegistroX(onSuccess);
+
+  <Button type="submit" loading={loading} ...>Guardar</Button>
+  ```
+- **Acciones por fila en tabla (toggle estado, eliminar, anular, imprimir)**: usar patrón `loadingById` / `togglingIds: Record<number, boolean>` en el hook para evitar que múltiples clics spameen la API. El componente card/row recibe el flag y aplica:
+  ```tsx
+  <ActionIcon
+    loading={togglingIds[r.id]}
+    disabled={togglingIds[r.id]}
+    onClick={() => toggleEstado(r.id)}
+  />
+  ```
+- **Botones en sub-modales** (ej. "Agregar a la Lista", "Guardar Cambios"): requieren su propio `useState` local si la promesa no es gestionada por el hook padre.
+- **Modales de confirmación**: `presentation/utils/modal-confirmacion.tsx` debe esperar la promesa (`onConfirm: () => void | Promise<void>`) antes de cerrar. Su firma actual es síncrona y es regresión latente — está prohibido usarla para mutaciones sin refactorizar primero.
+
+#### 3.2. Selects / MultiSelect con catálogo asíncrono
+
+**Regla**: cualquier `<Select>` o `<MultiSelect>` cuyo `data` provenga de un fetch asíncrono **debe** mostrar:
+
+1. `disabled={loadingX}` mientras carga.
+2. `rightSection={<Loader size={16} />}` cuando `loadingX === true`.
+3. `placeholder` dinámico que refleje el estado ("Cargando..." vs "Seleccione").
+
+Patrón canónico:
+
+```tsx
+<Select
+  label="Proveedor"
+  placeholder={loadingProveedores ? "Cargando..." : "Seleccione"}
+  disabled={loadingProveedores}
+  rightSection={loadingProveedores ? <Loader size={16} /> : undefined}
+  data={proveedores.map(p => ({ value: String(p.id), label: p.razon_social }))}
+/>
+```
+
+**Excepción**: `<Select>` cuyo `data` proviene de un enum estático local (ej. `Object.values(TipoIngreso)`) **no** requiere Loader — el dato está disponible en el primer render.
+
+#### 3.3. Selects con datos por props (cross-module)
+
+Si el `<Select>` recibe `data` desde un hook padre (ej. `empleadosSinCuenta`, `roles`, `sucursalesDisponibles` en `registro-cuenta.tsx`), el componente padre debe asegurar que el catálogo se haya cargado **antes** de abrir el modal, **o** exponer un `loadingCatalogos` que el consumidor aplique al Select.
+
+#### 3.4. Implementaciones de referencia
+
+- **Botón submit + loading**: `Fabero/src/modules/login/presentation/login.page.tsx:210`
+- **Toggle per-row con `togglingIds`**: `Fabero/src/modules/conductores/presentation/conductores-page/components/conductor.tsx:127`
+- **Select con Loader visual**: `Fabero/src/modules/vehiculos/presentation/registro-vehiculo/registro-vehiculo.tsx:84-100`
+- **Hook con varios loading flags**: `Fabero/src/hooks/useExcel.ts:5` (expone `isGeneratingExcel`)
+
 ---
 
 ## 🎨 Guía Técnica de Estilos y Mantine v8 (ESTRICTO)

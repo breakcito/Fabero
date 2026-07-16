@@ -6,6 +6,7 @@ import type { RecepcionVisitaResponse } from "../service/recepcion-visitas.respo
 import type { RES_Empleado } from "../../../service/responses/empleado";
 import type { RES_MotivoIngreso } from "../../../service/responses/auxiliar-visitas";
 import { useNotify } from "../../../hooks/useNotify";
+import { EstadoBase } from "../../../shared/enums/_generic/estado-base";
 
 export interface VisitanteLocal {
   id_visitante?: number;
@@ -42,7 +43,7 @@ export const useRegistroVisita = (onSuccess: (r: RecepcionVisitaResponse) => voi
       setLoadingCatalogos(true);
       try {
         const [empRes, motRes] = await Promise.all([
-          AuxService.get_empleados({ estado: "Activo" }),
+          AuxService.get_empleados({ estado: EstadoBase.Activo }),
           AuxService.get_motivos_ingreso(),
         ]);
         if (empRes.success) setEmpleados(empRes.data);

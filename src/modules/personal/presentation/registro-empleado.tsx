@@ -7,6 +7,7 @@ import {
   Avatar,
   FileButton,
   Text,
+  Loader,
 } from "@mantine/core";
 import {
   UserIcon,
@@ -156,6 +157,7 @@ export const RegistroEmpleado = ({
         withAsterisk
         searchable
         disabled={loadingEmpresas || loading}
+        rightSection={loadingEmpresas ? <Loader size={16} /> : undefined}
       />
 
       {/* Área y Cargo en cascada */}
@@ -176,6 +178,7 @@ export const RegistroEmpleado = ({
           withAsterisk
           searchable
           disabled={loadingAreas || loading}
+          rightSection={loadingAreas ? <Loader size={16} /> : undefined}
         />
         <Select
           label="Cargo"
@@ -198,6 +201,7 @@ export const RegistroEmpleado = ({
           required
           withAsterisk
           disabled={!idArea || loadingCargos || loading}
+          rightSection={loadingCargos ? <Loader size={16} /> : undefined}
           searchable
         />
       </Group>

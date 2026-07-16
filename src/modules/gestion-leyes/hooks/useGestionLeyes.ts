@@ -11,6 +11,7 @@ export const useGestionLeyes = () => {
   const [grupos, setGrupos] = useState<GrupoAnalisisResponse[]>([]);
   const [analitos, setAnalitos] = useState<AnalitoResponse[]>([]);
   const [loading, setLoading] = useState(false);
+  const [togglingIds, setTogglingIds] = useState<Record<number, boolean>>({});
   const [busqueda, setBusqueda] = useState("");
 
   const cargarGrupos = useCallback(async () => {
@@ -82,6 +83,7 @@ export const useGestionLeyes = () => {
       estadoActual === EstadoBase.Activo
         ? EstadoBase.Inactivo
         : EstadoBase.Activo;
+    setTogglingIds((prev) => ({ ...prev, [id]: true }));
     try {
       const editado = await GestionLeyesService.cambiarEstadoGrupo(id, nuevoEstado);
       setGrupos((prev) =>
@@ -93,6 +95,12 @@ export const useGestionLeyes = () => {
       console.error(err);
       notifyError("No se pudo cambiar el estado del grupo de análisis");
       return false;
+    } finally {
+      setTogglingIds((prev) => {
+        const copy = { ...prev };
+        delete copy[id];
+        return copy;
+      });
     }
   };
 
@@ -173,6 +181,7 @@ export const useGestionLeyes = () => {
     analitos: analitosActivos,
     todosLosAnalitos: analitos,
     loading,
+    togglingIds,
     busqueda,
     setBusqueda,
     cargarGrupos,

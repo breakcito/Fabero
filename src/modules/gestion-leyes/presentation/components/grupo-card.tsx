@@ -10,11 +10,12 @@ import type { GrupoAnalisisResponse } from "../../service/gestion-leyes.response
 
 interface GrupoCardProps {
   grupo: GrupoAnalisisResponse;
+  toggling?: boolean;
   onEdit: () => void;
   onToggleEstado: () => void;
 }
 
-export const GrupoCard = ({ grupo, onEdit, onToggleEstado }: GrupoCardProps) => {
+export const GrupoCard = ({ grupo, toggling, onEdit, onToggleEstado }: GrupoCardProps) => {
   const isActivo = grupo.estado === "Activo" || grupo.estado === "activo";
 
   return (
@@ -129,6 +130,7 @@ export const GrupoCard = ({ grupo, onEdit, onToggleEstado }: GrupoCardProps) => 
         <Button
           variant="subtle"
           onClick={onEdit}
+          disabled={toggling}
           leftSection={<PencilSquareIcon className="w-4 h-4" />}
           radius="xl"
           size="xs"
@@ -141,6 +143,8 @@ export const GrupoCard = ({ grupo, onEdit, onToggleEstado }: GrupoCardProps) => 
             variant="light"
             color={isActivo ? "red" : "green"}
             onClick={onToggleEstado}
+            loading={toggling}
+            disabled={toggling}
             radius="xl"
             size="xs"
             className="px-3"

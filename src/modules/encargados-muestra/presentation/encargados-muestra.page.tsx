@@ -15,6 +15,7 @@ export const EncargadosMuestraPage = () => {
   const {
     encargados,
     loading,
+    togglingIds,
     busqueda,
     setBusqueda,
     recargar,
@@ -112,39 +113,44 @@ export const EncargadosMuestraPage = () => {
                 </Badge>
               ),
             },
-            {
-              accessor: "acciones",
-              title: "Acciones",
-              width: 150,
-              textAlign: "center",
-              render: (r: RES_EncargadoMuestra) => (
-                <Group gap="xs" justify="center" wrap="nowrap">
-                  <Tooltip label="Editar Encargado" withArrow>
-                    <ActionIcon
-                      variant="subtle"
-                      color="blue"
-                      radius="xl"
-                      size="sm"
-                      onClick={() => setEncargadoAEditar(r)}
-                    >
-                      <IconPencil size={16} stroke={1.5} />
-                    </ActionIcon>
-                  </Tooltip>
+{
+          accessor: "acciones",
+          title: "Acciones",
+          width: 150,
+          textAlign: "center",
+          render: (r: RES_EncargadoMuestra) => {
+            const isToggling = !!togglingIds[r.id_encargado_muestra];
+            return (
+              <Group gap="xs" justify="center" wrap="nowrap">
+                <Tooltip label="Editar Encargado" withArrow>
+                  <ActionIcon
+                    variant="subtle"
+                    color="blue"
+                    radius="xl"
+                    size="sm"
+                    disabled={isToggling}
+                    onClick={() => setEncargadoAEditar(r)}
+                  >
+                    <IconPencil size={16} stroke={1.5} />
+                  </ActionIcon>
+                </Tooltip>
 
-                  <Tooltip label={r.estado === EstadoBase.Activo ? "Inactivar Encargado" : "Activar Encargado"} withArrow>
-                    <ActionIcon
-                      variant="subtle"
-                      color={r.estado === EstadoBase.Activo ? "orange" : "green"}
-                      radius="xl"
-                      size="sm"
-                      onClick={() => toggleEstado(r.id_encargado_muestra, r.estado)}
-                    >
-                      <IconPower size={16} stroke={1.5} />
-                    </ActionIcon>
-                  </Tooltip>
-                </Group>
-              ),
-            },
+                <Tooltip label={r.estado === EstadoBase.Activo ? "Inactivar Encargado" : "Activar Encargado"} withArrow>
+                  <ActionIcon
+                    variant="subtle"
+                    color={r.estado === EstadoBase.Activo ? "orange" : "green"}
+                    radius="xl"
+                    size="sm"
+                    loading={isToggling}
+                    onClick={() => toggleEstado(r.id_encargado_muestra, r.estado)}
+                  >
+                    <IconPower size={16} stroke={1.5} />
+                  </ActionIcon>
+                </Tooltip>
+              </Group>
+            );
+          },
+        },
           ]}
         />
       </Stack>

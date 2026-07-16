@@ -11,6 +11,7 @@ import {
   ActionIcon,
   Paper,
   Input,
+  Loader,
 } from "@mantine/core";
 import { IconPlus, IconDeviceFloppy } from "@tabler/icons-react";
 import { MultiFilePicker } from "../../../../presentation/utils/archivo/multifile-picker";
@@ -255,9 +256,10 @@ export const ModalEditarResumenLote = ({ opened, lote, onClose, onSuccess }: Pro
             <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
               <Select
                 label="Proveedor Minero:"
-                placeholder="Seleccione"
+                placeholder={loadingCatalogos ? "Cargando..." : "Seleccione"}
                 searchable
                 disabled={loadingCatalogos}
+                rightSection={loadingCatalogos ? <Loader size={16} /> : undefined}
                 data={proveedores.map((p) => ({ value: String(p.id_proveedor), label: `${p.razon_social} (${p.documento})` }))}
                 value={idProveedor}
                 onChange={handleProveedorChange}
@@ -297,9 +299,10 @@ export const ModalEditarResumenLote = ({ opened, lote, onClose, onSuccess }: Pro
               <div className="flex gap-1.5 items-end">
                 <Select
                   label="Zona Origen:"
-                  placeholder="Seleccione..."
+                  placeholder={loadingCatalogos ? "Cargando..." : "Seleccione..."}
                   searchable
                   disabled={loadingCatalogos}
+                  rightSection={loadingCatalogos ? <Loader size={16} /> : undefined}
                   data={zonas.map((z) => ({ value: String(z.id), label: z.nombre }))}
                   value={idZona}
                   onChange={setIdZona}
@@ -326,9 +329,10 @@ export const ModalEditarResumenLote = ({ opened, lote, onClose, onSuccess }: Pro
               <div className="flex gap-1.5 items-end">
                 <Select
                   label="Encargado Muestra:"
-                  placeholder="Seleccione..."
+                  placeholder={loadingCatalogos ? "Cargando..." : "Seleccione..."}
                   searchable
                   disabled={loadingCatalogos}
+                  rightSection={loadingCatalogos ? <Loader size={16} /> : undefined}
                   data={encargados.map((e) => ({ value: String(e.id_encargado_muestra), label: e.nombre }))}
                   value={idEncargado}
                   onChange={setIdEncargado}
@@ -430,9 +434,10 @@ export const ModalEditarResumenLote = ({ opened, lote, onClose, onSuccess }: Pro
               <div className="flex gap-1.5 items-end">
                 <Select
                   label="Vehículo / Placa:"
-                  placeholder="Seleccione placa"
+                  placeholder={loadingCatalogos ? "Cargando..." : "Seleccione placa"}
                   searchable
                   disabled={loadingCatalogos}
+                  rightSection={loadingCatalogos ? <Loader size={16} /> : undefined}
                   data={vehiculos.map((v) => ({
                     value: String(v.id_vehiculo),
                     label: v.serie_placa ? `${v.serie_placa}-${v.numero_placa}` : v.numero_placa,
@@ -461,10 +466,11 @@ export const ModalEditarResumenLote = ({ opened, lote, onClose, onSuccess }: Pro
             <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
               <Select
                 label="Empresa de Transporte:"
-                placeholder="Particular / Propio"
+                placeholder={loadingCatalogos ? "Cargando..." : "Particular / Propio"}
                 searchable
                 clearable
                 disabled={loadingCatalogos}
+                rightSection={loadingCatalogos ? <Loader size={16} /> : undefined}
                 data={empresasTransporte.map((et) => ({
                   value: String(et.id_empresa_transporte),
                   label: et.razon_social,
@@ -479,9 +485,10 @@ export const ModalEditarResumenLote = ({ opened, lote, onClose, onSuccess }: Pro
             <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
               <Select
                 label="Conductor:"
-                placeholder="Seleccione conductor"
+                placeholder={loadingCatalogos ? "Cargando..." : "Seleccione conductor"}
                 searchable
                 disabled={loadingCatalogos}
+                rightSection={loadingCatalogos ? <Loader size={16} /> : undefined}
                 data={conductores.map((c) => ({
                   value: String(c.id_conductor),
                   label: `${c.nombre_completo} (${c.numero_licencia || "Sin Licencia"})`,

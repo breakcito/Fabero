@@ -14,6 +14,7 @@ export const EmpresasTransportePage = () => {
   const {
     empresas,
     loading,
+    togglingIds,
     searchQuery,
     setSearchQuery,
     insertEmpresa,
@@ -36,6 +37,7 @@ export const EmpresasTransportePage = () => {
         <EmpresaTransporte
           empresas={empresas}
           loading={loading}
+          togglingIds={togglingIds}
           onEdit={(e) => setEmpresaAEditar(e)}
           onToggleEstado={toggleEstado}
         />

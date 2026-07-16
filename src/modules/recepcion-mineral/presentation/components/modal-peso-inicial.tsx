@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Select, TextInput, Textarea, Button, ActionIcon, Tooltip, Stack, Text, Grid } from "@mantine/core";
+import { Select, TextInput, Textarea, Button, ActionIcon, Tooltip, Stack, Text, Grid, Loader } from "@mantine/core";
 import { IconPlus, IconWeight } from "@tabler/icons-react";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
 import { FormZonaOrigen } from "../../../../presentation/utils/form-zona-origen";
@@ -153,9 +153,10 @@ export const ModalPesoInicial = ({ lote, onCancel, onSubmit }: Props) => {
               {/* Proveedor Minero */}
               <Select
                 label="Proveedor Minero:"
-                placeholder="Seleccione proveedor"
+                placeholder={loadingCatalogos ? "Cargando..." : "Seleccione proveedor"}
                 searchable
                 disabled={loadingCatalogos}
+                rightSection={loadingCatalogos ? <Loader size={16} /> : undefined}
                 data={proveedores.map((p) => ({ value: String(p.id_proveedor), label: `${p.razon_social} (${p.documento})` }))}
                 value={idProveedor}
                 onChange={handleProveedorChange}
@@ -196,9 +197,10 @@ export const ModalPesoInicial = ({ lote, onCancel, onSubmit }: Props) => {
               <div className="flex gap-2 items-end">
                 <Select
                   label="Zona Origen:"
-                  placeholder="Elija una opción..."
+                  placeholder={loadingCatalogos ? "Cargando..." : "Elija una opción..."}
                   searchable
                   disabled={loadingCatalogos}
+                  rightSection={loadingCatalogos ? <Loader size={16} /> : undefined}
                   data={zonas.map((z) => ({ value: String(z.id), label: z.nombre }))}
                   value={idZona}
                   onChange={setIdZona}
@@ -225,9 +227,10 @@ export const ModalPesoInicial = ({ lote, onCancel, onSubmit }: Props) => {
               <div className="flex gap-2 items-end">
                 <Select
                   label="Encargado Muestra:"
-                  placeholder="---"
+                  placeholder={loadingCatalogos ? "Cargando..." : "---"}
                   searchable
                   disabled={loadingCatalogos}
+                  rightSection={loadingCatalogos ? <Loader size={16} /> : undefined}
                   data={encargados.map((e) => ({ value: String(e.id_encargado_muestra), label: e.nombre }))}
                   value={idEncargado}
                   onChange={setIdEncargado}

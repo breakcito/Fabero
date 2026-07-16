@@ -21,6 +21,7 @@ export const useGuiasPrimerTramo = () => {
   const [guias, setGuias] = useState<RES_GuiaPrimerTramo[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [anulandoId, setAnulandoId] = useState<number | null>(null);
   const [filtrosMetadata, setFiltrosMetadata] = useState<RES_FiltrosMetadataGuia | null>(null);
 
   const fetchGuias = useCallback(async (filters: GuiaFilters) => {
@@ -104,7 +105,7 @@ export const useGuiasPrimerTramo = () => {
 
   const anularGuia = useCallback(
     async (id: number) => {
-      setLoading(true);
+      setAnulandoId(id);
       try {
         await GuiasPrimerTramoService.anular_guia(id);
         notifySuccess("Guía de primer tramo anulada correctamente");
@@ -118,7 +119,7 @@ export const useGuiasPrimerTramo = () => {
         notifyError(msg);
         throw e;
       } finally {
-        setLoading(false);
+        setAnulandoId(null);
       }
     },
     [notifySuccess, notifyError],
@@ -135,6 +136,7 @@ export const useGuiasPrimerTramo = () => {
     guias,
     loading,
     submitting,
+    anulandoId,
     filtrosMetadata,
     fetchGuias,
     fetchFiltrosMetadata,

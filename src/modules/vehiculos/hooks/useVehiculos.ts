@@ -7,6 +7,7 @@ import { EstadoBase } from "../../../shared/enums/_generic/estado-base";
 export const useVehiculos = () => {
   const [vehiculos, setVehiculos] = useState<VehiculoResponse[]>([]);
   const [loading, setLoading] = useState(false);
+  const [togglingIds, setTogglingIds] = useState<Record<number, boolean>>({});
   const [searchQuery, setSearchQuery] = useState("");
   const { notifyError, notifySuccess } = useNotify();
 
@@ -58,6 +59,7 @@ export const useVehiculos = () => {
   const toggleEstado = async (id: number, currentEstado: EstadoBase) => {
     const nuevoEstado =
       currentEstado === EstadoBase.Activo ? EstadoBase.Inactivo : EstadoBase.Activo;
+    setTogglingIds((prev) => ({ ...prev, [id]: true }));
     try {
       const updated = await VehiculosService.cambiarEstadoVehiculo(id, nuevoEstado);
       updateVehiculo(updated);
@@ -66,12 +68,19 @@ export const useVehiculos = () => {
       console.error(e);
       notifyError("No se pudo cambiar el estado del vehículo");
       throw e;
+    } finally {
+      setTogglingIds((prev) => {
+        const copy = { ...prev };
+        delete copy[id];
+        return copy;
+      });
     }
   };
 
   return {
     vehiculos: vehiculosFiltrados,
     loading,
+    togglingIds,
     searchQuery,
     setSearchQuery,
     fetchVehiculos,

@@ -16,6 +16,7 @@ export const PlantasDestinoPage = () => {
   const {
     plantas,
     loading,
+    togglingIds,
     searchQuery,
     setSearchQuery,
     insertPlanta,
@@ -42,6 +43,7 @@ export const PlantasDestinoPage = () => {
         <Planta
           plantas={plantas}
           loading={loading}
+          togglingIds={togglingIds}
           onOpenCuentas={(p) => setSelectedPlantaCuentas(p)}
           onOpenProveedores={(p) => setSelectedPlantaProveedores(p)}
           onEdit={(p) => setPlantaAEditar(p)}

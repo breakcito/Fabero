@@ -90,6 +90,7 @@ export const GestionLeyesPage = () => {
             <GrupoCard
               key={g.id}
               grupo={g}
+              toggling={!!leyesCtrl.togglingIds[g.id]}
               onEdit={() => handleEditarGrupo(g)}
               onToggleEstado={() => leyesCtrl.toggleEstadoGrupo(g.id, g.estado)}
             />

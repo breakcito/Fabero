@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, Grid, Select, TextInput, Textarea, Alert, ActionIcon, Tooltip } from "@mantine/core";
+import { Button, Grid, Select, TextInput, Textarea, Alert, ActionIcon, Tooltip, Loader } from "@mantine/core";
 import { IconDeviceFloppy, IconExclamationCircle, IconPlus } from "@tabler/icons-react";
 import { useRegistroRecepcion } from "../../hooks/useRegistroRecepcion";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
@@ -125,11 +125,12 @@ export const RegistroRecepcion = ({ onCancel, onSuccess }: Props) => {
           <Grid.Col span={{ base: 12, md: 6 }}>
             <Select
               label="Transportista / Empresa de Transporte"
-              placeholder="Busque o seleccione"
+              placeholder={loadingCatalogos ? "Cargando..." : "Busque o seleccione"}
               searchable
               withAsterisk
               radius="lg"
               disabled={loadingCatalogos}
+              rightSection={loadingCatalogos ? <Loader size={16} /> : undefined}
               data={getEmpresasDropdown()}
               value={payload.id_empresa_transporte ? String(payload.id_empresa_transporte) : null}
               onChange={(val) => handleChange("id_empresa_transporte", val ? Number(val) : 0)}
@@ -141,11 +142,12 @@ export const RegistroRecepcion = ({ onCancel, onSuccess }: Props) => {
           <Grid.Col span={{ base: 12, md: 6 }}>
             <Select
               label="Tipo de Vehículo"
-              placeholder="Busque o seleccione"
+              placeholder={loadingCatalogos ? "Cargando..." : "Busque o seleccione"}
               searchable
               withAsterisk
               radius="lg"
               disabled={loadingCatalogos}
+              rightSection={loadingCatalogos ? <Loader size={16} /> : undefined}
               data={getTiposDropdown()}
               value={payload.id_tipo_vehiculo ? String(payload.id_tipo_vehiculo) : null}
               onChange={(val) => handleChange("id_tipo_vehiculo", val ? Number(val) : 0)}
@@ -160,12 +162,13 @@ export const RegistroRecepcion = ({ onCancel, onSuccess }: Props) => {
               <div className="flex-1 flex gap-2 items-end">
                 <Select
                   label="Conductor"
-                  placeholder="Busque y seleccione conductor"
+                  placeholder={loadingCatalogos ? "Cargando..." : "Busque y seleccione conductor"}
                   searchable
                   withAsterisk
                   radius="lg"
                   className="flex-1"
                   disabled={loadingCatalogos}
+                  rightSection={loadingCatalogos ? <Loader size={16} /> : undefined}
                   data={getConductoresDropdown()}
                   value={payload.id_conductor ? String(payload.id_conductor) : null}
                   onChange={(val) => handleChange("id_conductor", val ? Number(val) : 0)}

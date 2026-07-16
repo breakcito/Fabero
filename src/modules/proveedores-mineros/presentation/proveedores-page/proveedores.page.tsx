@@ -16,6 +16,7 @@ export const ProveedoresPage = () => {
   const {
     proveedores,
     loading,
+    togglingIds,
     searchQuery,
     setSearchQuery,
     insertProveedor,
@@ -45,6 +46,7 @@ export const ProveedoresPage = () => {
         <Proveedor
           proveedores={proveedores}
           loading={loading}
+          togglingIds={togglingIds}
           onOpenCuentas={(p) => setSelectedProveedor(p)}
           onOpenConcesiones={(p) => setSelectedProveedorConcesiones(p)}
           onEdit={(p) => setProveedorAEditar(p)}

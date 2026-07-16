@@ -9,7 +9,7 @@ import "dayjs/locale/es";
 
 interface CustomDatePickerProps extends Omit<
   DatePickerInputProps,
-  "leftSection" | "rightSection"
+  "leftSection"
 > {
   error?: string;
 }

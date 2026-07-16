@@ -15,6 +15,15 @@ export const useRecepcionMineral = () => {
   const [loading, setLoading] = useState(false);
   const [selectedRecepcion, setSelectedRecepcion] = useState<RecepcionMineralResponse | null>(null);
 
+  // Loading states granulares por fila / campo / accion
+  const [validatingField, setValidatingField] = useState<{
+    id: number;
+    field: string;
+  } | null>(null);
+  const [creatingLoteId, setCreatingLoteId] = useState<number | null>(null);
+  const [deletingLoteId, setDeletingLoteId] = useState<number | null>(null);
+  const [closingProcesoId, setClosingProcesoId] = useState<number | null>(null);
+
   const { notifySuccess, notifyError } = useNotify();
 
   const loadRecepciones = async () => {
@@ -73,11 +82,11 @@ export const useRecepcionMineral = () => {
   };
 
   const validarCampo = async (id: number, field: string, value: unknown) => {
+    setValidatingField({ id, field });
     try {
       const res = await RecepcionMineralService.validar_campo(id, field, value);
       notifySuccess("Dato validado correctamente");
-      
-      // Actualizar el estado local directamente
+
       setEnProcesoList((prev) => prev.map((r) => (r.id === id ? res : r)));
       if (selectedRecepcion?.id === id) {
         setSelectedRecepcion(res);
@@ -85,15 +94,17 @@ export const useRecepcionMineral = () => {
     } catch (e: unknown) {
       console.error(e);
       notifyError("Error al validar el dato");
+    } finally {
+      setValidatingField(null);
     }
   };
 
   const crearLote = async (id: number) => {
+    setCreatingLoteId(id);
     try {
       const nuevoLote = await RecepcionMineralService.crear_lote(id);
       notifySuccess("Lote generado correctamente: " + nuevoLote.correlativo);
-      
-      // Actualizar el listado y la selección local
+
       setEnProcesoList((prev) =>
         prev.map((r) => {
           if (r.id === id) {
@@ -113,6 +124,8 @@ export const useRecepcionMineral = () => {
     } catch (e: unknown) {
       console.error(e);
       notifyError("No se pudo generar el lote");
+    } finally {
+      setCreatingLoteId(null);
     }
   };
 
@@ -124,6 +137,7 @@ export const useRecepcionMineral = () => {
       cancelLabel: "Cancelar",
       tipo: "peligro",
       onConfirm: async () => {
+        setDeletingLoteId(loteId);
         try {
           await RecepcionMineralService.eliminar_lote(loteId);
           notifySuccess("Lote eliminado correctamente");
@@ -147,6 +161,8 @@ export const useRecepcionMineral = () => {
         } catch (e: unknown) {
           console.error(e);
           notifyError("No se pudo eliminar el lote");
+        } finally {
+          setDeletingLoteId(null);
         }
       },
     });
@@ -217,6 +233,7 @@ export const useRecepcionMineral = () => {
   };
 
   const cerrarProceso = async (id: number) => {
+    setClosingProcesoId(id);
     try {
       await RecepcionMineralService.cerrar_proceso(id);
       notifySuccess("Proceso de balanza cerrado correctamente");
@@ -227,6 +244,8 @@ export const useRecepcionMineral = () => {
       const axiosError = e as { response?: { data?: { message?: string } } };
       const msg = axiosError.response?.data?.message || "No se pudo cerrar el proceso de balanza";
       notifyError(msg);
+    } finally {
+      setClosingProcesoId(null);
     }
   };
 
@@ -255,6 +274,10 @@ export const useRecepcionMineral = () => {
     loading,
     selectedRecepcion,
     setSelectedRecepcion,
+    validatingField,
+    creatingLoteId,
+    deletingLoteId,
+    closingProcesoId,
     loadRecepciones,
     iniciarProceso,
     validarCampo,

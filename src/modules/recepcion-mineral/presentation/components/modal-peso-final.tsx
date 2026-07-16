@@ -13,6 +13,7 @@ import {
   Paper,
   Divider,
   Badge,
+  Loader,
 } from "@mantine/core";
 import { IconWeight, IconPlus } from "@tabler/icons-react";
 import { MultiFilePicker } from "../../../../presentation/utils/archivo/multifile-picker";
@@ -209,9 +210,10 @@ export const ModalPesoFinal = ({ lote, onCancel, onSubmit }: Props) => {
             <Grid.Col span={{ base: 12, md: 4 }}>
               <Select
                 label="Proveedor Minero:"
-                placeholder="Seleccione"
+                placeholder={loadingCatalogos ? "Cargando..." : "Seleccione"}
                 searchable
                 disabled={loadingCatalogos}
+                rightSection={loadingCatalogos ? <Loader size={16} /> : undefined}
                 data={proveedores.map((p) => ({ value: String(p.id_proveedor), label: `${p.razon_social} (${p.documento})` }))}
                 value={idProveedor}
                 onChange={handleProveedorChange}
@@ -224,9 +226,10 @@ export const ModalPesoFinal = ({ lote, onCancel, onSubmit }: Props) => {
               <Group gap="xs" align="flex-end" wrap="nowrap">
                 <Select
                   label="Zona Origen:"
-                  placeholder="Seleccione..."
+                  placeholder={loadingCatalogos ? "Cargando..." : "Seleccione..."}
                   searchable
                   disabled={loadingCatalogos}
+                  rightSection={loadingCatalogos ? <Loader size={16} /> : undefined}
                   data={zonas.map((z) => ({ value: String(z.id), label: z.nombre }))}
                   value={idZona}
                   onChange={setIdZona}
@@ -254,9 +257,10 @@ export const ModalPesoFinal = ({ lote, onCancel, onSubmit }: Props) => {
               <Group gap="xs" align="flex-end" wrap="nowrap">
                 <Select
                   label="Encargado Muestra:"
-                  placeholder="Seleccione..."
+                  placeholder={loadingCatalogos ? "Cargando..." : "Seleccione..."}
                   searchable
                   disabled={loadingCatalogos}
+                  rightSection={loadingCatalogos ? <Loader size={16} /> : undefined}
                   data={encargados.map((e) => ({ value: String(e.id_encargado_muestra), label: e.nombre }))}
                   value={idEncargado}
                   onChange={setIdEncargado}

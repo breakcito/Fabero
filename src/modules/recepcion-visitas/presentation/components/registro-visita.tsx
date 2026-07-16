@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, Grid, Select, TextInput, Textarea, Alert, ActionIcon, Checkbox, Text } from "@mantine/core";
+import { Button, Grid, Select, TextInput, Textarea, Alert, ActionIcon, Checkbox, Text, Loader } from "@mantine/core";
 import { IconDeviceFloppy, IconExclamationCircle, IconPlus, IconTrash, IconFile, IconSearch, IconPencil } from "@tabler/icons-react";
 import { useRegistroVisita } from "../../hooks/useRegistroVisita";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
@@ -49,6 +49,7 @@ export const RegistroVisita = ({ onCancel, onSuccess }: Props) => {
 
   const [searchingDni, setSearchingDni] = useState(false);
   const [visitorError, setVisitorError] = useState<string | null>(null);
+  const [isSubmittingVisitor, setIsSubmittingVisitor] = useState(false);
 
   const getEmpleadosDropdown = () => {
     return empleados.map((e) => ({
@@ -165,33 +166,38 @@ export const RegistroVisita = ({ onCancel, onSuccess }: Props) => {
       return;
     }
 
-    const data = {
-      id_visitante: visitorForm.id_visitante,
-      dni: visitorForm.dni,
-      nombre: visitorForm.nombre,
-      apellido: visitorForm.apellido,
-      telefono: visitorForm.telefono,
-      foto_documento: visitorForm.fotos_documento,
-    };
+    setIsSubmittingVisitor(true);
+    try {
+      const data = {
+        id_visitante: visitorForm.id_visitante,
+        dni: visitorForm.dni,
+        nombre: visitorForm.nombre,
+        apellido: visitorForm.apellido,
+        telefono: visitorForm.telefono,
+        foto_documento: visitorForm.fotos_documento,
+      };
 
-    if (editingIndex !== null) {
-      const success = handleActualizarVisitante(editingIndex, data);
-      if (!success) return;
-    } else {
-      const success = handleAgregarVisitante(data);
-      if (!success) return;
+      if (editingIndex !== null) {
+        const success = handleActualizarVisitante(editingIndex, data);
+        if (!success) return;
+      } else {
+        const success = handleAgregarVisitante(data);
+        if (!success) return;
+      }
+
+      // Resetear form y cerrar sub-modal
+      setVisitorForm({
+        dni: "",
+        nombre: "",
+        apellido: "",
+        telefono: "",
+        fotos_documento: [],
+      });
+      setEditingIndex(null);
+      setOpenVisitorModal(false);
+    } finally {
+      setIsSubmittingVisitor(false);
     }
-
-    // Resetear form y cerrar sub-modal
-    setVisitorForm({
-      dni: "",
-      nombre: "",
-      apellido: "",
-      telefono: "",
-      fotos_documento: [],
-    });
-    setEditingIndex(null);
-    setOpenVisitorModal(false);
   };
 
   return (
@@ -213,11 +219,12 @@ export const RegistroVisita = ({ onCancel, onSuccess }: Props) => {
           <Grid.Col span={{ base: 12, md: 6 }}>
             <Select
               label="Motivo Visita"
-              placeholder="Elija una opción..."
+              placeholder={loadingCatalogos ? "Cargando..." : "Elija una opción..."}
               searchable
               withAsterisk
               radius="lg"
               disabled={loadingCatalogos}
+              rightSection={loadingCatalogos ? <Loader size={16} /> : undefined}
               data={getMotivosDropdown()}
               value={payload.id_motivo_ingreso ? String(payload.id_motivo_ingreso) : null}
               onChange={(val) => handleChange("id_motivo_ingreso", val ? Number(val) : 0)}
@@ -229,11 +236,12 @@ export const RegistroVisita = ({ onCancel, onSuccess }: Props) => {
           <Grid.Col span={{ base: 12, md: 6 }}>
             <Select
               label="Personal Contacto"
-              placeholder="Elija una opción..."
+              placeholder={loadingCatalogos ? "Cargando..." : "Elija una opción..."}
               searchable
               withAsterisk
               radius="lg"
               disabled={loadingCatalogos}
+              rightSection={loadingCatalogos ? <Loader size={16} /> : undefined}
               data={getEmpleadosDropdown()}
               value={payload.id_empleado_contacto ? String(payload.id_empleado_contacto) : null}
               onChange={(val) => handleChange("id_empleado_contacto", val ? Number(val) : 0)}
@@ -427,6 +435,7 @@ export const RegistroVisita = ({ onCancel, onSuccess }: Props) => {
       <ModalEstandar
         opened={openVisitorModal}
         close={() => {
+          if (isSubmittingVisitor) return;
           setOpenVisitorModal(false);
           setVisitorError(null);
         }}
@@ -514,9 +523,11 @@ export const RegistroVisita = ({ onCancel, onSuccess }: Props) => {
               variant="subtle"
               color="gray"
               onClick={() => {
+                if (isSubmittingVisitor) return;
                 setOpenVisitorModal(false);
                 setVisitorError(null);
               }}
+              disabled={isSubmittingVisitor}
               classNames={{ root: "text-zinc-400 hover:bg-zinc-800" }}
             >
               Cancelar
@@ -524,6 +535,8 @@ export const RegistroVisita = ({ onCancel, onSuccess }: Props) => {
             <Button
               type="button"
               onClick={handleSaveVisitor}
+              loading={isSubmittingVisitor}
+              disabled={isSubmittingVisitor}
               className="bg-blue-600 hover:bg-blue-700 text-white font-bold"
             >
               {editingIndex !== null ? "Guardar Cambios" : "Agregar a la Lista"}

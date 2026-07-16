@@ -7,6 +7,7 @@ import { EstadoBase } from "../../../shared/enums/_generic/estado-base";
 export const usePlantasDestino = () => {
   const [plantas, setPlantas] = useState<PlantaDestinoResponse[]>([]);
   const [loading, setLoading] = useState(false);
+  const [togglingIds, setTogglingIds] = useState<Record<number, boolean>>({});
   const [searchQuery, setSearchQuery] = useState("");
   const { notifyError, notifySuccess } = useNotify();
 
@@ -55,6 +56,7 @@ export const usePlantasDestino = () => {
   const toggleEstado = async (id: number, currentEstado: EstadoBase) => {
     const nuevoEstado =
       currentEstado === EstadoBase.Activo ? EstadoBase.Inactivo : EstadoBase.Activo;
+    setTogglingIds((prev) => ({ ...prev, [id]: true }));
     try {
       const updated = await PlantasDestinoService.cambiarEstadoPlanta(id, nuevoEstado);
       updatePlanta(updated);
@@ -63,6 +65,12 @@ export const usePlantasDestino = () => {
       console.error(e);
       notifyError("No se pudo cambiar el estado de la planta de destino");
       throw e;
+    } finally {
+      setTogglingIds((prev) => {
+        const copy = { ...prev };
+        delete copy[id];
+        return copy;
+      });
     }
   };
 
@@ -81,6 +89,7 @@ export const usePlantasDestino = () => {
   return {
     plantas: plantasFiltradas,
     loading,
+    togglingIds,
     searchQuery,
     setSearchQuery,
     fetchPlantas,
