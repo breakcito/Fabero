@@ -3,7 +3,6 @@ import type { IArchivo } from "../../../shared/interfaces/archivo";
 
 export interface DTO_LoteGuiaInput {
   id_lote_mineral: number;
-  correlativo: string;
   peso_bruto: number;
   tara: number;
 }
@@ -33,4 +32,5 @@ export interface DTO_CrearGuiaPrimerTramo {
 export interface DTO_ActualizarGuiaPrimerTramo extends Omit<DTO_CrearGuiaPrimerTramo, "evidencias"> {
   evidencias: File[];
   evidencias_existentes?: IArchivo[];
+  motivo?: string;
 }

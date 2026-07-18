@@ -324,8 +324,8 @@ export const GuiaRemitentePdf = ({ guia, qrCodeUrl }: GuiaRemitentePdfProps) => 
             lotesList.map((l, index) => {
               const pesoLote = l.peso_neto !== null ? l.peso_neto : (l.peso_bruto ?? 0) - (l.tara ?? 0);
               const desc = l.tipo_producto 
-                ? `${l.tipo_producto.toUpperCase()} - LOTE: ${l.lote_correlativo || l.correlativo}`
-                : `MINERAL AURÍFERO EN BRUTO SIN PROCESAR - LOTE: ${l.lote_correlativo || l.correlativo}`;
+                ? `${l.tipo_producto.toUpperCase()} - LOTE: ${l.lote_correlativo || ""}`
+                : `MINERAL AURÍFERO EN BRUTO SIN PROCESAR - LOTE: ${l.lote_correlativo || ""}`;
 
               return (
                 <View key={l.id || index} style={styles.tableRow}>

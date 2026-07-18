@@ -15,18 +15,19 @@ export interface RES_ConcesionPorProveedor {
   id_concesion_proveedor: number;
 }
 
+import type { RES_CambiosLog } from "../../../service/responses/_generic/cambios-log";
+
 export interface RES_LoteGuia {
   id: number;
   id_guia_primer_tramo: number;
   id_lote_mineral: number;
-  correlativo: string;
-  numero_correlativo: number;
   peso_bruto: number | null;
   tara: number | null;
   peso_neto: number | null;
   lote_correlativo: string | null;
   tipo_producto: string | null;
   tipo_mineral: string | null;
+  log_cambios?: RES_CambiosLog[] | null;
 }
 
 export interface RES_GuiaPrimerTramo {
@@ -64,6 +65,8 @@ export interface RES_GuiaPrimerTramo {
   serie_guia_transportista: string | null;
   numero_guia_transportista: string | null;
   sin_guia_transportista: boolean;
+  id_empleado_registro: number | null;
+  log_cambios: RES_CambiosLog[] | null;
   estado: EstadoBase;
   created_at: string;
   lotes: RES_LoteGuia[];

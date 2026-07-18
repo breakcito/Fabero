@@ -1,3 +1,5 @@
+import type { RES_CambiosLog } from "../../../service/responses/_generic/cambios-log";
+
 export interface RES_LoteMineral {
   id: number;
   id_recepcion_unidad: number;
@@ -16,6 +18,8 @@ export interface RES_LoteMineral {
   numero_contacto: string | null;
   tipo_producto: string | null;
   tipo_mineral: string | null;
+  condicion_ingreso: string | null;
+  log_cambios?: RES_CambiosLog[] | null;
   evidencias: Array<{
     url: string;
     path_relativo: string;

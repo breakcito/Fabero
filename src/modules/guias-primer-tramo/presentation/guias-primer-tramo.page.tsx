@@ -83,7 +83,7 @@ export const GuiasPrimerTramoPage = () => {
 
   // Historial de cambios (modal independiente del de edición)
   const [historialModalOpen, setHistorialModalOpen] = useState(false);
-  const [guiaHistorialId, setGuiaHistorialId] = useState<number | null>(null);
+  const [guiaHistorial, setGuiaHistorial] = useState<RES_GuiaPrimerTramo | null>(null);
 
   useEffect(() => {
     if (idSucursal) {
@@ -515,7 +515,7 @@ export const GuiasPrimerTramoPage = () => {
                       variant="subtle"
                       color="yellow"
                       onClick={() => {
-                        setGuiaHistorialId(g.id);
+                        setGuiaHistorial(g);
                         setHistorialModalOpen(true);
                       }}
                       className="text-zinc-400 hover:text-amber-400"
@@ -539,21 +539,6 @@ export const GuiasPrimerTramoPage = () => {
                 </div>
               );
             },
-          },
-          {
-            accessor: "lotes_count",
-            title: "Lotes",
-            textAlign: "center",
-            render: (g: RES_GuiaPrimerTramo) => (
-              <Badge
-                color={g.lotes && g.lotes.length > 0 ? "emerald" : "zinc"}
-                variant="light"
-                size="sm"
-                radius="md"
-              >
-                {g.lotes?.length ?? 0} Lote(s)
-              </Badge>
-            ),
           },
         ]}
         rowExpansion={{
@@ -583,7 +568,6 @@ export const GuiasPrimerTramoPage = () => {
                             #
                           </th>
                           <th className="text-left py-2">Lote Mineral</th>
-                          <th className="text-left py-2">Correlativo</th>
                           <th className="text-left py-2">Producto</th>
                           <th className="text-left py-2">Mineral</th>
                           <th className="text-right py-2">P. Bruto</th>
@@ -602,9 +586,6 @@ export const GuiasPrimerTramoPage = () => {
                             </td>
                             <td className="font-mono text-zinc-100 text-xs py-2 fw-semibold">
                               {l.lote_correlativo ?? "—"}
-                            </td>
-                            <td className="font-mono text-zinc-400 text-xs py-2">
-                              {l.correlativo}
                             </td>
                             <td className="text-zinc-300 text-xs py-2">
                               {l.tipo_producto ?? "—"}
@@ -671,11 +652,11 @@ export const GuiasPrimerTramoPage = () => {
 
       {/* Modal: Historial de cambios */}
       <HistorialModal
-        idGuia={guiaHistorialId}
+        guia={guiaHistorial}
         opened={historialModalOpen}
         onClose={() => {
           setHistorialModalOpen(false);
-          setGuiaHistorialId(null);
+          setGuiaHistorial(null);
         }}
       />
     </div>

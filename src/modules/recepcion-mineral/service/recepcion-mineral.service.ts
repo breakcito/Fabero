@@ -55,11 +55,8 @@ export const RecepcionMineralService = {
     return data.data;
   },
 
-  /**
-   * Generar un nuevo lote vacío asociado a una recepción de unidad
-   */
-  crear_lote: async (id: number): Promise<RES_LoteMineral> => {
-    const { data } = await api.post(`${PATH}/${id}/lotes`);
+  crear_lote: async (id: number, condicion_ingreso: string): Promise<RES_LoteMineral> => {
+    const { data } = await api.post(`${PATH}/${id}/lotes`, { condicion_ingreso });
     return data.data;
   },
 
@@ -230,6 +227,12 @@ export const RecepcionMineralService = {
     }
     if (dto.id_conductor !== null && dto.id_conductor !== undefined) {
       formData.append("id_conductor", String(dto.id_conductor));
+    }
+    if (dto.condicion_ingreso !== undefined && dto.condicion_ingreso !== null) {
+      formData.append("condicion_ingreso", dto.condicion_ingreso);
+    }
+    if (dto.motivo !== undefined && dto.motivo !== null) {
+      formData.append("motivo", dto.motivo);
     }
 
     if (dto.evidencias_existentes !== undefined && dto.evidencias_existentes !== null) {

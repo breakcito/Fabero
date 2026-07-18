@@ -63,6 +63,11 @@ export const RecepcionMineralPage = () => {
   const [editingFicticia, setEditingFicticia] = useState<RecepcionMineralResponse | null>(null);
   const [openNewConductorModal, setOpenNewConductorModal] = useState(false);
 
+  // Modal para condición de ingreso de lote
+  const [condicionModalOpen, setCondicionModalOpen] = useState(false);
+  const [selectedRecepcionIdForLote, setSelectedRecepcionIdForLote] = useState<number | null>(null);
+  const [condicionIngreso, setCondicionIngreso] = useState<string>("comercializacion");
+
   // Popovers abiertos (estado de ID de recepción + clave del campo)
   const [openedPopover, setOpenedPopover] = useState<string | null>(null);
   const [tempValue, setTempValue] = useState<string>("");
@@ -778,7 +783,11 @@ export const RecepcionMineralPage = () => {
                               leftSection={<IconPlus size={14} />}
                               disabled={!valComplete}
                               loading={creatingLoteId === ru.id}
-                              onClick={() => crearLote(ru.id)}
+                              onClick={() => {
+                                setSelectedRecepcionIdForLote(ru.id);
+                                setCondicionIngreso("comercializacion");
+                                setCondicionModalOpen(true);
+                              }}
                               className={`font-bold ${
                                 valComplete
                                   ? "bg-indigo-600 hover:bg-indigo-700 text-white font-bold"
@@ -1037,6 +1046,58 @@ export const RecepcionMineralPage = () => {
           }
         }}
       />
+
+      {/* Modal: Seleccionar Condición de Ingreso */}
+      <ModalEstandar
+        opened={condicionModalOpen}
+        close={() => {
+          setCondicionModalOpen(false);
+          setSelectedRecepcionIdForLote(null);
+        }}
+        title="Generar Lote - Condición de Ingreso"
+        size="sm"
+      >
+        <div className="flex flex-col gap-4 p-2">
+          <Select
+            label="Seleccione la condición de ingreso para el lote"
+            placeholder="Seleccionar condición"
+            data={[
+              { value: "comercializacion", label: "Comercialización (Prefijo FB)" },
+              { value: "chancado", label: "Chancado (Prefijo LOT)" },
+              { value: "almacen", label: "Almacén (Prefijo LOT)" },
+            ]}
+            value={condicionIngreso}
+            onChange={(val) => setCondicionIngreso(val || "comercializacion")}
+            allowDeselect={false}
+            comboboxProps={{ withinPortal: true }}
+            className="text-zinc-200"
+          />
+          <div className="flex justify-end gap-2 mt-2">
+            <Button
+              variant="subtle"
+              color="zinc"
+              onClick={() => {
+                setCondicionModalOpen(false);
+                setSelectedRecepcionIdForLote(null);
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              color="indigo"
+              onClick={() => {
+                if (selectedRecepcionIdForLote) {
+                  crearLote(selectedRecepcionIdForLote, condicionIngreso);
+                }
+                setCondicionModalOpen(false);
+                setSelectedRecepcionIdForLote(null);
+              }}
+            >
+              Generar Lote
+            </Button>
+          </div>
+        </div>
+      </ModalEstandar>
     </div>
   );
 };

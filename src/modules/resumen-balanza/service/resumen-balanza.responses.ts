@@ -1,3 +1,4 @@
+import type { RES_CambiosLog } from "../../../service/responses/_generic/cambios-log";
 import type { IArchivo } from "../../../shared/interfaces/archivo";
 
 export interface RES_ResumenBalanzaItem {
@@ -18,6 +19,8 @@ export interface RES_ResumenBalanzaItem {
   peso_neto: number | null;
   lote_fecha_creacion: string;
   lote_evidencias: IArchivo[];
+  lote_condicion_ingreso: string | null;
+  lote_log_cambios?: RES_CambiosLog[] | null;
   tipo_ingreso: string;
   fecha_hora_ingreso: string;
   fecha_hora_salida: string | null;

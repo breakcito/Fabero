@@ -464,7 +464,6 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
           sin_guia_transportista: sinGuiaTransportista,
           lotes: lotes.map((l) => ({
             id_lote_mineral: l.id_lote_mineral,
-            correlativo: l.correlativo,
             peso_bruto: l.peso_bruto,
             tara: l.tara,
           })),
@@ -495,7 +494,6 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
           sin_guia_transportista: sinGuiaTransportista,
           lotes: lotes.map((l) => ({
             id_lote_mineral: l.id_lote_mineral,
-            correlativo: l.correlativo,
             peso_bruto: l.peso_bruto,
             tara: l.tara,
           })),

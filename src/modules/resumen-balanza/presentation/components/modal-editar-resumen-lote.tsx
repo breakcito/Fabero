@@ -60,6 +60,8 @@ export const ModalEditarResumenLote = ({ opened, lote, onClose, onSuccess }: Pro
   const [openVehiculoModal, setOpenVehiculoModal] = useState(false);
 
   // Estados Formulario
+  const [condicionIngreso, setCondicionIngreso] = useState<string>(lote.lote_condicion_ingreso || "comercializacion");
+  const [motivo, setMotivo] = useState<string>("");
   const [tipoCarga, setTipoCarga] = useState<string>(lote.lote_tipo_carga || "Granel");
   const [idProveedor, setIdProveedor] = useState<string | null>(lote.id_proveedor ? String(lote.id_proveedor) : null);
   const [idEncargado, setIdEncargado] = useState<string | null>(lote.id_encargado_muestra ? String(lote.id_encargado_muestra) : null);
@@ -138,6 +140,8 @@ export const ModalEditarResumenLote = ({ opened, lote, onClose, onSuccess }: Pro
       setIdConductor(lote.id_conductor ? String(lote.id_conductor) : null);
       setEvidenciasExistentes(lote.lote_evidencias || []);
       setEvidencias([]);
+      setCondicionIngreso(lote.lote_condicion_ingreso || "comercializacion");
+      setMotivo("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opened, lote]);
@@ -192,6 +196,8 @@ export const ModalEditarResumenLote = ({ opened, lote, onClose, onSuccess }: Pro
         id_vehiculo: idVehiculo ? Number(idVehiculo) : null,
         id_empresa_transporte: idEmpresaTransporte ? Number(idEmpresaTransporte) : null,
         id_conductor: idConductor ? Number(idConductor) : null,
+        condicion_ingreso: condicionIngreso,
+        motivo: motivo || undefined,
       };
 
       await RecepcionMineralService.actualizar_lote(lote.id_lote, dto);
@@ -233,26 +239,43 @@ export const ModalEditarResumenLote = ({ opened, lote, onClose, onSuccess }: Pro
       size="xl"
     >
       <Stack gap="md" className="max-h-[80vh] overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
-        {/* Sección 1: Detalles del Lote y Mineral (3 columnas) */}
-        <Paper radius="xl" p="md" className="bg-zinc-900/10 border border-zinc-900/80">
-          <Text size="xs" fw={800} className="text-indigo-400 uppercase tracking-widest mb-3 pb-1 border-b border-zinc-900">
-            Detalles del Lote y Mineral
-          </Text>
+            {/* Sección 1: Detalles del Lote y Mineral (3 columnas) */}
+            <Paper radius="xl" p="md" className="bg-zinc-900/10 border border-zinc-900/80">
+              <Text size="xs" fw={800} className="text-indigo-400 uppercase tracking-widest mb-3 pb-1 border-b border-zinc-900">
+                Detalles del Lote y Mineral
+              </Text>
 
-          <Grid gutter="sm">
-            <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
-              <Select
-                label="Tipo Carga:"
-                placeholder="Seleccione"
-                data={["Granel", "Sacos", "Mixto"]}
-                value={tipoCarga}
-                onChange={(val) => setTipoCarga(val || "Granel")}
-                classNames={selectClassNames}
-                radius="lg"
-                comboboxProps={selectComboboxProps}
-                required
-              />
-            </Grid.Col>
+              <Grid gutter="sm">
+                <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
+                  <Select
+                    label="Condición de Ingreso:"
+                    placeholder="Seleccione"
+                    data={[
+                      { value: "comercializacion", label: "Comercialización" },
+                      { value: "chancado", label: "Chancado" },
+                      { value: "almacen", label: "Almacén" },
+                    ]}
+                    value={condicionIngreso}
+                    onChange={(val) => setCondicionIngreso(val || "comercializacion")}
+                    classNames={selectClassNames}
+                    radius="lg"
+                    comboboxProps={selectComboboxProps}
+                    required
+                  />
+                </Grid.Col>
+                <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
+                  <Select
+                    label="Tipo Carga:"
+                    placeholder="Seleccione"
+                    data={["Granel", "Sacos", "Mixto"]}
+                    value={tipoCarga}
+                    onChange={(val) => setTipoCarga(val || "Granel")}
+                    classNames={selectClassNames}
+                    radius="lg"
+                    comboboxProps={selectComboboxProps}
+                    required
+                  />
+                </Grid.Col>
             <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
               <Select
                 label="Proveedor Minero:"
@@ -268,7 +291,7 @@ export const ModalEditarResumenLote = ({ opened, lote, onClose, onSuccess }: Pro
                 comboboxProps={selectComboboxProps}
               />
             </Grid.Col>
-            <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
+            <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
               <Select
                 label="Producto:"
                 placeholder="Seleccione"
@@ -282,7 +305,7 @@ export const ModalEditarResumenLote = ({ opened, lote, onClose, onSuccess }: Pro
               />
             </Grid.Col>
 
-            <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
+            <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
               <Select
                 label="Tipo Material:"
                 placeholder="Seleccione"
@@ -295,7 +318,7 @@ export const ModalEditarResumenLote = ({ opened, lote, onClose, onSuccess }: Pro
                 required
               />
             </Grid.Col>
-            <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
+            <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
               <div className="flex gap-1.5 items-end">
                 <Select
                   label="Zona Origen:"
@@ -325,7 +348,7 @@ export const ModalEditarResumenLote = ({ opened, lote, onClose, onSuccess }: Pro
                 </Tooltip>
               </div>
             </Grid.Col>
-            <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
+            <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
               <div className="flex gap-1.5 items-end">
                 <Select
                   label="Encargado Muestra:"
@@ -514,6 +537,21 @@ export const ModalEditarResumenLote = ({ opened, lote, onClose, onSuccess }: Pro
             description="Archivos existentes en el servidor y nuevos por adjuntar"
           />
         </div>
+
+        {/* Sección 4: Auditoría */}
+        <Paper radius="xl" p="md" className="bg-zinc-900/10 border border-zinc-900/80">
+          <Text size="xs" fw={800} className="text-amber-500 uppercase tracking-widest mb-3 pb-1 border-b border-zinc-900">
+            Auditoría
+          </Text>
+          <TextInput
+            label="Motivo del Cambio (Opcional):"
+            placeholder="Indique el motivo por el cual realiza los cambios (auditoría)..."
+            value={motivo}
+            onChange={(e) => setMotivo(e.currentTarget.value)}
+            classNames={fieldClasses}
+            radius="lg"
+          />
+        </Paper>
 
         {/* Botones de acción */}
         <div className="flex justify-end gap-3 mt-2 pt-4 border-t border-zinc-800">

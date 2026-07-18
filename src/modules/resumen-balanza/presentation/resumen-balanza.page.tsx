@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Grid, Text, Button, Select, Badge, ActionIcon, Tooltip, Stack, TextInput, Group, Loader } from "@mantine/core";
-import { IconNote, IconPaperclip, IconX, IconCalendar, IconPencil, IconBarcode, IconScale } from "@tabler/icons-react";
+import { IconNote, IconPaperclip, IconX, IconCalendar, IconPencil, IconBarcode, IconScale, IconHistory } from "@tabler/icons-react";
 import { useTitlePage } from "../../../hooks/useTitlePage";
 import { useResumenBalanza } from "../hooks/useResumenBalanza";
 import { useUIStore } from "../../../stores/ui.store";
@@ -13,6 +13,7 @@ import { TipoIngreso } from "../../../shared/enums/_generic/tipo-ingreso";
 import { ModalEditarResumenLote } from "./components/modal-editar-resumen-lote";
 import { useTicketLote } from "../../recepcion-mineral/hooks/useTicketLote";
 import { useTicketBalanza } from "../../recepcion-mineral/hooks/useTicketBalanza";
+import { CambiosLogViewer } from "../../../presentation/utils/cambios-log-viewer";
 
 export const ResumenBalanzaPage = () => {
   useTitlePage("Resumen de Balanza", true);
@@ -71,6 +72,10 @@ export const ResumenBalanzaPage = () => {
 
   // Estados para edición de lote
   const [editingLote, setEditingLote] = useState<RES_ResumenBalanzaItem | null>(null);
+
+  // Estados para historial de cambios
+  const [loteHistorial, setLoteHistorial] = useState<RES_ResumenBalanzaItem | null>(null);
+  const [historialModalOpen, setHistorialModalOpen] = useState(false);
 
   const handleOpenEvidencias = (evidencias: IArchivo[]) => {
     setSelectedEvidencias(evidencias);
@@ -343,7 +348,7 @@ export const ResumenBalanzaPage = () => {
                 </Text>
               ),
             },
-            
+
             {
               accessor: "lote_fechas",
               title: "Fechas Lote",
@@ -643,10 +648,10 @@ export const ResumenBalanzaPage = () => {
             {
               accessor: "acciones",
               title: "Acciones",
-              width: 100,
+              width: 110,
               textAlign: "center",
               render: (r: RES_ResumenBalanzaItem) => (
-                <div className="flex justify-center">
+                <div className="flex justify-center gap-1.5">
                   <Tooltip label="Editar Lote" withArrow>
                     <ActionIcon
                       size="sm"
@@ -656,6 +661,20 @@ export const ResumenBalanzaPage = () => {
                       className="text-amber-500 hover:bg-white/5 rounded-lg"
                     >
                       <IconPencil size={16} />
+                    </ActionIcon>
+                  </Tooltip>
+                  <Tooltip label="Historial de cambios" withArrow>
+                    <ActionIcon
+                      size="sm"
+                      variant="subtle"
+                      color="yellow"
+                      onClick={() => {
+                        setLoteHistorial(r);
+                        setHistorialModalOpen(true);
+                      }}
+                      className="text-zinc-400 hover:text-amber-400 hover:bg-white/5 rounded-lg"
+                    >
+                      <IconHistory size={16} />
                     </ActionIcon>
                   </Tooltip>
                 </div>
@@ -691,6 +710,31 @@ export const ResumenBalanzaPage = () => {
           onSuccess={loadResumen}
         />
       )}
+
+      {/* Modal: Historial de cambios */}
+      <ModalEstandar
+        opened={historialModalOpen}
+        close={() => {
+          setHistorialModalOpen(false);
+          setLoteHistorial(null);
+        }}
+        title={
+          <Group gap={6}>
+            <IconHistory size={20} className="text-amber-400" />
+            <span>Historial de Cambios</span>
+          </Group>
+        }
+        size="lg"
+        rightSection={
+          loteHistorial ? (
+            <Text size="xs" c="dimmed" fw={600} className="font-mono">
+              LOTE #{loteHistorial.lote_correlativo}
+            </Text>
+          ) : undefined
+        }
+      >
+        <CambiosLogViewer cambios={loteHistorial?.lote_log_cambios} />
+      </ModalEstandar>
     </div>
   );
 };
