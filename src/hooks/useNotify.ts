@@ -26,6 +26,7 @@ export const useNotify = () => {
       notify({ type: "error", content: sanitized });
     },
     notifyInfo: (content: string) => notify({ type: "info", content }),
+    notifyWarning: (content: string) => notify({ type: "warning", content }),
     clearNotify: () => notify({ type: "", content: "" }),
   };
 };

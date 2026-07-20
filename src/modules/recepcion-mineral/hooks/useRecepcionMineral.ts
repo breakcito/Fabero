@@ -5,6 +5,7 @@ import type { DTO_PesoInicial, DTO_PesoFinal } from "../service/recepcion-minera
 import { useUIStore } from "../../../stores/ui.store";
 import { useNotify } from "../../../hooks/useNotify";
 import { mostrarConfirmacion } from "../../../presentation/utils/modal-confirmacion";
+import { CondicionIngreso } from "../../../shared/enums/_generic/condicion-ingreso";
 
 export const useRecepcionMineral = () => {
   const sucursal = useUIStore((state) => state.sucursal_elegida);
@@ -99,7 +100,7 @@ export const useRecepcionMineral = () => {
     }
   };
 
-  const crearLote = async (id: number, condicionIngreso: string) => {
+  const crearLote = async (id: number, condicionIngreso: CondicionIngreso) => {
     setCreatingLoteId(id);
     try {
       const nuevoLote = await RecepcionMineralService.crear_lote(id, condicionIngreso);

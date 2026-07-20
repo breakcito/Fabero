@@ -13,7 +13,7 @@ const loadSucursales = (): RES_Sucursal[] => {
 };
 
 export interface IMessage {
-  type: "success" | "info" | "error" | "";
+  type: "success" | "info" | "warning" | "error" | "";
   content: string;
 }
 

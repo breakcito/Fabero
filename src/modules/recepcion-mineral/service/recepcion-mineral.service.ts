@@ -1,6 +1,7 @@
 import { api } from "../../../service/_api";
 import type { DTO_PesoInicial, DTO_PesoFinal } from "./recepcion-mineral.requests";
 import type { RecepcionMineralResponse, RES_LoteMineral } from "./recepcion-mineral.responses";
+import { CondicionIngreso } from "../../../shared/enums/_generic/condicion-ingreso";
 
 const PATH = "/recepcion-mineral";
 
@@ -55,7 +56,7 @@ export const RecepcionMineralService = {
     return data.data;
   },
 
-  crear_lote: async (id: number, condicion_ingreso: string): Promise<RES_LoteMineral> => {
+  crear_lote: async (id: number, condicion_ingreso: CondicionIngreso): Promise<RES_LoteMineral> => {
     const { data } = await api.post(`${PATH}/${id}/lotes`, { condicion_ingreso });
     return data.data;
   },

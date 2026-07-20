@@ -4,6 +4,7 @@ import {
   CheckCircleIcon,
   XCircleIcon,
   InformationCircleIcon,
+  ExclamationTriangleIcon,
 } from "@heroicons/react/24/solid";
 import { useNotify } from "../../../../hooks/useNotify";
 import { useSound } from "react-sounds";
@@ -28,6 +29,7 @@ export const GlobalNotification = () => {
       success: "Operación Exitosa",
       error: "Ha ocurrido un error",
       info: "Información",
+      warning: "Advertencia",
     };
 
     const iconMap: Record<string, React.ReactNode> = {
@@ -58,6 +60,16 @@ export const GlobalNotification = () => {
             height: 28,
             color: "#60a5fa",
             filter: "drop-shadow(0 0 8px rgba(96,165,250,0.4))",
+          }}
+        />
+      ),
+      warning: (
+        <ExclamationTriangleIcon
+          style={{
+            width: 28,
+            height: 28,
+            color: "#fbbf24",
+            filter: "drop-shadow(0 0 8px rgba(251,191,36,0.4))",
           }}
         />
       ),
