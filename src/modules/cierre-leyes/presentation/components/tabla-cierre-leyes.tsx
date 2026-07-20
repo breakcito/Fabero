@@ -34,6 +34,7 @@ interface CellInputProps {
 }
 
 const CellInput = ({ initialValue, initialChecked, onSave, onDelete, disabled, saving }: CellInputProps) => {
+  const { notifyWarning } = useNotify();
   const [val, setVal] = useState<string>(initialValue > 0 ? initialValue.toString() : "");
   const [checked, setChecked] = useState(initialChecked);
 
@@ -50,11 +51,23 @@ const CellInput = ({ initialValue, initialChecked, onSave, onDelete, disabled, s
     const numericVal = parseFloat(val);
     if (!isNaN(numericVal)) {
       if (numericVal !== initialValue) {
-        onSave(numericVal, checked);
+        let newChecked = checked;
+        if (numericVal <= 0 && checked) {
+          newChecked = false;
+          setChecked(false);
+          notifyWarning("El análisis se desmarcó como confirmado porque el valor no es mayor a cero.");
+        }
+        onSave(numericVal, newChecked);
       }
     } else if (val === "") {
       if (initialValue !== 0) {
-        onSave(0, checked);
+        let newChecked = checked;
+        if (checked) {
+          newChecked = false;
+          setChecked(false);
+          notifyWarning("El análisis se desmarcó como confirmado porque el valor está vacío.");
+        }
+        onSave(0, newChecked);
       }
     }
   };
@@ -67,9 +80,13 @@ const CellInput = ({ initialValue, initialChecked, onSave, onDelete, disabled, s
 
   const handleCheckboxToggle = () => {
     if (saving) return;
+    const numericVal = parseFloat(val) || 0;
+    if (!checked && numericVal <= 0) {
+      notifyWarning("No se puede confirmar un análisis sin un valor mayor a cero.");
+      return;
+    }
     const newChecked = !checked;
     setChecked(newChecked);
-    const numericVal = parseFloat(val) || 0;
     onSave(numericVal, newChecked);
   };
 

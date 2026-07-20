@@ -112,6 +112,11 @@ export const useCierreLeyes = () => {
    *  5) Flag per-cell (`guardandoCelda`) para spinner fino, no global.
    */
   const guardarValor = async (payload: GuardarValorPayload): Promise<boolean> => {
+    if (payload.esta_confirmada && payload.ley <= 0) {
+      notifyError("No se puede confirmar un análisis sin un valor mayor a cero.");
+      return false;
+    }
+
     const key = cellKey(payload);
 
     setGuardandoValorPorLote((prev) => ({ ...prev, [payload.id_lote_mineral]: true }));
@@ -279,11 +284,11 @@ export const useCierreLeyes = () => {
         motivo: "Hay análisis sin confirmar. Marca todas las casillas antes de cerrar el lote.",
       };
     }
-    const leyNula = lote.analisis.find((a) => a.ley === null || a.ley === undefined);
-    if (leyNula) {
+    const leyInvalida = lote.analisis.find((a) => a.ley === null || a.ley === undefined || a.ley <= 0);
+    if (leyInvalida) {
       return {
         ok: false,
-        motivo: "Hay análisis con valor nulo. Completa todos los valores antes de cerrar el lote.",
+        motivo: "Hay análisis con valor nulo o igual a cero. Completa todos los valores antes de cerrar el lote.",
       };
     }
     return { ok: true };
