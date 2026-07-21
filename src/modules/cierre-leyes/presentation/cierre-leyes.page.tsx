@@ -1,10 +1,9 @@
 import { useState, useMemo, useEffect } from "react";
-import { Button, TextInput, Loader, Center, Text, Group, Select } from "@mantine/core";
+import { Button, TextInput, Loader, Center, Text, Select } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
 import {
   MagnifyingGlassIcon,
   PlusIcon,
-  ShieldCheckIcon,
   XMarkIcon,
   CalendarDaysIcon,
 } from "@heroicons/react/24/outline";
@@ -23,13 +22,43 @@ const ESTADOS_LEYES_OPCIONES = [
   { value: "Todos", label: "Todos" },
 ];
 
-
-
 // Clases reutilizables de inputs (mismo aspecto en todos los filtros)
 const fieldInputClass =
-  "bg-zinc-950 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 focus:ring-1 focus:ring-zinc-300 transition-all h-[38px] rounded-xl";
+  "bg-zinc-950 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 focus:ring-1 focus:ring-zinc-300 transition-all h-8 text-xs rounded-lg";
 
 const fieldLabelClass = "text-zinc-300 mb-1 font-medium text-xs";
+
+const parseDateValue = (val: unknown): Date | null => {
+  if (!val) return null;
+  if (val instanceof Date) return isNaN(val.getTime()) ? null : val;
+  if (typeof val === "string") {
+    const trimmed = val.trim();
+    if (!trimmed) return null;
+    const ymdMatch = /^(\d{4})-(\d{2})-(\d{2})/.exec(trimmed);
+    if (ymdMatch) {
+      const [, y, m, d] = ymdMatch;
+      return new Date(Number(y), Number(m) - 1, Number(d));
+    }
+    const dmyMatch = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(trimmed);
+    if (dmyMatch) {
+      const [, d, m, y] = dmyMatch;
+      return new Date(Number(y), Number(m) - 1, Number(d));
+    }
+    const parsed = new Date(trimmed);
+    return isNaN(parsed.getTime()) ? null : parsed;
+  }
+  return null;
+};
+
+const formatDate = (date: unknown): string | null => {
+  if (!date) return null;
+  const parsed = parseDateValue(date);
+  if (!parsed) return null;
+  const y = parsed.getFullYear();
+  const m = String(parsed.getMonth() + 1).padStart(2, "0");
+  const d = String(parsed.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+};
 
 export const CierreLeyesPage = () => {
   useTitlePage("Cierre de Leyes");
@@ -43,39 +72,6 @@ export const CierreLeyesPage = () => {
   const [fechaInicio, setFechaInicio] = useState<Date | null>(new Date());
   const [fechaFin, setFechaFin] = useState<Date | null>(new Date());
   const [busqueda, setBusqueda] = useState("");
-
-  const formatDate = (date: unknown): string | null => {
-    if (!date) return null;
-    if (typeof date === "string") {
-      const trimmed = date.trim();
-      if (!trimmed) return null;
-      if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
-      const parsed = new Date(trimmed);
-      if (isNaN(parsed.getTime())) return null;
-      const y = parsed.getFullYear();
-      const m = String(parsed.getMonth() + 1).padStart(2, "0");
-      const d = String(parsed.getDate()).padStart(2, "0");
-      return `${y}-${m}-${d}`;
-    }
-    if (date instanceof Date) {
-      if (isNaN(date.getTime())) return null;
-      const y = date.getFullYear();
-      const m = String(date.getMonth() + 1).padStart(2, "0");
-      const d = String(date.getDate()).padStart(2, "0");
-      return `${y}-${m}-${d}`;
-    }
-    return null;
-  };
-
-  const parseDateValue = (val: unknown): Date | null => {
-    if (!val) return null;
-    if (val instanceof Date) return isNaN(val.getTime()) ? null : val;
-    if (typeof val === "string") {
-      const parsed = new Date(val);
-      return isNaN(parsed.getTime()) ? null : parsed;
-    }
-    return null;
-  };
 
   const filtrosActuales: FiltrosLotesSugeridos = useMemo(
     () => ({
@@ -123,6 +119,7 @@ export const CierreLeyesPage = () => {
             value={fechaInicio}
             onChange={(val: unknown) => setFechaInicio(parseDateValue(val))}
             placeholder="dd/mm/aaaa"
+            valueFormat="DD/MM/YYYY"
             locale="es"
             clearable
             leftSection={<CalendarDaysIcon className="w-4 h-4 text-zinc-500" />}
@@ -143,6 +140,7 @@ export const CierreLeyesPage = () => {
             value={fechaFin}
             onChange={(val: unknown) => setFechaFin(parseDateValue(val))}
             placeholder="dd/mm/aaaa"
+            valueFormat="DD/MM/YYYY"
             locale="es"
             clearable
             minDate={fechaInicio && fechaInicio instanceof Date && !isNaN(fechaInicio.getTime()) ? fechaInicio : undefined}
@@ -219,17 +217,12 @@ export const CierreLeyesPage = () => {
             onClick={handleAbrirModal}
             radius="lg"
             size="xs"
-            className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-900/20 h-[38px] px-5 rounded-xl font-semibold"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-900/20 h-9.5 px-5 rounded-xl font-semibold"
           >
             Agregar registro
           </Button>
         </div>
       </div>
-
-      <Group gap="xs" className="text-xs text-zinc-500 hidden md:flex">
-        <ShieldCheckIcon className="w-4 h-4 text-indigo-400" />
-        <span>Gestión y Consolidación de Leyes</span>
-      </Group>
 
       {/* Main Grid/Table */}
       {ctrl.loading && ctrl.lotes.length === 0 ? (
@@ -274,6 +267,7 @@ export const CierreLeyesPage = () => {
         onIniciarExito={() => {
           void ctrl.cargarLotes(filtrosActuales);
         }}
+        ctrl={ctrl}
       />
     </div>
   );

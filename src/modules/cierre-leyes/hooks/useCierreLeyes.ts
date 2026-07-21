@@ -79,9 +79,8 @@ export const useCierreLeyes = () => {
   }, [notifyError]);
 
   useEffect(() => {
-    cargarLotesSugeridos();
     cargarGrupos();
-  }, [cargarLotesSugeridos, cargarGrupos]);
+  }, [cargarGrupos]);
 
   const iniciarLote = async (idLote: number): Promise<boolean> => {
     setIniciandoLoteSugeridoId(idLote);

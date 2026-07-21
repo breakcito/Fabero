@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Loader, Text, Center, Select, Button } from "@mantine/core";
 import { PlayIcon } from "@heroicons/react/24/outline";
 import { useNotify } from "../../../../hooks/useNotify";
-import { useCierreLeyes } from "../../hooks/useCierreLeyes";
+import type { useCierreLeyes } from "../../hooks/useCierreLeyes";
 import { EstadoLeyes } from "../../../../shared/enums/_generic/estado-leyes";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
 
@@ -10,11 +10,11 @@ interface ModalIniciarAnalisisProps {
   opened: boolean;
   onClose: () => void;
   onIniciarExito?: () => void;
+  ctrl: ReturnType<typeof useCierreLeyes>;
 }
 
-export const ModalIniciarAnalisis = ({ opened, onClose, onIniciarExito }: ModalIniciarAnalisisProps) => {
+export const ModalIniciarAnalisis = ({ opened, onClose, onIniciarExito, ctrl }: ModalIniciarAnalisisProps) => {
   const { notifyError } = useNotify();
-  const ctrl = useCierreLeyes();
 
   const [loteSeleccionadoId, setLoteSeleccionadoId] = useState<string | null>(null);
 

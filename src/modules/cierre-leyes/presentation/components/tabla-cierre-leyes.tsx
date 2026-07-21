@@ -91,18 +91,17 @@ const CellInput = ({ initialValue, initialChecked, onSave, onDelete, disabled, s
   };
 
   return (
-    <div className="flex items-center gap-1 min-w-[100px] justify-center py-1">
+    <div className="flex items-center gap-1 min-w-25 justify-center py-1">
       <button
         type="button"
         disabled={disabled || saving}
         onClick={handleCheckboxToggle}
-        className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all ${
-          checked
+        className={`w-4 h-4 rounded-md border flex items-center justify-center transition-all ${checked
             ? "bg-emerald-600 border-emerald-500 text-white shadow-sm shadow-emerald-900/30"
             : "border-zinc-700 bg-zinc-900/50 text-transparent hover:border-zinc-500"
-        }`}
+          }`}
       >
-        <IconCheck size={12} stroke={3} />
+        <IconCheck size={10} stroke={3} />
       </button>
       <input
         type="number"
@@ -113,16 +112,16 @@ const CellInput = ({ initialValue, initialChecked, onSave, onDelete, disabled, s
         onBlur={handleBlur}
         onKeyDown={handleKeyDown}
         placeholder="0.00"
-        className="w-16 h-8 text-center text-xs bg-zinc-950 border border-zinc-800 text-white rounded-lg focus:border-zinc-400 focus:outline-none transition-all placeholder:text-zinc-700 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-13 h-6 text-center text-[10px] bg-zinc-950 border border-zinc-800 text-white rounded-md focus:border-zinc-400 focus:outline-none transition-all placeholder:text-zinc-700 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:opacity-50 disabled:cursor-not-allowed"
       />
-      {saving && <Loader size={10} color="indigo" />}
+      {saving && <Loader size={8} color="indigo" />}
       {onDelete && !disabled && (
         <button
           type="button"
           onClick={onDelete}
           className="p-1 text-zinc-500 hover:text-red-400 rounded-md hover:bg-zinc-850 transition-all"
         >
-          <IconTrash size={14} />
+          <IconTrash size={12} />
         </button>
       )}
     </div>
@@ -188,7 +187,7 @@ export const TablaCierreLeyes = ({
         <thead>
           {/* First Header Row */}
           <tr className="bg-zinc-900/80 border-b border-zinc-800 text-[11px] font-bold tracking-wider text-zinc-400 uppercase">
-            <th colSpan={2} rowSpan={2} className="p-4 border-r border-zinc-800 text-center align-middle min-w-[180px]">
+            <th colSpan={2} rowSpan={2} className="p-4 border-r border-zinc-800 text-center align-middle min-w-45">
               Lote
             </th>
             {grupos.map((g: GrupoAnalisisResponse) => {
@@ -213,7 +212,7 @@ export const TablaCierreLeyes = ({
                 </th>
               );
             })}
-            <th colSpan={2} rowSpan={2} className="p-4 text-center align-middle min-w-[200px]">
+            <th colSpan={2} rowSpan={2} className="p-4 text-center align-middle min-w-50">
               Cierre
             </th>
           </tr>
@@ -318,12 +317,12 @@ export const TablaCierreLeyes = ({
                             <span className="font-semibold text-zinc-500">Inicio:</span>{" "}
                             {l.fecha_hora_inicio_analisis
                               ? new Date(l.fecha_hora_inicio_analisis).toLocaleString("es-ES", {
-                                  day: "2-digit",
-                                  month: "2-digit",
-                                  year: "2-digit",
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })
+                                day: "2-digit",
+                                month: "2-digit",
+                                year: "2-digit",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })
                               : "-"}
                           </div>
                           <div className="font-semibold text-zinc-300">
@@ -605,11 +604,10 @@ export const TablaCierreLeyes = ({
                       >
                         {l.estado_leyes === EstadoLeyes.Confirmado ? (
                           <div className="flex flex-col items-center gap-1">
-                            <span className={`font-semibold text-xs px-2.5 py-1 rounded-lg ${
-                              l.con_valor_comercial
+                            <span className={`font-semibold text-xs px-2.5 py-1 rounded-lg ${l.con_valor_comercial
                                 ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"
                                 : "bg-red-500/10 border border-red-500/20 text-red-400"
-                            }`}>
+                              }`}>
                               {l.con_valor_comercial ? "Con Valor Comercial" : "Sin Valor Comercial"}
                             </span>
                             <div className="text-[10px] text-zinc-500 mt-1">
@@ -634,7 +632,7 @@ export const TablaCierreLeyes = ({
                             onConfirmarLote(l.id, conValor);
                           };
                           return (
-                            <div className="flex flex-col gap-2 w-full max-w-[160px] mx-auto">
+                            <div className="flex flex-col gap-2 w-full max-w-40 mx-auto">
                               <button
                                 type="button"
                                 disabled={bloqueado}
