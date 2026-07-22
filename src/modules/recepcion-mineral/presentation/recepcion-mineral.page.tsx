@@ -181,7 +181,7 @@ export const RecepcionMineralPage = () => {
         <Grid columns={24} gutter="md">
           {/* Lateral Izquierdo: Unidades en Planta (Sin Pesar) */}
           <Grid.Col span={{ base: 24, sm: 8, md: 6, lg: 5 }}>
-            <Paper radius="lg" p="md" className="bg-zinc-950/40 border border-zinc-900/80 min-h-[500px] h-full flex flex-col gap-4">
+            <Paper radius="lg" p="md" className="bg-zinc-950/40 border border-zinc-900/80 min-h-125 h-full flex flex-col gap-4">
               <div className="border-b border-zinc-900 pb-3 flex justify-between items-center gap-1 w-full">
                 <div className="flex items-center gap-1.5 min-w-0">
                   <IconChecklist size={18} className="text-indigo-400 shrink-0" />
@@ -321,7 +321,7 @@ export const RecepcionMineralPage = () => {
 
           {/* Área Central: Proceso de Pesaje y Lotes */}
           <Grid.Col span={{ base: 24, sm: 16, md: 18, lg: 19 }}>
-            <Paper radius="lg" p="md" className="bg-zinc-950/40 border border-zinc-900/80 min-h-[500px] h-full flex flex-col gap-4 ">
+            <Paper radius="lg" p="md" className="bg-zinc-950/40 border border-zinc-900/80 min-h-125 h-full flex flex-col gap-4 ">
               <div className="border-b border-zinc-900 pb-3 flex justify-between items-center">
                 <div>
                   <Text size="md" fw={700} className="text-zinc-200">

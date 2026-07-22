@@ -216,7 +216,7 @@ export const ModalPesoInicial = ({ lote, onCancel, onSubmit }: Props) => {
                     radius="lg"
                     size="lg"
                     onClick={() => setOpenZonaModal(true)}
-                    className="bg-zinc-800 text-zinc-300 hover:bg-zinc-700 h-[38px] w-[38px] mb-2"
+                    className="bg-zinc-800 text-zinc-300 hover:bg-zinc-700 h-9.5 w-9.5 mb-2"
                   >
                     <IconPlus size={18} />
                   </ActionIcon>
@@ -246,7 +246,7 @@ export const ModalPesoInicial = ({ lote, onCancel, onSubmit }: Props) => {
                     radius="lg"
                     size="lg"
                     onClick={() => setOpenEncargadoModal(true)}
-                    className="bg-zinc-800 text-zinc-300 hover:bg-zinc-700 h-[38px] w-[38px] mb-2"
+                    className="bg-zinc-800 text-zinc-300 hover:bg-zinc-700 h-9.5 w-9.5 mb-2"
                   >
                     <IconPlus size={18} />
                   </ActionIcon>

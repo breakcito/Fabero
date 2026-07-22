@@ -78,7 +78,7 @@ export const CondicionesComercialesProveedorPage = () => {
       {
         accessor: "ley_auoz_inicio",
         title: "Ley Au (oz/TC) Inicio",
-        textAlign: "right" as const,
+        textAlign: "center" as const,
         render: (r: RES_CondicionComercialProveedor) => (
           <span className="font-mono text-zinc-300">{r.ley_auoz_inicio.toFixed(4)}</span>
         ),
@@ -86,7 +86,7 @@ export const CondicionesComercialesProveedorPage = () => {
       {
         accessor: "ley_auoz_fin",
         title: "Ley Au (oz/TC) Fin",
-        textAlign: "right" as const,
+        textAlign: "center" as const,
         render: (r: RES_CondicionComercialProveedor) => (
           <span className="font-mono text-zinc-300">{r.ley_auoz_fin.toFixed(4)}</span>
         ),
@@ -94,7 +94,7 @@ export const CondicionesComercialesProveedorPage = () => {
       {
         accessor: "maquila",
         title: "Maquila ($/TC)",
-        textAlign: "right" as const,
+        textAlign: "center" as const,
         render: (r: RES_CondicionComercialProveedor) => (
           <span className="font-mono font-semibold text-emerald-400">${r.maquila.toFixed(3)}</span>
         ),
@@ -102,7 +102,7 @@ export const CondicionesComercialesProveedorPage = () => {
       {
         accessor: "recuperacion",
         title: "Recuperación (%)",
-        textAlign: "right" as const,
+        textAlign: "center" as const,
         render: (r: RES_CondicionComercialProveedor) => (
           <span className="font-mono text-indigo-300">{r.recuperacion.toFixed(3)}%</span>
         ),
@@ -110,7 +110,7 @@ export const CondicionesComercialesProveedorPage = () => {
       {
         accessor: "consumo",
         title: "Consumo ($/TC)",
-        textAlign: "right" as const,
+        textAlign: "center" as const,
         render: (r: RES_CondicionComercialProveedor) => (
           <span className="font-mono text-zinc-300">${r.consumo.toFixed(3)}</span>
         ),
@@ -118,7 +118,7 @@ export const CondicionesComercialesProveedorPage = () => {
       {
         accessor: "riesgo_comercial",
         title: "Riesgo Comercial ($/TC)",
-        textAlign: "right" as const,
+        textAlign: "center" as const,
         render: (r: RES_CondicionComercialProveedor) => (
           <span className="font-mono text-amber-400">${r.riesgo_comercial.toFixed(3)}</span>
         ),

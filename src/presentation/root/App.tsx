@@ -39,6 +39,7 @@ import { SucursalesPage } from "../../modules/sucursales/presentation/sucursales
 import { GestionLeyesPage } from "../../modules/gestion-leyes/presentation/gestion-leyes.page.tsx";
 import { CierreLeyesPage } from "../../modules/cierre-leyes/presentation/cierre-leyes.page.tsx";
 import CondicionesComercialesProveedorPage from "../../modules/condiciones-comerciales-proveedor/presentation/condiciones-comerciales-proveedor.page.tsx";
+import AnticiposProveedorPage from "../../modules/anticipos-proveedor/presentation/anticipos-proveedor.page.tsx";
 
 export const App = () => {
   const { setModoAuditoria } = useAuditoriaStore();
@@ -118,6 +119,7 @@ export const App = () => {
           <Route path="socios-comerciales" element={<UsuariosLayout />}>
             <Route path="proveedores-mineros" element={<ProveedoresPage />} />
             <Route path="plantas-destino" element={<PlantasDestinoPage />} />
+          
           </Route>
           {/* Empresa de Transporte */}
           <Route path="empresa-transporte" element={<UsuariosLayout />}>
@@ -134,6 +136,13 @@ export const App = () => {
               path="proveedor"
               element={<CondicionesComercialesProveedorPage />}
             />
+          </Route>
+          <Route path="anticipos" element={<UsuariosLayout />}>
+            <Route
+              path="proveedor"
+              element={<AnticiposProveedorPage />}
+            />
+            
           </Route>
         </Route>
 
