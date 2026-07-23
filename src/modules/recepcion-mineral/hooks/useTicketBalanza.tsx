@@ -1,47 +1,42 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { usePrint } from "../../../hooks/usePrint";
 import { TicketBalanzaPdf } from "../presentation/components/ticket-balanza-pdf";
+import { RecepcionMineralService } from "../service/recepcion-mineral.service";
+import type { RES_TicketBalanzaData } from "../service/recepcion-mineral.responses";
 
-export interface LoteBalanzaInfo {
-  id: number;
-  correlativo: string;
-  numero_correlativo: number;
-  vehiculo_placa: string | null;
-  vehiculo_serie: string | null;
-  tipo_carga: string | null;
-  empresa_transporte_ruc?: string | null;
-  empresa_transporte_razon_social: string | null;
-  tipo_vehiculo_nombre: string | null;
-  conductor_nombre_completo: string | null;
-  proveedor_nombre?: string | null;
-  observacion_peso_inicial?: string | null;
-  observacion_peso_final?: string | null;
-  peso_inicial: number | null;
-  fecha_hora_peso_inicial: string | null;
-  peso_final: number | null;
-  fecha_hora_peso_final: string | null;
-  peso_neto: number | null;
-}
+export type LoteBalanzaInput = number | { id?: number; id_lote?: number; correlativo?: string };
 
 /**
  * Hook exclusivo para imprimir el ticket de balanza vertical (67 x 247 mm).
  */
 export const useTicketBalanza = () => {
   const { print, prepare } = usePrint();
+  const [loadingTicket, setLoadingTicket] = useState(false);
 
   const printTicketBalanza = useCallback(
-    (lote: LoteBalanzaInfo) => {
-      if (!lote?.correlativo) return;
+    async (loteInput: LoteBalanzaInput) => {
+      const loteId = typeof loteInput === "number" ? loteInput : (loteInput.id || loteInput.id_lote);
+      if (!loteId) return;
 
-      prepare(`ticket-balanza-${lote.id}`);
+      setLoadingTicket(true);
+      try {
+        const ticketData: RES_TicketBalanzaData = await RecepcionMineralService.obtener_ticket_balanza(loteId);
 
-      print(
-        <TicketBalanzaPdf lote={lote} />,
-        {
-          documentTitle: `Ticket Balanza ${lote.correlativo}`,
-          target: `ticket-balanza-${lote.id}`,
-        }
-      );
+        const targetId = `ticket-balanza-${loteId}`;
+        prepare(targetId);
+
+        print(
+          <TicketBalanzaPdf data={ticketData} />,
+          {
+            documentTitle: `Ticket Balanza ${ticketData.correlativo || loteId}`,
+            target: targetId,
+          }
+        );
+      } catch (error) {
+        console.error("Error al obtener información para el Ticket de Balanza:", error);
+      } finally {
+        setLoadingTicket(false);
+      }
     },
     [print, prepare]
   );
@@ -49,7 +44,8 @@ export const useTicketBalanza = () => {
   return useMemo(
     () => ({
       printTicketBalanza,
+      loadingTicket,
     }),
-    [printTicketBalanza]
+    [printTicketBalanza, loadingTicket]
   );
 };

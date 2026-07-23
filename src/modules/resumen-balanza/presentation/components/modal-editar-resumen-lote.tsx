@@ -32,6 +32,10 @@ import type { DTO_PesoFinal } from "../../../recepcion-mineral/service/recepcion
 import type { IArchivo } from "../../../../shared/interfaces/archivo";
 import { useNotify } from "../../../../hooks/useNotify";
 import { RegistroVehiculoSimple } from "../../../../presentation/utils/registro-vehiculo-simple";
+import { CondicionIngreso } from "../../../../shared/enums/_generic/condicion-ingreso";
+import { TipoCarga } from "../../../../shared/enums/_generic/tipo-carga";
+import { TipoMineral } from "../../../../shared/enums/_generic/tipo-mineral";
+import { EstadoBase } from "../../../../shared/enums/_generic/estado-base";
 
 interface Props {
   opened: boolean;
@@ -60,14 +64,14 @@ export const ModalEditarResumenLote = ({ opened, lote, onClose, onSuccess }: Pro
   const [openVehiculoModal, setOpenVehiculoModal] = useState(false);
 
   // Estados Formulario
-  const [condicionIngreso, setCondicionIngreso] = useState<string>(lote.lote_condicion_ingreso || "comercializacion");
+  const [condicionIngreso, setCondicionIngreso] = useState<string>(lote.lote_condicion_ingreso || CondicionIngreso.Comercializacion);
   const [motivo, setMotivo] = useState<string>("");
-  const [tipoCarga, setTipoCarga] = useState<string>(lote.lote_tipo_carga || "Granel");
+  const [tipoCarga, setTipoCarga] = useState<string>(lote.lote_tipo_carga || TipoCarga.Granel);
   const [idProveedor, setIdProveedor] = useState<string | null>(lote.id_proveedor ? String(lote.id_proveedor) : null);
   const [idEncargado, setIdEncargado] = useState<string | null>(lote.id_encargado_muestra ? String(lote.id_encargado_muestra) : null);
   const [idZona, setIdZona] = useState<string | null>(lote.id_zona_origen ? String(lote.id_zona_origen) : null);
   const [contacto, setContacto] = useState<string>(lote.lote_numero_contacto || "");
-  const [producto, setProducto] = useState<string>(lote.lote_tipo_producto || "Aurífero");
+  const [producto, setProducto] = useState<string>(lote.lote_tipo_producto || TipoMineral.Aurifero);
   const [material, setMaterial] = useState<string>(lote.lote_tipo_mineral || "Mixto");
   const [observacionInicial, setObservacionInicial] = useState<string>(lote.observacion_peso_inicial || "");
   const [pesoInicial, setPesoInicial] = useState<string>(lote.peso_inicial ? String(lote.peso_inicial) : "");
@@ -124,12 +128,12 @@ export const ModalEditarResumenLote = ({ opened, lote, onClose, onSuccess }: Pro
     if (opened) {
       fetchCatalogos();
       // Reiniciar estados del formulario con el lote seleccionado
-      setTipoCarga(lote.lote_tipo_carga || "Granel");
+      setTipoCarga(lote.lote_tipo_carga || TipoCarga.Granel);
       setIdProveedor(lote.id_proveedor ? String(lote.id_proveedor) : null);
       setIdEncargado(lote.id_encargado_muestra ? String(lote.id_encargado_muestra) : null);
       setIdZona(lote.id_zona_origen ? String(lote.id_zona_origen) : null);
       setContacto(lote.lote_numero_contacto || "");
-      setProducto(lote.lote_tipo_producto || "Aurífero");
+      setProducto(lote.lote_tipo_producto || TipoMineral.Aurifero);
       setMaterial(lote.lote_tipo_mineral || "Mixto");
       setObservacionInicial(lote.observacion_peso_inicial || "");
       setPesoInicial(lote.peso_inicial ? String(lote.peso_inicial) : "");
@@ -140,7 +144,7 @@ export const ModalEditarResumenLote = ({ opened, lote, onClose, onSuccess }: Pro
       setIdConductor(lote.id_conductor ? String(lote.id_conductor) : null);
       setEvidenciasExistentes(lote.lote_evidencias || []);
       setEvidencias([]);
-      setCondicionIngreso(lote.lote_condicion_ingreso || "comercializacion");
+      setCondicionIngreso(lote.lote_condicion_ingreso || CondicionIngreso.Comercializacion);
       setMotivo("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -251,12 +255,12 @@ export const ModalEditarResumenLote = ({ opened, lote, onClose, onSuccess }: Pro
                     label="Condición de Ingreso:"
                     placeholder="Seleccione"
                     data={[
-                      { value: "comercializacion", label: "Comercialización" },
-                      { value: "chancado", label: "Chancado" },
-                      { value: "almacen", label: "Almacén" },
+                      { value: CondicionIngreso.Comercializacion, label: "Comercialización" },
+                      { value: CondicionIngreso.Chancado, label: "Chancado" },
+                      { value: CondicionIngreso.Almacen, label: "Almacén" },
                     ]}
                     value={condicionIngreso}
-                    onChange={(val) => setCondicionIngreso(val || "comercializacion")}
+                    onChange={(val) => setCondicionIngreso(val || CondicionIngreso.Comercializacion)}
                     classNames={selectClassNames}
                     radius="lg"
                     comboboxProps={selectComboboxProps}
@@ -267,9 +271,9 @@ export const ModalEditarResumenLote = ({ opened, lote, onClose, onSuccess }: Pro
                   <Select
                     label="Tipo Carga:"
                     placeholder="Seleccione"
-                    data={["Granel", "Sacos", "Mixto"]}
+                    data={[TipoCarga.Granel, TipoCarga.Sacos, TipoCarga.Mixto]}
                     value={tipoCarga}
-                    onChange={(val) => setTipoCarga(val || "Granel")}
+                    onChange={(val) => setTipoCarga(val || TipoCarga.Granel)}
                     classNames={selectClassNames}
                     radius="lg"
                     comboboxProps={selectComboboxProps}
@@ -295,9 +299,9 @@ export const ModalEditarResumenLote = ({ opened, lote, onClose, onSuccess }: Pro
               <Select
                 label="Producto:"
                 placeholder="Seleccione"
-                data={["Aurífero", "Polimetálico"]}
+                data={[TipoMineral.Aurifero, TipoMineral.Polimetalico]}
                 value={producto}
-                onChange={(val) => setProducto(val || "Aurífero")}
+                onChange={(val) => setProducto(val || TipoMineral.Aurifero)}
                 classNames={selectClassNames}
                 radius="lg"
                 comboboxProps={selectComboboxProps}
@@ -341,7 +345,7 @@ export const ModalEditarResumenLote = ({ opened, lote, onClose, onSuccess }: Pro
                     color="zinc"
                     radius="lg"
                     onClick={() => setOpenZonaModal(true)}
-                    className="bg-zinc-800 text-zinc-300 hover:bg-zinc-700 h-[36px] w-[36px] mb-0.5"
+                    className="bg-zinc-800 text-zinc-300 hover:bg-zinc-700 h-9 w-9 mb-0.5"
                   >
                     <IconPlus size={16} />
                   </ActionIcon>
@@ -371,7 +375,7 @@ export const ModalEditarResumenLote = ({ opened, lote, onClose, onSuccess }: Pro
                     color="zinc"
                     radius="lg"
                     onClick={() => setOpenEncargadoModal(true)}
-                    className="bg-zinc-800 text-zinc-300 hover:bg-zinc-700 h-[36px] w-[36px] mb-0.5"
+                    className="bg-zinc-800 text-zinc-300 hover:bg-zinc-700 h-9 w-9 mb-0.5"
                   >
                     <IconPlus size={16} />
                   </ActionIcon>
@@ -412,7 +416,7 @@ export const ModalEditarResumenLote = ({ opened, lote, onClose, onSuccess }: Pro
 <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
               <Input.Wrapper label="Peso Neto (Kg):" classNames={fieldClasses}>
                 <Tooltip label="Calculado automáticamente (Peso Inicial − Tara)" withArrow>
-                  <div className="bg-gradient from-emerald-950/40 to-zinc-950/60 border border-emerald-500/30 rounded-xl flex flex-col items-center justify-center h-[38px] shadow-inner shadow-emerald-900/20">
+                  <div className="bg-gradient from-emerald-950/40 to-zinc-950/60 border border-emerald-500/30 rounded-xl flex flex-col items-center justify-center h-9.5 shadow-inner shadow-emerald-900/20">
                     <Text size="sm" fw={900} c="emerald.3" className="font-mono leading-none">
                       {pesoNeto >= 0 ? pesoNeto.toLocaleString() : "0"} 
                     </Text>
@@ -479,7 +483,7 @@ export const ModalEditarResumenLote = ({ opened, lote, onClose, onSuccess }: Pro
                     color="zinc"
                     radius="lg"
                     onClick={() => setOpenVehiculoModal(true)}
-                    className="bg-zinc-800 text-zinc-300 hover:bg-zinc-700 h-[36px] w-[36px] mb-0.5"
+                    className="bg-zinc-800 text-zinc-300 hover:bg-zinc-700 h-9 w-9 mb-0.5"
                   >
                     <IconPlus size={16} />
                   </ActionIcon>
@@ -627,7 +631,7 @@ export const ModalEditarResumenLote = ({ opened, lote, onClose, onSuccess }: Pro
       >
         <RegistroVehiculoSimple
           idEmpresaTransporte={idEmpresaTransporte ? Number(idEmpresaTransporte) : null}
-          idTipoVehiculo={tiposVehiculo.find((t) => t.estado === "Activo")?.id_tipo_vehiculo ?? null}
+          idTipoVehiculo={tiposVehiculo.find((t) => t.estado === EstadoBase.Activo)?.id_tipo_vehiculo ?? null}
           onCancel={() => setOpenVehiculoModal(false)}
           onSuccess={(nuevo) => {
             setVehiculos((prev) => {

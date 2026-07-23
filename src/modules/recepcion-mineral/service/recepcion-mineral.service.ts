@@ -1,6 +1,6 @@
 import { api } from "../../../service/_api";
 import type { DTO_PesoInicial, DTO_PesoFinal } from "./recepcion-mineral.requests";
-import type { RecepcionMineralResponse, RES_LoteMineral } from "./recepcion-mineral.responses";
+import type { RecepcionMineralResponse, RES_LoteMineral, RES_TicketBalanzaData } from "./recepcion-mineral.responses";
 import { CondicionIngreso } from "../../../shared/enums/_generic/condicion-ingreso";
 
 const PATH = "/recepcion-mineral";
@@ -260,4 +260,13 @@ export const RecepcionMineralService = {
   cerrar_proceso: async (id: number): Promise<void> => {
     await api.put(`${PATH}/${id}/cerrar`);
   },
+
+  /**
+   * Obtener datos del Ticket de Balanza en formato completo para impresión PDF
+   */
+  obtener_ticket_balanza: async (loteId: number): Promise<RES_TicketBalanzaData> => {
+    const { data } = await api.get(`${PATH}/lotes/${loteId}/ticket-balanza`);
+    return data.data;
+  },
 };
+

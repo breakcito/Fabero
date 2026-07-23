@@ -1,5 +1,6 @@
 import { EstadoLeyes } from "../../../shared/enums/_generic/estado-leyes";
 import { TipoOrigen } from "../../../shared/enums/_generic/tipo-origen";
+import type { RES_CambiosLog } from "../../../service/responses/_generic/cambios-log";
 
 export interface LoteSugeridoResponse {
   id: number;
@@ -21,6 +22,7 @@ export interface AnalisisMineralResponse {
   ley: number;
   esta_confirmada: boolean;
   tipo_origen: TipoOrigen | null;
+  log_cambios?: RES_CambiosLog[] | null;
   created_at: string;
 }
 

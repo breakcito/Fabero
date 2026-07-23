@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { CierreLeyesService } from "../service/cierre-leyes.service";
 import { GestionLeyesService } from "../../gestion-leyes/service/gestion-leyes.service";
-import type { LoteSugeridoResponse, LoteCierreResponse, AnalisisMineralResponse } from "../service/cierre-leyes.responses";
+import type { LoteSugeridoResponse, LoteCierreResponse } from "../service/cierre-leyes.responses";
 import type { GrupoAnalisisResponse } from "../../gestion-leyes/service/gestion-leyes.responses";
 import { useNotify } from "../../../hooks/useNotify";
 import type { FiltrosLotesSugeridos, GuardarValorPayload } from "../service/cierre-leyes.service";
@@ -149,25 +149,7 @@ export const useCierreLeyes = () => {
 
     try {
       const servidor = await CierreLeyesService.guardarValorLey(payload);
-      // Reconciliacion minima: si el server devolvio un lote, sincronizamos
-      // el/los `id` de las filas recien creadas (las que tenian id null).
-      // NO pisamos ley/esta_confirmada porque ya estan en estado optimo local.
-      setLotes((prev) =>
-        prev.map((l) => {
-          if (l.id !== servidor.id) return l;
-          const mapaPorUuid = new Map<string, AnalisisMineralResponse>();
-          servidor.analisis.forEach((a) => mapaPorUuid.set(`${a.uuid_fila}|${a.id_grupo_analisis_detalle}|${a.tipo_origen ?? "_"}`, a));
-          return {
-            ...l,
-            // Adoptamos solo los id nuevos del servidor; el resto se mantiene local.
-            analisis: l.analisis.map((a) => {
-              if (a.id != null) return a;
-              const servidorMatch = mapaPorUuid.get(`${a.uuid_fila}|${a.id_grupo_analisis_detalle}|${a.tipo_origen ?? "_"}`);
-              return servidorMatch ? { ...a, id: servidorMatch.id } : a;
-            }),
-          };
-        }),
-      );
+      setLotes((prev) => prev.map((l) => (l.id === servidor.id ? servidor : l)));
       return true;
     } catch (err: unknown) {
       console.error(err);
@@ -275,29 +257,57 @@ export const useCierreLeyes = () => {
     }
   };
 
-  const validarCierre = useCallback((lote: LoteCierreResponse): CierreValidacion => {
-    const sinConfirmar = lote.analisis.find((a) => !a.esta_confirmada);
-    if (sinConfirmar) {
-      return {
-        ok: false,
-        motivo: "Hay análisis sin confirmar. Marca todas las casillas antes de cerrar el lote.",
-      };
-    }
-    const leyInvalida = lote.analisis.find((a) => a.ley === null || a.ley === undefined || a.ley <= 0);
-    if (leyInvalida) {
-      return {
-        ok: false,
-        motivo: "Hay análisis con valor nulo o igual a cero. Completa todos los valores antes de cerrar el lote.",
-      };
-    }
-    return { ok: true };
-  }, []);
+  const validarCierre = useCallback(
+    (lote: LoteCierreResponse, gruposAnalisis: GrupoAnalisisResponse[]): CierreValidacion => {
+      if (!lote.analisis || lote.analisis.length === 0) {
+        return {
+          ok: false,
+          motivo: "El lote no tiene registros de análisis.",
+        };
+      }
+
+      for (const g of gruposAnalisis) {
+        for (const a of g.analitos) {
+          const valOro = a.para_valorizacion_oro as unknown;
+          const valPlata = a.para_valorizacion_plata as unknown;
+          const valHumedad = a.para_valorizacion_humedad as unknown;
+          const valRec = a.para_valorizacion_recuperacion as unknown;
+
+          const esParaValorizar =
+            valOro === true || valOro === 1 || valOro === "1" ||
+            valPlata === true || valPlata === 1 || valPlata === "1" ||
+            valHumedad === true || valHumedad === 1 || valHumedad === "1" ||
+            valRec === true || valRec === 1 || valRec === "1";
+
+          if (!esParaValorizar) continue;
+
+          const tieneConfirmadoValido = lote.analisis.some((item) => {
+            const sameDetalle = Number(item.id_grupo_analisis_detalle) === Number(a.detalle_id);
+            const rawConf = item.esta_confirmada as unknown;
+            const isConfirmed = rawConf === true || rawConf === 1 || rawConf === "1";
+            const hasValidValue = item.ley !== null && item.ley !== undefined && Number(item.ley) > 0;
+            return sameDetalle && isConfirmed && hasValidValue;
+          });
+
+          if (!tieneConfirmadoValido) {
+            return {
+              ok: false,
+              motivo: `El analito "${a.nombre}" requiere al menos un análisis confirmado con un valor mayor a cero.`,
+            };
+          }
+        }
+      }
+
+      return { ok: true };
+    },
+    [],
+  );
 
   const validacionCierrePorLote = useMemo(() => {
     const out: Record<number, CierreValidacion> = {};
-    for (const l of lotes) out[l.id] = validarCierre(l);
+    for (const l of lotes) out[l.id] = validarCierre(l, grupos);
     return out;
-  }, [lotes, validarCierre]);
+  }, [lotes, grupos, validarCierre]);
 
   const guardarCeldaSet = useMemo(() => guardandoCelda, [guardandoCelda]);
 

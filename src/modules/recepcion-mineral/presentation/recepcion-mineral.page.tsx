@@ -965,11 +965,7 @@ export const RecepcionMineralPage = () => {
                 const loteActualizado = await registrarPesoInicial(ru.id, loteId, dto);
                 setActiveLotePesoInicial(null);
                 if (loteActualizado) {
-                  const emp = empresas.find(e => e.id_empresa_transporte === loteActualizado.id_empresa_transporte);
-                  printTicketBalanza({
-                    ...loteActualizado,
-                    empresa_transporte_ruc: emp ? emp.ruc : ""
-                  });
+                  printTicketBalanza(loteActualizado.id);
                 }
               }
             }}
@@ -994,11 +990,7 @@ export const RecepcionMineralPage = () => {
                 const loteActualizado = await registrarPesoFinal(ru.id, loteId, dto);
                 setActiveLotePesoFinal(null);
                 if (loteActualizado) {
-                  const emp = empresas.find(e => e.id_empresa_transporte === loteActualizado.id_empresa_transporte);
-                  printTicketBalanza({
-                    ...loteActualizado,
-                    empresa_transporte_ruc: emp ? emp.ruc : ""
-                  });
+                  printTicketBalanza(loteActualizado.id);
                 }
               }
             }}

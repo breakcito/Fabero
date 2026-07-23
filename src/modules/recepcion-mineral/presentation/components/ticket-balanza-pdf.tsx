@@ -1,211 +1,380 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
-import { mmToPt } from "../../../../shared/functions/mm-to-pt";
+import type { RES_TicketBalanzaData } from "../../service/recepcion-mineral.responses";
 
-const WIDTH_MM = 67;
-const HEIGHT_MM = 247;
+// Dimensiones exactas de Ticket Balanza Vertical (67 mm x 247 mm en pt)
+// 1 mm = 2.834645669 pt
+const TICKET_WIDTH = 189.92;  // 67 mm
+const TICKET_HEIGHT = 700.16; // 247 mm
 
 const styles = StyleSheet.create({
   page: {
-    width: mmToPt(WIDTH_MM),
-    height: mmToPt(HEIGHT_MM),
-    paddingHorizontal: 12,
-    paddingVertical: 16,
+    width: TICKET_WIDTH,
+    height: TICKET_HEIGHT,
+    paddingHorizontal: 8,
+    paddingVertical: 10,
     backgroundColor: "#ffffff",
-    fontFamily: "Helvetica",
-    fontSize: 9,
+    fontFamily: "Courier",
+    fontSize: 7.5,
+    color: "#000000",
+    lineHeight: 1.2,
+  },
+  headerContainer: {
+    alignItems: "center",
+    marginBottom: 2,
+  },
+  titleBold: {
+    fontFamily: "Courier-Bold",
+    fontSize: 10,
+    textAlign: "center",
+  },
+  companyBold: {
+    fontFamily: "Courier-Bold",
+    fontSize: 8.5,
+    textAlign: "center",
+    marginTop: 2,
+    marginBottom: 2,
+  },
+  addressText: {
+    fontSize: 7,
+    textAlign: "center",
     color: "#000000",
   },
-  headerTitle: {
-    fontSize: 10,
-    fontFamily: "Helvetica-Bold",
-    textAlign: "center",
-    marginBottom: 4,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
+  ticketNumberBox: {
+    marginTop: 3,
+    alignItems: "center",
   },
-  loteTitle: {
-    fontSize: 14,
-    fontFamily: "Helvetica-Bold",
-    textAlign: "center",
-    marginVertical: 4,
-    letterSpacing: 0.5,
+  ticketNumberText: {
+    fontFamily: "Courier-Bold",
+    fontSize: 9,
   },
-  sectionTitle: {
-    fontSize: 10,
-    fontFamily: "Helvetica-Bold",
-    textAlign: "center",
-    marginVertical: 2,
-    letterSpacing: 0.5,
+  dateText: {
+    fontSize: 7.5,
+    marginTop: 1,
+  },
+  boldText: {
+    fontFamily: "Courier-Bold",
   },
   dashedLine: {
     borderBottomWidth: 1,
     borderBottomColor: "#000000",
     borderStyle: "dashed",
     marginVertical: 4,
+    width: "100%",
   },
-  infoContainer: {
+  sectionTitle: {
+    fontFamily: "Courier-Bold",
+    fontSize: 8,
     marginVertical: 2,
+    textAlign: "center",
   },
-  infoRow: {
+  fieldRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "flex-start",
-    marginVertical: 1.5,
-  },
-  boldText: {
-    fontFamily: "Helvetica-Bold",
-  },
-  fullWidthText: {
+    width: "100%",
     marginVertical: 1,
   },
-  rightAlign: {
-    textAlign: "right",
+  fieldLabel: {
+    fontFamily: "Courier-Bold",
+    width: 72,
+    flexShrink: 0,
+    fontSize: 7.5,
   },
-  pesajeRow: {
+  fieldValue: {
+    fontFamily: "Courier",
+    flex: 1,
+    fontSize: 7.5,
+  },
+  pesadaBlock: {
+    marginVertical: 2,
+  },
+  pesadaHeader: {
+    fontFamily: "Courier-Bold",
+    fontSize: 7.5,
+    marginBottom: 1,
+  },
+  pesadaDetailRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "baseline",
-    marginTop: 2,
+    alignItems: "center",
+    marginLeft: 4,
+    marginVertical: 0.5,
   },
-  subRowText: {
+  resumenRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    width: "100%",
+    marginVertical: 1.5,
+  },
+  resumenLabel: {
+    fontFamily: "Courier-Bold",
     fontSize: 8,
-    color: "#000000",
-    marginTop: 1,
-    marginBottom: 3,
+  },
+  resumenValor: {
+    fontFamily: "Courier-Bold",
+    fontSize: 8.5,
+    textAlign: "right",
+  },
+  operadorSection: {
+    marginTop: 2,
+    width: "100%",
+  },
+  indentText: {
+    marginLeft: 8,
+    fontSize: 7.5,
   },
 });
 
-const formatFecha = (isoString: string | null): string => {
-  if (!isoString) return "—";
-  return isoString.split(" ")[0] || isoString.split("T")[0] || isoString;
+const formatFechaHora = (isoString: string | null | undefined): string => {
+  if (!isoString) return "";
+  const parts = isoString.split(" ");
+  if (parts.length === 2) {
+    const [d, t] = parts;
+    const dateParts = d.split("-");
+    if (dateParts.length === 3) {
+      return `${dateParts[2]}/${dateParts[1]}/${dateParts[0]} ${t}`;
+    }
+  }
+  return isoString;
 };
 
-const formatPeso = (peso: number | null): string => {
-  if (peso === null) return "—";
-  return `${peso.toLocaleString("es-PE")} Kg`;
+const formatFechaSolo = (isoString: string | null | undefined): string => {
+  if (!isoString) return "";
+  const d = isoString.split(" ")[0] ?? isoString;
+  const dateParts = d.split("-");
+  if (dateParts.length === 3) {
+    return `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
+  }
+  return d;
+};
+
+const formatPeso = (peso: number | null | undefined): string => {
+  if (peso === null || peso === undefined) return "—";
+  return `${Math.round(peso)} kg`;
+};
+
+const formatUbicacion = (
+  direccion?: string | null,
+  nombreSucursal?: string | null,
+  distrito?: string | null,
+  provincia?: string | null,
+  departamento?: string | null
+): string => {
+  const mainLoc =
+    direccion && direccion.trim()
+      ? direccion.trim()
+      : nombreSucursal && nombreSucursal.trim()
+        ? nombreSucursal.trim()
+        : null;
+  const ubigeo = [distrito, provincia, departamento]
+    .filter((p): p is string => Boolean(p && p.trim()))
+    .join(" - ");
+  if (mainLoc && ubigeo) {
+    return `${mainLoc} - ${ubigeo}`;
+  }
+  return mainLoc ?? ubigeo ?? "—";
+};
+
+const formatOrigen = (
+  nombreConcesion?: string | null,
+  codigoReinfo?: string | null,
+  distrito?: string | null,
+  provincia?: string | null,
+  departamento?: string | null,
+  zonaOrigen?: string | null
+): string => {
+  const ubigeo = [distrito, provincia, departamento]
+    .filter((p): p is string => Boolean(p && p.trim()))
+    .join(" - ");
+
+  const nombre = nombreConcesion && nombreConcesion.trim() ? nombreConcesion.trim() : null;
+  const codigo = codigoReinfo && codigoReinfo.trim() ? codigoReinfo.trim() : null;
+
+  if (nombre || codigo) {
+    const identificador = [nombre, codigo].filter(Boolean).join(" - ");
+    const cabecera = `${identificador} (CONCESION MINERA)`;
+    return ubigeo ? `${cabecera} - ${ubigeo}` : cabecera;
+  }
+
+  if (zonaOrigen && zonaOrigen.trim()) {
+    return ubigeo ? `${zonaOrigen.trim()} - ${ubigeo}` : zonaOrigen.trim();
+  }
+
+  return ubigeo || "—";
 };
 
 export interface TicketBalanzaPdfProps {
-  lote: {
-    id: number;
-    correlativo: string;
-    numero_correlativo: number;
-    vehiculo_placa: string | null;
-    vehiculo_serie: string | null;
-    tipo_carga: string | null;
-    empresa_transporte_ruc?: string | null;
-    empresa_transporte_razon_social: string | null;
-    tipo_vehiculo_nombre: string | null;
-    conductor_nombre_completo: string | null;
-    proveedor_nombre?: string | null;
-    observacion_peso_inicial?: string | null;
-    observacion_peso_final?: string | null;
-    peso_inicial: number | null;
-    fecha_hora_peso_inicial: string | null;
-    peso_final: number | null;
-    fecha_hora_peso_final: string | null;
-    peso_neto: number | null;
-  };
+  data: RES_TicketBalanzaData;
 }
 
-export const TicketBalanzaPdf = ({ lote }: TicketBalanzaPdfProps) => {
-  const fullPlaca = lote.vehiculo_serie
-    ? `${lote.vehiculo_serie}-${lote.vehiculo_placa}`
-    : lote.vehiculo_placa || "—";
-
-  const RucEmpresa = lote.empresa_transporte_ruc
-    ? lote.empresa_transporte_ruc
-    : "—";
-
-  const observacionLote = lote.observacion_peso_final || lote.observacion_peso_inicial || "—";
+export const TicketBalanzaPdf = ({ data }: TicketBalanzaPdfProps) => {
+  const observacionText = data.observacion_peso_final || data.observacion_peso_inicial || "";
 
   return (
-    <Document title={`Ticket ${lote.correlativo}`}>
-      <Page size={[mmToPt(WIDTH_MM), mmToPt(HEIGHT_MM)]} style={styles.page}>
-        {/* Título Principal */}
-        <Text style={styles.headerTitle}>TICKET DE BALANZA: {lote.numero_correlativo}</Text>
-        
-        <View style={styles.dashedLine} />
-
-        {/* Lote */}
-        <Text style={styles.loteTitle}>LOTE: {lote.correlativo}</Text>
-
-        <View style={styles.dashedLine} />
-
-        {/* Información General */}
-        <View style={styles.infoContainer}>
-          <View style={styles.infoRow}>
-            <Text><Text style={styles.boldText}>Placa 1:</Text> {fullPlaca}</Text>
-            <Text style={styles.boldText}>PRIMER TRAMO</Text>
+    <Document title={`Ticket Balanza ${data.correlativo || data.id_lote}`}>
+      <Page size={[TICKET_WIDTH, TICKET_HEIGHT]} orientation="portrait" style={styles.page}>
+        {/* ENCABEZADO */}
+        <View style={styles.headerContainer}>
+          <Text style={styles.titleBold}>TICKET DE PESAJE</Text>
+          <Text style={styles.companyBold}>FABRICACIONES FABERO S.A.C</Text>
+          <Text style={styles.addressText}>
+            {formatUbicacion(
+              data.direccion_sucursal,
+              data.nombre_sucursal,
+              data.distrito_sucursal,
+              data.provincia_sucursal,
+              data.departamento_sucursal
+            )}
+          </Text>
+          <View style={styles.ticketNumberBox}>
+            <Text style={styles.ticketNumberText}>
+              N° {data.ticket_numero ?? data.id_lote}
+            </Text>
+            <Text style={styles.dateText}>
+              FECHA: {formatFechaSolo(data.fecha_hora_peso_inicial || data.fecha_impresion || "")}
+            </Text>
           </View>
+        </View>
 
-          <Text style={styles.fullWidthText}>
-            <Text style={styles.boldText}>Emp. de Transporte:</Text> {RucEmpresa}
+        <View style={styles.dashedLine} />
+
+        {/* DATOS GENERALES */}
+        <View style={styles.fieldRow}>
+          <Text style={styles.fieldLabel}>N° PLACA..:</Text>
+          <Text style={styles.fieldValue}>{data.placa || "—"}</Text>
+        </View>
+
+        <View style={styles.fieldRow}>
+          <Text style={styles.fieldLabel}>PRODUCTO..:</Text>
+          <Text style={styles.fieldValue}>
+            {data.tipo_producto || data.tipo_mineral || "MINERAL AURIFERO EN BRUTO"}
           </Text>
-          {lote.empresa_transporte_razon_social && (
-            <Text style={styles.fullWidthText}>{lote.empresa_transporte_razon_social.toUpperCase()}</Text>
-          )}
+        </View>
 
-          <Text style={styles.fullWidthText}>
-            <Text style={styles.boldText}>Tipo Vehículo:</Text> {lote.tipo_vehiculo_nombre || "—"}
+        <View style={styles.fieldRow}>
+          <Text style={styles.fieldLabel}>GUIA REM..:</Text>
+          <Text style={styles.fieldValue}>{data.guia_remision || "—"}</Text>
+        </View>
+
+        <View style={styles.fieldRow}>
+          <Text style={styles.fieldLabel}>CANT. GR..:</Text>
+          <Text style={styles.fieldValue}>{formatPeso(data.peso_neto ?? data.peso_bruto)}</Text>
+        </View>
+
+        <View style={styles.fieldRow}>
+          <Text style={styles.fieldLabel}>RUC.......:</Text>
+          <Text style={styles.fieldValue}>{data.ruc_proveedor ? `[${data.ruc_proveedor}]` : "—"}</Text>
+        </View>
+
+        <View style={styles.fieldRow}>
+          <Text style={styles.fieldLabel}>PROVEEDOR.:</Text>
+          <Text style={styles.fieldValue}>{data.proveedor || "—"}</Text>
+        </View>
+
+        <View style={styles.fieldRow}>
+          <Text style={styles.fieldLabel}>CONDUCTOR.:</Text>
+          <Text style={styles.fieldValue}>
+            {data.conductor || "—"}
+            {data.licencia_conductor ? ` / [${data.licencia_conductor}]` : ""}
           </Text>
+        </View>
 
-          <Text style={styles.fullWidthText}>
-            <Text style={styles.boldText}>Conductor:</Text> {lote.conductor_nombre_completo || "—"}
+        <View style={styles.fieldRow}>
+          <Text style={styles.fieldLabel}>TRANSP....:</Text>
+          <Text style={styles.fieldValue}>{data.empresa_transporte || "—"}</Text>
+        </View>
+
+        <View style={styles.fieldRow}>
+          <Text style={styles.fieldLabel}>GUIA TRSP.:</Text>
+          <Text style={styles.fieldValue}>{data.guia_transporte || "—"}</Text>
+        </View>
+
+        <View style={styles.fieldRow}>
+          <Text style={styles.fieldLabel}>DESTINO...:</Text>
+          <Text style={styles.fieldValue}>
+            {formatUbicacion(
+              data.direccion_sucursal,
+              data.nombre_sucursal,
+              data.distrito_sucursal,
+              data.provincia_sucursal,
+              data.departamento_sucursal
+            )}
           </Text>
+        </View>
 
-          <Text style={styles.fullWidthText}>
-            <Text style={styles.boldText}>Proveedor Minero:</Text> {lote.proveedor_nombre || "—"}
+        <View style={styles.fieldRow}>
+          <Text style={styles.fieldLabel}>ORIGEN....:</Text>
+          <Text style={styles.fieldValue}>
+            {formatOrigen(
+              data.nombre_concesion,
+              data.codigo_reinfo_concesion,
+              data.distrito_concesion,
+              data.provincia_concesion,
+              data.departamento_concesion,
+              data.zona_origen_nombre
+            )}
           </Text>
+        </View>
 
-          <Text style={styles.fullWidthText}>
-            <Text style={styles.boldText}>Observación:</Text> {observacionLote}
+        <View style={styles.fieldRow}>
+          <Text style={styles.fieldLabel}>OBS.......:</Text>
+          <Text style={styles.fieldValue}>
+            {data.correlativo || data.id_lote}
+            {observacionText ? ` (${observacionText})` : ""}
           </Text>
         </View>
 
         <View style={styles.dashedLine} />
 
-        {/* Sección PESAJE */}
-        <Text style={styles.sectionTitle}>PESAJE</Text>
+        {/* PESAJES */}
+        <Text style={styles.sectionTitle}>DETALLE DE PESAJES</Text>
+
+        <View style={styles.pesadaBlock}>
+          <Text style={styles.pesadaHeader}>1RA PESADA (BRUTO):</Text>
+          <View style={styles.pesadaDetailRow}>
+            <Text>{formatFechaHora(data.fecha_hora_peso_inicial)}</Text>
+            <Text style={styles.boldText}>{formatPeso(data.peso_bruto)}</Text>
+          </View>
+        </View>
+
+        {data.fecha_hora_peso_final && (
+          <View style={styles.pesadaBlock}>
+            <Text style={styles.pesadaHeader}>2DA PESADA (TARA):</Text>
+            <View style={styles.pesadaDetailRow}>
+              <Text>{formatFechaHora(data.fecha_hora_peso_final)}</Text>
+              <Text style={styles.boldText}>{formatPeso(data.peso_tara)}</Text>
+            </View>
+          </View>
+        )}
 
         <View style={styles.dashedLine} />
 
-        <View style={styles.infoContainer}>
-          <View style={styles.pesajeRow}>
-            <Text style={styles.boldText}>PESO INICIAL:</Text>
-            <Text style={styles.boldText}>{formatPeso(lote.peso_inicial)}</Text>
-          </View>
-          <Text style={styles.subRowText}>Fecha: {formatFecha(lote.fecha_hora_peso_inicial)}</Text>
+        {/* RESUMEN DE PESOS */}
+        <Text style={styles.sectionTitle}>RESUMEN DE PESOS</Text>
 
-          <View style={styles.pesajeRow}>
-            <Text style={styles.boldText}>PESO FINAL:</Text>
-            <Text style={styles.boldText}>{formatPeso(lote.peso_final)}</Text>
-          </View>
-          <Text style={styles.subRowText}>Fecha: {formatFecha(lote.fecha_hora_peso_final)}</Text>
+        <View style={styles.resumenRow}>
+          <Text style={styles.resumenLabel}>PESO BRUTO:</Text>
+          <Text style={styles.resumenValor}>{formatPeso(data.peso_bruto)}</Text>
+        </View>
+
+        <View style={styles.resumenRow}>
+          <Text style={styles.resumenLabel}>PESO TARA :</Text>
+          <Text style={styles.resumenValor}>{formatPeso(data.peso_tara)}</Text>
+        </View>
+
+        <View style={styles.resumenRow}>
+          <Text style={styles.resumenLabel}>PESO NETO :</Text>
+          <Text style={styles.resumenValor}>{formatPeso(data.peso_neto)}</Text>
         </View>
 
         <View style={styles.dashedLine} />
 
-        {/* Sección RESUMEN */}
-        <Text style={styles.sectionTitle}>RESUMEN</Text>
-
-        <View style={styles.dashedLine} />
-
-        <View style={styles.infoContainer}>
-          <View style={styles.infoRow}>
-            <Text style={styles.boldText}>PESO BRUTO:</Text>
-            <Text style={styles.boldText}>{formatPeso(lote.peso_inicial)}</Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Text style={styles.boldText}>TARA:</Text>
-            <Text style={styles.boldText}>{formatPeso(lote.peso_final)}</Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Text style={styles.boldText}>PESO NETO:</Text>
-            <Text style={styles.boldText}>{formatPeso(lote.peso_neto)}</Text>
-          </View>
+        {/* OPERADOR Y FIRMA */}
+        <View style={styles.operadorSection}>
+          <Text style={styles.boldText}>OPERADOR:</Text>
+          <Text style={styles.indentText}>{data.operador || "FABEROSAC RUC 20604623007"}</Text>
+          {data.dni_operador && <Text style={styles.indentText}>DNI: {data.dni_operador}</Text>}
+          {data.cargo_operador && <Text style={styles.indentText}>{data.cargo_operador}</Text>}
         </View>
       </Page>
     </Document>
