@@ -1,18 +1,15 @@
 import { useState, useMemo } from "react";
-import { Button, Select, Badge, ActionIcon, Loader, Group, Tooltip } from "@mantine/core";
-import { PlusIcon, PencilSquareIcon, CheckCircleIcon, XCircleIcon, BuildingOffice2Icon } from "@heroicons/react/24/outline";
+import { Button, Badge, ActionIcon, Group, Tooltip, TextInput } from "@mantine/core";
+import { PlusIcon, PencilSquareIcon, CheckCircleIcon, XCircleIcon, MagnifyingGlassIcon, BuildingOffice2Icon } from "@heroicons/react/24/outline";
 
 import { useTitlePage } from "../../../hooks/useTitlePage";
 import { useCondicionesComercialesProveedor } from "../hooks/useCondicionesComercialesProveedor";
 import { DataTableEstandar } from "../../../presentation/utils/datatable-estandar";
 import { ModalCondicionComercial } from "./components/modal-condicion-comercial";
 import { EstadoBase } from "../../../shared/enums/_generic/estado-base";
+import type { RES_Proveedor } from "../../../service/responses/proveedor";
 import type { RES_CondicionComercialProveedor } from "../service/condiciones-comerciales-proveedor.responses";
 import type { DTO_CrearCondicionComercial, DTO_ActualizarCondicionComercial } from "../service/condiciones-comerciales-proveedor.requests";
-
-const fieldInputClass =
-  "bg-zinc-950 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 focus:ring-1 focus:ring-zinc-300 transition-all h-9.5 rounded-xl";
-const fieldLabelClass = "text-zinc-300 mb-1 font-medium text-xs";
 
 export const CondicionesComercialesProveedorPage = () => {
   useTitlePage("Condiciones Comerciales Proveedor");
@@ -33,6 +30,7 @@ export const CondicionesComercialesProveedorPage = () => {
 
   const [modalAbierto, setModalAbierto] = useState(false);
   const [condicionEditar, setCondicionEditar] = useState<RES_CondicionComercialProveedor | null>(null);
+  const [searchProveedor, setSearchProveedor] = useState("");
 
   const handleAbrirCrear = () => {
     setCondicionEditar(null);
@@ -58,42 +56,77 @@ export const CondicionesComercialesProveedorPage = () => {
     return ok;
   };
 
-  const opcionesProveedores = useMemo(
-    () =>
-      proveedores.map((p) => ({
-        value: String(p.id_proveedor),
-        label: p.razon_social || `Proveedor #${p.id_proveedor}`,
-      })),
-    [proveedores],
+  const proveedoresFiltrados = useMemo(() => {
+    if (!searchProveedor.trim()) return proveedores;
+    const term = searchProveedor.toLowerCase().trim();
+    return proveedores.filter(
+      (p) =>
+        p.razon_social?.toLowerCase().includes(term) ||
+        p.documento?.toLowerCase().includes(term),
+    );
+  }, [proveedores, searchProveedor]);
+
+  const proveedorSeleccionado = useMemo(
+    () => proveedores.find((p) => p.id_proveedor === idProveedorSeleccionado),
+    [proveedores, idProveedorSeleccionado],
   );
 
-  const columnas = useMemo(
+  const columnasProveedores = useMemo(
     () => [
       {
         accessor: "index",
-        title: "#",
+        title: "N°",
         textAlign: "center" as const,
-        width: 50,
+        width: 40,
+      },
+      {
+        accessor: "documento",
+        title: "RUC",
+        width: 105,
+        render: (p: RES_Proveedor) => (
+          <span className="font-mono text-zinc-300 text-[11px]">{p.documento || "—"}</span>
+        ),
+      },
+      {
+        accessor: "razon_social",
+        title: "Razón Social",
+        render: (p: RES_Proveedor) => (
+          <span className="truncate block text-[11px]" title={p.razon_social}>
+            {p.razon_social}
+          </span>
+        ),
+      },
+    ],
+    [],
+  );
+
+  const columnasCondiciones = useMemo(
+    () => [
+      {
+        accessor: "index",
+        title: "N°",
+        textAlign: "center" as const,
+        width: 45,
       },
       {
         accessor: "ley_auoz_inicio",
-        title: "Ley Au (oz/TC) Inicio",
+        title: "Ley Auoz Inicio",
         textAlign: "center" as const,
         render: (r: RES_CondicionComercialProveedor) => (
-          <span className="font-mono text-zinc-300">{r.ley_auoz_inicio.toFixed(4)}</span>
+          <span className="font-mono text-zinc-300">{r.ley_auoz_inicio.toFixed(3)}</span>
         ),
       },
       {
         accessor: "ley_auoz_fin",
-        title: "Ley Au (oz/TC) Fin",
+        title: "Ley Auoz Fin",
         textAlign: "center" as const,
         render: (r: RES_CondicionComercialProveedor) => (
-          <span className="font-mono text-zinc-300">{r.ley_auoz_fin.toFixed(4)}</span>
+          <span className="font-mono text-zinc-300">{r.ley_auoz_fin.toFixed(3)}</span>
         ),
       },
       {
         accessor: "maquila",
-        title: "Maquila ($/TC)",
+        title: "Maquila",
         textAlign: "center" as const,
         render: (r: RES_CondicionComercialProveedor) => (
           <span className="font-mono font-semibold text-emerald-400">${r.maquila.toFixed(3)}</span>
@@ -101,7 +134,7 @@ export const CondicionesComercialesProveedorPage = () => {
       },
       {
         accessor: "recuperacion",
-        title: "Recuperación (%)",
+        title: "Recuperación",
         textAlign: "center" as const,
         render: (r: RES_CondicionComercialProveedor) => (
           <span className="font-mono text-indigo-300">{r.recuperacion.toFixed(3)}%</span>
@@ -109,7 +142,7 @@ export const CondicionesComercialesProveedorPage = () => {
       },
       {
         accessor: "consumo",
-        title: "Consumo ($/TC)",
+        title: "Consumo",
         textAlign: "center" as const,
         render: (r: RES_CondicionComercialProveedor) => (
           <span className="font-mono text-zinc-300">${r.consumo.toFixed(3)}</span>
@@ -117,7 +150,7 @@ export const CondicionesComercialesProveedorPage = () => {
       },
       {
         accessor: "riesgo_comercial",
-        title: "Riesgo Comercial ($/TC)",
+        title: "Riesgo Comercial",
         textAlign: "center" as const,
         render: (r: RES_CondicionComercialProveedor) => (
           <span className="font-mono text-amber-400">${r.riesgo_comercial.toFixed(3)}</span>
@@ -140,7 +173,7 @@ export const CondicionesComercialesProveedorPage = () => {
       },
       {
         accessor: "acciones",
-        title: "Acciones",
+        title: "Acción",
         textAlign: "center" as const,
         render: (r: RES_CondicionComercialProveedor) => {
           const isToggling = !!togglingIds[r.id];
@@ -188,54 +221,78 @@ export const CondicionesComercialesProveedorPage = () => {
 
   return (
     <div className="animate-fade-in space-y-6 pb-12">
-      {/* Header section with Supplier Filter & Add Button */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-        {/* Selector de Proveedor */}
-        <div className="md:col-span-6 lg:col-span-5">
-          <Select
-            label="Proveedor"
-            placeholder={loadingProveedores ? "Cargando proveedores..." : "Seleccione un proveedor..."}
-            disabled={loadingProveedores}
-            rightSection={loadingProveedores ? <Loader size={16} color="indigo" /> : <BuildingOffice2Icon className="w-4 h-4 text-zinc-500" />}
-            data={opcionesProveedores}
-            value={idProveedorSeleccionado ? String(idProveedorSeleccionado) : null}
-            onChange={(val) => setIdProveedorSeleccionado(val ? Number(val) : null)}
-            searchable
-            allowDeselect={false}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Panel Izquierdo: Tabla Estándar de Proveedores */}
+        <div className="lg:col-span-4 border border-zinc-800 rounded-2xl bg-zinc-900/20 backdrop-blur-md shadow-2xl p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-bold text-zinc-200 uppercase tracking-wider flex items-center gap-1.5">
+              <BuildingOffice2Icon className="w-4 h-4 text-indigo-400" />
+              Lista de Proveedores
+            </h2>
+            <Badge variant="light" color="indigo" size="xs" radius="md">
+              {proveedoresFiltrados.length}
+            </Badge>
+          </div>
+
+          <TextInput
+            placeholder="Buscar por RUC o Razón Social..."
+            value={searchProveedor}
+            onChange={(e) => setSearchProveedor(e.target.value)}
+            leftSection={<MagnifyingGlassIcon className="w-4 h-4 text-zinc-500" />}
             size="xs"
             radius="lg"
-            comboboxProps={{ withinPortal: true }}
             classNames={{
-              input: fieldInputClass,
-              label: fieldLabelClass,
-              option: "hover:bg-zinc-800 focus:bg-zinc-800",
+              input: "bg-zinc-950 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 focus:ring-1 focus:ring-zinc-300 transition-all h-8.5 rounded-xl text-xs",
             }}
+          />
+
+          <DataTableEstandar
+            idAccessor="id_proveedor"
+            records={proveedoresFiltrados}
+            columns={columnasProveedores}
+            loading={loadingProveedores}
+            initialPageSize={10}
+            noRecordsText="No se encontraron proveedores."
+            onRowClick={({ record }: { record: RES_Proveedor }) => setIdProveedorSeleccionado(record.id_proveedor)}
+            rowClassName={({ id_proveedor }: RES_Proveedor) =>
+              id_proveedor === idProveedorSeleccionado
+                ? "!bg-indigo-600/30 !text-indigo-200 font-semibold border-l-4 border-indigo-500 cursor-pointer"
+                : "cursor-pointer hover:bg-zinc-800/40 text-zinc-300"
+            }
           />
         </div>
 
-        {/* Botón Agregar condición */}
-        <div className="md:col-span-6 lg:col-span-7 flex justify-end">
-          <Button
-            leftSection={<PlusIcon className="w-4 h-4" />}
-            onClick={handleAbrirCrear}
-            disabled={!idProveedorSeleccionado || loadingProveedores}
-            radius="lg"
-            size="xs"
-            className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-900/20 h-9.5 px-5 rounded-xl font-semibold disabled:opacity-50"
-          >
-            Agregar condición
-          </Button>
+        {/* Panel Derecho: Tabla Estándar de Condiciones Comerciales */}
+        <div className="lg:col-span-8 border border-zinc-800 rounded-2xl bg-zinc-900/20 backdrop-blur-md shadow-2xl p-4 space-y-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-zinc-800/80 pb-3">
+            <h2 className="text-xs font-bold text-zinc-200 uppercase tracking-wider">
+              Condiciones Comerciales de:{" "}
+              <span className="text-indigo-400 font-semibold">
+                {proveedorSeleccionado ? proveedorSeleccionado.razon_social : "Ningún proveedor seleccionado"}
+              </span>
+            </h2>
+
+            <Button
+              leftSection={<PlusIcon className="w-4 h-4" />}
+              onClick={handleAbrirCrear}
+              disabled={!idProveedorSeleccionado || loadingProveedores}
+              radius="lg"
+              size="xs"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-900/20 h-8.5 px-4 rounded-xl font-semibold disabled:opacity-50 shrink-0"
+            >
+              Nueva C.C.
+            </Button>
+          </div>
+
+          <DataTableEstandar
+            idAccessor="id"
+            records={condiciones}
+            columns={columnasCondiciones}
+            loading={loadingCondiciones}
+            noRecordsText="No hay condiciones comerciales registradas para el proveedor seleccionado."
+          />
         </div>
       </div>
-
-      {/* Main Table */}
-      <DataTableEstandar
-        idAccessor="id"
-        records={condiciones}
-        columns={columnas}
-        loading={loadingCondiciones}
-        noRecordsText="No hay condiciones comerciales registradas para el proveedor seleccionado."
-      />
 
       {/* Modal Crear / Editar */}
       <ModalCondicionComercial

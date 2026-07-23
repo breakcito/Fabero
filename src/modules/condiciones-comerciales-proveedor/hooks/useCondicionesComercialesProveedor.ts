@@ -25,9 +25,7 @@ export const useCondicionesComercialesProveedor = () => {
       const res = await AuxService.get_proveedores({ estado: EstadoBase.Activo });
       if (res.success && res.data) {
         setProveedores(res.data);
-        if (res.data.length > 0 && idProveedorSeleccionado === null) {
-          setIdProveedorSeleccionado(res.data[0].id_proveedor);
-        }
+        setIdProveedorSeleccionado((prev) => (prev === null && res.data.length > 0 ? res.data[0].id_proveedor : prev));
       }
     } catch (err: unknown) {
       console.error(err);
@@ -35,7 +33,7 @@ export const useCondicionesComercialesProveedor = () => {
     } finally {
       setLoadingProveedores(false);
     }
-  }, [idProveedorSeleccionado, notifyError]);
+  }, [notifyError]);
 
   const cargarCondiciones = useCallback(async (idProveedor: number) => {
     setLoadingCondiciones(true);
