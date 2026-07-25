@@ -70,4 +70,22 @@ export const AnticiposProveedorService = {
     );
     return data;
   },
+
+  get_transacciones: async (
+    id: number
+  ): Promise<IRespuesta<import("./anticipos-proveedor.responses").RES_TransaccionAnticipo[]>> => {
+    const { data } = await api.get<
+      IRespuesta<import("./anticipos-proveedor.responses").RES_TransaccionAnticipo[]>
+    >(`/anticipos-proveedor/${id}/transacciones`);
+    return data;
+  },
+
+  get_historial_combinado: async (
+    id: number
+  ): Promise<IRespuesta<import("../../../service/responses/_generic/cambios-log").RES_CambiosLog[]>> => {
+    const { data } = await api.get<
+      IRespuesta<import("../../../service/responses/_generic/cambios-log").RES_CambiosLog[]>
+    >(`/anticipos-proveedor/${id}/historial-cambios`);
+    return data;
+  },
 };

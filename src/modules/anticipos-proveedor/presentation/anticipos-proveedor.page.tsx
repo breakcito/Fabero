@@ -15,6 +15,7 @@ import {
   IconHistory,
   IconBan,
   IconFiles,
+  IconReceipt2,
 } from "@tabler/icons-react";
 import { useTitlePage } from "../../../hooks/useTitlePage";
 import { DataTableEstandar } from "../../../presentation/utils/datatable-estandar";
@@ -28,6 +29,8 @@ import type { IArchivo } from "../../../shared/interfaces/archivo";
 import { useAnticiposProveedor } from "../hooks/useAnticiposProveedor";
 import { ModalCrearAnticipo } from "./components/modal-crear-anticipo";
 import { ModalAnularAnticipo } from "./components/modal-anular-anticipo";
+import { ModalTransaccionesAnticipo } from "./components/modal-transacciones-anticipo";
+import { AnticiposProveedorService } from "../service/anticipos-proveedor.service";
 import type { RES_AnticipoProveedor } from "../service/anticipos-proveedor.responses";
 
 const formatearFechaHora = (fechaIso: string): string => {
@@ -105,6 +108,26 @@ export default function AnticiposProveedorPage() {
   } | null>(null);
   const [modalLogInfo, setModalLogInfo] = useState<RES_CambiosLog[] | null>(null);
   const [modalEvidenciasInfo, setModalEvidenciasInfo] = useState<(IArchivo | string)[] | null>(null);
+
+  const [modalTransaccionesInfo, setModalTransaccionesInfo] = useState<RES_AnticipoProveedor | null>(null);
+  const [loadingLogId, setLoadingLogId] = useState<number | null>(null);
+
+  const handleAbrirHistorialCombinado = async (id: number) => {
+    setLoadingLogId(id);
+    try {
+      const res = await AnticiposProveedorService.get_historial_combinado(id);
+      if (res.success && res.data) {
+        setModalLogInfo(res.data);
+      } else {
+        setModalLogInfo([]);
+      }
+    } catch (e) {
+      console.error("Error al obtener el historial de cambios unificado", e);
+      setModalLogInfo([]);
+    } finally {
+      setLoadingLogId(null);
+    }
+  };
 
   const getBadgeEstado = (estado: string) => {
     switch (estado) {
@@ -277,9 +300,22 @@ export default function AnticiposProveedorPage() {
             accessor: "acciones",
             title: "Acciones",
             textAlign: "center",
-            width: 120,
+            width: 150,
             render: (r: RES_AnticipoProveedor) => (
               <Group gap={6} justify="center">
+                {/* Ver Transacciones */}
+                <Tooltip label="Ver Transacciones">
+                  <ActionIcon
+                    variant="light"
+                    color="cyan"
+                    size="sm"
+                    radius="md"
+                    onClick={() => setModalTransaccionesInfo(r)}
+                  >
+                    <IconReceipt2 size={14} />
+                  </ActionIcon>
+                </Tooltip>
+
                 {/* Ver evidencias */}
                 {r.evidencias && r.evidencias.length > 0 && (
                   <Tooltip label="Ver Evidencias">
@@ -295,14 +331,16 @@ export default function AnticiposProveedorPage() {
                   </Tooltip>
                 )}
 
-                {/* Registro / Historial de cambios */}
+                {/* Registro / Historial de cambios unificado */}
                 <Tooltip label="Historial de Cambios">
                   <ActionIcon
                     variant="light"
                     color="amber"
                     size="sm"
                     radius="md"
-                    onClick={() => setModalLogInfo(r.log_cambios || [])}
+                    loading={loadingLogId === r.id}
+                    disabled={loadingLogId === r.id}
+                    onClick={() => handleAbrirHistorialCombinado(r.id)}
                   >
                     <IconHistory size={14} />
                   </ActionIcon>
@@ -337,6 +375,13 @@ export default function AnticiposProveedorPage() {
         records={anticipos}
         loading={loading}
         noRecordsText="No se encontraron registros de anticipos"
+      />
+
+      {/* Modal Transacciones */}
+      <ModalTransaccionesAnticipo
+        opened={modalTransaccionesInfo !== null}
+        onClose={() => setModalTransaccionesInfo(null)}
+        anticipoInfo={modalTransaccionesInfo}
       />
 
       {/* Modal Crear */}

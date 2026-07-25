@@ -315,4 +315,92 @@ export const AuxService = {
     const { data } = await api.get(`${path}/encargados-muestra`);
     return data.data;
   },
+
+  get_proveedores_valorizacion: async (): Promise<RES_Proveedor[]> => {
+    const { data } = await api.get(`${path}/proveedores-valorizacion`);
+    return data;
+  },
+
+  get_concesiones_proveedor: async (idProveedor: number): Promise<Array<{
+    id: number;
+    nombre: string;
+    codigo_reinfo: string;
+    procedencia: string;
+  }>> => {
+    const { data } = await api.get(`${path}/concesiones-proveedor`, {
+      params: { id_proveedor: idProveedor },
+    });
+    return data;
+  },
+
+  get_cuentas_bancarias_proveedor: async (idProveedor: number): Promise<Array<{
+    id: number;
+    id_banco: number;
+    moneda: string;
+    numero_cuenta: string;
+    cci: string;
+    es_para_detraccion: boolean;
+    banco_nombre: string;
+  }>> => {
+    const { data } = await api.get(`${path}/cuentas-bancarias-proveedor`, {
+      params: { id_proveedor: idProveedor },
+    });
+    return data;
+  },
+
+  get_anticipos_proveedor: async (idProveedor: number): Promise<Array<{
+    id: number;
+    factura: string;
+    serie_factura: string;
+    numero_factura: string;
+    saldo_inicial: number;
+    saldo_actual: number;
+    created_at: string;
+  }>> => {
+    const { data } = await api.get(`${path}/anticipos-proveedor`, {
+      params: { id_proveedor: idProveedor },
+    });
+    return data;
+  },
+
+  get_lotes_disponibles_valorizacion: async (
+    idProveedor: number,
+    idValorizacion?: number,
+  ): Promise<Array<{
+    id_lote_guia: number;
+    id_lote_mineral: number;
+    codigo_gel: string;
+    correlativo_lote: string;
+    grr: string;
+    grt: string;
+    fecha_en_planta: string;
+    tmh: number;
+    ley_humedad: number;
+    tms: number;
+    ley_oro: number;
+    ley_plata: number;
+    es_valorizado_oro?: boolean;
+    es_valorizado_plata?: boolean;
+    condicion_oro: {
+      id_condicion_comercial: number;
+      recuperacion: number;
+      maquila: number;
+      consumo: number;
+    } | null;
+    condicion_plata: {
+      id_condicion_comercial: number;
+      recuperacion: number;
+      maquila: number;
+      consumo: number;
+    } | null;
+  }>> => {
+    const params: Record<string, unknown> = { id_proveedor: idProveedor };
+    if (idValorizacion) {
+      params.id_valorizacion = idValorizacion;
+    }
+    const { data } = await api.get(`${path}/lotes-disponibles-valorizacion`, {
+      params,
+    });
+    return data;
+  },
 };

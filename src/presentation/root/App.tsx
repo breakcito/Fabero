@@ -40,6 +40,7 @@ import { GestionLeyesPage } from "../../modules/gestion-leyes/presentation/gesti
 import { CierreLeyesPage } from "../../modules/cierre-leyes/presentation/cierre-leyes.page.tsx";
 import CondicionesComercialesProveedorPage from "../../modules/condiciones-comerciales-proveedor/presentation/condiciones-comerciales-proveedor.page.tsx";
 import AnticiposProveedorPage from "../../modules/anticipos-proveedor/presentation/anticipos-proveedor.page.tsx";
+import { ValorizacionesCompraPage } from "../../modules/valorizacion-compra/presentation/valorizacion-compra.page.tsx";
 
 export const App = () => {
   const { setModoAuditoria } = useAuditoriaStore();
@@ -177,6 +178,11 @@ export const App = () => {
           <Route path="leyes" element={<UsuariosLayout />}>
             <Route path="configuracion" element={<GestionLeyesPage />} />
             <Route path="cierre-leyes" element={<CierreLeyesPage />} />
+          </Route>
+          {/* Gestion Leyes */}
+          <Route path="valorizacion" element={<UsuariosLayout />}>
+            <Route path="compra" element={<ValorizacionesCompraPage />} />
+            
           </Route>
         </Route>
 

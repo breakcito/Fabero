@@ -84,6 +84,14 @@ const camposLegiblesGlobales: Record<string, string> = {
   peso_neto: "Peso neto",
   condicion_ingreso: "Condición de ingreso",
   evidencias: "Evidencias",
+  precio_por_tonelada: "Precio por Tonelada (PTN)",
+  subtotal: "Subtotal de Lote",
+  saldo_inicial: "Monto Inicial",
+  saldo_actual: "Saldo Actual",
+  monto_retirado: "Monto Retirado",
+  serie_factura: "Serie Factura",
+  numero_factura: "Número Factura",
+  total_subtotal: "Total Valorización",
 };
 
 const etiquetaCampo = (campo: string | null, campoBd: string | null, customLabels?: Record<string, string>): string => {
@@ -96,9 +104,15 @@ const etiquetaCampo = (campo: string | null, campoBd: string | null, customLabel
   return "Campo desconocido";
 };
 
+const extraerBasename = (filePath: string): string => {
+  if (!filePath || filePath === "—") return "—";
+  const parts = filePath.split(/[/\\]/);
+  return parts[parts.length - 1] || filePath;
+};
+
 const renderValoresEvidencias = (valor: unknown, type: "anterior" | "nuevo") => {
   const str = String(valor || "");
-  if (str === "—" || str.startsWith("— (") || !str.includes(",")) {
+  if (str === "—" || str.startsWith("— (")) {
     return (
       <div
         className={
@@ -112,7 +126,7 @@ const renderValoresEvidencias = (valor: unknown, type: "anterior" | "nuevo") => 
     );
   }
 
-  const files = str.split(",").map((f) => f.trim()).filter(Boolean);
+  const files = str.split(",").map((f) => extraerBasename(f.trim())).filter(Boolean);
 
   return (
     <div className="flex flex-col gap-1 w-full">
@@ -197,7 +211,9 @@ export const CambiosLogViewer = ({ cambios, camposLegiblesCustom }: CambiosLogVi
     <div className="max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
       <Stack gap="md">
         {cambios.map((log, index) => {
-          const key = `${log.update_at}-${log.id_empleado}-${index}`;
+          const rawLog = log as unknown as Record<string, unknown>;
+          const fechaStamp = String(log.update_at || rawLog.fecha_hora || "");
+          const key = `${fechaStamp}-${log.id_empleado}-${index}`;
           const nombreEmpleado = empleadosMap[log.id_empleado] || `Empleado #${log.id_empleado}`;
 
           return (
@@ -222,7 +238,7 @@ export const CambiosLogViewer = ({ cambios, camposLegiblesCustom }: CambiosLogVi
                   <Group gap={4}>
                     <IconCalendar size={12} className="text-zinc-500" />
                     <Text size="11px" c="dimmed" className="font-mono">
-                      {formatearFechaHora(log.update_at)}
+                      {formatearFechaHora(fechaStamp)}
                     </Text>
                   </Group>
                 </Group>
