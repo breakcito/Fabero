@@ -12,9 +12,10 @@ import {
   Center,
   ScrollArea,
 } from "@mantine/core";
-import { IconReceipt2, IconBuildingBank } from "@tabler/icons-react";
+import { IconReceipt2, IconBuildingBank, IconUserCheck } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import { AnticiposProveedorService } from "../../service/anticipos-proveedor.service";
+import { ValorizacionCompraService } from "../../../valorizacion-compra/service/valorizacion-compra.service";
 import type {
   RES_AnticipoProveedor,
   RES_TransaccionAnticipo,
@@ -26,6 +27,11 @@ interface Props {
   anticipoInfo: RES_AnticipoProveedor | null;
 }
 
+interface AprobInfo {
+  empleado_aprobacion: string | null;
+  fecha_hora_aprobacion: string | null;
+}
+
 export const ModalTransaccionesAnticipo = ({
   opened,
   onClose,
@@ -33,10 +39,15 @@ export const ModalTransaccionesAnticipo = ({
 }: Props) => {
   const [loading, setLoading] = useState(false);
   const [transacciones, setTransacciones] = useState<RES_TransaccionAnticipo[]>([]);
+  // Mapa id_valorizacion_compra -> datos de aprobación.
+  // Se carga como fallback cuando el endpoint de transacciones aún no devuelve
+  // los campos empleado_aprobacion / fecha_hora_aprobacion (JOIN pendiente en backend).
+  const [aprobMap, setAprobMap] = useState<Map<number, AprobInfo>>(new Map());
 
   useEffect(() => {
     if (!opened || !anticipoInfo) {
       setTransacciones([]);
+      setAprobMap(new Map());
       return;
     }
 
@@ -46,6 +57,7 @@ export const ModalTransaccionesAnticipo = ({
         const res = await AnticiposProveedorService.get_transacciones(anticipoInfo.id);
         if (res.success && res.data) {
           setTransacciones(res.data);
+          await cargarAprobInfoParaTransacciones(res.data);
         } else {
           setTransacciones([]);
         }
@@ -58,7 +70,51 @@ export const ModalTransaccionesAnticipo = ({
     };
 
     cargarTransacciones();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opened, anticipoInfo]);
+
+  // Para cada transacción aprobada/anulada que NO tenga aún datos de aprobación,
+  // consulta el detalle de la valorización y guarda el resultado en aprobMap.
+  const cargarAprobInfoParaTransacciones = async (txs: RES_TransaccionAnticipo[]) => {
+    const faltantes = txs.filter(
+      (t) =>
+        !t.empleado_aprobacion &&
+        !t.fecha_hora_aprobacion &&
+        t.id_valorizacion_compra &&
+        String(t.estado || "").toLowerCase() !== "pendiente",
+    );
+
+    if (faltantes.length === 0) return;
+
+    const idsUnicos = Array.from(
+      new Set(faltantes.map((t) => t.id_valorizacion_compra)),
+    );
+
+    const nuevasEntradas = new Map<number, AprobInfo>();
+    await Promise.all(
+      idsUnicos.map(async (id) => {
+        try {
+          const res = await ValorizacionCompraService.obtenerValorizacion(id);
+          if (res.success && res.data) {
+            nuevasEntradas.set(id, {
+              empleado_aprobacion: res.data.empleado_aprobacion ?? null,
+              fecha_hora_aprobacion: res.data.fecha_hora_aprobacion ?? null,
+            });
+          }
+        } catch (err) {
+          console.error(`Error al cargar aprobación de valorización ${id}`, err);
+        }
+      }),
+    );
+
+    if (nuevasEntradas.size > 0) {
+      setAprobMap((prev) => {
+        const merged = new Map(prev);
+        nuevasEntradas.forEach((v, k) => merged.set(k, v));
+        return merged;
+      });
+    }
+  };
 
   if (!anticipoInfo) return null;
 
@@ -86,7 +142,7 @@ export const ModalTransaccionesAnticipo = ({
           </div>
         </Group>
       }
-      size="lg"
+      size="xl"
       radius="md"
       centered
       styles={{
@@ -117,26 +173,32 @@ export const ModalTransaccionesAnticipo = ({
               </Stack>
             </Center>
           ) : (
-            <ScrollArea.Autosize mah={360}>
+            <ScrollArea.Autosize mah={420}>
               <Table highlightOnHover border={0} verticalSpacing="xs">
                 <Table.Thead bg="#09090b">
                   <Table.Tr>
                     <Table.Th style={{ color: "#a1a1aa", fontSize: "11px" }}>
                       Valorización
                     </Table.Th>
-                    <Table.Th style={{ color: "#a1a1aa", fontSize: "11px" }} textAlign="right">
+                    <Table.Th style={{ color: "#a1a1aa", fontSize: "11px", textAlign: "right" }}>
                       Monto Retirado
                     </Table.Th>
-                    <Table.Th style={{ color: "#a1a1aa", fontSize: "11px" }} textAlign="right">
+                    <Table.Th style={{ color: "#a1a1aa", fontSize: "11px", textAlign: "right" }}>
                       Saldo Actual
                     </Table.Th>
-                    <Table.Th style={{ color: "#a1a1aa", fontSize: "11px" }} textAlign="right">
+                    <Table.Th style={{ color: "#a1a1aa", fontSize: "11px", textAlign: "right" }}>
                       Saldo Resultante
                     </Table.Th>
-                    <Table.Th style={{ color: "#a1a1aa", fontSize: "11px" }} textAlign="center">
+                    <Table.Th style={{ color: "#a1a1aa", fontSize: "11px", textAlign: "center" }}>
                       Estado
                     </Table.Th>
-                    <Table.Th style={{ color: "#a1a1aa", fontSize: "11px" }} textAlign="center">
+                    <Table.Th style={{ color: "#a1a1aa", fontSize: "11px", textAlign: "center" }}>
+                      Aprobado por
+                    </Table.Th>
+                    <Table.Th style={{ color: "#a1a1aa", fontSize: "11px", textAlign: "center" }}>
+                      F. Aprobación
+                    </Table.Th>
+                    <Table.Th style={{ color: "#a1a1aa", fontSize: "11px", textAlign: "center" }}>
                       Fecha / Hora
                     </Table.Th>
                   </Table.Tr>
@@ -151,6 +213,22 @@ export const ModalTransaccionesAnticipo = ({
                       ? Math.max(0, t.saldo_actual - t.monto_retirado)
                       : null;
 
+                    // Fuente 1: campos propios del backend de transacciones.
+                    // Fuente 2: fallback via fetch del detalle de valorización.
+                    const aprob =
+                      t.empleado_aprobacion || t.fecha_hora_aprobacion
+                        ? {
+                            empleado: t.empleado_aprobacion,
+                            fecha: t.fecha_hora_aprobacion,
+                          }
+                        : (() => {
+                            const fallback = aprobMap.get(t.id_valorizacion_compra);
+                            return {
+                              empleado: fallback?.empleado_aprobacion ?? null,
+                              fecha: fallback?.fecha_hora_aprobacion ?? null,
+                            };
+                          })();
+
                     return (
                       <Table.Tr key={t.id} className="border-b border-zinc-800/50">
                         <Table.Td>
@@ -159,19 +237,19 @@ export const ModalTransaccionesAnticipo = ({
                           </Badge>
                         </Table.Td>
 
-                        <Table.Td textAlign="right">
+                        <Table.Td style={{ textAlign: "right" }}>
                           <Text fz="xs" fw={700} className="font-mono text-amber-400">
                             -${t.monto_retirado.toFixed(2)}
                           </Text>
                         </Table.Td>
 
-                        <Table.Td textAlign="right">
+                        <Table.Td style={{ textAlign: "right" }}>
                           <Text fz="xs" fw={600} className="font-mono text-cyan-400">
                             ${t.saldo_actual.toFixed(2)}
                           </Text>
                         </Table.Td>
 
-                        <Table.Td textAlign="right">
+                        <Table.Td style={{ textAlign: "right" }}>
                           {isAprobado ? (
                             <Text fz="xs" fw={700} className="font-mono text-emerald-400">
                               ${saldoResultante?.toFixed(2)}
@@ -183,7 +261,7 @@ export const ModalTransaccionesAnticipo = ({
                           )}
                         </Table.Td>
 
-                        <Table.Td textAlign="center">
+                        <Table.Td style={{ textAlign: "center" }}>
                           <Badge
                             variant="dot"
                             color={isAprobado ? "teal" : isAnulado ? "red" : "amber"}
@@ -193,7 +271,36 @@ export const ModalTransaccionesAnticipo = ({
                           </Badge>
                         </Table.Td>
 
-                        <Table.Td textAlign="center">
+                        <Table.Td>
+                          {aprob.empleado ? (
+                            <Group gap={4} wrap="nowrap">
+                              <ThemeIcon size="xs" variant="light" color="emerald" radius="sm">
+                                <IconUserCheck size={10} />
+                              </ThemeIcon>
+                              <Text fz={11} fw={600} className="text-emerald-300 truncate">
+                                {aprob.empleado}
+                              </Text>
+                            </Group>
+                          ) : (
+                            <Text fz="xs" c="dimmed" ta="center">
+                              —
+                            </Text>
+                          )}
+                        </Table.Td>
+
+                        <Table.Td style={{ textAlign: "center" }}>
+                          {aprob.fecha ? (
+                            <Text fz={11} className="font-mono text-zinc-300">
+                              {dayjs(aprob.fecha).format("DD/MM/YYYY HH:mm")}
+                            </Text>
+                          ) : (
+                            <Text fz="xs" c="dimmed">
+                              —
+                            </Text>
+                          )}
+                        </Table.Td>
+
+                        <Table.Td style={{ textAlign: "center" }}>
                           <Text fz={11} c="dimmed">
                             {dayjs(t.created_at).format("DD/MM/YYYY HH:mm")}
                           </Text>

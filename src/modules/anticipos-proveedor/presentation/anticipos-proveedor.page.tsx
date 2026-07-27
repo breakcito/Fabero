@@ -112,12 +112,52 @@ export default function AnticiposProveedorPage() {
   const [modalTransaccionesInfo, setModalTransaccionesInfo] = useState<RES_AnticipoProveedor | null>(null);
   const [loadingLogId, setLoadingLogId] = useState<number | null>(null);
 
+  // Filtra el historial del anticipo para mostrar solo los eventos relevantes:
+  //  - Transición de estado a "Sin Saldo" o "Anulado".
+  //  - Descarta cambios puros de saldo_actual (esos viven ahora en valorización).
+  // TODO: cuando el backend solo registre Sin Saldo / Anulado, este filtro deja de ser necesario.
+  const filterHistorialAnticipo = (cambios: RES_CambiosLog[] | null): RES_CambiosLog[] => {
+    if (!cambios || cambios.length === 0) return [];
+    const estadosRelevantes = new Set(["Sin Saldo", "Anulado"]);
+
+    const filtrados = cambios.filter((log) => {
+      const lista = log.cambios || [];
+      // Mantener si contiene una transición de estado relevante.
+      const tieneCambioEstadoRelevante = lista.some(
+        (c) =>
+          c.campo_bd === "estado" &&
+          estadosRelevantes.has(String(c.valor_nuevo ?? "")),
+      );
+      if (tieneCambioEstadoRelevante) return true;
+
+      // Mantener si contiene un cambio de saldo_actual cuyo nuevo valor sea 0 (caso Sin Saldo sin campo estado).
+      const saldoLlegoACero = lista.some(
+        (c) =>
+          c.campo_bd === "saldo_actual" &&
+          (c.valor_nuevo === 0 ||
+            c.valor_nuevo === "0" ||
+            c.valor_nuevo === "0.00" ||
+            c.valor_nuevo === 0.0),
+      );
+      if (saldoLlegoACero) return true;
+
+      // Descartar logs cuyo único cambio sea saldo_actual (los cambios de transacción ahora se ven en valorización).
+      return false;
+    });
+
+    // Ordenar del más reciente al más antiguo.
+    return filtrados.sort(
+      (a, b) =>
+        new Date(b.update_at || 0).getTime() - new Date(a.update_at || 0).getTime(),
+    );
+  };
+
   const handleAbrirHistorialCombinado = async (id: number) => {
     setLoadingLogId(id);
     try {
       const res = await AnticiposProveedorService.get_historial_combinado(id);
       if (res.success && res.data) {
-        setModalLogInfo(res.data);
+        setModalLogInfo(filterHistorialAnticipo(res.data));
       } else {
         setModalLogInfo([]);
       }

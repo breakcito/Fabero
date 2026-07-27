@@ -106,29 +106,60 @@ export const ValorizacionCompraPage = () => {
   const historialCambiosCombinados = useMemo(() => {
     if (!valorizacionHistorial) return [];
 
-    const logsHeader = (valorizacionHistorial.log_cambios || [])
-      .filter((log) => log.cambios && log.cambios.length > 0)
+    type LogCrudo = Record<string, unknown>;
+    type LogProcesado = LogCrudo & { motivo: string };
+
+    // Filtra el item "estado: Pendiente → Aprobado" de la lista de cambios,
+    // manteniendo intactos los demás cambios del mismo log (si los hubiera).
+    const sinTransicionAprobado = (log: LogCrudo): LogCrudo => {
+      const cambios = Array.isArray(log.cambios) ? log.cambios : [];
+      const filtrados = (cambios as Array<Record<string, unknown>>).filter(
+        (c) =>
+          !(c.campo_bd === "estado" && String(c.valor_nuevo ?? "") === "Aprobado"),
+      );
+      return { ...log, cambios: filtrados };
+    };
+
+    const logsHeader: LogProcesado[] = (valorizacionHistorial.log_cambios || [])
+      .filter((log) => Array.isArray(log.cambios) && (log.cambios as unknown[]).length > 0)
       .map((log) => ({
         ...log,
-        motivo: log.motivo || "Edición de Valorización de Compra",
+        motivo: String(log.motivo || "Edición de Valorización de Compra"),
       }));
 
-    const logsDetalles = (valorizacionHistorial.detalles || []).flatMap((d) => {
+    const logsDetalles: LogProcesado[] = (valorizacionHistorial.detalles || []).flatMap((d) => {
       const loteNombre = d.lote_correlativo || d.codigo_gel || `ID #${d.id_lote_guia}`;
       const elem = (d.elemento_quimico || "Oro").toUpperCase();
       return (d.log_cambios || [])
-        .filter((log) => log.cambios && log.cambios.length > 0)
+        .filter((log) => Array.isArray(log.cambios) && (log.cambios as unknown[]).length > 0)
         .map((log) => ({
           ...log,
           motivo: `Lote ${loteNombre} (${elem}) - Modificación de Parámetros`,
         }));
     });
 
-    const combinados = [...logsHeader, ...logsDetalles];
+    // Logs de las transacciones de anticipo (monto_retirado, saldo_actual, etc.).
+    // Se omite la transición "estado: Pendiente → Aprobado" porque esa se refleja
+    // en la aprobación de la valorización, no en cambios editables del usuario.
+    const logsTransacciones: LogProcesado[] = (valorizacionHistorial.transacciones_anticipo || []).flatMap(
+      (t) => {
+        const codigo = t.factura || `Anticipo #${t.id_anticipo_proveedor}`;
+        return (t.log_cambios || [])
+          .filter((log) => Array.isArray(log.cambios) && (log.cambios as unknown[]).length > 0)
+          .map((log) => sinTransicionAprobado(log))
+          .filter((log) => Array.isArray(log.cambios) && (log.cambios as unknown[]).length > 0)
+          .map((log) => ({
+            ...log,
+            motivo: `Transacción Anticipo ${codigo} — ${valorizacionHistorial.numero_correlativo?.replace(/^VAL/, "") ?? ""}`,
+          }));
+      },
+    );
+
+    const combinados: LogProcesado[] = [...logsHeader, ...logsDetalles, ...logsTransacciones];
 
     combinados.sort((a, b) => {
-      const timeA = new Date(a.fecha_hora || a.update_at || 0).getTime();
-      const timeB = new Date(b.fecha_hora || b.update_at || 0).getTime();
+      const timeA = new Date(String(a.fecha_hora || a.update_at || 0)).getTime();
+      const timeB = new Date(String(b.fecha_hora || b.update_at || 0)).getTime();
       return timeB - timeA;
     });
 
@@ -462,8 +493,8 @@ export const ValorizacionCompraPage = () => {
                   >
                     <Group gap="md" wrap="wrap">
                       <Group gap={4} wrap="nowrap">
-                        <Text fz={10} c="zinc.5" tt="uppercase" fw={600}>TMH:</Text>
-                        <Text fz={11} fw={700} c="white">{d.tmh.toFixed(3)}</Text>
+                        <Text fz={10} c="zinc.5" tt="uppercase" fw={600}>TMH (t):</Text>
+                        <Text fz={11} fw={700} c="white">{(d.tmh / 1000).toFixed(3)}</Text>
                       </Group>
                       <Text c="zinc.7">·</Text>
                       <Group gap={4} wrap="nowrap">
@@ -472,8 +503,8 @@ export const ValorizacionCompraPage = () => {
                       </Group>
                       <Text c="zinc.7">·</Text>
                       <Group gap={4} wrap="nowrap">
-                        <Text fz={10} c="zinc.5" tt="uppercase" fw={600}>TMS:</Text>
-                        <Text fz={11} fw={700} c="emerald.3">{d.tms.toFixed(3)}</Text>
+                        <Text fz={10} c="zinc.5" tt="uppercase" fw={600}>TMS (t):</Text>
+                        <Text fz={11} fw={700} c="emerald.3">{(d.tms / 1000).toFixed(3)}</Text>
                       </Group>
                       <Text c="zinc.7">·</Text>
                       <Group gap={4} wrap="nowrap">

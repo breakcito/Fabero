@@ -499,10 +499,10 @@ export const ModalAgregarLote = ({
               <Grid.Col span={3}>
                 <Box p="xs" bg="#27272a" className="rounded-lg text-center border border-zinc-800">
                   <Text fz={10} c="zinc.4" tt="uppercase" fw={600}>
-                    TMH
+                    TMH (t)
                   </Text>
                   <Text fz="xs" fw={700} c="cyan.3">
-                    {loteSeleccionado.tmh.toFixed(3)}
+                    {(loteSeleccionado.tmh / 1000).toFixed(3)}
                   </Text>
                 </Box>
               </Grid.Col>
@@ -519,10 +519,10 @@ export const ModalAgregarLote = ({
               <Grid.Col span={3}>
                 <Box p="xs" bg="#27272a" className="rounded-lg text-center border border-zinc-800">
                   <Text fz={10} c="zinc.4" tt="uppercase" fw={600}>
-                    TMS
+                    TMS (t)
                   </Text>
                   <Text fz="xs" fw={700} c="emerald.3">
-                    {loteSeleccionado.tms.toFixed(3)}
+                    {(loteSeleccionado.tms / 1000).toFixed(3)}
                   </Text>
                 </Box>
               </Grid.Col>

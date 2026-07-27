@@ -177,6 +177,45 @@ export const ModalFormValorizacionCompra = ({
     </Group>
   );
 
+  const modalHeaderRight = (
+    <Group gap="md" wrap="nowrap" align="center">
+      <Select
+        placeholder={loadingProveedores ? "Cargando..." : "[Seleccione Proveedor]"}
+        disabled={loadingProveedores || isEdit}
+        rightSection={loadingProveedores ? <Loader size={16} /> : undefined}
+        data={proveedores.map((p) => {
+          const idVal = p.id_proveedor ?? (p as unknown as { id: number }).id;
+          const doc = p.documento || (p as unknown as { ruc?: string }).ruc || "";
+          return {
+            value: String(idVal),
+            label: doc ? `${doc} - ${p.razon_social}` : p.razon_social,
+          };
+        })}
+        value={idProveedor ? String(idProveedor) : null}
+        onChange={(val) => setIdProveedor(val ? Number(val) : null)}
+        searchable
+        size="xs"
+        radius="lg"
+        w={260}
+        classNames={{
+          ...fieldClasses,
+          label: "text-zinc-400 mb-1 font-medium text-[10px] ml-1",
+          input: "h-8 text-xs",
+        }}
+        comboboxProps={{ withinPortal: true }}
+      />
+      <Badge
+        color="indigo"
+        variant="filled"
+        size="lg"
+        radius="lg"
+        className="h-8 px-3 text-xs font-bold uppercase tracking-wide"
+      >
+        {tipoPagoMostrar ? tipoPagoMostrar.toUpperCase() : "NINGUNO"}
+      </Badge>
+    </Group>
+  );
+
   return (
     <>
       <ModalEstandar
@@ -184,53 +223,9 @@ export const ModalFormValorizacionCompra = ({
       close={onClose}
       title={modalTitle}
       size="1250px"
+      rightSection={modalHeaderRight}
     >
       <Stack gap="sm" mt="xs" pb="md">
-        {/* Header Proveedor + Tipo de Pago */}
-        <Paper p="xs" radius="md" bg="#18181b" className="border border-zinc-800">
-          <Grid gutter="sm" align="flex-end">
-            <Grid.Col span={{ base: 12, md: 8 }}>
-              <Select
-                label="Proveedor Minero:"
-                placeholder={loadingProveedores ? "Cargando..." : "[Seleccione Proveedor]"}
-                disabled={loadingProveedores || isEdit}
-                rightSection={loadingProveedores ? <Loader size={16} /> : undefined}
-                data={proveedores.map((p) => {
-                  const idVal = p.id_proveedor ?? (p as unknown as { id: number }).id;
-                  const doc = p.documento || (p as unknown as { ruc?: string }).ruc || "";
-                  return {
-                    value: String(idVal),
-                    label: doc ? `${doc} - ${p.razon_social}` : p.razon_social,
-                  };
-                })}
-                value={idProveedor ? String(idProveedor) : null}
-                onChange={(val) => setIdProveedor(val ? Number(val) : null)}
-                searchable
-                size="xs"
-                radius="lg"
-                classNames={fieldClasses}
-              />
-            </Grid.Col>
-            <Grid.Col span={{ base: 12, md: 4 }}>
-              <Stack gap={6}>
-                <Text fz="xs" c="zinc.400" fw={500} ml={1}>
-                  Tipo de Pago
-                </Text>
-                <Badge
-                  color="indigo"
-                  variant="filled"
-                  size="lg"
-                  radius="lg"
-                  fullWidth
-                  className="h-9.5 text-sm font-bold uppercase tracking-wide"
-                >
-                  {tipoPagoMostrar ? tipoPagoMostrar.toUpperCase() : "NINGUNO"}
-                </Badge>
-              </Stack>
-            </Grid.Col>
-          </Grid>
-        </Paper>
-
         {/* 3 Paneles Separados: Concesión, Cuentas Bancarias, Anticipos y Pago */}
         <Grid gutter="sm">
           {/* Panel 1: Información Concesión */}
@@ -630,16 +625,16 @@ export const ModalFormValorizacionCompra = ({
                       <Grid.Col span={{ base: 12, sm: 4, md: 3 }}>
                         <Box p="xs" bg="#0f0f12" className="rounded border border-zinc-800 space-y-0.5">
                           <Group justify="space-between">
-                            <Text fz={9} c="zinc.5" tt="uppercase" fw={600}>TMH:</Text>
-                            <Text fz={11} fw={700} c="white">{d.display.tmh.toFixed(3)}</Text>
+                            <Text fz={9} c="zinc.5" tt="uppercase" fw={600}>TMH (t):</Text>
+                            <Text fz={11} fw={700} c="white">{(d.display.tmh / 1000).toFixed(3)}</Text>
                           </Group>
                           <Group justify="space-between">
                             <Text fz={9} c="zinc.5" tt="uppercase" fw={600}>% H2O:</Text>
                             <Text fz={11} fw={700} c="cyan.3">{d.display.ley_humedad.toFixed(2)}%</Text>
                           </Group>
                           <Group justify="space-between">
-                            <Text fz={9} c="zinc.5" tt="uppercase" fw={600}>TMS:</Text>
-                            <Text fz={11} fw={700} c="emerald.3">{d.display.tms.toFixed(3)}</Text>
+                            <Text fz={9} c="zinc.5" tt="uppercase" fw={600}>TMS (t):</Text>
+                            <Text fz={11} fw={700} c="emerald.3">{(d.display.tms / 1000).toFixed(3)}</Text>
                           </Group>
                         </Box>
                       </Grid.Col>

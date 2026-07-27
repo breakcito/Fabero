@@ -11,6 +11,9 @@ export interface RES_TransaccionAnticipo {
   log_cambios: RES_CambiosLog[];
   estado: string;
   created_at: string;
+  // Datos del aprobador (JOIN con valorizacion_compra, poblado solo si la valorización está aprobada).
+  empleado_aprobacion: string | null;
+  fecha_hora_aprobacion: string | null;
 }
 
 export interface RES_AnticipoProveedor {
