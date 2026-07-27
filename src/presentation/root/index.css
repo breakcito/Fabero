@@ -138,16 +138,17 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-/* Visibilidad mejorada para inputs deshabilitados */
-input:disabled:not([type="checkbox"]):not([type="radio"]),
+/* Visibilidad mejorada para inputs de texto deshabilitados (no afecta checkboxes/radios del Switch) */
+input[type="text"]:disabled,
+input[type="number"]:disabled,
+input[type="email"]:disabled,
+input[type="password"]:disabled,
+input[type="search"]:disabled,
+input[type="tel"]:disabled,
+input[type="url"]:disabled,
 textarea:disabled,
-select:disabled,
-[data-disabled] input:not([type="checkbox"]):not([type="radio"]),
-[data-disabled] textarea,
-[data-disabled] select,
-.mantine-Input-input:disabled,
-.mantine-Input-input[data-disabled] {
+.mantine-Input-input:disabled:not([type="checkbox"]):not([type="radio"]) {
   opacity: 0.7 !important;
-  color: #adb5bd !important; /* gray.5 */
-  -webkit-text-fill-color: #adb5bd !important; /* Safari/Chrome override */
+  color: #adb5bd !important;
+  -webkit-text-fill-color: #adb5bd !important;
 }
