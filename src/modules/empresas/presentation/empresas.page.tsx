@@ -9,12 +9,17 @@ import {
   PlusIcon,
   Squares2X2Icon,
 } from "@heroicons/react/24/outline";
+import { useState } from "react";
 import { useTitlePage } from "../../../hooks/useTitlePage";
 import { ModalEstandar } from "../../../presentation/utils/modal-estandar";
+import { CuentasBancariasGenerico } from "../../../presentation/utils/cuentas-bancarias";
 import { RegistroEmpresa } from "./registro-empresa";
 import { useEmpresas } from "../hooks/useEmpresas";
 import { useRegistroEmpresa } from "../hooks/useRegistroEmpresa";
 import { EmpresaCard } from "./empresa-card";
+import { empresaCuentasAdapter } from "../service/cuentas-bancarias.adapter";
+import type { CuentaBancariaEmpresaResponse } from "../service/empresas.responses";
+import type { RES_Empresa } from "../../../service/responses/empresa";
 
 export const EmpresasPage = () => {
   useTitlePage("Empresas");
@@ -29,12 +34,16 @@ export const EmpresasPage = () => {
     closeCreate,
     onEmpresaCreada,
     handleUpdateLogo,
+    actualizarCantidadCuentasEmpresa,
   } = useEmpresas();
 
   const registro = useRegistroEmpresa({
     onSuccess: onEmpresaCreada,
     onClose: closeCreate,
   });
+
+  const [selectedEmpresaCuentas, setSelectedEmpresaCuentas] =
+    useState<RES_Empresa | null>(null);
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -53,7 +62,8 @@ export const EmpresasPage = () => {
             radius="lg"
             size="sm"
             classNames={{
-              input: "bg-zinc-900/50 border-zinc-800 focus:border-zinc-300 focus:ring-1 focus:ring-zinc-300 text-white placeholder:text-zinc-500",
+              input:
+                "bg-zinc-900/50 border-zinc-800 focus:border-zinc-300 focus:ring-1 focus:ring-zinc-300 text-white placeholder:text-zinc-500",
               label: "text-zinc-400 text-xs font-semibold mb-1 ml-1",
             }}
           />
@@ -73,12 +83,15 @@ export const EmpresasPage = () => {
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="bg-zinc-900/40 border border-zinc-800/60 rounded-[32px] p-5 space-y-4">
+            <div
+              key={i}
+              className="bg-zinc-900/40 border border-zinc-800/60 rounded-[32px] p-5 space-y-4"
+            >
               {/* Badge Skeleton */}
               <div className="flex justify-start">
                 <Skeleton height={18} width={90} radius="md" />
               </div>
-              
+
               {/* Content Skeleton (Horizontal) */}
               <div className="flex items-center gap-5">
                 <Skeleton height={80} width={80} circle />
@@ -105,10 +118,11 @@ export const EmpresasPage = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {empresasFiltradas.map((empresa) => (
-            <EmpresaCard 
-              key={empresa.id_empresa} 
-              empresa={empresa} 
-              onUpdateLogo={handleUpdateLogo} 
+            <EmpresaCard
+              key={empresa.id_empresa}
+              empresa={empresa}
+              onUpdateLogo={handleUpdateLogo}
+              onOpenCuentas={(e) => setSelectedEmpresaCuentas(e)}
             />
           ))}
         </div>
@@ -140,6 +154,34 @@ export const EmpresasPage = () => {
             registro.reset();
           }}
         />
+      </ModalEstandar>
+
+      {/* Modal: Gestión de Cuentas Bancarias */}
+      <ModalEstandar
+        opened={!!selectedEmpresaCuentas}
+        close={() => setSelectedEmpresaCuentas(null)}
+        title={
+          selectedEmpresaCuentas
+            ? `Cuentas Bancarias: ${selectedEmpresaCuentas.razon_social}`
+            : ""
+        }
+        size="xl"
+      >
+        {selectedEmpresaCuentas && (
+          <CuentasBancariasGenerico<
+            CuentaBancariaEmpresaResponse,
+            RES_Empresa
+          >
+            entity={selectedEmpresaCuentas}
+            adapter={empresaCuentasAdapter}
+            onCuentasCountChange={(count) =>
+              actualizarCantidadCuentasEmpresa(
+                selectedEmpresaCuentas.id_empresa,
+                count,
+              )
+            }
+          />
+        )}
       </ModalEstandar>
     </div>
   );

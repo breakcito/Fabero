@@ -76,6 +76,19 @@ export const useEmpresas = () => {
     setEmpresas((prev) => [nueva, ...prev]);
   };
 
+  const actualizarCantidadCuentasEmpresa = (
+    id_empresa: number,
+    count: number,
+  ) => {
+    setEmpresas((prev) =>
+      prev.map((emp) =>
+        emp.id_empresa === id_empresa
+          ? { ...emp, cantidad_cuentas_bancarias: count }
+          : emp,
+      ),
+    );
+  };
+
   return {
     empresas,
     loading,
@@ -91,6 +104,7 @@ export const useEmpresas = () => {
     // Handlers
     onEmpresaCreada,
     handleUpdateLogo,
+    actualizarCantidadCuentasEmpresa,
     recargar: listar,
   };
 };

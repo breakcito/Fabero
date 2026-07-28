@@ -1,20 +1,33 @@
-import { useCuentasBancarias } from "../../hooks/useCuentasBancarias";
-import type { ProveedorResponse } from "../../service/proveedores.responses";
-import type { CuentaBancariaResponse } from "../../service/proveedores.responses";
-import { RegistroCuenta } from "./components/registro-cuenta";
-import { CuentaBancaria } from "./components/cuenta-bancaria";
 import { useState, useMemo } from "react";
 import { Loader, Text, TextInput, Button, Group } from "@mantine/core";
-import { IconCreditCard, IconSearch, IconPlus } from "@tabler/icons-react";
-import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
-import { EstadoBase } from "../../../../shared/enums/_generic/estado-base";
+import {
+  IconCreditCard,
+  IconSearch,
+  IconPlus,
+} from "@tabler/icons-react";
+import { ModalEstandar } from "../modal-estandar";
+import { EstadoBase } from "../../../shared/enums/_generic/estado-base";
+import type { CuentaBancariaItem } from "../../../shared/interfaces/cuenta-bancaria";
+import type { CuentasBancariasAdapter } from "../../../shared/interfaces/cuenta-bancaria";
+import { CuentaBancaria } from "./components/cuenta-bancaria";
+import { RegistroCuenta } from "./components/registro-cuenta";
+import { useCuentasBancariasGenerico } from "./hooks/useCuentasBancariasGenerico";
 
-interface Props {
-  proveedor: ProveedorResponse;
+interface Props<T extends CuentaBancariaItem, TEntity> {
+  entity: TEntity;
+  adapter: CuentasBancariasAdapter<T, TEntity>;
   onCuentasCountChange?: (count: number) => void;
 }
 
-export const CuentasBancarias = ({ proveedor, onCuentasCountChange }: Props) => {
+/**
+ * Orquestador genérico de cuentas bancarias.
+ * Funciona con cualquier adapter que cumpla `CuentasBancariasAdapter`.
+ * Usado por los módulos Proveedores, Empresas y Plantas Destino.
+ */
+export function CuentasBancariasGenerico<
+  T extends CuentaBancariaItem,
+  TEntity,
+>({ entity, adapter, onCuentasCountChange }: Props<T, TEntity>) {
   const {
     cuentas,
     bancos,
@@ -23,14 +36,17 @@ export const CuentasBancarias = ({ proveedor, onCuentasCountChange }: Props) => 
     loadingBancos,
     insertCuenta,
     toggleEstadoCuenta,
-  } = useCuentasBancarias(proveedor.id_proveedor, onCuentasCountChange);
+  } = useCuentasBancariasGenerico<T, TEntity>(
+    adapter,
+    entity,
+    onCuentasCountChange,
+  );
 
   const [searchQuery, setSearchQuery] = useState("");
   const [openAgregar, setOpenAgregar] = useState(false);
-  const [cuentaAEditar, setCuentaAEditar] = useState<CuentaBancariaResponse | null>(null);
+  const [cuentaAEditar, setCuentaAEditar] = useState<T | null>(null);
   const [loadingDelete, setLoadingDelete] = useState<number | null>(null);
 
-  // Filtrar cuentas
   const cuentasFiltradas = useMemo(() => {
     const query = searchQuery.toLowerCase().trim();
     if (!query) return cuentas;
@@ -39,13 +55,24 @@ export const CuentasBancarias = ({ proveedor, onCuentasCountChange }: Props) => 
         c.banco.toLowerCase().includes(query) ||
         (c.banco_abv && c.banco_abv.toLowerCase().includes(query)) ||
         c.numero_cuenta.toLowerCase().includes(query) ||
-        (c.cci && c.cci.toLowerCase().includes(query))
+        (c.cci && c.cci.toLowerCase().includes(query)),
     );
   }, [cuentas, searchQuery]);
 
-  const handleToggleStatus = async (id: number, currentEstado: EstadoBase) => {
-    const nuevoEstado = currentEstado === EstadoBase.Activo ? EstadoBase.Inactivo : EstadoBase.Activo;
-    if (!confirm(`¿Está seguro de cambiar el estado de esta cuenta bancaria a ${nuevoEstado}?`)) return;
+  const handleToggleStatus = async (
+    id: number,
+    currentEstado: EstadoBase,
+  ) => {
+    const nuevoEstado =
+      currentEstado === EstadoBase.Activo
+        ? EstadoBase.Inactivo
+        : EstadoBase.Activo;
+    if (
+      !confirm(
+        `¿Está seguro de cambiar el estado de esta cuenta bancaria a ${nuevoEstado}?`,
+      )
+    )
+      return;
     setLoadingDelete(id);
     try {
       await toggleEstadoCuenta(id, currentEstado);
@@ -69,7 +96,8 @@ export const CuentasBancarias = ({ proveedor, onCuentasCountChange }: Props) => 
           leftSection={<IconSearch size={14} className="text-zinc-500" />}
           className="flex-1 max-w-md"
           classNames={{
-            input: "bg-zinc-900/50 border-zinc-800 text-white focus:border-zinc-300 transition-all w-full",
+            input:
+              "bg-zinc-900/50 border-zinc-800 text-white focus:border-zinc-300 transition-all w-full",
           }}
         />
 
@@ -98,13 +126,18 @@ export const CuentasBancarias = ({ proveedor, onCuentasCountChange }: Props) => 
             </Text>
           </div>
         ) : cuentasFiltradas.length > 0 ? (
-          <div className="flex flex-col gap-3 max-h-[400px] overflow-y-auto pr-1 custom-scrollbar">
+          <div className="flex flex-col gap-3 max-h-100 overflow-y-auto pr-1 custom-scrollbar">
             {cuentasFiltradas.map((cuenta) => (
               <CuentaBancaria
                 key={cuenta.id_cuenta_bancaria}
                 cuenta={cuenta}
                 onEdit={() => setCuentaAEditar(cuenta)}
-                onToggleStatus={() => handleToggleStatus(cuenta.id_cuenta_bancaria, cuenta.estado as EstadoBase)}
+                onToggleStatus={() =>
+                  handleToggleStatus(
+                    cuenta.id_cuenta_bancaria,
+                    cuenta.estado as EstadoBase,
+                  )
+                }
                 loadingStatus={loadingDelete === cuenta.id_cuenta_bancaria}
               />
             ))}
@@ -130,8 +163,9 @@ export const CuentasBancarias = ({ proveedor, onCuentasCountChange }: Props) => 
         title="Agregar Cuenta Bancaria"
         size="lg"
       >
-        <RegistroCuenta
-          idProveedor={proveedor.id_proveedor}
+        <RegistroCuenta<T, TEntity>
+          adapter={adapter}
+          entity={entity}
           bancos={bancos}
           loadingBancos={loadingBancos}
           onCuentaAdded={(newAccount) => {
@@ -152,8 +186,9 @@ export const CuentasBancarias = ({ proveedor, onCuentasCountChange }: Props) => 
         size="lg"
       >
         {cuentaAEditar && (
-          <RegistroCuenta
-            idProveedor={proveedor.id_proveedor}
+          <RegistroCuenta<T, TEntity>
+            adapter={adapter}
+            entity={entity}
             bancos={bancos}
             loadingBancos={loadingBancos}
             cuenta={cuentaAEditar}
@@ -169,4 +204,4 @@ export const CuentasBancarias = ({ proveedor, onCuentasCountChange }: Props) => 
       </ModalEstandar>
     </div>
   );
-};
+}

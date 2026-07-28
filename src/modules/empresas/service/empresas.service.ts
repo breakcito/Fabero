@@ -1,6 +1,11 @@
 import { api } from "../../../service/_api";
-import type { RES_Empresa } from "../../../service/responses/empresa";
 import type { IRespuesta } from "../../../shared/interfaces/_response";
+import type { CuentaBancariaEmpresaResponse, RES_Empresa } from "./empresas.responses";
+import type {
+  CrearCuentaBancariaEmpresaRequest,
+  EditarCuentaBancariaEmpresaRequest,
+} from "./empresas.requests";
+import type { EstadoBase } from "../../../shared/enums/_generic/estado-base";
 
 export class EmpresasService {
   private static PATH = "/empresas";
@@ -33,5 +38,50 @@ export class EmpresasService {
       },
     );
     return response;
+  };
+
+  public static getCuentasBancarias = async (
+    id_empresa: number,
+  ): Promise<CuentaBancariaEmpresaResponse[]> => {
+    const { data } = await api.get(
+      `${this.PATH}/cuentas-bancarias/${id_empresa}`,
+    );
+    return data.data;
+  };
+
+  public static crearCuentaBancaria = async (
+    payload: CrearCuentaBancariaEmpresaRequest,
+  ): Promise<CuentaBancariaEmpresaResponse> => {
+    const { data } = await api.post(
+      `${this.PATH}/cuentas-bancarias`,
+      payload,
+    );
+    return data.data;
+  };
+
+  public static editarCuentaBancaria = async (
+    id: number,
+    payload: EditarCuentaBancariaEmpresaRequest,
+  ): Promise<CuentaBancariaEmpresaResponse> => {
+    const { data } = await api.put(
+      `${this.PATH}/cuentas-bancarias/${id}`,
+      payload,
+    );
+    return data.data;
+  };
+
+  public static cambiarEstadoCuentaBancaria = async (
+    id: number,
+    estado: EstadoBase,
+  ): Promise<CuentaBancariaEmpresaResponse> => {
+    const { data } = await api.patch(
+      `${this.PATH}/cuentas-bancarias/${id}/estado`,
+      { estado },
+    );
+    return data.data;
+  };
+
+  public static eliminarCuentaBancaria = async (id: number): Promise<void> => {
+    await api.delete(`${this.PATH}/cuentas-bancarias/${id}`);
   };
 }

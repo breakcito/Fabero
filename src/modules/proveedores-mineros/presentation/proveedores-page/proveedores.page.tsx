@@ -3,13 +3,17 @@ import { Stack } from "@mantine/core";
 import { useTitlePage } from "../../../../hooks/useTitlePage";
 import { useProveedores } from "../../hooks/useProveedores";
 import { RegistroProveedor } from "../registro-proveedor/registro-proveedor";
-import { CuentasBancarias } from "../cuentas-bancarias/cuentas-bancarias";
+import { CuentasBancariasGenerico } from "../../../../presentation/utils/cuentas-bancarias";
 import { ModalConcesiones } from "./components/ModalConcesiones";
 import { useState } from "react";
-import type { ProveedorResponse } from "../../service/proveedores.responses";
+import type {
+  CuentaBancariaResponse,
+  ProveedorResponse,
+} from "../../service/proveedores.responses";
 import { Filtros } from "./components/filtros";
 import { Proveedor } from "./components/proveedor";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
+import { proveedorCuentasAdapter } from "../../service/cuentas-bancarias.adapter";
 
 export const ProveedoresPage = () => {
   useTitlePage("Proveedores");
@@ -106,10 +110,17 @@ export const ProveedoresPage = () => {
         size="xl"
       >
         {selectedProveedor && (
-          <CuentasBancarias
-            proveedor={selectedProveedor}
+          <CuentasBancariasGenerico<
+            CuentaBancariaResponse,
+            ProveedorResponse
+          >
+            entity={selectedProveedor}
+            adapter={proveedorCuentasAdapter}
             onCuentasCountChange={(count) => {
-              actualizarCantidadCuentasProveedor(selectedProveedor.id_proveedor, count);
+              actualizarCantidadCuentasProveedor(
+                selectedProveedor.id_proveedor,
+                count,
+              );
             }}
           />
         )}
