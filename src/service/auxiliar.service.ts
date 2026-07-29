@@ -403,4 +403,113 @@ export const AuxService = {
     });
     return data;
   },
+
+  get_valorizaciones_aprobadas_por_proveedor: async (
+    idProveedor: number,
+  ): Promise<IRespuesta<Array<{
+    id: number;
+    numero_correlativo: string;
+    tipo_pago: string;
+    fecha_hora_aprobacion: string;
+    estado: string;
+    id_proveedor_minero: number;
+    proveedor_nombre: string;
+    concesion_nombre: string;
+    total_dolares: number;
+    monto_anticipos: number;
+  }>>> => {
+    const { data } = await api.get<IRespuesta<Array<{
+      id: number;
+      numero_correlativo: string;
+      tipo_pago: string;
+      fecha_hora_aprobacion: string;
+      estado: string;
+      id_proveedor_minero: number;
+      proveedor_nombre: string;
+      concesion_nombre: string;
+      total_dolares: number;
+      monto_anticipos: number;
+    }>>>(`${path}/valorizaciones-aprobadas-proveedor`, {
+      params: { id_proveedor: idProveedor },
+    });
+    return data;
+  },
+
+  get_tipo_cambio_por_fecha: async (
+    fecha: string,
+  ): Promise<IRespuesta<{
+    id: number;
+    valor_compra: number;
+    valor_venta: number;
+    fecha: string;
+    estado: string;
+    empleado_registro_nombre?: string;
+  } | null>> => {
+    const { data } = await api.get<IRespuesta<{
+      id: number;
+      valor_compra: number;
+      valor_venta: number;
+      fecha: string;
+      estado: string;
+      empleado_registro_nombre?: string;
+    } | null>>(`${path}/tipo-cambio`, { params: { fecha } });
+    return data;
+  },
+
+  crear_tipo_cambio: async (payload: {
+    valor_compra: number;
+    valor_venta: number;
+    fecha: string;
+  }): Promise<IRespuesta<{
+    id: number;
+    valor_compra: number;
+    valor_venta: number;
+    fecha: string;
+    estado: string;
+    empleado_registro_nombre?: string;
+  }>> => {
+    const { data } = await api.post<IRespuesta<{
+      id: number;
+      valor_compra: number;
+      valor_venta: number;
+      fecha: string;
+      estado: string;
+      empleado_registro_nombre?: string;
+    }>>(`${path}/tipo-cambio`, payload);
+    return data;
+  },
+
+  get_cuentas_bancarias_empresa_por_moneda: async (
+    moneda: string,
+    esParaDetraccion = false,
+  ): Promise<IRespuesta<Array<{
+    id_cuenta_bancaria: number;
+    banco: string;
+    banco_abv: string;
+    id_banco: number;
+    moneda: string;
+    numero_cuenta: string;
+    cci: string | null;
+    es_para_detraccion: boolean;
+    estado: string;
+    empresa_nombre?: string;
+    id_empresa?: number;
+  }>>> => {
+    const { data } = await api.get<IRespuesta<Array<{
+      id_cuenta_bancaria: number;
+      banco: string;
+      banco_abv: string;
+      id_banco: number;
+      moneda: string;
+      numero_cuenta: string;
+      cci: string | null;
+      es_para_detraccion: boolean;
+      estado: string;
+      empresa_nombre?: string;
+      id_empresa?: number;
+    }>>>(`${path}/cuentas-bancarias-empresa-moneda`, {
+      params: { moneda, es_para_detraccion: esParaDetraccion ? 1 : 0 },
+    });
+    return data;
+  },
 };

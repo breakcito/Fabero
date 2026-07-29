@@ -48,7 +48,7 @@ export const EmpresaCard = ({
       : 0;
 
   return (
-    <div className="group relative flex flex-col bg-zinc-900/40 border border-zinc-800/60 rounded-[32px] p-5 gap-4 hover:border-indigo-500/40 hover:bg-zinc-900/60 transition-all duration-500 overflow-hidden shadow-xl hover:shadow-indigo-500/10">
+    <div className="group relative flex flex-col bg-zinc-900/40 border border-zinc-800/60 rounded-4xl p-5 gap-4 hover:border-indigo-500/40 hover:bg-zinc-900/60 transition-all duration-500 overflow-hidden shadow-xl hover:shadow-indigo-500/10">
       {/* Decorative Gradient Background */}
       <div className="absolute -top-12 -right-12 w-32 h-32 bg-indigo-500/5 blur-[60px] group-hover:bg-indigo-500/10 transition-colors duration-700" />
       <div className="absolute -bottom-12 -left-12 w-32 h-32 bg-purple-500/5 blur-[60px] group-hover:bg-purple-500/10 transition-colors duration-700" />
