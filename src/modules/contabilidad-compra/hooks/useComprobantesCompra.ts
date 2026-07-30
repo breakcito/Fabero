@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import dayjs from "dayjs";
 import { ContabilidadCompraService } from "../service/contabilidad-compra.service";
+import type { TipoAprobacionComprobante } from "../../../shared/enums/contabilidad-compra/tipo-aprobacion-comprobante";
 import type {
   REQ_AnularComprobante,
   REQ_AprobarComprobante,
@@ -23,32 +24,35 @@ export const useComprobantesCompra = () => {
   const [comprobantes, setComprobantes] = useState<RES_ComprobanteCompra[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const [aprobandoId, setAprobandoId] = useState<Record<number, boolean>>({});
+  const [aprobandoId, setAprobandoId] = useState<Record<number, TipoAprobacionComprobante | null>>({});
   const [anulandoId, setAnulandoId] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const cargarComprobantes = useCallback(async () => {
-    setLoading(true);
-    try {
-      const filters: REQ_FiltroComprobantes = {};
-      if (idProveedorFiltro !== null) filters.id_proveedor = idProveedorFiltro;
-      if (estadoFiltro !== "Todos") filters.estado = estadoFiltro;
-      if (fechaInicio) filters.fecha_inicio = fechaInicio;
-      if (fechaFin) filters.fecha_fin = fechaFin;
+  const cargarComprobantes = useCallback(
+    async (showLoader = true) => {
+      if (showLoader) setLoading(true);
+      try {
+        const filters: REQ_FiltroComprobantes = {};
+        if (idProveedorFiltro !== null) filters.id_proveedor = idProveedorFiltro;
+        if (estadoFiltro !== "Todos") filters.estado = estadoFiltro;
+        if (fechaInicio) filters.fecha_inicio = fechaInicio;
+        if (fechaFin) filters.fecha_fin = fechaFin;
 
-      const res = await ContabilidadCompraService.listarComprobantes(filters);
-      if (res.success) {
-        setComprobantes(res.data);
-      } else {
-        setComprobantes([]);
+        const res = await ContabilidadCompraService.listarComprobantes(filters);
+        if (res.success && res.data) {
+          setComprobantes(res.data);
+        } else if (res.success) {
+          setComprobantes([]);
+        }
+      } catch (err) {
+        console.error("Error al cargar comprobantes:", err);
+        notifyError("Ocurrió un error al cargar la lista de comprobantes.");
+      } finally {
+        if (showLoader) setLoading(false);
       }
-    } catch (err) {
-      console.error("Error al cargar comprobantes:", err);
-      notifyError("Ocurrió un error al cargar la lista de comprobantes.");
-    } finally {
-      setLoading(false);
-    }
-  }, [idProveedorFiltro, estadoFiltro, fechaInicio, fechaFin, notifyError]);
+    },
+    [idProveedorFiltro, estadoFiltro, fechaInicio, fechaFin, notifyError],
+  );
 
   useEffect(() => {
     cargarComprobantes();
@@ -62,7 +66,7 @@ export const useComprobantesCompra = () => {
       const res = await ContabilidadCompraService.crearComprobante(payload);
       if (res.success) {
         notifySuccess("Comprobante creado correctamente");
-        await cargarComprobantes();
+        await cargarComprobantes(false);
         return true;
       }
       notifyError(res.message || "Error al crear el comprobante");
@@ -80,12 +84,14 @@ export const useComprobantesCompra = () => {
     id: number,
     payload: REQ_AprobarComprobante,
   ): Promise<boolean> => {
-    setAprobandoId((prev) => ({ ...prev, [id]: true }));
+    setAprobandoId((prev) => ({ ...prev, [id]: payload.tipo }));
     try {
       const res = await ContabilidadCompraService.aprobarComprobante(id, payload);
-      if (res.success) {
+      if (res.success && res.data) {
         notifySuccess("Aprobación registrada correctamente");
-        await cargarComprobantes();
+        setComprobantes((prev) =>
+          prev.map((item) => (item.id === id ? res.data : item)),
+        );
         return true;
       }
       notifyError(res.message || "Error al aprobar");
@@ -95,7 +101,7 @@ export const useComprobantesCompra = () => {
       notifyError("Ocurrió un error al aprobar el comprobante.");
       return false;
     } finally {
-      setAprobandoId((prev) => ({ ...prev, [id]: false }));
+      setAprobandoId((prev) => ({ ...prev, [id]: null }));
     }
   };
 
@@ -106,9 +112,11 @@ export const useComprobantesCompra = () => {
     setAnulandoId(id);
     try {
       const res = await ContabilidadCompraService.anularComprobante(id, payload);
-      if (res.success) {
+      if (res.success && res.data) {
         notifySuccess("Comprobante anulado (cascada aplicada a sus pagos)");
-        await cargarComprobantes();
+        setComprobantes((prev) =>
+          prev.map((item) => (item.id === id ? res.data : item)),
+        );
         return true;
       }
       notifyError(res.message || "Error al anular");

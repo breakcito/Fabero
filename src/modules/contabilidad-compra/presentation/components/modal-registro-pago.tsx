@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Button,
@@ -41,6 +41,12 @@ interface CuentaOption {
   moneda: string;
 }
 
+const isMonedaSoles = (moneda: string): boolean => {
+  if (!moneda) return false;
+  const m = moneda.trim().toUpperCase();
+  return m === "SOLES" || m === "SOL" || m === "PEN" || m === "S/" || m === "S/.";
+};
+
 export const ModalRegistroPago = ({
   opened,
   onClose,
@@ -68,19 +74,22 @@ export const ModalRegistroPago = ({
   const [idBancoProveedor, setIdBancoProveedor] = useState<string | null>(null);
   const [idCuentaProveedor, setIdCuentaProveedor] = useState<string | null>(null);
 
-  const calcPorPagar = (esDetraccion: boolean): number =>
-    Math.max(
-      esDetraccion
-        ? comprobante.monto_detraccion_soles - comprobante.avance_pago_detraccion
-        : comprobante.monto_neto - comprobante.avance_pago_neto,
-      0,
-    );
+  const calcPorPagar = useCallback(
+    (esDetraccion: boolean): number =>
+      Math.max(
+        esDetraccion
+          ? comprobante.monto_detraccion_soles - comprobante.avance_pago_detraccion
+          : comprobante.monto_neto - comprobante.avance_pago_neto,
+        0,
+      ),
+    [
+      comprobante.monto_detraccion_soles,
+      comprobante.avance_pago_detraccion,
+      comprobante.monto_neto,
+      comprobante.avance_pago_neto,
+    ],
+  );
 
-  /**
-   * Serializa fecha+hora del DateTimePicker usando dayjs (mismo motor que usa
-   * internamente Mantine v8) para evitar desfases de zona horaria al extraer
-   * año/mes/día/hora/minuto con los getters nativos del Date.
-   */
   const toDateTimeString = (value: Date | null) => {
     if (!value) return null;
     const d = dayjs(value);
@@ -90,45 +99,39 @@ export const ModalRegistroPago = ({
 
   useEffect(() => {
     if (!opened) return;
-    setEsParaDetraccion(false);
-    setFechaPago(new Date());
-    setMedioPago(MedioPagoComprobante.Transferencia);
-    setMonto(calcPorPagar(false));
-    setNumeroOperacion("");
-    setObservacion("");
-    setEvidencias([]);
-    setIdBancoEmpresa(null);
-    setIdCuentaEmpresa(null);
-    setIdBancoProveedor(null);
-    setIdCuentaProveedor(null);
-    setCuentasEmpresa([]);
-    setCuentasProveedor([]);
-  }, [opened]);  // eslint-disable-line react-hooks/exhaustive-deps
+    queueMicrotask(() => {
+      setEsParaDetraccion(false);
+      setFechaPago(new Date());
+      setMedioPago(MedioPagoComprobante.Transferencia);
+      setMonto(calcPorPagar(false));
+      setNumeroOperacion("");
+      setObservacion("");
+      setEvidencias([]);
+      setIdBancoEmpresa(null);
+      setIdCuentaEmpresa(null);
+      setIdBancoProveedor(null);
+      setIdCuentaProveedor(null);
+      setCuentasEmpresa([]);
+      setCuentasProveedor([]);
+    });
+  }, [opened, calcPorPagar]);
 
-  /**
-   * Cuando el usuario alterna el switch "Pago de Detracción", re-pre-rellenamos
-   * el monto con el saldo pendiente adecuado (en soles para detracción, en dólares
-   * para neto). El usuario puede editarlo libremente después.
-   *
-   * También se re-dispara cuando el comprobante prop se actualiza con datos
-   * frescos (p. ej. tras el refetch de `handleAbrirRegistroPago`), para evitar
-   * que el modal siga mostrando el `porPagar` calculado con datos stale.
-   */
   useEffect(() => {
     if (!opened) return;
-    setMonto(calcPorPagar(esParaDetraccion));
-  }, [
-    esParaDetraccion,
-    opened,
-    comprobante.avance_pago_detraccion,
-    comprobante.avance_pago_neto,
-  ]);  // eslint-disable-line react-hooks/exhaustive-deps
+    queueMicrotask(() => {
+      setMonto(calcPorPagar(esParaDetraccion));
+      setIdBancoEmpresa(null);
+      setIdCuentaEmpresa(null);
+      setIdBancoProveedor(null);
+      setIdCuentaProveedor(null);
+    });
+  }, [esParaDetraccion, opened, calcPorPagar]);
 
   // Cargar cuentas empresa filtradas por moneda
   useEffect(() => {
     if (!opened) return;
     const moneda = esParaDetraccion ? "Soles" : "Dólares";
-    setLoadingCuentasEmpresa(true);
+    queueMicrotask(() => setLoadingCuentasEmpresa(true));
     AuxService.get_cuentas_bancarias_empresa_por_moneda(moneda, esParaDetraccion)
       .then((res) => {
         if (res.success && res.data) {
@@ -144,12 +147,12 @@ export const ModalRegistroPago = ({
   // Cargar cuentas proveedor del proveedor del comprobante
   useEffect(() => {
     if (!opened || !comprobante?.id_proveedor) return;
-    setLoadingCuentasProveedor(true);
+    queueMicrotask(() => setLoadingCuentasProveedor(true));
     AuxService.get_cuentas_bancarias_proveedor(comprobante.id_proveedor)
       .then((res) => {
         const lista = Array.isArray(res) ? res : [];
         setCuentasProveedor(
-          lista.map((c: any) => ({
+          lista.map((c) => ({
             id_cuenta_bancaria: c.id,
             banco: c.banco_nombre ?? "",
             banco_abv: "",
@@ -163,34 +166,44 @@ export const ModalRegistroPago = ({
       .finally(() => setLoadingCuentasProveedor(false));
   }, [opened, comprobante?.id_proveedor]);
 
+  const cuentasEmpresaMoneda = useMemo(() => {
+    if (!esParaDetraccion) return cuentasEmpresa;
+    return cuentasEmpresa.filter((c) => isMonedaSoles(c.moneda));
+  }, [cuentasEmpresa, esParaDetraccion]);
+
+  const cuentasProveedorMoneda = useMemo(() => {
+    if (!esParaDetraccion) return cuentasProveedor;
+    return cuentasProveedor.filter((c) => isMonedaSoles(c.moneda));
+  }, [cuentasProveedor, esParaDetraccion]);
+
   const bancosEmpresa = useMemo(() => {
     const map = new Map<number, { id: number; nombre: string }>();
-    cuentasEmpresa.forEach((c) => {
+    cuentasEmpresaMoneda.forEach((c) => {
       if (!map.has(c.id_banco)) {
         map.set(c.id_banco, { id: c.id_banco, nombre: c.banco });
       }
     });
     return Array.from(map.values());
-  }, [cuentasEmpresa]);
+  }, [cuentasEmpresaMoneda]);
 
   const bancosProveedor = useMemo(() => {
     const map = new Map<number, { id: number; nombre: string }>();
-    cuentasProveedor.forEach((c) => {
+    cuentasProveedorMoneda.forEach((c) => {
       if (!map.has(c.id_banco)) {
         map.set(c.id_banco, { id: c.id_banco, nombre: c.banco });
       }
     });
     return Array.from(map.values());
-  }, [cuentasProveedor]);
+  }, [cuentasProveedorMoneda]);
 
   const cuentasEmpresaFiltradas = useMemo(
-    () => cuentasEmpresa.filter((c) => !idBancoEmpresa || c.id_banco === Number(idBancoEmpresa)),
-    [cuentasEmpresa, idBancoEmpresa],
+    () => cuentasEmpresaMoneda.filter((c) => !idBancoEmpresa || c.id_banco === Number(idBancoEmpresa)),
+    [cuentasEmpresaMoneda, idBancoEmpresa],
   );
 
   const cuentasProveedorFiltradas = useMemo(
-    () => cuentasProveedor.filter((c) => !idBancoProveedor || c.id_banco === Number(idBancoProveedor)),
-    [cuentasProveedor, idBancoProveedor],
+    () => cuentasProveedorMoneda.filter((c) => !idBancoProveedor || c.id_banco === Number(idBancoProveedor)),
+    [cuentasProveedorMoneda, idBancoProveedor],
   );
 
   const porPagar = esParaDetraccion
@@ -239,6 +252,18 @@ export const ModalRegistroPago = ({
       opened={opened}
       close={onClose}
       title={`Nuevo Pago — ${comprobante.codigo_completo}`}
+      rightSection={
+        <Switch
+          label="Pago de Detracción"
+          checked={esParaDetraccion}
+          onChange={(e) => setEsParaDetraccion(e.currentTarget.checked)}
+          color="yellow"
+          size="xs"
+          styles={{
+            label: { color: "#e4e4e7", fontWeight: 600, fontSize: 12 },
+          }}
+        />
+      }
       size="xl"
     >
       <Stack gap="md">
@@ -269,7 +294,7 @@ export const ModalRegistroPago = ({
                   !idBancoEmpresa
                     ? "Seleccione banco"
                     : cuentasEmpresaFiltradas.length === 0
-                      ? "Sin cuentas"
+                      ? "Sin cuentas en soles"
                       : "Seleccione cuenta"
                 }
                 data={cuentasEmpresaFiltradas.map((c) => ({
@@ -317,7 +342,7 @@ export const ModalRegistroPago = ({
                   !idBancoProveedor
                     ? "Seleccione banco"
                     : cuentasProveedorFiltradas.length === 0
-                      ? "Sin cuentas"
+                      ? "Sin cuentas en soles"
                       : "Seleccione cuenta"
                 }
                 data={cuentasProveedorFiltradas.map((c) => ({
@@ -339,8 +364,23 @@ export const ModalRegistroPago = ({
 
         {/* Detalles del Pago */}
         <Paper p="sm" radius="lg" className="bg-zinc-900/40 border border-zinc-800/80">
-          <Stack gap="sm">
-            <Group grow align="flex-start">
+          <Stack gap="xs">
+            <Group justify="space-between" align="center">
+              <Text fz={11} fw={700} tt="uppercase" c="dimmed" className="tracking-wider">
+                Detalles de la Operación
+              </Text>
+              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-zinc-950/60 border border-zinc-800 rounded-lg">
+                <Text fz={10} c="dimmed" fw={700}>PENDIENTE:</Text>
+                <Text fz={12} fw={800} c={esParaDetraccion ? "yellow.4" : "emerald.4"}>
+                  {esParaDetraccion ? `S/ ${porPagar.toFixed(2)}` : `$ ${porPagar.toFixed(2)}`}
+                </Text>
+                {!esParaDetraccion && (
+                  <Text fz={10} c="dimmed">(Equiv. S/ {equivSoles.toFixed(2)})</Text>
+                )}
+              </div>
+            </Group>
+
+            <Group grow align="flex-start" gap="md">
               <DateTimePicker
                 label="Fecha Pago"
                 value={fechaPago}
@@ -350,7 +390,7 @@ export const ModalRegistroPago = ({
                 radius="md"
               />
               <Select
-                label="Medio Pago"
+                label="Medio Pago *"
                 data={Object.values(MedioPagoComprobante).map((v) => ({ value: v, label: v }))}
                 value={medioPago}
                 onChange={(v) => v && setMedioPago(v as MedioPagoComprobante)}
@@ -367,51 +407,20 @@ export const ModalRegistroPago = ({
                 size="xs"
                 radius="md"
               />
-            </Group>
-
-            <Group align="center" grow justify="space-between">
-              <Paper p="xs" radius="md" className="bg-zinc-950/60 border border-zinc-800">
-                <Group justify="space-between" align="center">
-                  <div>
-                    <Text fz="xs" fw={700} c="white">Pago de Detracción</Text>
-                    <Text fz={10} c="dimmed">Marcar si este abono corresponde a la detracción</Text>
-                  </div>
-                  <Switch
-                    checked={esParaDetraccion}
-                    onChange={(e) => setEsParaDetraccion(e.currentTarget.checked)}
-                    color="yellow"
-                    size="sm"
-                  />
-                </Group>
-              </Paper>
-
-              <Stack gap={4} className="flex-1">
-                <Group justify="space-between" align="center">
-                  <Text fz={11} fw={700} c="dimmed" tt="uppercase">A pagar</Text>
-                  <div className="flex items-center gap-1.5 px-2 py-0.5 bg-zinc-950/60 border border-zinc-800 rounded-md">
-                    <Text fz={10} c="dimmed" fw={700}>PENDIENTE:</Text>
-                    <Text fz={11} fw={800} c={esParaDetraccion ? "yellow.4" : "emerald.4"}>
-                      {esParaDetraccion ? `S/ ${porPagar.toFixed(2)}` : `$ ${porPagar.toFixed(2)}`}
-                    </Text>
-                    {!esParaDetraccion && (
-                      <Text fz={10} c="dimmed">(Equiv. S/ {equivSoles.toFixed(2)})</Text>
-                    )}
-                  </div>
-                </Group>
-                <NumberInput
-                  placeholder="0.00"
-                  prefix={esParaDetraccion ? "S/ " : "$ "}
-                  decimalScale={2}
-                  fixedDecimalScale
-                  min={0.01}
-                  max={porPagar}
-                  value={monto}
-                  onChange={setMonto}
-                  disabled={submitting}
-                  size="xs"
-                  radius="md"
-                />
-              </Stack>
+              <NumberInput
+                label={`Monto a Pagar (${esParaDetraccion ? "S/" : "$"}) *`}
+                placeholder="0.00"
+                prefix={esParaDetraccion ? "S/ " : "$ "}
+                decimalScale={2}
+                fixedDecimalScale
+                min={0.01}
+                max={porPagar}
+                value={monto}
+                onChange={setMonto}
+                disabled={submitting}
+                size="xs"
+                radius="md"
+              />
             </Group>
           </Stack>
         </Paper>

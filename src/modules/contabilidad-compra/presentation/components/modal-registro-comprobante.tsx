@@ -92,21 +92,23 @@ export const ModalRegistroComprobante = ({
 
   useEffect(() => {
     if (!opened) return;
-    setIdProveedor(null);
-    setIdValorizacion(null);
-    setValorizaciones([]);
-    setSerie("");
-    setNumero("");
-    setFechaEmision(new Date());
-    setPorcentajeIgv(18);
-    setPorcentajeDetraccion(10);
-    setEvidencias([]);
-    setTipoCambio(null);
+    queueMicrotask(() => {
+      setIdProveedor(null);
+      setIdValorizacion(null);
+      setValorizaciones([]);
+      setSerie("");
+      setNumero("");
+      setFechaEmision(new Date());
+      setPorcentajeIgv(18);
+      setPorcentajeDetraccion(10);
+      setEvidencias([]);
+      setTipoCambio(null);
+    });
   }, [opened]);
 
   useEffect(() => {
     if (idProveedor) {
-      setLoadingValorizaciones(true);
+      queueMicrotask(() => setLoadingValorizaciones(true));
       AuxService.get_valorizaciones_aprobadas_por_proveedor(Number(idProveedor))
         .then((res) => {
           if (res.success && res.data) {
@@ -118,8 +120,10 @@ export const ModalRegistroComprobante = ({
         .catch((e) => console.error("Error valorizaciones:", e))
         .finally(() => setLoadingValorizaciones(false));
     } else {
-      setValorizaciones([]);
-      setIdValorizacion(null);
+      queueMicrotask(() => {
+        setValorizaciones([]);
+        setIdValorizacion(null);
+      });
     }
   }, [idProveedor]);
 
@@ -130,10 +134,10 @@ export const ModalRegistroComprobante = ({
    */
   const consultarTipoCambio = useCallback((fechaStr: string) => {
     if (!fechaStr) {
-      setTipoCambio(null);
+      queueMicrotask(() => setTipoCambio(null));
       return;
     }
-    setLoadingTipoCambio(true);
+    queueMicrotask(() => setLoadingTipoCambio(true));
     let cancelled = false;
     AuxService.get_tipo_cambio_por_fecha(fechaStr)
       .then((res) => {
@@ -157,7 +161,7 @@ export const ModalRegistroComprobante = ({
   useEffect(() => {
     if (!opened) return;
     if (!fechaEmisionStr) {
-      setTipoCambio(null);
+      queueMicrotask(() => setTipoCambio(null));
       return;
     }
     const cancel = consultarTipoCambio(fechaEmisionStr);
@@ -238,6 +242,7 @@ export const ModalRegistroComprobante = ({
         close={handleClose}
         title="Generar Comprobante"
         size="lg"
+        validateClose
       >
         <Stack gap="md">
           <Group grow align="end">

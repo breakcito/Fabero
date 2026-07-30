@@ -7,6 +7,7 @@ import {
   IconCash,
   IconReceipt,
   IconCalendar,
+  IconPaperclip,
 } from "@tabler/icons-react";
 import { EstadoComprobanteCompra } from "../../../../shared/enums/contabilidad-compra/estado-comprobante-compra";
 import { TipoAprobacionComprobante } from "../../../../shared/enums/contabilidad-compra/tipo-aprobacion-comprobante";
@@ -16,10 +17,11 @@ import type { RES_ComprobanteCompra } from "../../service/contabilidad-compra.re
 interface ComprobanteCardProps {
   comprobante: RES_ComprobanteCompra;
   anulando: boolean;
-  aprobando: boolean;
+  aprobandoTipo?: TipoAprobacionComprobante | null;
   onAprobar: (tipo: TipoAprobacionComprobante) => void;
   onAnular: () => void;
   onVerPagos: () => void;
+  onVerEvidencias: () => void;
 }
 
 const COLOR_BY_TIPO: Record<TipoAprobacionComprobante, string> = {
@@ -60,33 +62,33 @@ const findAprob = (aprobaciones: RES_AprobacionComprobante[], tipo: TipoAprobaci
 const MiniAprobacionChip = ({
   tipo,
   aprobaciones,
-  aprobando,
+  aprobandoTipo,
   onAprobar,
 }: {
   tipo: TipoAprobacionComprobante;
   aprobaciones: RES_AprobacionComprobante[];
-  aprobando: boolean;
+  aprobandoTipo?: TipoAprobacionComprobante | null;
   onAprobar: (tipo: TipoAprobacionComprobante) => void;
 }) => {
   const ap = findAprob(aprobaciones, tipo);
   const aprobado = ap?.esta_aprobado ?? false;
   const color = COLOR_BY_TIPO[tipo];
+  const isThisLoading = aprobandoTipo === tipo;
+
+  const tooltipLabel = aprobado
+    ? `${tipo}: Aprobado por ${ap?.empleado_registro_nombre ?? "Usuario"}${ap?.created_at ? ` (${formatFecha(ap.created_at)})` : ""}`
+    : `${tipo}: Pendiente — Clic para aprobar`;
+
   return (
-    <Tooltip
-      label={
-        aprobado
-          ? `${tipo}: Aprobado${ap?.empleado_registro_nombre ? ` por ${ap.empleado_registro_nombre}` : ""}`
-          : `${tipo}: Pendiente — click para aprobar`
-      }
-    >
+    <Tooltip label={tooltipLabel} withArrow position="top">
       <ActionIcon
         variant={aprobado ? "filled" : "light"}
-        color={aprobado ? "teal" : color}
+        color={aprobado ? color : "gray"}
         size="lg"
         radius="md"
-        disabled={aprobado || aprobando}
-        loading={aprobando && !aprobado}
-        onClick={() => !aprobado && onAprobar(tipo)}
+        loading={isThisLoading}
+        style={{ cursor: aprobado ? "default" : "pointer" }}
+        onClick={() => !aprobado && !aprobandoTipo && onAprobar(tipo)}
       >
         {aprobado ? <IconCircleCheck size={18} /> : <IconCircleDashed size={18} />}
       </ActionIcon>
@@ -97,41 +99,61 @@ const MiniAprobacionChip = ({
 export const ComprobanteCard = ({
   comprobante,
   anulando,
-  aprobando,
+  aprobandoTipo,
   onAprobar,
   onAnular,
   onVerPagos,
+  onVerEvidencias,
 }: ComprobanteCardProps) => {
+  const isAnulado = comprobante.estado === EstadoComprobanteCompra.Anulado;
+  const numEvidencias = Array.isArray(comprobante.evidencias) ? comprobante.evidencias.length : 0;
+
   const pctPagadoNeto =
-    comprobante.monto_neto > 0
+    !isAnulado && comprobante.monto_neto > 0
       ? Math.min(100, (comprobante.avance_pago_neto / comprobante.monto_neto) * 100)
       : 0;
   const pctPagadoDetraccion =
-    comprobante.monto_detraccion_soles > 0
+    !isAnulado && comprobante.monto_detraccion_soles > 0
       ? Math.min(100, (comprobante.avance_pago_detraccion / comprobante.monto_detraccion_soles) * 100)
       : 0;
-  const totalPagadoUsd =
-    comprobante.monto_pagado_anticipos +
-    comprobante.avance_pago_neto +
-    (comprobante.avance_pago_detraccion / comprobante.tipo_cambio_venta);
+  const totalPagadoUsd = isAnulado
+    ? 0
+    : comprobante.monto_pagado_anticipos +
+      comprobante.avance_pago_neto +
+      (comprobante.avance_pago_detraccion / comprobante.tipo_cambio_venta);
   const pctPagadoTotal =
-    comprobante.total_dolares > 0
+    !isAnulado && comprobante.total_dolares > 0
       ? Math.min(100, (totalPagadoUsd / comprobante.total_dolares) * 100)
       : 0;
 
-  const isDetraccionSaldado = pctPagadoDetraccion >= 99.99;
-  const isNetoSaldado = pctPagadoNeto >= 99.99;
-  const isTotalSaldado = pctPagadoTotal >= 99.99;
+  const isDetraccionSaldado = !isAnulado && pctPagadoDetraccion >= 99.99;
+  const isNetoSaldado = !isAnulado && pctPagadoNeto >= 99.99;
+  const isTotalSaldado = !isAnulado && pctPagadoTotal >= 99.99;
 
   const todasAprobadas = comprobante.aprobaciones.every((a) => a.esta_aprobado);
-  const habilitarPagos = todasAprobadas && comprobante.estado !== EstadoComprobanteCompra.Anulado;
+  const habilitarPagos = todasAprobadas && !isAnulado;
+
+  const renderBadgeEstadoPago = (isSaldado: boolean) => {
+    if (isAnulado) {
+      return (
+        <Badge variant="light" color="red" size="xs">
+          Anulado
+        </Badge>
+      );
+    }
+    return (
+      <Badge variant="light" color={isSaldado ? "teal" : "gray"} size="xs">
+        {isSaldado ? "Saldado" : "Pendiente"}
+      </Badge>
+    );
+  };
 
   return (
     <Paper
       p="md"
       radius="lg"
       bg="#0f0f12"
-      className={`border ${comprobante.estado === EstadoComprobanteCompra.Anulado ? "border-red-900/40" : "border-zinc-800"} hover:border-indigo-500/60 transition-all`}
+      className={`border ${isAnulado ? "border-red-900/40" : "border-zinc-800"} hover:border-indigo-500/60 transition-all`}
     >
       <Group justify="space-between" align="flex-start" mb="sm">
         <Stack gap={2}>
@@ -152,19 +174,30 @@ export const ComprobanteCard = ({
           </Group>
         </Stack>
         <Group gap={6}>
-          <Tooltip label={habilitarPagos ? "Ver / Registrar Pagos" : "Complete las 3 aprobaciones"}>
+          <Tooltip label={numEvidencias > 0 ? `Ver Evidencias (${numEvidencias})` : "Ver Evidencias (0)"}>
             <ActionIcon
               size="lg"
-              variant="filled"
-              color={habilitarPagos ? "teal" : "gray"}
+              variant="light"
+              color={numEvidencias > 0 ? "indigo" : "gray"}
               radius="md"
-              disabled={!habilitarPagos}
-              onClick={habilitarPagos ? onVerPagos : undefined}
+              onClick={onVerEvidencias}
+            >
+              <IconPaperclip size={18} />
+            </ActionIcon>
+          </Tooltip>
+          <Tooltip label={habilitarPagos ? "Ver / Registrar Pagos" : isAnulado ? "Ver Historial de Pagos (Anulado)" : "Complete las 3 aprobaciones"}>
+            <ActionIcon
+              size="lg"
+              variant={isAnulado ? "light" : "filled"}
+              color={habilitarPagos ? "teal" : isAnulado ? "red" : "gray"}
+              radius="md"
+              disabled={!habilitarPagos && !isAnulado}
+              onClick={onVerPagos}
             >
               <IconCash size={18} />
             </ActionIcon>
           </Tooltip>
-          {comprobante.estado !== EstadoComprobanteCompra.Anulado && (
+          {!isAnulado && (
             <Tooltip label="Anular comprobante">
               <ActionIcon
                 size="lg"
@@ -183,53 +216,47 @@ export const ComprobanteCard = ({
       </Group>
 
       <Group grow align="stretch" mb="sm">
-        <div className="bg-zinc-900/50 border border-indigo-500/30 rounded-lg p-3">
+        <div className={`bg-zinc-900/50 border ${isAnulado ? "border-red-900/30" : "border-indigo-500/30"} rounded-lg p-3`}>
           <Group justify="space-between">
-            <Text fz={10} tt="uppercase" c="indigo.4" fw={700}>Total</Text>
-            <Badge variant="light" color={isTotalSaldado ? "teal" : "gray"} size="xs">
-              {isTotalSaldado ? "Saldado" : "Pendiente"}
-            </Badge>
+            <Text fz={10} tt="uppercase" c={isAnulado ? "red.4" : "indigo.4"} fw={700}>Total</Text>
+            {renderBadgeEstadoPago(isTotalSaldado)}
           </Group>
           <Text fz="lg" fw={800} c="white" className="font-mono">$ {comprobante.total_dolares.toFixed(2)}</Text>
           <Text fz={10} c="dimmed">
             Equiv: S/ {comprobante.total_soles.toFixed(2)} · IGV: S/ {comprobante.monto_igv_soles.toFixed(2)}
           </Text>
           <Text fz={10} c="dimmed">TC: {comprobante.tipo_cambio_venta.toFixed(3)}</Text>
-          <Progress value={pctPagadoTotal} color="indigo" size="xs" mt={6} />
+          <Progress value={pctPagadoTotal} color={isAnulado ? "red" : "indigo"} size="xs" mt={6} />
           <Text fz={9} c="dimmed" mt={2}>
             Pagado: $ {totalPagadoUsd.toFixed(2)} / $ {comprobante.total_dolares.toFixed(2)}
           </Text>
         </div>
 
-        <div className="bg-zinc-900/50 border border-teal-500/30 rounded-lg p-3">
+        <div className={`bg-zinc-900/50 border ${isAnulado ? "border-red-900/30" : "border-teal-500/30"} rounded-lg p-3`}>
           <Group justify="space-between">
-            <Text fz={10} tt="uppercase" c="teal.4" fw={700}>Saldo Neto</Text>
-            <Badge variant="light" color={isNetoSaldado ? "teal" : "gray"} size="xs">
-              {isNetoSaldado ? "Saldado" : "Pendiente"}
-            </Badge>
+            <Text fz={10} tt="uppercase" c={isAnulado ? "red.4" : "teal.4"} fw={700}>Saldo Neto</Text>
+            {renderBadgeEstadoPago(isNetoSaldado)}
           </Group>
           <Text fz="lg" fw={800} c="white" className="font-mono">$ {comprobante.monto_neto.toFixed(2)}</Text>
           <Text fz={10} c="dimmed">Equiv: S/ {(comprobante.monto_neto * comprobante.tipo_cambio_venta).toFixed(2)}</Text>
           <Text fz={10} c="dimmed">TC: {comprobante.tipo_cambio_venta.toFixed(3)}</Text>
-          <Progress value={pctPagadoNeto} color="teal" size="xs" mt={6} />
+          <Progress value={pctPagadoNeto} color={isAnulado ? "red" : "teal"} size="xs" mt={6} />
           <Text fz={9} c="dimmed" mt={2}>
-            Pagado: $ {comprobante.avance_pago_neto.toFixed(2)} / $ {comprobante.monto_neto.toFixed(2)}
+            Pagado: $ {(isAnulado ? 0 : comprobante.avance_pago_neto).toFixed(2)} / $ {comprobante.monto_neto.toFixed(2)}
           </Text>
         </div>
 
-        <div className="bg-zinc-900/50 border border-yellow-500/30 rounded-lg p-3">
+        <div className={`bg-zinc-900/50 border ${isAnulado ? "border-red-900/30" : "border-yellow-500/30"} rounded-lg p-3`}>
           <Group justify="space-between">
-            <Text fz={10} tt="uppercase" c="yellow.4" fw={700}>Detracción (S/)</Text>
-            <Badge variant="light" color={isDetraccionSaldado ? "teal" : "gray"} size="xs">
-              {isDetraccionSaldado ? "Saldado" : "Pendiente"}
-            </Badge>
+            <Text fz={10} tt="uppercase" c={isAnulado ? "red.4" : "yellow.4"} fw={700}>Detracción (S/)</Text>
+            {renderBadgeEstadoPago(isDetraccionSaldado)}
           </Group>
           <Text fz="lg" fw={800} c="white" className="font-mono">S/ {comprobante.monto_detraccion_soles.toFixed(2)}</Text>
           <Text fz={10} c="dimmed">Equiv: $ {comprobante.monto_detraccion.toFixed(2)}</Text>
           <Text fz={10} c="dimmed">TC: {comprobante.tipo_cambio_venta.toFixed(3)} · {comprobante.porcentaje_detraccion * 100}%</Text>
-          <Progress value={pctPagadoDetraccion} color="yellow" size="xs" mt={6} />
+          <Progress value={pctPagadoDetraccion} color={isAnulado ? "red" : "yellow"} size="xs" mt={6} />
           <Text fz={9} c="dimmed" mt={2}>
-            Pagado: S/ {comprobante.avance_pago_detraccion.toFixed(2)} / S/ {comprobante.monto_detraccion_soles.toFixed(2)}
+            Pagado: S/ {(isAnulado ? 0 : comprobante.avance_pago_detraccion).toFixed(2)} / S/ {comprobante.monto_detraccion_soles.toFixed(2)}
           </Text>
         </div>
       </Group>
@@ -292,19 +319,19 @@ export const ComprobanteCard = ({
           <MiniAprobacionChip
             tipo={TipoAprobacionComprobante.Contabilidad}
             aprobaciones={comprobante.aprobaciones}
-            aprobando={aprobando}
+            aprobandoTipo={aprobandoTipo}
             onAprobar={onAprobar}
           />
           <MiniAprobacionChip
             tipo={TipoAprobacionComprobante.Comercial}
             aprobaciones={comprobante.aprobaciones}
-            aprobando={aprobando}
+            aprobandoTipo={aprobandoTipo}
             onAprobar={onAprobar}
           />
           <MiniAprobacionChip
             tipo={TipoAprobacionComprobante.Documentaria}
             aprobaciones={comprobante.aprobaciones}
-            aprobando={aprobando}
+            aprobandoTipo={aprobandoTipo}
             onAprobar={onAprobar}
           />
         </Group>
