@@ -1,17 +1,35 @@
 import { useState } from "react";
-import { Avatar, FileButton, Stack, Text, Badge, Loader } from "@mantine/core";
+import {
+  Avatar,
+  FileButton,
+  Stack,
+  Text,
+  Badge,
+  Loader,
+  ActionIcon,
+  Tooltip,
+  Group,
+} from "@mantine/core";
 import {
   BuildingOffice2Icon,
   PencilSquareIcon,
+  BuildingLibraryIcon,
 } from "@heroicons/react/24/outline";
 import type { RES_Empresa } from "../../../service/responses/empresa";
 
 interface EmpresaCardProps {
   empresa: RES_Empresa;
   onUpdateLogo: (id: number, file: File) => Promise<boolean>;
+  onOpenCuentas: (empresa: RES_Empresa) => void;
+  loadingCuentas?: boolean;
 }
 
-export const EmpresaCard = ({ empresa, onUpdateLogo }: EmpresaCardProps) => {
+export const EmpresaCard = ({
+  empresa,
+  onUpdateLogo,
+  onOpenCuentas,
+  loadingCuentas = false,
+}: EmpresaCardProps) => {
   const [isUploading, setIsUploading] = useState(false);
 
   const handleFileChange = async (file: File | null) => {
@@ -24,14 +42,19 @@ export const EmpresaCard = ({ empresa, onUpdateLogo }: EmpresaCardProps) => {
     }
   };
 
+  const cantidad =
+    empresa.cantidad_cuentas_bancarias !== undefined
+      ? empresa.cantidad_cuentas_bancarias
+      : 0;
+
   return (
-    <div className="group relative flex flex-col bg-zinc-900/40 border border-zinc-800/60 rounded-[32px] p-5 gap-4 hover:border-indigo-500/40 hover:bg-zinc-900/60 transition-all duration-500 overflow-hidden shadow-xl hover:shadow-indigo-500/10">
+    <div className="group relative flex flex-col bg-zinc-900/40 border border-zinc-800/60 rounded-4xl p-5 gap-4 hover:border-indigo-500/40 hover:bg-zinc-900/60 transition-all duration-500 overflow-hidden shadow-xl hover:shadow-indigo-500/10">
       {/* Decorative Gradient Background */}
       <div className="absolute -top-12 -right-12 w-32 h-32 bg-indigo-500/5 blur-[60px] group-hover:bg-indigo-500/10 transition-colors duration-700" />
       <div className="absolute -bottom-12 -left-12 w-32 h-32 bg-purple-500/5 blur-[60px] group-hover:bg-purple-500/10 transition-colors duration-700" />
 
-      {/* Header: RUC as Badge (Top Left) */}
-      <div className="flex items-center justify-start relative z-10">
+      {/* Header: RUC + Cuentas badge */}
+      <div className="flex items-center justify-between relative z-10 gap-2">
         <Badge
           variant="filled"
           color="indigo"
@@ -41,6 +64,28 @@ export const EmpresaCard = ({ empresa, onUpdateLogo }: EmpresaCardProps) => {
         >
           RUC: {empresa.ruc}
         </Badge>
+        <Group gap="xs" wrap="nowrap">
+          <Badge
+            color={cantidad > 0 ? "blue" : "gray"}
+            variant="light"
+            size="sm"
+            radius="xl"
+          >
+            {cantidad === 1 ? "1 cuenta" : `${cantidad} cuentas`}
+          </Badge>
+          <Tooltip label="Gestionar Cuentas" withArrow position="left">
+            <ActionIcon
+              variant="subtle"
+              color="blue"
+              radius="xl"
+              size="sm"
+              onClick={() => onOpenCuentas(empresa)}
+              loading={loadingCuentas}
+            >
+              <BuildingLibraryIcon className="w-4 h-4" />
+            </ActionIcon>
+          </Tooltip>
+        </Group>
       </div>
 
       {/* Main Info: Logo & Names (Horizontal Layout) */}

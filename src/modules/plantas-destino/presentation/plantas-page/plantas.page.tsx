@@ -2,13 +2,17 @@ import { Stack } from "@mantine/core";
 import { useTitlePage } from "../../../../hooks/useTitlePage";
 import { usePlantasDestino } from "../../hooks/usePlantasDestino";
 import { RegistroPlanta } from "../registro-planta/registro-planta";
-import { CuentasBancarias } from "../cuentas-bancarias/cuentas-bancarias";
+import { CuentasBancariasGenerico } from "../../../../presentation/utils/cuentas-bancarias";
 import { ModalProveedores } from "./components/ModalProveedores";
 import { useState } from "react";
-import type { PlantaDestinoResponse } from "../../service/plantas-destino.responses";
+import type {
+  CuentaBancariaPlantaResponse,
+  PlantaDestinoResponse,
+} from "../../service/plantas-destino.responses";
 import { Filtros } from "./components/filtros";
 import { Planta } from "./components/planta";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
+import { plantaCuentasAdapter } from "../../service/cuentas-bancarias.adapter";
 
 export const PlantasDestinoPage = () => {
   useTitlePage("Plantas Destino");
@@ -94,8 +98,12 @@ export const PlantasDestinoPage = () => {
         size="xl"
       >
         {selectedPlantaCuentas && (
-          <CuentasBancarias
-            planta={selectedPlantaCuentas}
+          <CuentasBancariasGenerico<
+            CuentaBancariaPlantaResponse,
+            PlantaDestinoResponse
+          >
+            entity={selectedPlantaCuentas}
+            adapter={plantaCuentasAdapter}
             onCuentasCountChange={(count) => {
               actualizarCantidadCuentasPlanta(selectedPlantaCuentas.id, count);
             }}

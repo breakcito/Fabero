@@ -1,4 +1,13 @@
-import { Badge, Text, Group, Stack, ThemeIcon, ActionIcon, Tooltip, Divider } from "@mantine/core";
+import {
+  Badge,
+  Text,
+  Group,
+  Stack,
+  ThemeIcon,
+  ActionIcon,
+  Tooltip,
+  Divider,
+} from "@mantine/core";
 import {
   IconCreditCard,
   IconCash,
@@ -9,18 +18,23 @@ import {
   IconCheck,
 } from "@tabler/icons-react";
 import { useState } from "react";
-import { Moneda } from "../../../../../shared/enums/_generic/moneda";
-import type { CuentaBancariaPlantaResponse } from "../../../service/plantas-destino.responses";
-import { EstadoBase } from "../../../../../shared/enums/_generic/estado-base";
+import { Moneda } from "../../../../shared/enums/_generic/moneda";
+import { EstadoBase } from "../../../../shared/enums/_generic/estado-base";
+import type { CuentaBancariaItem } from "../../../../shared/interfaces/cuenta-bancaria";
 
-interface Props {
-  cuenta: CuentaBancariaPlantaResponse;
+interface Props<T extends CuentaBancariaItem> {
+  cuenta: T;
   onEdit?: () => void;
   onToggleStatus?: () => void;
   loadingStatus?: boolean;
 }
 
-export const CuentaBancaria = ({ cuenta, onEdit, onToggleStatus, loadingStatus }: Props) => {
+export function CuentaBancaria<T extends CuentaBancariaItem>({
+  cuenta,
+  onEdit,
+  onToggleStatus,
+  loadingStatus,
+}: Props<T>) {
   const [copiedNum, setCopiedNum] = useState(false);
   const [copiedCci, setCopiedCci] = useState(false);
   const isSoles = cuenta.moneda === Moneda.Soles;
@@ -37,9 +51,13 @@ export const CuentaBancaria = ({ cuenta, onEdit, onToggleStatus, loadingStatus }
   };
 
   return (
-    <div className={`p-4 bg-zinc-955/20 border border-zinc-800/80 rounded-2xl transition-all duration-200 hover:bg-zinc-900/30 hover:border-zinc-700/50 ${
-      cuenta.estado === EstadoBase.Inactivo ? "opacity-60 border-zinc-900 bg-zinc-950/10" : ""
-    }`}>
+    <div
+      className={`p-4 bg-zinc-950/20 border border-zinc-800/80 rounded-2xl transition-all duration-200 hover:bg-zinc-900/30 hover:border-zinc-700/50 ${
+        cuenta.estado === EstadoBase.Inactivo
+          ? "opacity-60 border-zinc-900 bg-zinc-950/10"
+          : ""
+      }`}
+    >
       {/* Header of the Card */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-zinc-800/30">
         <Group gap="sm" className="min-w-0 flex-1">
@@ -54,11 +72,20 @@ export const CuentaBancaria = ({ cuenta, onEdit, onToggleStatus, loadingStatus }
           </ThemeIcon>
 
           <Stack gap={0} className="min-w-0">
-            <Text size="sm" fw={600} className="text-zinc-100 truncate w-full" title={cuenta.banco}>
+            <Text
+              size="sm"
+              fw={600}
+              className="text-zinc-100 truncate w-full"
+              title={cuenta.banco}
+            >
               {cuenta.banco}
             </Text>
             {cuenta.banco_abv && (
-              <Text size="10px" fw={500} className="text-zinc-500 uppercase tracking-wider">
+              <Text
+                size="10px"
+                fw={500}
+                className="text-zinc-500 uppercase tracking-wider"
+              >
                 {cuenta.banco_abv}
               </Text>
             )}
@@ -66,7 +93,11 @@ export const CuentaBancaria = ({ cuenta, onEdit, onToggleStatus, loadingStatus }
         </Group>
 
         {/* Badges and Actions */}
-        <Group gap="xs" wrap="nowrap" className="shrink-0 self-end sm:self-center">
+        <Group
+          gap="xs"
+          wrap="nowrap"
+          className="shrink-0 self-end sm:self-center"
+        >
           <Badge
             color={isSoles ? "indigo" : "emerald"}
             variant="light"
@@ -92,7 +123,11 @@ export const CuentaBancaria = ({ cuenta, onEdit, onToggleStatus, loadingStatus }
             {cuenta.estado}
           </Badge>
 
-          <Divider size="xs" orientation="vertical" className="border-zinc-800 h-4 mx-1" />
+          <Divider
+            size="xs"
+            orientation="vertical"
+            className="border-zinc-800 h-4 mx-1"
+          />
 
           {onEdit && (
             <Tooltip label="Editar Cuenta" withArrow>
@@ -108,7 +143,14 @@ export const CuentaBancaria = ({ cuenta, onEdit, onToggleStatus, loadingStatus }
             </Tooltip>
           )}
           {onToggleStatus && (
-            <Tooltip label={cuenta.estado === EstadoBase.Activo ? "Inactivar Cuenta" : "Activar Cuenta"} withArrow>
+            <Tooltip
+              label={
+                cuenta.estado === EstadoBase.Activo
+                  ? "Inactivar Cuenta"
+                  : "Activar Cuenta"
+              }
+              withArrow
+            >
               <ActionIcon
                 variant="subtle"
                 color={cuenta.estado === EstadoBase.Activo ? "orange" : "green"}
@@ -129,12 +171,21 @@ export const CuentaBancaria = ({ cuenta, onEdit, onToggleStatus, loadingStatus }
         {/* Nro de Cuenta */}
         <div className="flex items-center justify-between p-2.5 bg-zinc-900/30 border border-zinc-800/40 rounded-xl">
           <div className="min-w-0 flex-1">
-            <Text size="9px" fw={700} className="text-zinc-500 uppercase tracking-widest mb-0.5">
+            <Text
+              size="9px"
+              fw={700}
+              className="text-zinc-500 uppercase tracking-widest mb-0.5"
+            >
               Número de Cuenta
             </Text>
             <Group gap={6} wrap="nowrap">
-              <IconCreditCard size={14} className="text-zinc-650 shrink-0" />
-              <Text size="xs" fw={500} className="text-zinc-300 font-mono truncate" title={cuenta.numero_cuenta}>
+              <IconCreditCard size={14} className="text-zinc-500 shrink-0" />
+              <Text
+                size="xs"
+                fw={500}
+                className="text-zinc-300 font-mono truncate"
+                title={cuenta.numero_cuenta}
+              >
                 {cuenta.numero_cuenta}
               </Text>
             </Group>
@@ -155,21 +206,33 @@ export const CuentaBancaria = ({ cuenta, onEdit, onToggleStatus, loadingStatus }
         {/* CCI */}
         <div className="flex items-center justify-between p-2.5 bg-zinc-900/30 border border-zinc-800/40 rounded-xl">
           <div className="min-w-0 flex-1">
-            <Text size="9px" fw={700} className="text-zinc-500 uppercase tracking-widest mb-0.5">
+            <Text
+              size="9px"
+              fw={700}
+              className="text-zinc-500 uppercase tracking-widest mb-0.5"
+            >
               Código Interbancario (CCI)
             </Text>
             {cuenta.cci ? (
-              <Text size="xs" fw={500} className="text-zinc-300 font-mono truncate pl-1" title={cuenta.cci}>
+              <Text
+                size="xs"
+                fw={500}
+                className="text-zinc-300 font-mono truncate pl-1"
+                title={cuenta.cci}
+              >
                 {cuenta.cci}
               </Text>
             ) : (
-              <Text size="xs" className="text-zinc-650 italic pl-1">
+              <Text size="xs" className="text-zinc-500 italic pl-1">
                 No registrado
               </Text>
             )}
           </div>
           {cuenta.cci && (
-            <Tooltip label={copiedCci ? "Copiado!" : "Copiar CCI"} withArrow>
+            <Tooltip
+              label={copiedCci ? "Copiado!" : "Copiar CCI"}
+              withArrow
+            >
               <ActionIcon
                 variant="subtle"
                 color={copiedCci ? "green" : "gray"}
@@ -185,4 +248,4 @@ export const CuentaBancaria = ({ cuenta, onEdit, onToggleStatus, loadingStatus }
       </div>
     </div>
   );
-};
+}

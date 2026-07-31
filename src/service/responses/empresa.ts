@@ -4,4 +4,5 @@ export interface RES_Empresa {
   razon_social: string;
   nombre_comercial: string;
   path_logo: string | null;
+  cantidad_cuentas_bancarias?: number;
 }

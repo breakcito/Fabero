@@ -1,5 +1,5 @@
 import type { EstadoBase } from "../../../shared/enums/_generic/estado-base";
-import type { Moneda } from "../../../shared/enums/_generic/moneda";
+import type { CuentaBancariaItem } from "../../../shared/interfaces/cuenta-bancaria";
 
 export interface PlantaDestinoResponse {
   id: number;
@@ -13,14 +13,4 @@ export interface PlantaDestinoResponse {
   estado: EstadoBase;
 }
 
-export interface CuentaBancariaPlantaResponse {
-  id_cuenta_bancaria: number;
-  banco_abv: string;
-  banco: string;
-  id_banco: number;
-  moneda: Moneda;
-  numero_cuenta: string;
-  cci: string | null;
-  es_para_detraccion: boolean;
-  estado: EstadoBase;
-}
+export interface CuentaBancariaPlantaResponse extends CuentaBancariaItem {}
