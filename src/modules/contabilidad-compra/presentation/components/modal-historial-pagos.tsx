@@ -84,13 +84,19 @@ export const ModalHistorialPagos = ({
     : Math.max(comprobante.monto_detraccion_soles - comprobante.avance_pago_detraccion, 0);
 
   const todasAprobadas = comprobante.aprobaciones.every((a) => a.esta_aprobado);
-  const habilitadoRegistrar = todasAprobadas && !isAnulado;
+  const todoPagado =
+    comprobante.estado === EstadoComprobanteCompra.Pagado ||
+    (saldoPendienteNeto <= 0.01 && saldoPendienteDetraccion <= 0.01);
+
+  const habilitadoRegistrar = todasAprobadas && !isAnulado && !todoPagado;
 
   const tooltipRegistrar = isAnulado
     ? "Comprobante Anulado — No se pueden registrar pagos"
     : !todasAprobadas
       ? "Complete las 3 aprobaciones"
-      : "Registrar Pago";
+      : todoPagado
+        ? "Comprobante Totalmente Pagado"
+        : "Registrar Pago";
 
   return (
     <>

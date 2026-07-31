@@ -114,7 +114,8 @@ export default function ContabilidadCompraPage() {
   const handleAnularPago = async (idPago: number, motivo: string, evidenciasAnulacion?: File[]) => {
     if (!comprobanteHistorial) return;
     await anularPago(idPago, comprobanteHistorial.id, { motivo, evidencias_anulacion: evidenciasAnulacion });
-    // Refrescar el comprobante del modal de historial con los nuevos totales/pagos.
+    // Refrescar tarjetas de la vista principal y totales del historial de inmediato
+    await cargarComprobantes(false);
     const res = await ContabilidadCompraService.obtenerComprobante(comprobanteHistorial.id);
     if (res.success && res.data) setComprobanteHistorial(res.data);
   };

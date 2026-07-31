@@ -43,8 +43,14 @@ interface CuentaOption {
 
 const isMonedaSoles = (moneda: string): boolean => {
   if (!moneda) return false;
-  const m = moneda.trim().toUpperCase();
+  const m = moneda.trim().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   return m === "SOLES" || m === "SOL" || m === "PEN" || m === "S/" || m === "S/.";
+};
+
+const isMonedaDolares = (moneda: string): boolean => {
+  if (!moneda) return false;
+  const m = moneda.trim().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return m === "DOLARES" || m === "DOLAR" || m === "USD" || m === "$" || m === "US$";
 };
 
 export const ModalRegistroPago = ({
@@ -167,12 +173,16 @@ export const ModalRegistroPago = ({
   }, [opened, comprobante?.id_proveedor]);
 
   const cuentasEmpresaMoneda = useMemo(() => {
-    if (!esParaDetraccion) return cuentasEmpresa;
+    if (!esParaDetraccion) {
+      return cuentasEmpresa.filter((c) => isMonedaDolares(c.moneda));
+    }
     return cuentasEmpresa.filter((c) => isMonedaSoles(c.moneda));
   }, [cuentasEmpresa, esParaDetraccion]);
 
   const cuentasProveedorMoneda = useMemo(() => {
-    if (!esParaDetraccion) return cuentasProveedor;
+    if (!esParaDetraccion) {
+      return cuentasProveedor.filter((c) => isMonedaDolares(c.moneda));
+    }
     return cuentasProveedor.filter((c) => isMonedaSoles(c.moneda));
   }, [cuentasProveedor, esParaDetraccion]);
 
@@ -294,7 +304,9 @@ export const ModalRegistroPago = ({
                   !idBancoEmpresa
                     ? "Seleccione banco"
                     : cuentasEmpresaFiltradas.length === 0
-                      ? "Sin cuentas en soles"
+                      ? esParaDetraccion
+                        ? "Sin cuentas en soles"
+                        : "Sin cuentas en dólares"
                       : "Seleccione cuenta"
                 }
                 data={cuentasEmpresaFiltradas.map((c) => ({
@@ -342,7 +354,9 @@ export const ModalRegistroPago = ({
                   !idBancoProveedor
                     ? "Seleccione banco"
                     : cuentasProveedorFiltradas.length === 0
-                      ? "Sin cuentas en soles"
+                      ? esParaDetraccion
+                        ? "Sin cuentas en soles"
+                        : "Sin cuentas en dólares"
                       : "Seleccione cuenta"
                 }
                 data={cuentasProveedorFiltradas.map((c) => ({
