@@ -5,12 +5,7 @@ import { ProtectedRoute } from "./protectedRoute.tsx";
 import { PublicRoute } from "./publicRoute.tsx";
 // import { PlaceholderPage } from "../pages/placeholder.page.tsx";
 // Layouts
-import {
-  ConfiguracionLayout,
-  EmpresasLayout,
-  PersonalLayout,
-  UsuariosLayout,
-} from "../layouts/configuracion.layout.tsx";
+import { GenericLayout } from "../layouts/generic.layout.tsx";
 // Vistas
 import { LoginPage } from "../../modules/login/presentation/login.page.tsx";
 import { HomePage } from "../pages/home/home.page.tsx";
@@ -95,15 +90,15 @@ export const App = () => {
         <Route path="/perfil" element={<PerfilPage />} />
 
         {/* Configuracion */}
-        <Route path="/configuracion" element={<ConfiguracionLayout />}>
+        <Route path="/configuracion" element={<GenericLayout />}>
           {/* Empresas */}
-          <Route path="empresas" element={<EmpresasLayout />}>
+          <Route path="empresas" element={<GenericLayout />}>
             <Route path="empresas" element={<EmpresasPage />} />
             <Route path="sucursales" element={<SucursalesPage />} />
           </Route>
 
           {/* Personal */}
-          <Route path="personal" element={<PersonalLayout />}>
+          <Route path="personal" element={<GenericLayout />}>
             <Route path="areas_cargos" element={<OrganigramaPage />} />
             <Route path="trabajadores" element={<PersonalPage />} />
             <Route
@@ -113,45 +108,35 @@ export const App = () => {
           </Route>
 
           {/* Usuarios */}
-          <Route path="usuarios" element={<UsuariosLayout />}>
+          <Route path="usuarios" element={<GenericLayout />}>
             <Route path="roles" element={<RolesPage />} />
             <Route path="cuentas" element={<CuentasPage />} />
           </Route>
 
           {/* Socios Comerciales */}
-          <Route path="socios-comerciales" element={<UsuariosLayout />}>
+          <Route path="socios-comerciales" element={<GenericLayout />}>
             <Route path="proveedores-mineros" element={<ProveedoresPage />} />
-            <Route path="plantas-destino" element={<PlantasDestinoPage />} />
-          
-          </Route>
-          {/* Empresa de Transporte */}
-          <Route path="empresa-transporte" element={<UsuariosLayout />}>
-            <Route path="conductores" element={<ConductoresPage />} />
-            <Route
-              path="empresas-transporte"
-              element={<EmpresasTransportePage />}
-            />
-            <Route path="vehiculos" element={<VehiculosPage />} />
-          </Route>
-          
-          <Route path="condiciones-comerciales" element={<UsuariosLayout />}>
             <Route
               path="proveedor"
               element={<CondicionesComercialesProveedorPage />}
             />
-          </Route>
-          <Route path="anticipos" element={<UsuariosLayout />}>
+            <Route path="plantas-destino" element={<PlantasDestinoPage />} />
             <Route
-              path="proveedor"
-              element={<AnticiposProveedorPage />}
+              path="empresas-transporte"
+              element={<EmpresasTransportePage />}
             />
-            
+          </Route>
+
+          {/* Transporte */}
+          <Route path="empresa-transporte" element={<GenericLayout />}>
+            <Route path="conductores" element={<ConductoresPage />} />
+            <Route path="vehiculos" element={<VehiculosPage />} />
           </Route>
         </Route>
 
         {/* Operaciones */}
-        <Route path="/operaciones" element={<ConfiguracionLayout />}>
-          <Route path="vigilancia" element={<UsuariosLayout />}>
+        <Route path="/operaciones" element={<GenericLayout />}>
+          <Route path="vigilancia" element={<GenericLayout />}>
             {/* Recepción de Unidades */}
             <Route
               path="recepcion-unidades"
@@ -163,7 +148,7 @@ export const App = () => {
               element={<RecepcionVisitasPage />}
             />
           </Route>
-          <Route path="balanza" element={<UsuariosLayout />}>
+          <Route path="balanza" element={<GenericLayout />}>
             {/* Recepción de Minerales */}
             <Route
               path="recepcion-mineral"
@@ -172,28 +157,32 @@ export const App = () => {
             {/* Resumen de Balanza */}
             <Route path="resumen-balanza" element={<ResumenBalanzaPage />} />
           </Route>
-          <Route path="guias" element={<UsuariosLayout />}>
+          <Route path="guias" element={<GenericLayout />}>
             {/* Recepción de Minerales */}
             <Route path="primer-tramo" element={<GuiasPrimerTramoPage />} />
           </Route>
           {/* Gestion Leyes */}
-          <Route path="leyes" element={<UsuariosLayout />}>
+          <Route path="leyes" element={<GenericLayout />}>
             <Route path="configuracion" element={<GestionLeyesPage />} />
             <Route path="cierre-leyes" element={<CierreLeyesPage />} />
           </Route>
+
+          <Route path="anticipos" element={<GenericLayout />}>
+            <Route path="proveedor" element={<AnticiposProveedorPage />} />
+          </Route>
+
           {/* Gestion Valorizaciones */}
-          <Route path="valorizacion" element={<UsuariosLayout />}>
+          <Route path="valorizacion" element={<GenericLayout />}>
             <Route path="compra" element={<ValorizacionesCompraPage />} />
-            
           </Route>
 
           {/* Gestion Contabilidad */}
-          <Route path="contabilidad" element={<UsuariosLayout />}>
+          <Route path="contabilidad" element={<GenericLayout />}>
             <Route path="compra" element={<ContabilidadCompraPage />} />
           </Route>
 
           {/* Blending */}
-          <Route path="blending" element={<UsuariosLayout />}>
+          <Route path="blending" element={<GenericLayout />}>
             <Route path="blending" element={<BlendingPage />} />
           </Route>
         </Route>
