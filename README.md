@@ -402,7 +402,31 @@ Ante cualquier duda, consultar la documentación oficial de Mantine v8: https://
   ```
   `DataTableEstandar` intercepta automáticamente esta clave y calcula el índice correspondiente. No ensucies la definición del módulo con funciones de render redundantes.
 
-### 7. Catálogo de Referencia para la IA
+### 7. Estándar Obligatorio de Trazabilidad y Logs de Auditoría (`RES_CambiosLog`)
+
+- **Estructura Transversal Obligatoria**: La interfaz `RES_CambiosLog` (`src/service/responses/_generic/cambios-log.ts`) es el contrato estándar único para la trazabilidad de modificaciones en todo el ERP.
+- **Visualización Unificada**: Todo modal o componente de historial/auditoría **DEBE** utilizar el componente `CambiosLogViewer` (`src/presentation/utils/cambios-log-viewer.tsx`) alimentado por `RES_CambiosLog[]`.
+- **Formato Esperado**:
+  ```ts
+  export interface RES_CambiosLog {
+    id_empleado: number;
+    motivo: string | null;
+    update_at: string;
+    cambios: {
+      campo_bd: string | null;
+      campo: string | null;
+      valor_anterior: unknown;
+      valor_nuevo: unknown;
+    }[];
+  }
+  ```
+
+### 8. Gestión Estándar de Archivos y Adjuntos (`MultiFilePicker` y `ArchivoCard`)
+
+- **Formularios y Carga Drag & Drop**: Todo selector o gestor de evidencias/adjuntos en formularios de registro o edición **DEBE** utilizar `MultiFilePicker` (`src/presentation/utils/archivo/multifile-picker.tsx`), el cual soporta tanto archivos nuevos (`files: File[]`) como existentes (`existingFiles: IArchivo[]`).
+- **Visualización y Descargas**: Toda visualización de archivos adjuntos en modales o listas **DEBE** utilizar `ArchivoCard` (`src/presentation/utils/archivo/archivo-card.tsx`), permitiendo previsualizar imágenes y descargar documentos.
+
+### 9. Catálogo de Referencia para la IA
 
 Utiliza este catálogo para seleccionar los componentes y hooks más adecuados para cada tarea.
 

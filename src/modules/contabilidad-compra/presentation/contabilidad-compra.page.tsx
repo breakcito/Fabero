@@ -22,6 +22,10 @@ import { ComprobanteCard } from "./components/comprobante-card";
 import { ModalRegistroComprobante } from "./components/modal-registro-comprobante";
 import { ModalHistorialPagos } from "./components/modal-historial-pagos";
 import { ModalRegistroPago } from "./components/modal-registro-pago";
+import { ModalAnularComprobante } from "./components/modal-anular-comprobante";
+import { ModalEstandar } from "../../../presentation/utils/modal-estandar";
+import { ArchivoCard } from "../../../presentation/utils/archivo/archivo-card";
+import type { IArchivo } from "../../../shared/interfaces/archivo";
 import { ContabilidadCompraService } from "../service/contabilidad-compra.service";
 import type { TipoAprobacionComprobante } from "../../../shared/enums/contabilidad-compra/tipo-aprobacion-comprobante";
 import type { RES_ComprobanteCompra } from "../service/contabilidad-compra.responses";
@@ -76,6 +80,10 @@ export default function ContabilidadCompraPage() {
   const [comprobantePago, setComprobantePago] = useState<RES_ComprobanteCompra | null>(null);
   const [submittingPago, setSubmittingPago] = useState(false);
 
+  const [comprobanteAAnular, setComprobanteAAnular] = useState<RES_ComprobanteCompra | null>(null);
+  const [evidenceModalOpen, setEvidenceModalOpen] = useState(false);
+  const [selectedEvidencias, setSelectedEvidencias] = useState<IArchivo[] | null>(null);
+
   useEffect(() => {
     let cancelled = false;
     AuxService.get_proveedores({ estado: EstadoBase.Activo })
@@ -95,18 +103,19 @@ export default function ContabilidadCompraPage() {
     await aprobarComprobante(id, { tipo });
   };
 
-  const handleAnular = async (id: number) => {
-    const motivo = window.prompt("Motivo de anulación del comprobante (mín. 3 caracteres):");
-    if (!motivo || motivo.trim().length < 3) {
-      return;
+  const handleConfirmarAnularComprobante = async (motivo: string) => {
+    if (!comprobanteAAnular) return;
+    const ok = await anularComprobante(comprobanteAAnular.id, { motivo });
+    if (ok) {
+      setComprobanteAAnular(null);
     }
-    await anularComprobante(id, { motivo: motivo.trim() });
   };
 
-  const handleAnularPago = async (idPago: number, motivo: string) => {
+  const handleAnularPago = async (idPago: number, motivo: string, evidenciasAnulacion?: File[]) => {
     if (!comprobanteHistorial) return;
-    await anularPago(idPago, comprobanteHistorial.id, { motivo });
-    // Refrescar el comprobante del modal de historial con los nuevos totales/pagos.
+    await anularPago(idPago, comprobanteHistorial.id, { motivo, evidencias_anulacion: evidenciasAnulacion });
+    // Refrescar tarjetas de la vista principal y totales del historial de inmediato
+    await cargarComprobantes(false);
     const res = await ContabilidadCompraService.obtenerComprobante(comprobanteHistorial.id);
     if (res.success && res.data) setComprobanteHistorial(res.data);
   };
@@ -135,7 +144,7 @@ export default function ContabilidadCompraPage() {
         })();
       });
       if (ok) {
-        await cargarComprobantes();
+        await cargarComprobantes(false);
         // Refrescar también el comprobante del modal de historial con los nuevos totales/pagos.
         if (comprobanteHistorial) {
           const res = await ContabilidadCompraService.obtenerComprobante(comprobanteHistorial.id);
@@ -283,10 +292,14 @@ export default function ContabilidadCompraPage() {
               key={c.id}
               comprobante={c}
               anulando={anulandoId === c.id}
-              aprobando={Boolean(aprobandoId?.[c.id])}
+              aprobandoTipo={aprobandoId[c.id] ?? null}
               onAprobar={(tipo) => void handleAprobarInline(c.id, tipo)}
-              onAnular={() => void handleAnular(c.id)}
+              onAnular={() => setComprobanteAAnular(c)}
               onVerPagos={() => void handleVerHistorial(c.id)}
+              onVerEvidencias={() => {
+                setSelectedEvidencias(c.evidencias ?? []);
+                setEvidenceModalOpen(true);
+              }}
             />
           ))}
         </SimpleGrid>
@@ -319,6 +332,31 @@ export default function ContabilidadCompraPage() {
           onSubmit={handleRegistrarPago}
         />
       )}
+
+      <ModalAnularComprobante
+        opened={comprobanteAAnular !== null}
+        onClose={() => setComprobanteAAnular(null)}
+        comprobante={comprobanteAAnular}
+        onConfirm={handleConfirmarAnularComprobante}
+        loading={anulandoId !== null}
+      />
+
+      {/* Modal: Evidencias Registradas */}
+      <ModalEstandar
+        opened={evidenceModalOpen}
+        close={() => {
+          setEvidenceModalOpen(false);
+          setSelectedEvidencias(null);
+        }}
+        title="Evidencias del Comprobante"
+        size="md"
+      >
+        <div className="flex flex-col gap-3">
+          {selectedEvidencias?.map((e, idx) => (
+            <ArchivoCard key={idx} archivo={e} />
+          ))}
+        </div>
+      </ModalEstandar>
     </Stack>
   );
 }

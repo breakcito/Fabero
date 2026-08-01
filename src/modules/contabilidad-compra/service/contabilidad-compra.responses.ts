@@ -1,5 +1,6 @@
 import type { EstadoComprobanteCompra } from "../../../shared/enums/contabilidad-compra/estado-comprobante-compra";
 import type { TipoAprobacionComprobante } from "../../../shared/enums/contabilidad-compra/tipo-aprobacion-comprobante";
+import type { IArchivo } from "../../../shared/interfaces/archivo";
 
 export interface RES_AprobacionComprobante {
   tipo: TipoAprobacionComprobante;
@@ -39,7 +40,8 @@ export interface RES_PagoComprobante {
   fecha_hora_pago: string;
   numero_operacion: string | null;
   observacion: string | null;
-  evidencias: (string | Record<string, unknown>)[];
+  evidencias?: IArchivo[];
+  evidencias_anulacion?: IArchivo[];
   fecha_hora_anulacion: string | null;
   motivo_anulacion: string | null;
   es_anulado: boolean;
@@ -90,6 +92,7 @@ export interface RES_ComprobanteCompra {
   empleado_registro_nombre: string | null;
   total_pagado_neto: number;
   total_pagado_detraccion: number;
+  evidencias?: IArchivo[];
   lotes_valorizados?: RES_LoteValorizadoComprobante[];
   pagos?: RES_PagoComprobante[];
 }

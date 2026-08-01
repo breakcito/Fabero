@@ -41,7 +41,7 @@ const formatearFechaHora = (iso: string): string => {
   }
 };
 
-const formatearValor = (valor: unknown): string => {
+const formatearValor = (valor: unknown, campoBd?: string | null): string => {
   if (valor === null || valor === undefined) {
     return "—";
   }
@@ -49,7 +49,9 @@ const formatearValor = (valor: unknown): string => {
     return valor ? "Sí" : "No";
   }
   if (typeof valor === "number") {
-    return Number.isInteger(valor) ? String(valor) : valor.toFixed(2);
+    if (Number.isInteger(valor)) return String(valor);
+    const esLey = campoBd && (campoBd.includes("ley") || campoBd.includes("humedad"));
+    return valor.toFixed(esLey ? 3 : 2);
   }
   if (Array.isArray(valor)) {
     return valor.length === 0 ? "— (vacío)" : `(${valor.length}) ${valor.join(", ")}`;
@@ -274,10 +276,10 @@ export const CambiosLogViewer = ({ cambios, camposLegiblesCustom }: CambiosLogVi
                           ) : (
                             <>
                               <div className="rounded border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 font-mono text-rose-300 line-through opacity-80 text-center select-all">
-                                {formatearValor(c.valor_anterior)}
+                                {formatearValor(c.valor_anterior, c.campo_bd)}
                               </div>
                               <div className="rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-emerald-300 font-semibold text-center select-all">
-                                {formatearValor(c.valor_nuevo)}
+                                {formatearValor(c.valor_nuevo, c.campo_bd)}
                               </div>
                             </>
                           )}

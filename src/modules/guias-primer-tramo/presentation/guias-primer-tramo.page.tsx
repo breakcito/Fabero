@@ -379,7 +379,7 @@ export const GuiasPrimerTramoPage = () => {
             render: (g: RES_GuiaPrimerTramo) => (
               <Text
                 size="xs"
-                className="text-zinc-300 font-semibold truncate max-w-[200px]"
+                className="text-zinc-300 font-semibold truncate max-w-50"
                 title={g.empresa_transporte_razon_social ?? ""}
               >
                 {g.empresa_transporte_razon_social || "—"}

@@ -42,6 +42,7 @@ import CondicionesComercialesProveedorPage from "../../modules/condiciones-comer
 import AnticiposProveedorPage from "../../modules/anticipos-proveedor/presentation/anticipos-proveedor.page.tsx";
 import { ValorizacionesCompraPage } from "../../modules/valorizacion-compra/presentation/valorizacion-compra.page.tsx";
 import ContabilidadCompraPage from "../../modules/contabilidad-compra/presentation/contabilidad-compra.page.tsx";
+import BlendingPage from "../../modules/blending/presentation/blending.page.tsx";
 
 export const App = () => {
   const { setModoAuditoria } = useAuditoriaStore();
@@ -189,7 +190,11 @@ export const App = () => {
           {/* Gestion Contabilidad */}
           <Route path="contabilidad" element={<UsuariosLayout />}>
             <Route path="compra" element={<ContabilidadCompraPage />} />
-            
+          </Route>
+
+          {/* Blending */}
+          <Route path="blending" element={<UsuariosLayout />}>
+            <Route path="blending" element={<BlendingPage />} />
           </Route>
         </Route>
 

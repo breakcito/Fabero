@@ -286,7 +286,7 @@ export const MultiFilePicker = ({
                 size="xs"
                 c="zinc.5"
                 fw={600}
-                className="truncate max-w-[250px]"
+                className="truncate max-w-62.5"
               >
                 {description}
               </Text>
