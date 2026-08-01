@@ -44,7 +44,12 @@ export const HomePage = () => {
   useEffect(() => {
     const saludoMostrado = sessionStorage.getItem("blackcito_saludo_inicial");
     if (!saludoMostrado) {
-      happy(`¡Qué bueno verte por aquí, ${usuario?.nombre || "Colega"}! ¿En qué te ayudo hoy?`);
+      happy(
+        `¡Qué bueno verte por aquí, ${usuario?.nombre || "Colega"}! ¿En qué te ayudo hoy?`,
+        {
+          duration: 6000,
+        },
+      );
       sessionStorage.setItem("blackcito_saludo_inicial", "true");
     }
   }, [happy, usuario?.nombre]);
@@ -52,7 +57,6 @@ export const HomePage = () => {
 
   return (
     <div className="max-w-6xl mx-auto space-y-10 py-6 px-4">
-
       {/* Seccion de bienvenida */}
       <div className="text-center space-y-4 pt-10">
         <h1 className="text-2xl md:text-3xl font-extrabold bg-linear-to-r from-white via-zinc-200 to-zinc-500 bg-clip-text text-transparent tracking-tight">
