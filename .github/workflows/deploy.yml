@@ -1,0 +1,118 @@
+name: Deploy frontend
+
+on:
+  push:
+    branches: [main, dev]
+  workflow_dispatch:
+
+concurrency:
+  group: fabero-front-${{ github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    environment: ${{ github.ref_name == 'main' && 'production' || 'development' }}
+    timeout-minutes: 20
+    env:
+      VITE_API_URL: ${{ vars.VITE_API_URL }}
+      VITE_REVERB_APP_KEY: ${{ secrets.VITE_REVERB_APP_KEY }}
+      VITE_REVERB_HOST: ${{ vars.VITE_REVERB_HOST }}
+      VITE_REVERB_PORT: "443"
+      VITE_REVERB_SCHEME: https
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: Build
+        run: npm run build
+
+      - name: Configure SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.ssh"
+          printf '%s' "$DEPLOY_SSH_KEY" > "$HOME/.ssh/deploy_key"
+          chmod 600 "$HOME/.ssh/deploy_key"
+
+          if ! head -n1 "$HOME/.ssh/deploy_key" | grep -qE '^-----BEGIN'; then
+            body="$(< "$HOME/.ssh/deploy_key")"
+            {
+              printf '%s\n' '-----BEGIN OPENSSH PRIVATE KEY-----'
+              printf '%s\n' "$body"
+              printf '%s\n' '-----END OPENSSH PRIVATE KEY-----'
+            } > "$HOME/.ssh/deploy_key.new"
+            mv "$HOME/.ssh/deploy_key.new" "$HOME/.ssh/deploy_key"
+            chmod 600 "$HOME/.ssh/deploy_key"
+          fi
+
+          if ! ssh-keygen -y -f "$HOME/.ssh/deploy_key" >/dev/null 2>&1; then
+            echo "DEPLOY_SSH_KEY no es una llave privada válida"
+            exit 1
+          fi
+
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 644 "$HOME/.ssh/known_hosts"
+
+      - name: Package and deploy
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REF_NAME" = "main" ]; then
+            target="front"
+            env_arg="prod"
+          else
+            target="front-dev"
+            env_arg="dev"
+          fi
+
+          tmpdir="$(mktemp -d)"
+          cp -r dist "$tmpdir/dist"
+          printf '{"sha":"%s","branch":"%s","built_at":"%s"}\n' \
+            "$GITHUB_SHA" "$GITHUB_REF_NAME" "$(date -u +%FT%TZ)" \
+            > "$tmpdir/dist/commit.json"
+
+          archive="$tmpdir/frontend-${GITHUB_SHA}.tar.gz"
+          (cd "$tmpdir" && tar -czf "$archive" dist)
+          (cd "$tmpdir" && sha256sum "frontend-${GITHUB_SHA}.tar.gz" > "frontend-${GITHUB_SHA}.tar.gz.sha256")
+
+          scp \
+            -i "$HOME/.ssh/deploy_key" \
+            -P "$DEPLOY_PORT" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -o IdentitiesOnly=yes \
+            -o PubkeyAcceptedAlgorithms=+ssh-ed25519 \
+            "$archive" \
+            "$tmpdir/frontend-${GITHUB_SHA}.tar.gz.sha256" \
+            "$DEPLOY_USER@$DEPLOY_HOST:/srv/fabero/incoming/${target}/"
+
+          ssh \
+            -i "$HOME/.ssh/deploy_key" \
+            -p "$DEPLOY_PORT" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -o IdentitiesOnly=yes \
+            -o PubkeyAcceptedAlgorithms=+ssh-ed25519 \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "sudo /usr/local/sbin/fabero-deploy front '$env_arg' '$GITHUB_SHA'"
+
+          rm -rf "$tmpdir"
