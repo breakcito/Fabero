@@ -13,7 +13,7 @@ import {
   Box,
 } from "@mantine/core";
 import { IconFileText, IconCoins, IconCheck } from "@tabler/icons-react";
-import { ElementoQuimicoValorizacion } from "../../../../shared/enums/valorizacion-compra/elemento-quimico-valorizacion";
+import { ElementoQuimicoValorizacion } from "../../../../shared/enums/_generic/elemento-quimico-valorizacion";
 import { AuxService } from "../../../../service/auxiliar.service";
 import { useNotify } from "../../../../hooks/useNotify";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";

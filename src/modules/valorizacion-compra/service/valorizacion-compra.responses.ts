@@ -1,6 +1,6 @@
 import type { EstadoValorizacionCompra } from "../../../shared/enums/valorizacion-compra/estado-valorizacion-compra";
 import type { TipoPagoValorizacionCompra } from "../../../shared/enums/valorizacion-compra/tipo-pago-valorizacion-compra";
-import type { ElementoQuimicoValorizacion } from "../../../shared/enums/valorizacion-compra/elemento-quimico-valorizacion";
+import type { ElementoQuimicoValorizacion } from "../../../shared/enums/_generic/elemento-quimico-valorizacion";
 import type { EstadoTransaccionAnticipo } from "../../../shared/enums/valorizacion-compra/estado-transaccion-anticipo";
 
 export interface RES_ValorizacionCompraDetalle {

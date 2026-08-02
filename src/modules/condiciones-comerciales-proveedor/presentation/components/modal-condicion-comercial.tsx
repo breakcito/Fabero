@@ -6,6 +6,7 @@ import type { RES_Proveedor } from "../../../../service/responses/proveedor";
 import type { RES_CondicionComercialProveedor } from "../../service/condiciones-comerciales-proveedor.responses";
 import type { DTO_CrearCondicionComercial, DTO_ActualizarCondicionComercial } from "../../service/condiciones-comerciales-proveedor.requests";
 import { useNotify } from "../../../../hooks/useNotify";
+import { ElementoQuimicoValorizacion } from "../../../../shared/enums/_generic/elemento-quimico-valorizacion";
 
 interface ModalCondicionComercialProps {
   opened: boolean;
@@ -19,16 +20,24 @@ interface ModalCondicionComercialProps {
 
 const formSchema = z.object({
   id_proveedor_minero: z.number().min(1, "Debe seleccionar un proveedor"),
-  ley_auoz_inicio: z.number().min(0, "La ley de inicio no puede ser menor a 0"),
-  ley_auoz_fin: z.number().min(0, "La ley de fin no puede ser menor a 0"),
+  elemento_quimico: z.nativeEnum(ElementoQuimicoValorizacion, {
+    message: "Debe seleccionar un elemento químico",
+  }),
+  ley_inicio: z.number().min(0, "La ley de inicio no puede ser menor a 0"),
+  ley_fin: z.number().min(0, "La ley de fin no puede ser menor a 0"),
   maquila: z.number().min(0, "La maquila no puede ser menor a 0"),
   recuperacion: z.number().min(0, "La recuperación debe ser entre 0 y 100").max(100, "La recuperación debe ser entre 0 y 100"),
   consumo: z.number().min(0, "El consumo no puede ser menor a 0"),
   riesgo_comercial: z.number().min(0, "El riesgo comercial no puede ser menor a 0"),
-}).refine((data) => data.ley_auoz_inicio <= data.ley_auoz_fin, {
+}).refine((data) => data.ley_inicio <= data.ley_fin, {
   message: "La ley inicio no puede ser mayor que la ley fin",
-  path: ["ley_auoz_fin"],
+  path: ["ley_fin"],
 });
+
+const opcionesElemento = [
+  { value: ElementoQuimicoValorizacion.Oro, label: "Oro (Au)" },
+  { value: ElementoQuimicoValorizacion.Plata, label: "Plata (Ag)" },
+];
 
 const fieldInputClass =
   "bg-zinc-950 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 focus:ring-1 focus:ring-zinc-300 transition-all h-[38px] rounded-xl";
@@ -49,8 +58,9 @@ export const ModalCondicionComercial = ({
 
   const [form, setForm] = useState({
     id_proveedor_minero: idProveedor ?? 0,
-    ley_auoz_inicio: 0,
-    ley_auoz_fin: 0,
+    elemento_quimico: ElementoQuimicoValorizacion.Oro as ElementoQuimicoValorizacion,
+    ley_inicio: 0,
+    ley_fin: 0,
     maquila: 0,
     recuperacion: 0,
     consumo: 0,
@@ -66,8 +76,9 @@ export const ModalCondicionComercial = ({
       if (condicionEditar) {
         setForm({
           id_proveedor_minero: condicionEditar.id_proveedor_minero,
-          ley_auoz_inicio: condicionEditar.ley_auoz_inicio,
-          ley_auoz_fin: condicionEditar.ley_auoz_fin,
+          elemento_quimico: condicionEditar.elemento_quimico,
+          ley_inicio: condicionEditar.ley_inicio,
+          ley_fin: condicionEditar.ley_fin,
           maquila: condicionEditar.maquila,
           recuperacion: condicionEditar.recuperacion,
           consumo: condicionEditar.consumo,
@@ -76,8 +87,9 @@ export const ModalCondicionComercial = ({
       } else {
         setForm({
           id_proveedor_minero: idProveedor ?? (proveedores[0]?.id_proveedor ?? 0),
-          ley_auoz_inicio: 0,
-          ley_auoz_fin: 0,
+          elemento_quimico: ElementoQuimicoValorizacion.Oro,
+          ley_inicio: 0,
+          ley_fin: 0,
           maquila: 0,
           recuperacion: 0,
           consumo: 0,
@@ -134,12 +146,33 @@ export const ModalCondicionComercial = ({
           }}
         />
 
-        {/* Ley Au (oz/TC) Inicio y Fin */}
+        {/* Elemento Químico */}
+        <Select
+          label="Elemento Químico"
+          data={opcionesElemento}
+          value={form.elemento_quimico}
+          onChange={(val) =>
+            setForm((prev) => ({
+              ...prev,
+              elemento_quimico: (val as ElementoQuimicoValorizacion) ?? ElementoQuimicoValorizacion.Oro,
+            }))
+          }
+          size="xs"
+          radius="lg"
+          comboboxProps={{ withinPortal: true }}
+          classNames={{
+            input: fieldInputClass,
+            label: fieldLabelClass,
+            option: "hover:bg-zinc-800 focus:bg-zinc-800",
+          }}
+        />
+
+        {/* Ley Inicio / Ley Final */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <NumberInput
-            label="Ley Au (oz/TC) Inicio"
-            value={form.ley_auoz_inicio}
-            onChange={(val) => setForm((prev) => ({ ...prev, ley_auoz_inicio: typeof val === "number" ? val : 0 }))}
+            label="Ley Inicio"
+            value={form.ley_inicio}
+            onChange={(val) => setForm((prev) => ({ ...prev, ley_inicio: typeof val === "number" ? val : 0 }))}
             min={0}
             decimalScale={4}
             step={0.0001}
@@ -152,9 +185,9 @@ export const ModalCondicionComercial = ({
           />
 
           <NumberInput
-            label="Ley Au (oz/TC) Fin"
-            value={form.ley_auoz_fin}
-            onChange={(val) => setForm((prev) => ({ ...prev, ley_auoz_fin: typeof val === "number" ? val : 0 }))}
+            label="Ley Final"
+            value={form.ley_fin}
+            onChange={(val) => setForm((prev) => ({ ...prev, ley_fin: typeof val === "number" ? val : 0 }))}
             min={0}
             decimalScale={4}
             step={0.0001}

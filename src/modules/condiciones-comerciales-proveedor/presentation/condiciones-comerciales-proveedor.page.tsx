@@ -109,19 +109,34 @@ export const CondicionesComercialesProveedorPage = () => {
         width: 45,
       },
       {
-        accessor: "ley_auoz_inicio",
-        title: "Ley Auoz Inicio",
+        accessor: "elemento_quimico",
+        title: "Elemento",
         textAlign: "center" as const,
         render: (r: RES_CondicionComercialProveedor) => (
-          <span className="font-mono text-zinc-300">{r.ley_auoz_inicio.toFixed(3)}</span>
+          <Badge
+            variant="light"
+            color={r.elemento_quimico === "Oro" ? "yellow" : "gray"}
+            size="sm"
+            radius="sm"
+          >
+            {r.elemento_quimico}
+          </Badge>
         ),
       },
       {
-        accessor: "ley_auoz_fin",
-        title: "Ley Auoz Fin",
+        accessor: "ley_inicio",
+        title: "Ley Inicio",
         textAlign: "center" as const,
         render: (r: RES_CondicionComercialProveedor) => (
-          <span className="font-mono text-zinc-300">{r.ley_auoz_fin.toFixed(3)}</span>
+          <span className="font-mono text-zinc-300">{r.ley_inicio.toFixed(3)}</span>
+        ),
+      },
+      {
+        accessor: "ley_fin",
+        title: "Ley Final",
+        textAlign: "center" as const,
+        render: (r: RES_CondicionComercialProveedor) => (
+          <span className="font-mono text-zinc-300">{r.ley_fin.toFixed(3)}</span>
         ),
       },
       {

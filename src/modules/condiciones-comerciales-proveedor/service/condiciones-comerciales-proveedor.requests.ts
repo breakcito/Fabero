@@ -1,7 +1,10 @@
+import type { ElementoQuimicoValorizacion } from "../../../shared/enums/_generic/elemento-quimico-valorizacion";
+
 export interface DTO_CrearCondicionComercial {
   id_proveedor_minero: number;
-  ley_auoz_inicio: number;
-  ley_auoz_fin: number;
+  elemento_quimico: ElementoQuimicoValorizacion;
+  ley_inicio: number;
+  ley_fin: number;
   maquila: number;
   recuperacion: number;
   consumo: number;
@@ -9,8 +12,9 @@ export interface DTO_CrearCondicionComercial {
 }
 
 export interface DTO_ActualizarCondicionComercial {
-  ley_auoz_inicio: number;
-  ley_auoz_fin: number;
+  elemento_quimico: ElementoQuimicoValorizacion;
+  ley_inicio: number;
+  ley_fin: number;
   maquila: number;
   recuperacion: number;
   consumo: number;
