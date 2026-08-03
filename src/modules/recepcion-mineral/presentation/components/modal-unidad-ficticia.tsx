@@ -41,6 +41,9 @@ export const ModalUnidadFicticia = ({
   const ahora = new Date();
   const [fecha, setFecha] = useState<string>(toDateInput(ahora));
   const [hora, setHora] = useState<string>(toTimeInput(ahora));
+  const [internalLoading, setInternalLoading] = useState(false);
+
+  const isBusy = !!loading || internalLoading;
 
   useEffect(() => {
     if (!opened) return;
@@ -82,7 +85,14 @@ export const ModalUnidadFicticia = ({
       return;
     }
 
-    await onConfirm(combinado);
+    try {
+      setInternalLoading(true);
+      await onConfirm(combinado);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setInternalLoading(false);
+    }
   };
 
   const isEdit = mode === "edit";
@@ -113,6 +123,7 @@ export const ModalUnidadFicticia = ({
               onChange={(e) => setFecha(e.currentTarget.value)}
               classNames={fieldClasses}
               style={{ colorScheme: "dark" }}
+              disabled={isBusy}
               required
             />
           </Grid.Col>
@@ -125,6 +136,7 @@ export const ModalUnidadFicticia = ({
               onChange={(e) => setHora(e.currentTarget.value)}
               classNames={fieldClasses}
               style={{ colorScheme: "dark" }}
+              disabled={isBusy}
               required
             />
           </Grid.Col>
@@ -136,14 +148,15 @@ export const ModalUnidadFicticia = ({
             color="gray"
             radius="lg"
             onClick={onClose}
-            disabled={loading}
+            disabled={isBusy}
             classNames={{ root: "text-zinc-400 hover:bg-zinc-800" }}
           >
             Cancelar
           </Button>
           <Button
             radius="lg"
-            loading={loading}
+            loading={isBusy}
+            disabled={isBusy}
             onClick={handleConfirm}
             leftSection={<IconCheck size={18} />}
             className={`font-bold shadow-lg px-6 ${

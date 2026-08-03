@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Stack,
+  Group,
   Grid,
   Select,
   TextInput,
@@ -22,6 +23,8 @@ import {
   IconFileText,
 } from "@tabler/icons-react";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
+import { ModalRegistroProveedor } from "../../../../presentation/utils/modal-registro-proveedor";
+import { ModalConcesionesProveedor } from "../../../../presentation/utils/modal-concesiones-proveedor";
 import { MultiFilePicker } from "../../../../presentation/utils/archivo/multifile-picker";
 import { AuxService } from "../../../../service/auxiliar.service";
 import { useNotify } from "../../../../hooks/useNotify";
@@ -29,6 +32,7 @@ import { ConcesionesPorProveedorService, LotesMineralService } from "../../servi
 import type { RES_ConcesionPorProveedor } from "../../service/guias-primer-tramo.responses";
 import type { RES_LoteMineralDisponible } from "../../service/guias-primer-tramo.responses";
 import type { RES_Proveedor } from "../../../../service/responses/proveedor";
+import type { ProveedorResponse } from "../../../proveedores-mineros/service/proveedores.responses";
 import type { RES_Vehiculo } from "../../../../service/responses/vehiculo";
 import type { RES_EmpresaTransporte } from "../../../../service/responses/empresa-transporte";
 import type { RES_Conductor } from "../../../../service/responses/conductor";
@@ -104,13 +108,52 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
   const [evidencias, setEvidencias] = useState<File[]>([]);
   const [evidenciasExistentes, setEvidenciasExistentes] = useState<IArchivo[]>([]);
   const [lotes, setLotes] = useState<LoteFormItem[]>([]);
-
   // Sub-modal selección de lote
   const [openLoteModal, setOpenLoteModal] = useState(false);
   const [lotesDisponibles, setLotesDisponibles] = useState<RES_LoteMineralDisponible[]>([]);
   const [loadingLotes, setLoadingLotes] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
+
+  // Sub-modales de registro rápido de proveedor y concesión
+  const [openedModalProveedor, setOpenedModalProveedor] = useState(false);
+  const [openedModalConcesion, setOpenedModalConcesion] = useState(false);
+
+  const reloadProveedores = async () => {
+    setLoadingProveedores(true);
+    try {
+      const res = await AuxService.get_proveedores();
+      setProveedores(res.data ?? []);
+    } catch (e) {
+      console.error("Error al recargar proveedores", e);
+    } finally {
+      setLoadingProveedores(false);
+    }
+  };
+
+  const reloadConcesiones = async (provId: number) => {
+    setLoadingConcesiones(true);
+    try {
+      const data = await ConcesionesPorProveedorService.get_concesiones_by_proveedor(provId);
+      setConcesiones(data);
+    } catch (e) {
+      console.error("Error al recargar concesiones del proveedor", e);
+    } finally {
+      setLoadingConcesiones(false);
+    }
+  };
+
+  const handleProveedorCreado = async (nuevo: ProveedorResponse) => {
+    await reloadProveedores();
+    setIdProveedor(String(nuevo.id_proveedor));
+  };
+
+  const handleConcesionCreada = async (newIdConcesion: number) => {
+    if (idProveedor) {
+      await reloadConcesiones(Number(idProveedor));
+      setIdConcesion(String(newIdConcesion));
+    }
+  };
 
   // Cargar datos al abrir en modo Edición o limpiar en creación
   useEffect(() => {
@@ -567,41 +610,76 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
           {/* ========== 2. Proveedor y Concesión ========== */}
           <Grid gutter="sm">
             <Grid.Col span={{ base: 12, sm: 6 }}>
-              <Select
-                label="Proveedor:"
-                placeholder={loadingProveedores ? "Cargando..." : "Seleccione"}
-                searchable
-                clearable
-                data={proveedores.map((p) => ({
-                  value: String(p.id_proveedor),
-                  label: p.razon_social + (p.documento ? ` (${p.documento})` : ""),
-                }))}
-                value={idProveedor}
-                onChange={setIdProveedor}
-                classNames={fieldClasses}
-                radius="lg"
-                size="xs"
-                disabled={loadingProveedores}
-                rightSection={loadingProveedores ? <Loader size={16} /> : undefined}
-                required
-              />
+              <Group gap="xs" align="flex-end" wrap="nowrap">
+                <Select
+                  label="Proveedor:"
+                  placeholder={loadingProveedores ? "Cargando..." : "Seleccione"}
+                  searchable
+                  clearable
+                  data={proveedores.map((p) => ({
+                    value: String(p.id_proveedor),
+                    label: p.razon_social + (p.documento ? ` (${p.documento})` : ""),
+                  }))}
+                  value={idProveedor}
+                  onChange={setIdProveedor}
+                  classNames={fieldClasses}
+                  radius="lg"
+                  size="xs"
+                  disabled={loadingProveedores}
+                  rightSection={loadingProveedores ? <Loader size={16} /> : undefined}
+                  required
+                  className="flex-1"
+                />
+                <Tooltip label="Registrar Nuevo Proveedor Minero" withArrow radius="md">
+                  <ActionIcon
+                    size="30px"
+                    radius="lg"
+                    variant="filled"
+                    color="indigo"
+                    onClick={() => setOpenedModalProveedor(true)}
+                    className="mb-0.5"
+                  >
+                    <IconPlus size={16} />
+                  </ActionIcon>
+                </Tooltip>
+              </Group>
             </Grid.Col>
             <Grid.Col span={{ base: 12, sm: 6 }}>
-              <Select
-                label={labelConcesion}
-                placeholder={loadingConcesiones ? "Cargando..." : "Seleccione"}
-                searchable
-                clearable
-                data={concesiones.map((c) => ({ value: String(c.id_concesion), label: c.nombre }))}
-                value={idConcesion}
-                onChange={setIdConcesion}
-                classNames={fieldClasses}
-                radius="lg"
-                size="xs"
-                required
-                disabled={!idProveedor || loadingConcesiones}
-                rightSection={loadingConcesiones ? <Loader size={16} /> : undefined}
-              />
+              <Group gap="xs" align="flex-end" wrap="nowrap">
+                <Select
+                  label={labelConcesion}
+                  placeholder={loadingConcesiones ? "Cargando..." : "Seleccione"}
+                  searchable
+                  clearable
+                  data={concesiones.map((c) => ({ value: String(c.id_concesion), label: c.nombre }))}
+                  value={idConcesion}
+                  onChange={setIdConcesion}
+                  classNames={fieldClasses}
+                  radius="lg"
+                  size="xs"
+                  required
+                  disabled={!idProveedor || loadingConcesiones}
+                  rightSection={loadingConcesiones ? <Loader size={16} /> : undefined}
+                  className="flex-1"
+                />
+                <Tooltip
+                  label={idProveedor ? "Asociar o Crear Concesión" : "Seleccione primero un proveedor"}
+                  withArrow
+                  radius="md"
+                >
+                  <ActionIcon
+                    size="30px"
+                    radius="lg"
+                    variant="filled"
+                    color="indigo"
+                    disabled={!idProveedor}
+                    onClick={() => setOpenedModalConcesion(true)}
+                    className="mb-0.5"
+                  >
+                    <IconPlus size={16} />
+                  </ActionIcon>
+                </Tooltip>
+              </Group>
             </Grid.Col>
           </Grid>
 
@@ -953,6 +1031,24 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
           </div>
         </Stack>
       </ModalEstandar>
+
+      {/* Submodal para registrar proveedor de forma rápida */}
+      <ModalRegistroProveedor
+        opened={openedModalProveedor}
+        onClose={() => setOpenedModalProveedor(false)}
+        onSuccess={handleProveedorCreado}
+      />
+
+      {/* Submodal para asociar/crear concesión de forma rápida */}
+      {idProveedor && (
+        <ModalConcesionesProveedor
+          opened={openedModalConcesion}
+          idProveedor={Number(idProveedor)}
+          nombreProveedor={proveedores.find((p) => String(p.id_proveedor) === idProveedor)?.razon_social}
+          onClose={() => setOpenedModalConcesion(false)}
+          onSuccess={handleConcesionCreada}
+        />
+      )}
 
       {/* Sub-modal selección de lote */}
       <ModalSeleccionarLote

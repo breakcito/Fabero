@@ -37,7 +37,7 @@ export const ModalConcesiones = ({ proveedor }: Props) => {
   const { notify, notifySuccess, notifyError } = useNotify();
 
   // Concesiones del proveedor
-  const [concesionesAsociadas, setConcesionesAsociadas] = useState<any[]>([]);
+  const [concesionesAsociadas, setConcesionesAsociadas] = useState<RES_Concesion[]>([]);
   const [loadingAsociadas, setLoadingAsociadas] = useState(false);
 
   // Todas las concesiones del sistema (para asociar)
@@ -128,9 +128,10 @@ export const ModalConcesiones = ({ proveedor }: Props) => {
       notify({ type: "success", content: "Concesión asociada correctamente" });
       setSelectedConcesionId(null);
       await fetchAsociadas();
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
-      notify({ type: "error", content: e.response?.data?.message || "Error al asociar la concesión" });
+      const axiosError = e as { response?: { data?: { message?: string } } };
+      notify({ type: "error", content: axiosError.response?.data?.message || "Error al asociar la concesión" });
     } finally {
       setIsLinking(false);
     }
@@ -147,7 +148,7 @@ export const ModalConcesiones = ({ proveedor }: Props) => {
       );
       notify({ type: "success", content: "Concesión desasociada correctamente" });
       await fetchAsociadas();
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
       notify({ type: "error", content: "Error al desasociar la concesión" });
     } finally {
@@ -165,7 +166,7 @@ export const ModalConcesiones = ({ proveedor }: Props) => {
       notifySuccess(`Concesión ${nuevoEstado.toLowerCase()} correctamente`);
       await fetchAsociadas();
       await fetchTodas();
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
       notifyError("Error al cambiar el estado de la concesión");
     } finally {
@@ -253,7 +254,7 @@ export const ModalConcesiones = ({ proveedor }: Props) => {
             </Text>
           </div>
         ) : asociadasFiltradas.length > 0 ? (
-          <div className="flex flex-col gap-2.5 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
+          <div className="flex flex-col gap-2.5 max-h-75 overflow-y-auto pr-1 custom-scrollbar">
             {asociadasFiltradas.map((c) => (
               <div
                 key={c.id_concesion}
