@@ -5,6 +5,7 @@ import type {
   REQ_FiltroValorizaciones,
   REQ_CrearValorizacion,
   REQ_EditarValorizacion,
+  REQ_AnularValorizacion,
 } from "./valorizacion-compra.requests";
 
 const basePath = "/valorizacion-compra";
@@ -94,8 +95,21 @@ export const ValorizacionCompraService = {
     return data;
   },
 
-  anularValorizacion: async (id: number): Promise<IRespuesta<void>> => {
-    const { data } = await api.post(`${basePath}/${id}/anular`);
+  anularValorizacion: async (
+    id: number,
+    payload: REQ_AnularValorizacion,
+  ): Promise<IRespuesta<void>> => {
+    const formData = new FormData();
+    formData.append("motivo_anulacion", payload.motivo_anulacion);
+    formData.append("tipo_eliminacion", payload.tipo_eliminacion);
+    if (payload.evidencias_anulacion && payload.evidencias_anulacion.length > 0) {
+      payload.evidencias_anulacion.forEach((file) => {
+        formData.append("evidencias_anulacion[]", file);
+      });
+    }
+    const { data } = await api.post(`${basePath}/${id}/anular`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
     return data;
   },
 };

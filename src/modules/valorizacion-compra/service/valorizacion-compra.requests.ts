@@ -46,3 +46,9 @@ export interface REQ_EditarValorizacion {
   evidencias_existentes?: IArchivo[];
   motivo_edicion?: string;
 }
+
+export interface REQ_AnularValorizacion {
+  motivo_anulacion: string;
+  tipo_eliminacion: "logica" | "fisica";
+  evidencias_anulacion?: File[];
+}

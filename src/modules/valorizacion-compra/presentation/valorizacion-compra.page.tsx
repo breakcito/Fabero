@@ -29,6 +29,7 @@ import { DataTableEstandar } from "../../../presentation/utils/datatable-estanda
 import { AuxService } from "../../../service/auxiliar.service";
 import { useValorizacionesCompra } from "../hooks/useValorizacionesCompra";
 import { ModalFormValorizacionCompra } from "./components/modal-form-valorizacion-compra";
+import { ModalAnularValorizacion } from "./components/modal-anular-valorizacion";
 import { CambiosLogViewer } from "../../../presentation/utils/cambios-log-viewer";
 import { ModalEstandar } from "../../../presentation/utils/modal-estandar";
 import { ArchivoCard } from "../../../presentation/utils/archivo/archivo-card";
@@ -101,7 +102,10 @@ export const ValorizacionCompraPage = () => {
 
   const [modalHistorialOpened, setModalHistorialOpened] = useState(false);
   const [valorizacionHistorial, setValorizacionHistorial] = useState<RES_ValorizacionCompra | null>(null);
-  const [modalEvidenciasInfo, setModalEvidenciasInfo] = useState<(IArchivo | string)[] | null>(null);
+  const [modalEvidenciasInfo, setModalEvidenciasInfo] = useState<{
+    title: string;
+    files: (IArchivo | string)[];
+  } | null>(null);
 
   const historialCambiosCombinados = useMemo(() => {
     if (!valorizacionHistorial) return [];
@@ -179,12 +183,16 @@ export const ValorizacionCompraPage = () => {
     modalFormOpened,
     setModalFormOpened,
     valorizacionEditar,
+    modalAnularOpened,
+    setModalAnularOpened,
+    valorizacionAnular,
     togglingIds,
     cargarValorizaciones,
     handleNuevo,
     handleEditar,
     handleAprobar,
-    handleAnular,
+    handleAbrirAnular,
+    handleConfirmarAnular,
   } = useValorizacionesCompra();
 
   useEffect(() => {
@@ -268,11 +276,11 @@ export const ValorizacionCompraPage = () => {
       width: 50,
     },
     {
-      accessor: "numero_correlativo",
+      accessor: "correlativo",
       title: "Correlativo",
       render: (r: RES_ValorizacionCompra) => (
         <Text fw={700} c="cyan.4">
-          {r.numero_correlativo?.replace(/^VAL/, "") ?? "-"}
+          {r.correlativo || (r.numero_correlativo ? `VAL-${r.numero_correlativo}` : "-")}
         </Text>
       ),
     },
@@ -369,14 +377,14 @@ export const ValorizacionCompraPage = () => {
             )}
 
             {!isAnulado && (
-              <Tooltip label="Anular Valorización">
+              <Tooltip label="Anular / Eliminar Valorización">
                 <ActionIcon
                   color="red"
                   variant="light"
                   size="sm"
                   loading={isBusy}
                   disabled={isBusy}
-                  onClick={() => handleAnular(r.id)}
+                  onClick={() => handleAbrirAnular(r)}
                 >
                   <IconBan size={14} />
                 </ActionIcon>
@@ -384,12 +392,35 @@ export const ValorizacionCompraPage = () => {
             )}
 
             {r.evidencias && r.evidencias.length > 0 && (
-              <Tooltip label="Ver Evidencias">
+              <Tooltip label="Evidencias de Registro">
                 <ActionIcon
                   variant="light"
                   color="indigo"
                   size="sm"
-                  onClick={() => setModalEvidenciasInfo(r.evidencias || null)}
+                  onClick={() =>
+                    setModalEvidenciasInfo({
+                      title: `Evidencias de Registro (${r.correlativo || `VAL-${r.id}`})`,
+                      files: r.evidencias || [],
+                    })
+                  }
+                >
+                  <IconFiles size={14} />
+                </ActionIcon>
+              </Tooltip>
+            )}
+
+            {r.evidencias_anulacion && r.evidencias_anulacion.length > 0 && (
+              <Tooltip label="Evidencias de Anulación">
+                <ActionIcon
+                  variant="filled"
+                  color="red"
+                  size="sm"
+                  onClick={() =>
+                    setModalEvidenciasInfo({
+                      title: `Evidencias de Anulación (${r.correlativo || `VAL-${r.id}`})`,
+                      files: r.evidencias_anulacion || [],
+                    })
+                  }
                 >
                   <IconFiles size={14} />
                 </ActionIcon>
@@ -709,12 +740,12 @@ export const ValorizacionCompraPage = () => {
       <ModalEstandar
         opened={modalEvidenciasInfo !== null}
         close={() => setModalEvidenciasInfo(null)}
-        title="Evidencias / Documentos Adjuntos"
+        title={modalEvidenciasInfo?.title || "Evidencias / Documentos Adjuntos"}
         size="md"
       >
         <Stack gap="xs">
-          {modalEvidenciasInfo && modalEvidenciasInfo.length > 0 ? (
-            modalEvidenciasInfo.map((filepath, idx) => (
+          {modalEvidenciasInfo && modalEvidenciasInfo.files.length > 0 ? (
+            modalEvidenciasInfo.files.map((filepath, idx) => (
               <ArchivoCard key={idx} archivo={getArchivoObj(filepath)} />
             ))
           ) : (
@@ -724,6 +755,15 @@ export const ValorizacionCompraPage = () => {
           )}
         </Stack>
       </ModalEstandar>
+
+      {/* Modal Anular / Eliminar Valorización */}
+      <ModalAnularValorizacion
+        opened={modalAnularOpened}
+        close={() => setModalAnularOpened(false)}
+        valorizacion={valorizacionAnular}
+        onConfirm={handleConfirmarAnular}
+        loading={valorizacionAnular ? !!togglingIds[valorizacionAnular.id] : false}
+      />
     </div>
   );
 };

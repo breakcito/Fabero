@@ -2,6 +2,7 @@ import type { EstadoValorizacionCompra } from "../../../shared/enums/valorizacio
 import type { TipoPagoValorizacionCompra } from "../../../shared/enums/valorizacion-compra/tipo-pago-valorizacion-compra";
 import type { ElementoQuimicoValorizacion } from "../../../shared/enums/_generic/elemento-quimico-valorizacion";
 import type { EstadoTransaccionAnticipo } from "../../../shared/enums/valorizacion-compra/estado-transaccion-anticipo";
+import type { IArchivo } from "../../../shared/interfaces/archivo";
 
 export interface RES_ValorizacionCompraDetalle {
   id: number;
@@ -44,6 +45,7 @@ export interface RES_TransaccionAnticipoValorizacion {
 export interface RES_ValorizacionCompra {
   id: number;
   numero_correlativo: string;
+  correlativo: string | null;
   id_proveedor_minero: number;
   proveedor_nombre: string | null;
   proveedor_ruc: string | null;
@@ -57,12 +59,17 @@ export interface RES_ValorizacionCompra {
   estado: EstadoValorizacionCompra;
   created_at: string;
   fecha_hora_aprobacion: string | null;
+  fecha_hora_anulacion?: string | null;
+  id_empleado_anulacion?: number | null;
   empleado_registro: string | null;
   empleado_aprobacion: string | null;
+  empleado_anulacion?: string | null;
+  motivo_anulacion?: string | null;
+  evidencias_anulacion?: (IArchivo | string)[];
   total_subtotal: number;
   total_anticipos: number;
   monto_transferencia: number;
-  evidencias?: string[];
+  evidencias?: (IArchivo | string)[];
   log_cambios?: Record<string, unknown>[];
   detalles: RES_ValorizacionCompraDetalle[];
   transacciones_anticipo: RES_TransaccionAnticipoValorizacion[];

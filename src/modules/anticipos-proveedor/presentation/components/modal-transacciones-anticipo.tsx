@@ -16,6 +16,7 @@ import { IconReceipt2, IconBuildingBank, IconUserCheck } from "@tabler/icons-rea
 import dayjs from "dayjs";
 import { AnticiposProveedorService } from "../../service/anticipos-proveedor.service";
 import { ValorizacionCompraService } from "../../../valorizacion-compra/service/valorizacion-compra.service";
+import { EstadoTransaccionAnticipo } from "../../../../shared/enums/valorizacion-compra/estado-transaccion-anticipo";
 import type {
   RES_AnticipoProveedor,
   RES_TransaccionAnticipo,
@@ -51,18 +52,21 @@ export const ModalTransaccionesAnticipo = ({
       return;
     }
 
-    const cargarTransacciones = async () => {
+const cargarTransacciones = async () => {
       setLoading(true);
       try {
         const res = await AnticiposProveedorService.get_transacciones(anticipoInfo.id);
         if (res.success && res.data) {
-          setTransacciones(res.data);
-          await cargarAprobInfoParaTransacciones(res.data);
+          const aprobadas = res.data.filter(
+            (t) => t.estado === EstadoTransaccionAnticipo.Aprobado,
+          );
+          setTransacciones(aprobadas);
+          await cargarAprobInfoParaTransacciones(aprobadas);
         } else {
           setTransacciones([]);
         }
       } catch (e) {
-        console.error("Error al cargar transacciones del anticipo", e);
+        console.error("Error al cargar transactions del anticipo", e);
         setTransacciones([]);
       } finally {
         setLoading(false);
@@ -167,8 +171,8 @@ export const ModalTransaccionesAnticipo = ({
                 <ThemeIcon size="lg" radius="xl" variant="light" color="gray">
                   <IconBuildingBank size={20} />
                 </ThemeIcon>
-                <Text size="xs" c="dimmed" fw={500}>
-                  No hay transacciones ni retiros registrados para este anticipo.
+<Text size="xs" c="dimmed" fw={500}>
+                  No hay transacciones aprobadas registradas para este anticipo.
                 </Text>
               </Stack>
             </Center>

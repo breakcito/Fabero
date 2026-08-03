@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { ValorizacionCompraService } from "../service/valorizacion-compra.service";
 import { useNotify } from "../../../hooks/useNotify";
 import type { RES_ValorizacionCompra } from "../service/valorizacion-compra.responses";
+import type { REQ_AnularValorizacion } from "../service/valorizacion-compra.requests";
 
 export const useValorizacionesCompra = () => {
   const { notifySuccess, notifyError } = useNotify();
@@ -12,6 +13,10 @@ export const useValorizacionesCompra = () => {
 
   const [modalFormOpened, setModalFormOpened] = useState(false);
   const [valorizacionEditar, setValorizacionEditar] =
+    useState<RES_ValorizacionCompra | null>(null);
+
+  const [modalAnularOpened, setModalAnularOpened] = useState(false);
+  const [valorizacionAnular, setValorizacionAnular] =
     useState<RES_ValorizacionCompra | null>(null);
 
   const [togglingIds, setTogglingIds] = useState<Record<number, boolean>>({});
@@ -76,17 +81,32 @@ export const useValorizacionesCompra = () => {
     }
   };
 
-  const handleAnular = async (id: number) => {
+  const handleAbrirAnular = (item: RES_ValorizacionCompra) => {
+    setValorizacionAnular(item);
+    setModalAnularOpened(true);
+  };
+
+  const handleConfirmarAnular = async (payload: REQ_AnularValorizacion) => {
+    if (!valorizacionAnular) return;
+    const id = valorizacionAnular.id;
     setTogglingIds((prev) => ({ ...prev, [id]: true }));
     try {
-      const res = await ValorizacionCompraService.anularValorizacion(id);
+      const res = await ValorizacionCompraService.anularValorizacion(id, payload);
       if (res.success) {
-        notifySuccess("Valorización anulada correctamente");
+        notifySuccess(
+          payload.tipo_eliminacion === "fisica"
+            ? "Valorización eliminada físicamente correctamente"
+            : "Valorización anulada correctamente",
+        );
+        setModalAnularOpened(false);
+        setValorizacionAnular(null);
         await cargarValorizaciones();
+      } else {
+        notifyError(res.message || "Error al procesar la anulación");
       }
     } catch (err) {
       notifyError(
-        err instanceof Error ? err.message : "Error al anular la valorización",
+        err instanceof Error ? err.message : "Error al procesar la anulación",
       );
     } finally {
       setTogglingIds((prev) => ({ ...prev, [id]: false }));
@@ -101,11 +121,15 @@ export const useValorizacionesCompra = () => {
     modalFormOpened,
     setModalFormOpened,
     valorizacionEditar,
+    modalAnularOpened,
+    setModalAnularOpened,
+    valorizacionAnular,
     togglingIds,
     cargarValorizaciones,
     handleNuevo,
     handleEditar,
     handleAprobar,
-    handleAnular,
+    handleAbrirAnular,
+    handleConfirmarAnular,
   };
 };
