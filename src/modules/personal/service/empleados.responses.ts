@@ -15,6 +15,7 @@ export interface RES_EmpleadoResumen {
   fecha_nacimiento: string | null;
   path_foto: string | null;
   estado: string;
+  autoriza_ingreso_unidades: boolean;
 }
 
 export interface RES_Area {

@@ -63,7 +63,7 @@ export const VehiculosPage = () => {
       <ModalEstandar
         opened={!!vehiculoAEditar}
         close={() => setVehiculoAEditar(null)}
-        title={vehiculoAEditar ? `Editar Vehículo: ${vehiculoAEditar.numero_placa}` : ""}
+        title={vehiculoAEditar ? `Editar Vehículo: ${vehiculoAEditar.placa}` : ""}
         size="lg"
       >
         {vehiculoAEditar && (

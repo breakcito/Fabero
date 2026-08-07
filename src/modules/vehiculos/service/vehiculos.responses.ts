@@ -9,8 +9,7 @@ export interface VehiculoResponse {
   empresa_transporte_ruc: string;
   id_tipo_vehiculo: number;
   tipo_vehiculo_nombre: string;
-  serie_placa: string | null;
-  numero_placa: string;
+  placa: string;
   numero_constancia_mtc: string | null;
   capacidad: number;
   tara: number;

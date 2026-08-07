@@ -41,6 +41,7 @@ export const Schema_CrearEmpleado = z.object({
   path_foto: z.any().nullable().optional(),
   id_empresa: z.number().min(1, "Debe seleccionar una empresa"),
   id_cargo: z.number().min(1, "Debe seleccionar un cargo"),
+  autoriza_ingreso_unidades: z.boolean().default(false),
 });
 
 export type DTO_CrearEmpleado = z.infer<typeof Schema_CrearEmpleado>;

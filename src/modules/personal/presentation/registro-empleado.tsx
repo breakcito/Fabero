@@ -8,6 +8,7 @@ import {
   FileButton,
   Text,
   Loader,
+  Switch,
 } from "@mantine/core";
 import {
   UserIcon,
@@ -15,6 +16,7 @@ import {
   BriefcaseIcon,
   PencilIcon,
   BuildingOfficeIcon,
+  TruckIcon,
 } from "@heroicons/react/24/outline";
 import { useRegistroEmpleado } from "../hooks/useRegistroEmpleado";
 import type { RES_EmpleadoResumen } from "../service/empleados.responses";
@@ -205,6 +207,34 @@ export const RegistroEmpleado = ({
           searchable
         />
       </Group>
+
+      {/* Permisos de Ingreso */}
+      <div
+        className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4 transition-all hover:border-zinc-700"
+      >
+        <Switch
+          color="indigo"
+          checked={form.autoriza_ingreso_unidades}
+          onChange={(e) =>
+            setField("autoriza_ingreso_unidades", e.currentTarget.checked)
+          }
+          disabled={loading}
+          label={
+            <Group gap="xs" wrap="nowrap">
+              <TruckIcon className="w-4 h-4 text-indigo-400" />
+              <Text size="sm" fw={600} className="text-zinc-200">
+                ¿Autoriza el ingreso de unidades?
+              </Text>
+            </Group>
+          }
+          description="Habilita al empleado para registrar ingresos de vehículos en planta"
+          classNames={{
+            label: "text-zinc-200 font-medium",
+            description: "text-zinc-500 text-xs mt-1",
+            track: "cursor-pointer",
+          }}
+        />
+      </div>
 
       {/* Acciones */}
       <Group justify="flex-end" gap="md" mt="xl">

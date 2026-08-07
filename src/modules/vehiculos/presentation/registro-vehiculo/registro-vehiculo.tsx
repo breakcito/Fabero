@@ -14,6 +14,12 @@ interface Props {
   onSuccess: (v: VehiculoResponse) => void;
 }
 
+const formatPlaca = (raw: string): string => {
+  const cleaned = raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (cleaned.length <= 3) return cleaned;
+  return `${cleaned.slice(0, 3)}-${cleaned.slice(3, 6)}`.slice(0, 7);
+};
+
 export const RegistroVehiculo = ({ vehiculo, onCancel, onSuccess }: Props) => {
   const {
     payload,
@@ -172,37 +178,26 @@ export const RegistroVehiculo = ({ vehiculo, onCancel, onSuccess }: Props) => {
             </Group>
           </Grid.Col>
 
-          {/* Placa y Serie */}
-          <Grid.Col span={{ base: 12, md: 4 }}>
-            <TextInput
-              label="Serie Placa"
-              placeholder="Opcional"
-              radius="xl"
-              value={payload.serie_placa || ""}
-              onChange={(e) => handleChange("serie_placa", e.target.value.toUpperCase())}
-              classNames={{
-                input:
-                  "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 transition-all",
-                label: "text-zinc-400 font-medium text-xs mb-1.5",
-              }}
-            />
-          </Grid.Col>
-          <Grid.Col span={{ base: 12, md: 4 }}>
+          {/* Placa (formato XXX-000) y Constancia MTC */}
+          <Grid.Col span={{ base: 12, md: 6 }}>
             <TextInput
               withAsterisk
-              label="Número de Placa"
-              placeholder="Ej. F1B-890"
+              label="Placa"
+              placeholder="Ej. ABC-123"
               radius="xl"
-              value={payload.numero_placa || ""}
-              onChange={(e) => handleChange("numero_placa", e.target.value.toUpperCase())}
+              maxLength={7}
+              value={payload.placa || ""}
+              onChange={(e) =>
+                handleChange("placa", formatPlaca(e.target.value))
+              }
               classNames={{
                 input:
-                  "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 transition-all",
+                  "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 transition-all font-mono uppercase tracking-wider",
                 label: "text-zinc-400 font-medium text-xs mb-1.5",
               }}
             />
           </Grid.Col>
-          <Grid.Col span={{ base: 12, md: 4 }}>
+          <Grid.Col span={{ base: 12, md: 6 }}>
             <TextInput
               label="Constancia MTC"
               placeholder="Opcional"

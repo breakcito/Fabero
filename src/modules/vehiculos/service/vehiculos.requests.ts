@@ -6,11 +6,14 @@ export const Schema_CrearVehiculo = z.object({
     .number()
     .min(1, "Seleccione una empresa de transporte"),
   id_tipo_vehiculo: z.number().min(1, "Seleccione un tipo de vehículo"),
-  serie_placa: z.string().optional().nullable().or(z.literal("")),
-  numero_placa: z
+  placa: z
     .string()
-    .min(3, "La placa debe tener al menos 3 caracteres")
-    .max(15, "La placa es muy larga"),
+    .min(7, "La placa debe tener 7 caracteres (XXX-000)")
+    .max(15, "La placa es muy larga")
+    .regex(
+      /^[A-Z]{3}-\d{3}$/,
+      "Formato inválido. Use XXX-000 (3 letras mayúsculas, guion, 3 números)",
+    ),
   numero_constancia_mtc: z.string().optional().nullable().or(z.literal("")),
   capacidad: z.coerce
     .number()

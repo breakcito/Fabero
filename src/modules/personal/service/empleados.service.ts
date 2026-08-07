@@ -36,8 +36,13 @@ export class EmpleadosService {
   ): Promise<IRespuesta<RES_EmpleadoResumen>> => {
     const formData = new FormData();
     Object.entries(dto).forEach(([key, value]) => {
-      if (value !== null && value !== undefined) {
-        formData.append(key, value instanceof File ? value : String(value));
+      if (value === null || value === undefined) return;
+      if (value instanceof File) {
+        formData.append(key, value);
+      } else if (typeof value === "boolean") {
+        formData.append(key, value ? "1" : "0");
+      } else {
+        formData.append(key, String(value));
       }
     });
     const { data } = await api.post(this.PATH, formData, {

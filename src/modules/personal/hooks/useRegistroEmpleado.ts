@@ -24,6 +24,7 @@ const INITIAL_FORM: DTO_CrearEmpleado = {
   pasaporte: "",
   fecha_nacimiento: "",
   path_foto: "",
+  autoriza_ingreso_unidades: false,
 };
 
 export const useRegistroEmpleado = (

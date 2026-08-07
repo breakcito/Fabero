@@ -34,8 +34,7 @@ export const useVehiculos = () => {
     if (!q) return vehiculos;
     return vehiculos.filter(
       (v) =>
-        v.numero_placa.toLowerCase().includes(q) ||
-        (v.serie_placa && v.serie_placa.toLowerCase().includes(q)) ||
+        v.placa.toLowerCase().includes(q) ||
         v.marca_nombre.toLowerCase().includes(q) ||
         v.tipo_vehiculo_nombre.toLowerCase().includes(q) ||
         v.empresa_transporte_razon_social.toLowerCase().includes(q)
