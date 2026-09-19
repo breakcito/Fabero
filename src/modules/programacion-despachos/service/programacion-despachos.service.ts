@@ -54,9 +54,16 @@ export const ProgramacionDespachosService = {
     return data.data;
   },
 
-  getItemsDisponibles: async (): Promise<ItemDisponibleDespacho[]> => {
+  getItemsDisponibles: async (
+    filters: { id_empresa?: number | null } = {},
+  ): Promise<ItemDisponibleDespacho[]> => {
+    const params: Record<string, string | number> = {};
+    if (filters.id_empresa !== undefined && filters.id_empresa !== null) {
+      params.id_empresa = filters.id_empresa;
+    }
     const { data } = await api.get<IRespuesta<ItemDisponibleDespacho[]>>(
       "/programacion-despachos/items-disponibles",
+      { params },
     );
     return data.data;
   },

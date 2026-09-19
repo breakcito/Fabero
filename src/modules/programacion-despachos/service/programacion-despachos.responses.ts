@@ -7,6 +7,8 @@ export interface DespachoListItem {
   id_planta_destino: number;
   planta_destino_razon_social: string;
   planta_destino_ruc: string;
+  id_empresa: number | null;
+  empresa_razon_social: string | null;
   id_empleado_registro: number;
   empleado_registro_nombre: string | null;
   id_empleado_anulacion: number | null;
@@ -27,6 +29,7 @@ export interface DespachoDetalleItem {
   id_lote_mineral: number | null;
   peso_tomado: number;
   peso_actual: number;
+  codigo_preliminar: string | null;
   blending_correlativo: string | null;
   blending_peso_neto: number | null;
   lote_correlativo: string | null;
@@ -105,6 +108,9 @@ export interface DespachoCabecera {
   id_planta_destino: number;
   planta_destino_razon_social: string;
   planta_destino_ruc: string;
+  id_empresa: number | null;
+  empresa_razon_social: string | null;
+  empresa_ruc: string | null;
   id_empleado_registro: number;
   empleado_registro_nombre: string | null;
   id_empleado_anulacion: number | null;
@@ -121,6 +127,8 @@ export interface ItemDisponibleDespacho {
   id: number;
   id_lote_mineral: number | null;
   id_blending: number | null;
+  id_empresa: number | null;
+  empresa_razon_social: string | null;
   correlativo: string;
   numero_correlativo: number;
   tipo_producto: string | null;

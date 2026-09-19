@@ -13,6 +13,7 @@ export interface ConfirmarProgramacionPayload {
   id_conductor?: number;
   id_proveedor_minero?: number;
   id_empresa_transporte?: number;
+  id_vehiculo_carreta?: number | null;
   guia_remitente?: string;
   guia_transportista?: string;
   documentos_programacion?: IDocumentoProgramacion | null;
@@ -71,6 +72,7 @@ export const ProgramarRecepcionService = {
     appendIfDefined("fecha_estimada_llegada", payload.fecha_estimada_llegada);
     appendIfDefined("guia_remitente", payload.guia_remitente);
     appendIfDefined("guia_transportista", payload.guia_transportista);
+    appendIfDefined("id_vehiculo_carreta", payload.id_vehiculo_carreta);
     appendIfDefined("observacion", payload.observacion);
     appendIfDefined("tipo_ingreso", payload.tipo_ingreso);
     if (payload.guia_remitente_file instanceof File) {
@@ -112,6 +114,7 @@ export const ProgramarRecepcionService = {
     appendIfDefined("fecha_estimada_llegada", payload.fecha_estimada_llegada);
     appendIfDefined("guia_remitente", payload.guia_remitente);
     appendIfDefined("guia_transportista", payload.guia_transportista);
+    appendIfDefined("id_vehiculo_carreta", payload.id_vehiculo_carreta);
     appendIfDefined("observacion", payload.observacion);
     appendIfDefined("tipo_ingreso", payload.tipo_ingreso);
     if (payload.guia_remitente_file instanceof File) {
@@ -158,6 +161,7 @@ export const ProgramarRecepcionService = {
     appendIfDefined("id_conductor", payload.id_conductor);
     appendIfDefined("id_proveedor_minero", payload.id_proveedor_minero);
     appendIfDefined("id_empresa_transporte", payload.id_empresa_transporte);
+    appendIfDefined("id_vehiculo_carreta", payload.id_vehiculo_carreta);
     appendIfDefined("guia_remitente", payload.guia_remitente);
     appendIfDefined("guia_transportista", payload.guia_transportista);
     appendIfDefined("observacion", payload.observacion);

@@ -3,6 +3,7 @@ import {
   ActionIcon,
   Box,
   Button,
+  Checkbox,
   Container,
   Group,
   Menu,
@@ -15,6 +16,7 @@ import {
   Tooltip,
 } from "@mantine/core";
 import {
+  IconCircleCheckFilled,
   IconColumnInsertRight,
   IconDotsVertical,
   IconPrinter,
@@ -526,15 +528,47 @@ export const ValidacionDistribucionPage = () => {
           idAccessor="id_lote_mineral"
           loading={loading}
           noRecordsText={noRecordsText}
-          selectedRecords={selectedLotes}
-          onSelectedRecordsChange={setSelectedLotes}
-          isRecordSelectable={puedeSeleccionarLote}
           expandedRecordIds={expandedLoteId !== null ? [expandedLoteId] : []}
           onExpandedChange={(ids) =>
             setExpandedLoteId(typeof ids[0] === "number" ? ids[0] : null)
           }
           renderExpandedRow={(r: Row) => <ParticionesExpandible lote={r} />}
           columns={[
+            {
+              accessor: "seleccion",
+              title: "",
+              width: 50,
+              textAlign: "center",
+              render: (r: Row) => {
+                if (r.lote_esta_validado === true) {
+                  return (
+                    <Tooltip label="Lote ya validado">
+                      <IconCircleCheckFilled
+                        size={22}
+                        className="text-emerald-400"
+                      />
+                    </Tooltip>
+                  );
+                }
+                return (
+                  <Checkbox
+                    checked={selectedLotes.some(
+                      (s) => s.id_lote_mineral === r.id_lote_mineral
+                    )}
+                    onChange={(e) => {
+                      const checked = e.currentTarget.checked;
+                      setSelectedLotes((prev) =>
+                        checked
+                          ? [...prev, r]
+                          : prev.filter(
+                              (s) => s.id_lote_mineral !== r.id_lote_mineral
+                            )
+                      );
+                    }}
+                  />
+                );
+              },
+            },
             {
               accessor: "lote_correlativo",
               title: "Lote",
@@ -576,6 +610,12 @@ export const ValidacionDistribucionPage = () => {
               accessor: "vehiculo_placa",
               title: "Vehículo",
               textAlign: "center",
+              render: (r: Row) =>
+                r.vehiculo_placa ? (
+                  <span className="font-mono text-sm">{r.vehiculo_placa}</span>
+                ) : (
+                  <span className="text-xs text-zinc-600 italic">Lote padre</span>
+                ),
             },
             {
               accessor: "vehiculo_capacidad",

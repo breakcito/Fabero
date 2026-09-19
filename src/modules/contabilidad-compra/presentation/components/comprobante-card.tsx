@@ -1,4 +1,4 @@
-import { Group, Text, Badge, Tooltip, ActionIcon, Progress, Stack, Paper, Accordion } from "@mantine/core";
+import { Group, Text, Badge, Tooltip, ActionIcon, Progress, Stack, Paper, Box, Accordion } from "@mantine/core";
 import {
   IconCheck,
   IconCircleDashed,
@@ -131,7 +131,6 @@ export const ComprobanteCard = ({
   const isTotalSaldado = !isAnulado && pctPagadoTotal >= 99.99;
 
   const todasAprobadas = comprobante.aprobaciones.every((a) => a.esta_aprobado);
-  const habilitarPagos = todasAprobadas && !isAnulado;
 
   const renderBadgeEstadoPago = (isSaldado: boolean) => {
     if (isAnulado) {
@@ -185,13 +184,12 @@ export const ComprobanteCard = ({
               <IconPaperclip size={18} />
             </ActionIcon>
           </Tooltip>
-          <Tooltip label={habilitarPagos ? "Ver / Registrar Pagos" : isAnulado ? "Ver Historial de Pagos (Anulado)" : "Complete las 3 aprobaciones"}>
+          <Tooltip label={isAnulado ? "Ver Historial de Pagos (Anulado)" : "Ver / Registrar Pagos"}>
             <ActionIcon
               size="lg"
               variant={isAnulado ? "light" : "filled"}
-              color={habilitarPagos ? "teal" : isAnulado ? "red" : "gray"}
+              color={isAnulado ? "red" : "teal"}
               radius="md"
-              disabled={!habilitarPagos && !isAnulado}
               onClick={onVerPagos}
             >
               <IconCash size={18} />
@@ -303,6 +301,46 @@ export const ComprobanteCard = ({
                       </Group>
                     </Group>
                   ))}
+                  {!isAnulado && (comprobante.monto_penalidad > 0 || comprobante.monto_flete > 0) && (
+                    <Box className="border-t border-zinc-800 pt-2 mt-1">
+                      <Stack gap={4}>
+                        <Group justify="space-between">
+                          <Text fz={10} c="zinc.5" tt="uppercase" fw={600}>
+                            Subtotal Lotes
+                          </Text>
+                          <Text fz={11} fw={600} c="zinc.3" className="font-mono">
+                            $ {comprobante.total_dolares_antes_descuento.toFixed(2)}
+                          </Text>
+                        </Group>
+                        {comprobante.monto_penalidad > 0 && (
+                          <Group justify="space-between">
+                            <Text fz={10} c="amber.4">(–) Penalidad</Text>
+                            <Text fz={11} fw={600} c="amber.4" className="font-mono">
+                              –$ {comprobante.monto_penalidad.toFixed(2)}
+                            </Text>
+                          </Group>
+                        )}
+                        {comprobante.monto_flete > 0 && (
+                          <Group justify="space-between">
+                            <Text fz={10} c="cyan.4">(–) Flete</Text>
+                            <Text fz={11} fw={600} c="cyan.4" className="font-mono">
+                              –$ {comprobante.monto_flete.toFixed(2)}
+                            </Text>
+                          </Group>
+                        )}
+                        <Box className="border-t border-zinc-800 pt-2 mt-1">
+                          <Group justify="space-between">
+                            <Text fz={10} c="emerald.4" fw={700} tt="uppercase">
+                              Total
+                            </Text>
+                            <Text fz={12} fw={800} c="emerald.4" className="font-mono">
+                              $ {comprobante.total_dolares.toFixed(2)}
+                            </Text>
+                          </Group>
+                        </Box>
+                      </Stack>
+                    </Box>
+                  )}
                 </Stack>
               ) : (
                 <Text fz="xs" c="dimmed" fs="italic" ta="center" py="sm">

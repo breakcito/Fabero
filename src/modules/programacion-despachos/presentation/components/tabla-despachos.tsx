@@ -1,5 +1,5 @@
 import { Text, Badge, Group, ActionIcon, Tooltip } from "@mantine/core";
-import { IconBan, IconEye } from "@tabler/icons-react";
+import { IconBan, IconBuildingSkyscraper, IconEye } from "@tabler/icons-react";
 import { DataTableEstandar } from "../../../../presentation/utils/datatable-estandar";
 import type {
   DespachoListItem,
@@ -65,6 +65,22 @@ export const TablaDespachos = ({
               <Text size="xs" className="text-zinc-500">
                 {r.planta_destino_ruc}
               </Text>
+            </div>
+          ),
+        },
+        {
+          accessor: "empresa_razon_social",
+          title: "Empresa",
+          width: 220,
+          textAlign: "center",
+          render: (r: DespachoListItem) => (
+            <div className="flex flex-col items-center gap-0.5 w-full text-center">
+              <Group gap={4} justify="center" wrap="nowrap">
+                <IconBuildingSkyscraper size={14} className="text-teal-400" />
+                <Text size="sm" className="text-zinc-200" fw={500}>
+                  {r.empresa_razon_social ?? "—"}
+                </Text>
+              </Group>
             </div>
           ),
         },

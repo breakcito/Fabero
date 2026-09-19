@@ -23,6 +23,7 @@ export interface DTO_ActualizarGuiaSegundoTramo
 
 export interface CrearDespachoRequest {
   id_planta_destino: number;
+  id_empresa: number;
   detalles: CrearDespachoDetalleRequest[];
 }
 
@@ -30,6 +31,7 @@ export interface CrearDespachoDetalleRequest {
   id_lote_mineral?: number | null;
   id_blending?: number | null;
   peso_tomado: number;
+  codigo_preliminar?: string | null;
 }
 
 export interface CrearDistribucionRequest {
@@ -60,6 +62,7 @@ export interface PesarDistribucionDetalleRequest {
 
 export interface DespachoFiltros {
   id_planta_destino?: number;
+  id_empresa?: number;
   fecha_inicio?: string;
   fecha_fin?: string;
 }

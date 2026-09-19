@@ -3,13 +3,14 @@ import {
   Stack,
   Group,
   Button,
-  TextInput,
   NumberInput,
   Text,
   Loader,
 } from "@mantine/core";
 import { IconCheck, IconCoin } from "@tabler/icons-react";
+import dayjs from "dayjs";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
+import { CustomDatePicker } from "../../../../presentation/utils/date-picker-input";
 import { useNotify } from "../../../../hooks/useNotify";
 import { ValorElementoQuimicoService } from "../../service/valor-elemento-quimico.service";
 import type { ElementoQuimicoValorizacion } from "../../../../shared/enums/_generic/elemento-quimico-valorizacion";
@@ -40,11 +41,49 @@ export const ModalRegistrarPrecioInter = ({
   const { notifySuccess, notifyError } = useNotify();
   const [loading, setLoading] = useState(false);
   const [inter, setInter] = useState<number | string>(interInicial ?? 0);
+  const [fechaLocal, setFechaLocal] = useState<Date | null>(null);
+  const [precioExistente, setPrecioExistente] = useState<number | null>(null);
 
   useEffect(() => {
     if (!opened) return;
     setInter(interInicial ?? 0);
-  }, [opened, interInicial]);
+    setFechaLocal(fecha ? dayjs(fecha).toDate() : null);
+    setPrecioExistente(null);
+  }, [opened, interInicial, fecha]);
+
+  // Buscar precio INTER existente para la (elemento, fecha) seleccionada.
+  // Si existe, autocompleta el campo INTER con ese valor.
+  useEffect(() => {
+    if (!opened) return;
+    if (!elementoQuimico || !fechaLocal) {
+      setPrecioExistente(null);
+      return;
+    }
+
+    const fechaStr = dayjs(fechaLocal).format("YYYY-MM-DD");
+    let cancelado = false;
+    ValorElementoQuimicoService.buscarPrecio({
+      elemento: elementoQuimico,
+      fecha: fechaStr,
+    })
+      .then((res) => {
+        if (cancelado) return;
+        if (res.success && res.data) {
+          setPrecioExistente(res.data.inter);
+          setInter(res.data.inter);
+        } else {
+          setPrecioExistente(null);
+        }
+      })
+      .catch(() => {
+        if (cancelado) return;
+        setPrecioExistente(null);
+      });
+
+    return () => {
+      cancelado = true;
+    };
+  }, [opened, fechaLocal, elementoQuimico]);
 
   const handleGuardar = async () => {
     const numInter =
@@ -53,8 +92,13 @@ export const ModalRegistrarPrecioInter = ({
       notifyError("El valor INTER debe ser mayor a 0.");
       return;
     }
-    if (!fecha) {
-      notifyError("Debe seleccionar una fecha en el modal principal.");
+    if (!fechaLocal) {
+      notifyError("Debe seleccionar una fecha.");
+      return;
+    }
+    const fechaStr = dayjs(fechaLocal).format("YYYY-MM-DD");
+    if (!fechaStr) {
+      notifyError("La fecha seleccionada no es valida.");
       return;
     }
 
@@ -62,7 +106,7 @@ export const ModalRegistrarPrecioInter = ({
     try {
       const res = await ValorElementoQuimicoService.registrarPrecio({
         elemento_quimico: elementoQuimico,
-        fecha,
+        fecha: fechaStr,
         inter: numInter,
       });
       if (res.success && res.data) {
@@ -85,6 +129,8 @@ export const ModalRegistrarPrecioInter = ({
     }
   };
 
+  const fechaMostrada = fechaLocal ? dayjs(fechaLocal).format("DD/MM/YYYY") : "-";
+
   return (
     <ModalEstandar
       opened={opened}
@@ -93,15 +139,24 @@ export const ModalRegistrarPrecioInter = ({
       size="sm"
     >
       <Stack gap="sm" mt="xs">
+        <button
+          data-autofocus
+          tabIndex={-1}
+          aria-hidden="true"
+          className="sr-only opacity-0 w-0 h-0 p-0 m-0 pointer-events-none absolute -z-50"
+        />
         <Text fz="xs" c="dimmed">
           Registra el precio internacional del <b>{elementoQuimico}</b> para la
-          fecha <b>{fecha}</b>. Quedara registrado para futuras valorizaciones.
+          fecha <b>{fechaMostrada}</b>. Quedara registrado para futuras
+          valorizaciones.
         </Text>
 
-        <TextInput
+        <CustomDatePicker
           label="Fecha:"
-          value={fecha}
-          disabled
+          value={fechaLocal}
+          onChange={(d) => setFechaLocal(d)}
+          placeholder="DD/MM/YYYY"
+          maxDate={new Date()}
           classNames={fieldClasses}
           size="xs"
           radius="lg"
@@ -116,6 +171,11 @@ export const ModalRegistrarPrecioInter = ({
           fixedDecimalScale
           hideControls
           leftSection={<IconCoin size={14} />}
+          description={
+            precioExistente !== null
+              ? `Ya existe un precio registrado para esta fecha: $${precioExistente.toFixed(2)}. Puedes modificarlo o registrar uno nuevo.`
+              : undefined
+          }
           classNames={fieldClasses}
           size="xs"
           radius="lg"

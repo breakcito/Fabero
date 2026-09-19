@@ -16,9 +16,16 @@ interface Props {
   lote: RES_LoteMineral;
   onCancel: () => void;
   onSubmit: (loteId: number, dto: DTO_PesoInicial) => Promise<void>;
+  /**
+   * ID alternativo para usar al llamar onSubmit. Útil cuando el modal se
+   * reusa para pesar una PARTICIÓN (donde el id real a enviar al backend es
+   * el de la partición, no el del lote padre que se pasa en `lote`).
+   * Si no se pasa, onSubmit recibe `lote.id`.
+   */
+  targetIdOverride?: number;
 }
 
-export const ModalPesoInicial = ({ lote, onCancel, onSubmit }: Props) => {
+export const ModalPesoInicial = ({ lote, onCancel, onSubmit, targetIdOverride }: Props) => {
   const { notifyError } = useNotify();
 
   // Inputs
@@ -110,7 +117,7 @@ export const ModalPesoInicial = ({ lote, onCancel, onSubmit }: Props) => {
         evidencias: evidencias,
       };
 
-      await onSubmit(lote.id, dto);
+      await onSubmit(targetIdOverride ?? lote.id, dto);
       onCancel();
     } catch (e) {
       console.error(e);

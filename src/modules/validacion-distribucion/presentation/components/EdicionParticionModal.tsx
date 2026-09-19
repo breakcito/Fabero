@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import {
   Button,
+  Grid,
   Group,
   Loader,
   NumberInput,
   Select,
-  SimpleGrid,
   Stack,
   Text,
   Tooltip,
@@ -37,7 +37,14 @@ interface Props {
   onSaved: (actualizadas: RES_Particion[]) => void;
 }
 
-type SubModal = null | "vehiculo" | "conductor" | "empresa" | "tipo_vehiculo" | "proveedor";
+type SubModal =
+  | null
+  | "vehiculo"
+  | "vehiculo_carreta"
+  | "conductor"
+  | "empresa"
+  | "tipo_vehiculo"
+  | "proveedor";
 
 export const EdicionParticionModal = ({
   opened,
@@ -64,6 +71,11 @@ export const EdicionParticionModal = ({
   const [idProveedorMinero, setIdProveedorMinero] = useState<string | null>(
     particion.id_proveedor_minero != null
       ? String(particion.id_proveedor_minero)
+      : null
+  );
+  const [idVehiculoCarreta, setIdVehiculoCarreta] = useState<string | null>(
+    particion.id_vehiculo_carreta != null
+      ? String(particion.id_vehiculo_carreta)
       : null
   );
   const [fechaHoraIngreso, setFechaHoraIngreso] = useState<Date | null>(
@@ -124,6 +136,11 @@ export const EdicionParticionModal = ({
     setIdProveedorMinero(
       particion.id_proveedor_minero != null
         ? String(particion.id_proveedor_minero)
+        : null
+    );
+    setIdVehiculoCarreta(
+      particion.id_vehiculo_carreta != null
+        ? String(particion.id_vehiculo_carreta)
         : null
     );
     setFechaHoraIngreso(
@@ -238,6 +255,7 @@ export const EdicionParticionModal = ({
       const payload: DTO_UpdateParticion = {
         recepcion: {
           id_vehiculo: idVehiculo ? Number(idVehiculo) : null,
+          id_vehiculo_carreta: idVehiculoCarreta ? Number(idVehiculoCarreta) : null,
           id_conductor: idConductor ? Number(idConductor) : null,
           id_empresa_transporte: idEmpresaTransporte
             ? Number(idEmpresaTransporte)
@@ -269,6 +287,33 @@ export const EdicionParticionModal = ({
     }
   };
 
+  // Vehículos no-carreta para el dropdown "Vehículo".
+  // El backend serializa es_carreta como TINYINT (0/1); normalizamos a booleano.
+  const vehiculosData = vehiculos
+    .filter((v) => !v.es_carreta || Number(v.es_carreta) === 0)
+    .map((v) => ({
+      value: String(v.id_vehiculo),
+      label: v.placa,
+    }));
+
+  // Vehículos carreta para el dropdown opcional "Vehículo Carreta".
+  const carretasData = vehiculos
+    .filter((v) => Number(v.es_carreta) === 1)
+    .map((v) => ({
+      value: String(v.id_vehiculo),
+      label: v.placa,
+    }));
+
+  // Tipo de vehículo marcado como carreta, para pre-asignar al sub-modal de registro.
+  const idTipoVehiculoCarreta =
+    tiposVehiculo.find((t) => Number(t.es_carreta) === 1)?.id_tipo_vehiculo ?? null;
+
+  const placeholderVehiculoCarreta = loadingVehiculos
+    ? "Cargando..."
+    : carretasData.length === 0
+      ? "Sin vehículos carreta registrados"
+      : "Seleccione (opcional)";
+
   return (
     <>
       <ModalEstandar
@@ -283,108 +328,136 @@ export const EdicionParticionModal = ({
             <Text size="xs">· Ticket: {particion.ticket_correlativo ?? "—"}</Text>
           </Group>
 
-          <SimpleGrid cols={2} spacing="xs">
-            <SelectField
-              label="Vehículo"
-              data={vehiculos.map((v) => ({
-                value: String(v.id_vehiculo),
-                label: v.placa,
-              }))}
-              value={idVehiculo}
-              onChange={handleVehiculoChange}
-              onPlus={() => setSubModal("vehiculo")}
-              loading={loadingVehiculos}
-            />
-            <Stack gap={4}>
-              <Text size="xs" c="dimmed">
-                Capacidad del Vehículo (KG)
-              </Text>
-              <NumberInput
-                placeholder="0.00"
-                value={capacidadVehiculo ?? 0}
-                onChange={setCapacidadVehiculo}
-                min={0}
-                decimalScale={2}
-                fixedDecimalScale
-                hideControls
-                radius="lg"
-                size="xs"
-                disabled={!idVehiculo}
+          <Grid gutter="xs">
+            <Grid.Col span={{ base: 12, sm: 6 }}>
+              <SelectField
+                label="Vehículo"
+                data={vehiculosData}
+                value={idVehiculo}
+                onChange={handleVehiculoChange}
+                onPlus={() => setSubModal("vehiculo")}
+                loading={loadingVehiculos}
               />
-            </Stack>
-            <SelectField
-              label="Conductor"
-              data={conductores.map((c) => ({
-                value: String(c.id_conductor),
-                label: `${c.nombre_completo} (${c.dni})`,
-              }))}
-              value={idConductor}
-              onChange={setIdConductor}
-              onPlus={() => setSubModal("conductor")}
-              loading={loadingConductores}
-            />
-            <SelectField
-              label="Empresa de transporte"
-              data={empresasTransporte.map((e) => ({
-                value: String(e.id_empresa_transporte),
-                label: `${e.razon_social}${e.ruc ? ` (${e.ruc})` : ""}`,
-              }))}
-              value={idEmpresaTransporte}
-              onChange={setIdEmpresaTransporte}
-              onPlus={() => setSubModal("empresa")}
-              loading={loadingEmpresasTransporte}
-            />
-            <SelectField
-              label="Tipo de vehículo"
-              data={tiposVehiculo.map((t) => ({
-                value: String(t.id_tipo_vehiculo),
-                label: t.nombre,
-              }))}
-              value={idTipoVehiculo}
-              onChange={setIdTipoVehiculo}
-              onPlus={() => setSubModal("tipo_vehiculo")}
-              loading={loadingTiposVehiculo}
-            />
-            <SelectField
-              label="Proveedor minero"
-              data={proveedores.map((p) => ({
-                value: String(p.id_proveedor),
-                label: `${p.razon_social}${p.documento ? ` (${p.documento})` : ""}`,
-              }))}
-              value={idProveedorMinero}
-              onChange={setIdProveedorMinero}
-              onPlus={() => setSubModal("proveedor")}
-              loading={loadingProveedores}
-            />
-            <Stack gap={4}>
-              <Text size="xs" c="dimmed">
-                Fecha y hora de ingreso
-              </Text>
-              <DateTimePicker
-                value={fechaHoraIngreso}
-                onChange={(v) => setFechaHoraIngreso(v ? new Date(v) : null)}
-                valueFormat="DD/MM/YYYY HH:mm:ss"
-                withSeconds
-                radius="lg"
-                size="sm"
-                popoverProps={{ withinPortal: true }}
+            </Grid.Col>
+           
+            <Grid.Col span={{ base: 12, sm: 6 }}>
+              <Stack gap={4}>
+                <Text size="xs" c="dimmed">
+                  Capacidad del Vehículo (KG)
+                </Text>
+                <NumberInput
+                  placeholder="0.00"
+                  value={capacidadVehiculo ?? 0}
+                  onChange={setCapacidadVehiculo}
+                  min={0}
+                  decimalScale={2}
+                  fixedDecimalScale
+                  hideControls
+                  radius="lg"
+                  size="xs"
+                  disabled={!idVehiculo}
+                />
+              </Stack>
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, sm: 6 }}>
+              <SelectField
+                label="Tipo de vehículo"
+                data={tiposVehiculo.map((t) => ({
+                  value: String(t.id_tipo_vehiculo),
+                  label: t.nombre,
+                }))}
+                value={idTipoVehiculo}
+                onChange={setIdTipoVehiculo}
+                onPlus={() => setSubModal("tipo_vehiculo")}
+                loading={loadingTiposVehiculo}
               />
-            </Stack>
-            <Stack gap={4}>
-              <Text size="xs" c="dimmed">
-                Fecha y hora de salida
-              </Text>
-              <DateTimePicker
-                value={fechaHoraSalida}
-                onChange={(v) => setFechaHoraSalida(v ? new Date(v) : null)}
-                valueFormat="DD/MM/YYYY HH:mm:ss"
-                withSeconds
-                radius="lg"
-                size="sm"
-                popoverProps={{ withinPortal: true }}
+            </Grid.Col>
+             <Grid.Col span={{ base: 12, sm: 6 }}>
+              <SelectField
+                label="Vehículo Carreta (opcional)"
+                data={carretasData}
+                value={idVehiculoCarreta}
+                onChange={setIdVehiculoCarreta}
+                onPlus={() => setSubModal("vehiculo_carreta")}
+                loading={loadingVehiculos}
+                placeholder={placeholderVehiculoCarreta}
               />
-            </Stack>
-          </SimpleGrid>
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, sm: 6 }}>
+              <SelectField
+                label="Conductor"
+                data={conductores.map((c) => ({
+                  value: String(c.id_conductor),
+                  label: `${c.nombre_completo} (${c.dni})`,
+                }))}
+                value={idConductor}
+                onChange={setIdConductor}
+                onPlus={() => setSubModal("conductor")}
+                loading={loadingConductores}
+              />
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, sm: 6 }}>
+              <SelectField
+                label="Empresa de transporte"
+                data={empresasTransporte.map((e) => ({
+                  value: String(e.id_empresa_transporte),
+                  label: `${e.razon_social}${e.ruc ? ` (${e.ruc})` : ""}`,
+                }))}
+                value={idEmpresaTransporte}
+                onChange={setIdEmpresaTransporte}
+                onPlus={() => setSubModal("empresa")}
+                loading={loadingEmpresasTransporte}
+              />
+            </Grid.Col>
+            
+            <Grid.Col span={{ base: 12, sm: 6 }}>
+              <SelectField
+                label="Proveedor minero"
+                data={proveedores.map((p) => ({
+                  value: String(p.id_proveedor),
+                  label: `${p.razon_social}${p.documento ? ` (${p.documento})` : ""}`,
+                }))}
+                value={idProveedorMinero}
+                onChange={setIdProveedorMinero}
+                onPlus={() => setSubModal("proveedor")}
+                loading={loadingProveedores}
+              />
+            </Grid.Col>
+            {/* Celda vacía para empujar las fechas a la última fila y mantenerlas juntas. */}
+            <Grid.Col span={{ base: 0, sm: 6 }} aria-hidden="true" />
+            <Grid.Col span={{ base: 12, sm: 6 }}>
+              <Stack gap={4}>
+                <Text size="xs" c="dimmed">
+                  Fecha y hora de ingreso
+                </Text>
+                <DateTimePicker
+                  value={fechaHoraIngreso}
+                  onChange={(v) => setFechaHoraIngreso(v ? new Date(v) : null)}
+                  valueFormat="DD/MM/YYYY HH:mm:ss"
+                  withSeconds
+                  radius="lg"
+                  size="sm"
+                  popoverProps={{ withinPortal: true }}
+                />
+              </Stack>
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, sm: 6 }}>
+              <Stack gap={4}>
+                <Text size="xs" c="dimmed">
+                  Fecha y hora de salida
+                </Text>
+                <DateTimePicker
+                  value={fechaHoraSalida}
+                  onChange={(v) => setFechaHoraSalida(v ? new Date(v) : null)}
+                  valueFormat="DD/MM/YYYY HH:mm:ss"
+                  withSeconds
+                  radius="lg"
+                  size="sm"
+                  popoverProps={{ withinPortal: true }}
+                />
+              </Stack>
+            </Grid.Col>
+          </Grid>
 
           <Group justify="flex-end" mt="md">
             <Button variant="default" onClick={onClose} radius="lg" size="sm">
@@ -418,6 +491,28 @@ export const EdicionParticionModal = ({
             onCancel={() => setSubModal(null)}
             onSuccess={(v) => {
               setIdVehiculo(String(v.id_vehiculo));
+              void refreshCatalog("vehiculo");
+              setSubModal(null);
+            }}
+          />
+        </ModalEstandar>
+      )}
+
+      {subModal === "vehiculo_carreta" && (
+        <ModalEstandar
+          opened
+          close={() => setSubModal(null)}
+          title="Registrar vehículo carreta"
+          size="sm"
+        >
+          <RegistroVehiculoSimple
+            idEmpresaTransporte={
+              idEmpresaTransporte ? Number(idEmpresaTransporte) : null
+            }
+            idTipoVehiculo={idTipoVehiculoCarreta}
+            onCancel={() => setSubModal(null)}
+            onSuccess={(v) => {
+              setIdVehiculoCarreta(String(v.id_vehiculo));
               void refreshCatalog("vehiculo");
               setSubModal(null);
             }}
@@ -507,6 +602,7 @@ interface SelectFieldProps {
   onChange: (v: string | null) => void;
   onPlus: () => void;
   loading: boolean;
+  placeholder?: string;
 }
 
 const SelectField = ({
@@ -516,6 +612,7 @@ const SelectField = ({
   onChange,
   onPlus,
   loading,
+  placeholder,
 }: SelectFieldProps) => {
   return (
     <Stack gap={4}>
@@ -524,7 +621,7 @@ const SelectField = ({
       </Text>
       <Group gap={4} align="center">
         <Select
-          placeholder={loading ? "Cargando..." : "Seleccione"}
+          placeholder={placeholder ?? (loading ? "Cargando..." : "Seleccione")}
           data={data}
           value={value}
           onChange={onChange}

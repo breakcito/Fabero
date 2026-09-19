@@ -11,6 +11,7 @@ export interface CrearProgramacionRequest {
   fecha_estimada_llegada?: string;
   guia_remitente?: string;
   guia_transportista?: string;
+  id_vehiculo_carreta?: number | null;
   guia_remitente_file?: File | null;
   guia_transportista_file?: File | null;
   documentos_programacion_existentes?: IDocumentoProgramacion | null;

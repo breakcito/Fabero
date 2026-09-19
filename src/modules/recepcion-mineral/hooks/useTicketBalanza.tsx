@@ -75,15 +75,28 @@ export const useTicketBalanza = () => {
     [print, prepare, notifyError, notifySuccess],
   );
 
-  /**
-   * Imprime ticket desde id_lote (filas LOTE_RECEPCION del Resumen).
-   */
+/**
+ * Imprime ticket desde id_lote (filas LOTE_RECEPCION del Resumen).
+ */
   const printTicketBalanza = useCallback(
     (loteInput: LoteBalanzaInput) => {
       const loteId =
         typeof loteInput === "number" ? loteInput : loteInput.id || loteInput.id_lote;
       if (!loteId) return;
       void printInternal(String(loteId), () => fetchTicketByLote(loteId));
+    },
+    [printInternal],
+  );
+
+  /**
+   * Imprime ticket desde id_particion (particiones de Balanza).
+   */
+  const printTicketBalanzaParticion = useCallback(
+    (idParticion: number) => {
+      if (!idParticion) return;
+      void printInternal(`part-${idParticion}`, () =>
+        RecepcionMineralService.obtener_ticket_balanza_particion(idParticion),
+      );
     },
     [printInternal],
   );
@@ -106,9 +119,15 @@ export const useTicketBalanza = () => {
   return useMemo(
     () => ({
       printTicketBalanza,
+      printTicketBalanzaParticion,
       printTicketBalanzaByDistribucionDetalle,
       loadingTicket,
     }),
-    [printTicketBalanza, printTicketBalanzaByDistribucionDetalle, loadingTicket],
+    [
+      printTicketBalanza,
+      printTicketBalanzaParticion,
+      printTicketBalanzaByDistribucionDetalle,
+      loadingTicket,
+    ],
   );
 };

@@ -16,7 +16,6 @@ import {
   IconBarcode,
   IconCalendarTime,
   IconUserPlus,
-  IconScale,
   IconTruck,
   IconBuildingFactory,
   IconCar,
@@ -29,13 +28,16 @@ import { RegistroConductor } from "../../../../presentation/utils/registro-condu
 import { RegistroVehiculoSimple } from "../../../../presentation/utils/registro-vehiculo-simple";
 import { RegistroTipoVehiculoSimple } from "../../../../presentation/utils/registro-tipo-vehiculo-simple";
 import { RegistroEmpresaTransporte } from "../../../../presentation/utils/registro-empresa-transporte";
+import { ParticionCardInline } from "./particion-card-inline";
 import type { RES_EmpresaTransporte } from "../../../../service/responses/empresa-transporte";
 import type { RES_TipoVehiculo } from "../../../../service/responses/tipo-vehiculo";
 import type { RES_Vehiculo } from "../../../../service/responses/vehiculo";
 import type { RES_Conductor } from "../../../../service/responses/conductor";
 import type {
   RES_LoteMineral,
+  RES_ParticionBalanza,
   RecepcionMineralResponse,
+  LoteOParticionEnUnidad,
 } from "../../service/recepcion-mineral.responses";
 
 interface CardProcesoBalanzaProps {
@@ -55,9 +57,27 @@ interface CardProcesoBalanzaProps {
   ) => Promise<void>;
   eliminarLote: (recepcionId: number, loteId: number) => void | Promise<void>;
   printTicketBalanza: (loteId: number) => void;
+  printTicketBalanzaParticion: (idParticion: number) => void;
   setActiveLotePesoInicial: (lote: RES_LoteMineral) => void;
   setActiveLotePesoFinal: (lote: RES_LoteMineral) => void;
+  setActiveParticionPesoInicial: (p: RES_ParticionBalanza, lote: RES_LoteMineral) => void;
+  setActiveParticionPesoFinal: (p: RES_ParticionBalanza, lote: RES_LoteMineral) => void;
   cerrarProceso: (recepcionId: number) => Promise<void>;
+  deletingParticionId: number | null;
+  eliminarParticion: (idParticion: number, idLotePadre: number) => void;
+  isDragOver: boolean;
+  onDragOverRecepcion: (idRecepcion: number) => void;
+  onDragLeaveRecepcion: (idRecepcion: number) => void;
+  /**
+   * Helper que combina lotes regulares + particiones de esta unidad en una lista
+   * unificada para el grid de "Lotes".
+   */
+  getLotesYParticionesDeUnidad: (ru: RecepcionMineralResponse) => LoteOParticionEnUnidad[];
+  /**
+   * Helper que decide si la unidad está lista para cerrar proceso (considera
+   * particiones pendientes de pesar).
+   */
+  canCloseProcesoRecepcion: (ru: RecepcionMineralResponse) => boolean;
 }
 
 const formatNumber = (n: number) => n.toLocaleString();
@@ -75,18 +95,30 @@ export const CardProcesoBalanza = ({
   validarCampo,
   eliminarLote,
   printTicketBalanza,
+  printTicketBalanzaParticion,
   setActiveLotePesoInicial,
   setActiveLotePesoFinal,
+  setActiveParticionPesoInicial,
+  setActiveParticionPesoFinal,
   cerrarProceso,
+  deletingParticionId,
+  eliminarParticion,
+  isDragOver,
+  onDragOverRecepcion,
+  onDragLeaveRecepcion,
+  getLotesYParticionesDeUnidad,
+  canCloseProcesoRecepcion,
 }: CardProcesoBalanzaProps) => {
   const { notifyError } = useNotify();
 
-  const lotesAMostrar = ru.lotes || [];
+  const itemsAMostrar = useMemo(
+    () => getLotesYParticionesDeUnidad(ru),
+    [getLotesYParticionesDeUnidad, ru],
+  );
+  const totalAMostrar = itemsAMostrar.length;
 
-  const canCloseProceso = (recepcion: RecepcionMineralResponse) => {
-    if (!recepcion.lotes || recepcion.lotes.length === 0) return false;
-    return recepcion.lotes.every((l: RES_LoteMineral) => l.peso_final !== null);
-  };
+  // Re-exponer el helper del hook con un nombre local para los `disabled` del botón.
+  const canCloseProceso = canCloseProcesoRecepcion;
 
   const formatPlacaInput = (val: string): string => {
     const clean = val.toUpperCase().replace(/[^A-Z0-9]/g, "");
@@ -284,12 +316,261 @@ export const CardProcesoBalanza = ({
     Boolean(ru.documentos_programacion?.guia_transportista);
   const placaHeader = formatPlacaInput(ru.vehiculo_placa || "");
 
+  /**
+   * Construye un lote padre virtual con los campos heredados que el backend
+   * hidrata en cada partición. Se usa para pasar a ModalPesoParticion, que
+   * requiere un RES_LoteMineral completo.
+   *
+   * `idProveedorUnidad` es el `id_proveedor_minero` de la `recepcion_unidad`
+   * donde vive la partición (`particion.id_recepcion_unidad`). Permite que el
+   * modal autocomplete el proveedor desde la unidad destino, no desde el lote
+   * padre original.
+   *
+   * Cascada de proveedor (ModalPesoInicial líneas 36-37):
+   *   1. unidad destino
+   *   2. lote padre (heredado por la partición)
+   *   3. null
+   */
+  const buildLotePadreVirtual = (
+    idLotePadre: number,
+    p: RES_ParticionBalanza,
+    idProveedorUnidad: number | null,
+  ): RES_LoteMineral => ({
+    id: idLotePadre,
+    id_recepcion_unidad: null,
+    id_empleado_registro: 0,
+    correlativo: p.lote_correlativo ?? "",
+    numero_correlativo: null,
+    con_codigo_manual: false,
+    id_proveedor_minero: p.id_proveedor_minero ?? null,
+    id_proveedor_minero_recepcion:
+      idProveedorUnidad ?? p.id_proveedor_minero ?? null,
+    id_zona_origen: p.id_zona_origen ?? null,
+    numero_contacto: p.numero_contacto ?? null,
+    tipo_producto: p.tipo_producto ?? null,
+    tipo_mineral: p.tipo_mineral ?? null,
+    condicion_ingreso: null,
+    evidencias: null,
+    // Pesos reales de LA PARTICIÓN (no del lote virtual) para que ModalPesoFinal
+    // los muestre correctamente al reusarse con targetIdOverride.
+    peso_inicial: p.peso_inicial ?? null,
+    fecha_hora_peso_inicial: p.fecha_hora_peso_inicial ?? null,
+    observacion_peso_inicial: null,
+    peso_final: p.peso_final ?? null,
+    fecha_hora_peso_final: p.fecha_hora_peso_final ?? null,
+    observacion_peso_final: null,
+    peso_neto: p.peso_neto ?? null,
+    peso_actual: null,
+    id_vehiculo: null,
+    vehiculo_placa: null,
+    id_empresa_transporte: null,
+    empresa_transporte_razon_social: null,
+    id_tipo_vehiculo: null,
+    tipo_vehiculo_nombre: null,
+    id_conductor: null,
+    conductor_nombre_completo: null,
+    conductor_dni: null,
+    created_at: p.fecha_hora_peso_inicial ?? "",
+    particionado_desde_balanza: true,
+    particion_finalizada: false,
+    id_empleado_fin_particion: null,
+    fecha_hora_fin_particion: null,
+    tiene_particiones: true,
+  });
+
+  /**
+   * Renderiza un card de LOTE regular dentro del grid unificado.
+   * Equivalente al antiguo bloque inline de `lotesAMostrar.map`.
+   */
+  const renderLoteCard = (lote: RES_LoteMineral) => (
+    <Paper
+      key={`lote-${lote.id}`}
+      radius="md"
+      p="xs"
+      className="bg-zinc-950/30 border border-zinc-800/80"
+    >
+      <div className="flex items-center justify-between gap-1.5">
+        <Badge
+          variant="light"
+          color="indigo"
+          size="sm"
+          radius="sm"
+          className="font-mono font-bold text-[10px]"
+        >
+          {lote.correlativo}
+        </Badge>
+        <Group gap={2}>
+          <Tooltip label="Imprimir ticket" withArrow>
+            <ActionIcon
+              variant="subtle"
+              color="indigo"
+              radius="sm"
+              size="sm"
+              onClick={() => printTicketBalanza(lote.id)}
+              className="text-indigo-300 hover:bg-indigo-500/10"
+            >
+              <IconBarcode size={12} />
+            </ActionIcon>
+          </Tooltip>
+          <Tooltip label="Eliminar lote" withArrow>
+            <ActionIcon
+              color="red"
+              variant="subtle"
+              radius="sm"
+              size="sm"
+              loading={deletingLoteId === lote.id}
+              onClick={() => eliminarLote(ru.id, lote.id)}
+            >
+              <IconTrash size={12} />
+            </ActionIcon>
+          </Tooltip>
+        </Group>
+      </div>
+
+      <div className="grid grid-cols-2 gap-1.5 mt-1.5">
+        <div className="flex items-center justify-between gap-1.5">
+          <Text size="9px" c="dimmed" className="uppercase font-semibold shrink-0">
+            Peso Inicial
+          </Text>
+          {lote.peso_inicial !== null ? (
+            <Badge
+              variant="gradient"
+              gradient={{ from: "teal", to: "green", deg: 45 }}
+              size="sm"
+              radius="sm"
+              className="font-bold text-zinc-950 px-1.5 py-1 shadow-sm shadow-emerald-500/10"
+            >
+              {formatNumber(lote.peso_inicial)} Kg
+            </Badge>
+          ) : (
+            <Button
+              size="compact-xs"
+              radius="sm"
+              onClick={() => setActiveLotePesoInicial(lote)}
+              className="bg-linear-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-zinc-950 font-extrabold shadow-sm shadow-amber-500/10 h-4 text-[9px] px-1.5"
+            >
+              Pesar
+            </Button>
+          )}
+        </div>
+        <div className="flex items-center justify-between gap-1.5">
+          <Text size="9px" c="dimmed" className="uppercase font-semibold shrink-0">
+            Peso Final
+          </Text>
+          {lote.peso_final !== null ? (
+            <Badge
+              variant="gradient"
+              gradient={{ from: "teal", to: "green", deg: 45 }}
+              size="sm"
+              radius="sm"
+              className="font-bold text-zinc-950 px-1.5 py-1 shadow-sm shadow-emerald-500/10"
+            >
+              {formatNumber(lote.peso_final)} Kg
+            </Badge>
+          ) : lote.peso_inicial !== null ? (
+            <Button
+              size="compact-xs"
+              radius="sm"
+              onClick={() => setActiveLotePesoFinal(lote)}
+              className="bg-linear-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-zinc-950 font-extrabold shadow-sm shadow-amber-500/10 h-4 text-[9px] px-1.5"
+            >
+              Pesar
+            </Button>
+          ) : (
+            <Text size="10px" c="dimmed">
+              ---
+            </Text>
+          )}
+        </div>
+      </div>
+    </Paper>
+  );
+
+  /**
+   * Renderiza un card de PARTICIÓN dentro del grid unificado (mismo grid que los
+   * lotes regulares). Diferenciado visualmente con la pill "A/B/C..." y el correlativo
+   * completo con sufijo.
+   */
+  const renderParticionCard = (particion: RES_ParticionBalanza) => {
+    const idLotePadre = particion.id_lote_mineral;
+    const lotePadreReal = ru.lotes?.find((l) => l.id === idLotePadre);
+    // Prioridad: padre (vía JOIN del backend) > lote padre en ru.lotes > unidad destino.
+    // El padre es la fuente de verdad porque al pesar la primera partición los datos
+    // se persisten en lote_mineral y el backend los hidrata en cada listado.
+    const proveedorUnidad =
+      particion.id_proveedor_minero ??
+      lotePadreReal?.id_proveedor_minero_recepcion ??
+      lotePadreReal?.id_proveedor_minero ??
+      ru.id_proveedor_minero ??
+      null;
+
+    const lotePadreVirtual = buildLotePadreVirtual(
+      idLotePadre,
+      particion,
+      proveedorUnidad,
+    );
+    return (
+      <ParticionCardInline
+        key={`part-${particion.id}`}
+        particion={particion}
+        lotePadreVirtual={lotePadreVirtual}
+        onPesarInicial={(part) => setActiveParticionPesoInicial(part, lotePadreVirtual)}
+        onPesarFinal={(part) => setActiveParticionPesoFinal(part, lotePadreVirtual)}
+        onImprimirTicket={(part) => printTicketBalanzaParticion(part.id)}
+        onEliminar={(part) => eliminarParticion(part.id, idLotePadre)}
+        deletingParticionId={deletingParticionId}
+      />
+    );
+  };
+
   return (
     <Paper
       key={ru.id}
+      data-unidad-id={ru.id}
       radius="md"
       p="sm"
-      className="bg-zinc-950/40 border border-zinc-800/80 shadow-lg flex flex-col gap-2"
+      onDragOver={(e) => {
+        const hasLoteType = e.dataTransfer.types.includes(
+          "application/lote-particionar",
+        );
+        console.log("[DRAG-DIAG] Paper onDragOver", {
+          unidadId: ru.id,
+          hasLoteType,
+          targetTag: (e.target as HTMLElement | null)?.tagName,
+        });
+        if (hasLoteType) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "move";
+          onDragOverRecepcion(ru.id);
+        }
+      }}
+      onDragLeave={() => {
+        console.log("[DRAG-DIAG] Paper onDragLeave", { unidadId: ru.id });
+        onDragLeaveRecepcion(ru.id);
+      }}
+      onDrop={(e) => {
+        const idLoteStr = e.dataTransfer.getData("application/lote-particionar");
+        const hasLoteType = e.dataTransfer.types.includes(
+          "application/lote-particionar",
+        );
+        console.log("[DRAG-DIAG] Paper onDrop", {
+          unidadId: ru.id,
+          hasLoteType,
+          idLoteStr,
+          targetTag: (e.target as HTMLElement | null)?.tagName,
+        });
+        if (idLoteStr) {
+          e.preventDefault();
+          onDragLeaveRecepcion(ru.id);
+          // Lógica de drop: delega al consumidor (page.tsx).
+          // Acá solo leemos; el page.tsx ya configuró el listener.
+        }
+      }}
+      className={`bg-zinc-950/40 border shadow-lg flex flex-col gap-2 transition-all ${
+        isDragOver
+          ? "border-indigo-400 ring-2 ring-indigo-400/50 bg-indigo-950/30"
+          : "border-zinc-800/80"
+      }`}
     >
       {/* Layout 2 columnas */}
       <Grid columns={24} gutter="xs">
@@ -609,11 +890,13 @@ export const CardProcesoBalanza = ({
             p="xs"
             className="bg-zinc-900/30 border border-zinc-800/80 h-full"
           >
+            {/* Header interno: contador de lotes/particiones + botones de acción.
+                El subtítulo "Proceso de Pesaje y Lotes" vive en el header GLOBAL
+                del panel (en recepcion-mineral.page.tsx), no aquí. */}
             <Group justify="space-between" mb="xs" className="px-1">
               <Group gap={4}>
-                <IconScale size={12} className="text-indigo-400" />
                 <Text size="10px" fw={700} className="text-indigo-400 uppercase tracking-wider">
-                  Lotes ({lotesAMostrar.length})
+                  Lotes ({totalAMostrar})
                 </Text>
               </Group>
               <Group gap={4}>
@@ -647,7 +930,7 @@ export const CardProcesoBalanza = ({
               </Group>
             </Group>
 
-            {lotesAMostrar.length === 0 ? (
+            {itemsAMostrar.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-4 text-center gap-1">
                 <IconCalendarTime size={20} className="text-zinc-600" />
                 <Text size="10px" c="dimmed">
@@ -656,109 +939,13 @@ export const CardProcesoBalanza = ({
               </div>
             ) : (
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-2">
-                {lotesAMostrar.map((lote: RES_LoteMineral) => (
-                  <Paper
-                    key={lote.id}
-                    radius="md"
-                    p="xs"
-                    className="bg-zinc-950/30 border border-zinc-800/80"
-                  >
-                    <div className="flex items-center justify-between gap-1.5">
-                      <Badge
-                        variant="light"
-                        color="indigo"
-                        size="sm"
-                        radius="sm"
-                        className="font-mono font-bold text-[10px]"
-                      >
-                        {lote.correlativo}
-                      </Badge>
-                      <Group gap={2}>
-                        <Tooltip label="Imprimir ticket" withArrow>
-                          <ActionIcon
-                            variant="subtle"
-                            color="indigo"
-                            radius="sm"
-                            size="sm"
-                            onClick={() => printTicketBalanza(lote.id)}
-                            className="text-indigo-300 hover:bg-indigo-500/10"
-                          >
-                            <IconBarcode size={12} />
-                          </ActionIcon>
-                        </Tooltip>
-                        <Tooltip label="Eliminar lote" withArrow>
-                          <ActionIcon
-                            color="red"
-                            variant="subtle"
-                            radius="sm"
-                            size="sm"
-                            loading={deletingLoteId === lote.id}
-                            onClick={() => eliminarLote(ru.id, lote.id)}
-                          >
-                            <IconTrash size={12} />
-                          </ActionIcon>
-                        </Tooltip>
-                      </Group>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-1.5 mt-1.5">
-                      <div className="flex items-center justify-between gap-1.5">
-                        <Text size="9px" c="dimmed" className="uppercase font-semibold shrink-0">
-                          Peso Inicial
-                        </Text>
-                        {lote.peso_inicial !== null ? (
-                          <Badge
-                            variant="gradient"
-                            gradient={{ from: "teal", to: "green", deg: 45 }}
-                            size="sm"
-                            radius="sm"
-                            className="font-bold text-zinc-950 px-1.5 py-1 shadow-sm shadow-emerald-500/10"
-                          >
-                            {formatNumber(lote.peso_inicial)} Kg
-                          </Badge>
-                        ) : (
-                          <Button
-                            size="compact-xs"
-                            radius="sm"
-                            onClick={() => setActiveLotePesoInicial(lote)}
-                            className="bg-linear-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-zinc-950 font-extrabold shadow-sm shadow-amber-500/10 h-4 text-[9px] px-1.5"
-                          >
-                            Pesar
-                          </Button>
-                        )}
-                      </div>
-                      <div className="flex items-center justify-between gap-1.5">
-                        <Text size="9px" c="dimmed" className="uppercase font-semibold shrink-0">
-                          Peso Final
-                        </Text>
-                        {lote.peso_final !== null ? (
-                          <Badge
-                            variant="gradient"
-                            gradient={{ from: "teal", to: "green", deg: 45 }}
-                            size="sm"
-                            radius="sm"
-                            className="font-bold text-zinc-950 px-1.5 py-1 shadow-sm shadow-emerald-500/10"
-                          >
-                            {formatNumber(lote.peso_final)} Kg
-                          </Badge>
-                        ) : lote.peso_inicial !== null ? (
-                          <Button
-                            size="compact-xs"
-                            radius="sm"
-                            onClick={() => setActiveLotePesoFinal(lote)}
-                            className="bg-linear-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-zinc-950 font-extrabold shadow-sm shadow-amber-500/10 h-4 text-[9px] px-1.5"
-                          >
-                            Pesar
-                          </Button>
-                        ) : (
-                          <Text size="10px" c="dimmed">
-                            ---
-                          </Text>
-                        )}
-                      </div>
-                    </div>
-                  </Paper>
-                ))}
+                {itemsAMostrar.map((item) =>
+                  item.tipo === "LOTE" ? (
+                    renderLoteCard(item.lote)
+                  ) : (
+                    renderParticionCard(item.particion)
+                  ),
+                )}
               </div>
             )}
           </Paper>

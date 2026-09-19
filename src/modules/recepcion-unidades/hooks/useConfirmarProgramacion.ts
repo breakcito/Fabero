@@ -71,6 +71,9 @@ export const useConfirmarProgramacion = ({ programacion, opened = true }: Props)
   );
   const [idEmpresaTransporteEditado, setIdEmpresaTransporteEditado] = useState<number | null>(null);
   const [idVehiculoEditado, setIdVehiculoEditado] = useState<number | null>(null);
+  const [idVehiculoCarreta, setIdVehiculoCarreta] = useState<number | null>(
+    programacion?.id_vehiculo_carreta ?? null,
+  );
   const [idProveedorMineroEditado, setIdProveedorMineroEditado] = useState<number | null>(null);
   const [idTipoVehiculoEditado, setIdTipoVehiculoEditado] = useState<number | null>(null);
 
@@ -95,6 +98,7 @@ export const useConfirmarProgramacion = ({ programacion, opened = true }: Props)
       setEvidencias([]);
       setIdEmpresaTransporteEditado(null);
       setIdVehiculoEditado(null);
+      setIdVehiculoCarreta(programacion?.id_vehiculo_carreta ?? null);
       setIdProveedorMineroEditado(null);
       setIdTipoVehiculoEditado(null);
       setIdConductor(programacion?.id_conductor ?? null);
@@ -213,6 +217,14 @@ export const useConfirmarProgramacion = ({ programacion, opened = true }: Props)
     }
     notifySuccess(`Vehículo registrado`);
   }, [notifySuccess, programacion?.id_vehiculo]);
+
+  const handleCarretaCreada = useCallback((v: RES_Vehiculo) => {
+    setVehiculosCatalog((prev) => [v, ...prev]);
+    if (!programacion?.id_vehiculo_carreta) {
+      setIdVehiculoCarreta(v.id_vehiculo);
+    }
+    notifySuccess(`Vehículo carreta registrado`);
+  }, [notifySuccess, programacion?.id_vehiculo_carreta]);
 
   const handleTipoVehiculoCreado = useCallback(
     async (idTipo?: number) => {
@@ -497,6 +509,7 @@ export const useConfirmarProgramacion = ({ programacion, opened = true }: Props)
           id_sucursal: idSucursal ?? undefined,
           id_conductor: idConductor ?? undefined,
           id_proveedor_minero: idProv ?? undefined,
+          id_vehiculo_carreta: idVehiculoCarreta ?? undefined,
           guia_remitente: gRemitente || undefined,
           guia_transportista: gTransportista || undefined,
           observacion: observacion || undefined,
@@ -606,6 +619,7 @@ export const useConfirmarProgramacion = ({ programacion, opened = true }: Props)
           id_tipo_vehiculo: idTip || undefined,
           id_conductor: idConductor,
           id_proveedor_minero: idProv || undefined,
+          id_vehiculo_carreta: idVehiculoCarreta ?? null,
           id_sucursal: sucursalTarget,
           tipo_ingreso: TipoIngreso.RecepcionMineral,
           guia_remitente: gRemitente || undefined,
@@ -664,6 +678,8 @@ export const useConfirmarProgramacion = ({ programacion, opened = true }: Props)
     setIdEmpresaTransporteEditado,
     idVehiculoEditado,
     setIdVehiculoEditado,
+    idVehiculoCarreta,
+    setIdVehiculoCarreta,
     idProveedorMineroEditado,
     setIdProveedorMineroEditado,
     idTipoVehiculoEditado,
@@ -680,6 +696,7 @@ export const useConfirmarProgramacion = ({ programacion, opened = true }: Props)
     setEvidencias,
     handleConductorCreado,
     handleVehiculoCreado,
+    handleCarretaCreada,
     handleTipoVehiculoCreado,
     handleEmpresaCreada,
     handleProveedorCreado,

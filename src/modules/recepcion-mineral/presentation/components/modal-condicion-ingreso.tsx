@@ -12,7 +12,11 @@ interface ModalCondicionIngresoProps {
   onConfirm: (
     condicion: CondicionIngreso,
     idEmpresa: number,
-    codigoManual?: { conCodigoManual: boolean; codigoManual?: string },
+    codigoManual?: {
+      conCodigoManual: boolean;
+      codigoManual?: string;
+      particionar?: boolean;
+    },
   ) => void;
 }
 
@@ -27,6 +31,7 @@ export const ModalCondicionIngreso = ({
   const [idEmpresa, setIdEmpresa] = useState<string | null>(null);
   const [conCodigoManual, setConCodigoManual] = useState(false);
   const [codigoManual, setCodigoManual] = useState("");
+  const [particionar, setParticionar] = useState(false);
 
   // Identifica la empresa Fabero por coincidencia en razon_social.
   // Heurística estable: primera empresa cuya razón social contiene "fabero"
@@ -45,6 +50,7 @@ export const ModalCondicionIngreso = ({
       setIdEmpresa(faberoEmpresa ? String(faberoEmpresa.id_empresa) : null);
       setConCodigoManual(false);
       setCodigoManual("");
+      setParticionar(false);
     }
   }, [opened, faberoEmpresa]);
 
@@ -56,11 +62,18 @@ export const ModalCondicionIngreso = ({
       return;
     }
 
-    const payload: { conCodigoManual: boolean; codigoManual?: string } = {
+    const payload: {
+      conCodigoManual: boolean;
+      codigoManual?: string;
+      particionar?: boolean;
+    } = {
       conCodigoManual,
     };
     if (conCodigoManual) {
       payload.codigoManual = codigoManual.trim().toUpperCase();
+    }
+    if (particionar) {
+      payload.particionar = true;
     }
 
     onConfirm(condicion, Number(idEmpresa), payload);
@@ -77,6 +90,15 @@ export const ModalCondicionIngreso = ({
       close={onClose}
       title="Nuevo Lote"
       size="md"
+      rightSection={
+        <Checkbox
+          label="Particionar"
+          checked={particionar}
+          onChange={(e) => setParticionar(e.currentTarget.checked)}
+          color="indigo"
+          classNames={{ label: "text-zinc-200 text-sm" }}
+        />
+      }
     >
       <Stack gap="md" className="p-2">
         <Select
@@ -133,7 +155,7 @@ export const ModalCondicionIngreso = ({
             required
             withAsterisk
             value={codigoManual}
-            onChange={(e) => setCodigoManual(e.target.value.toUpperCase())}
+            onChange={(e) => setCodigoManual(e.currentTarget.value.toUpperCase())}
             classNames={fieldClasses}
             radius="md"
           />

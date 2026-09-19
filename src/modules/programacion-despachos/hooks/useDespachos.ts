@@ -61,7 +61,24 @@ export const useDespachos = () => {
   const reemplazarDespacho = useCallback(
     (
       full:
-        | { cabecera: { id: number; correlativo: string; numero_correlativo: number; id_planta_destino: number; planta_destino_razon_social: string; planta_destino_ruc: string; id_empleado_registro: number; empleado_registro_nombre: string | null; id_empleado_anulacion: number | null; fecha_hora_anulacion: string | null; es_anulado: boolean; created_at: string } }
+        | {
+            cabecera: {
+              id: number;
+              correlativo: string;
+              numero_correlativo: number;
+              id_planta_destino: number;
+              planta_destino_razon_social: string;
+              planta_destino_ruc: string;
+              id_empresa: number | null;
+              empresa_razon_social: string | null;
+              id_empleado_registro: number;
+              empleado_registro_nombre: string | null;
+              id_empleado_anulacion: number | null;
+              fecha_hora_anulacion: string | null;
+              es_anulado: boolean;
+              created_at: string;
+            };
+          }
         | DespachoListItem,
     ) => {
       if ("cabecera" in full) {
@@ -71,6 +88,8 @@ export const useDespachos = () => {
           id_planta_destino: c.id_planta_destino,
           planta_destino_razon_social: c.planta_destino_razon_social,
           planta_destino_ruc: c.planta_destino_ruc,
+          id_empresa: c.id_empresa,
+          empresa_razon_social: c.empresa_razon_social,
           id_empleado_registro: c.id_empleado_registro,
           empleado_registro_nombre: c.empleado_registro_nombre,
           id_empleado_anulacion: c.id_empleado_anulacion,

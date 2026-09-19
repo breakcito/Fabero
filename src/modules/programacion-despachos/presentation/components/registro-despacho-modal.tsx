@@ -13,6 +13,7 @@ import {
   Text,
   Grid,
   Divider,
+  TextInput,
 } from "@mantine/core";
 import {
   IconPlus,
@@ -20,10 +21,13 @@ import {
   IconTruckDelivery,
   IconBox,
   IconAlertTriangle,
+  IconBuildingSkyscraper,
 } from "@tabler/icons-react";
 import { useNotify } from "../../../../hooks/useNotify";
 import { useRegistroDespacho } from "../../hooks/useRegistroDespacho";
-import { ProgramacionDespachosService } from "../../service/programacion-despachos.service";
+import { useItemsDisponibles } from "../../hooks/useItemsDisponibles";
+import { AuxService } from "../../../../service/auxiliar.service";
+import type { RES_Empresa } from "../../../../service/responses/empresa";
 import type {
   DespachoDetalle,
   ItemDisponibleDespacho,
@@ -43,6 +47,23 @@ const fieldClasses = {
   label: "text-zinc-300 mb-1 font-medium text-xs",
 };
 
+// Orden de prioridad para auto-seleccionar la empresa por nombre.
+// Si ninguno matchea, idEmpresa queda en null y la UI lo guía.
+const EMPRESA_PREFERRED_NAME_HINTS = ["fabero", "darwin", "darme"] as const;
+
+const matchEmpresaPreferida = (
+  lista: RES_Empresa[],
+): RES_Empresa | null => {
+  for (const hint of EMPRESA_PREFERRED_NAME_HINTS) {
+    const match = lista.find((e) =>
+      (e.razon_social ?? "").toLowerCase().includes(hint),
+    );
+    if (match) return match;
+  }
+
+  return null;
+};
+
 export const RegistroDespachoModal = ({
   opened,
   onClose,
@@ -50,14 +71,9 @@ export const RegistroDespachoModal = ({
   plantas,
   loadingPlantas,
 }: Props) => {
-  const [items, setItems] = useState<ItemDisponibleDespacho[]>([]);
-  const [loadingItems, setLoadingItems] = useState(false);
-
-  const handleClose = () => {
-    ctrl.reset();
-    setItems([]);
-    onClose();
-  };
+  const [empresas, setEmpresas] = useState<RES_Empresa[]>([]);
+  const [loadingEmpresas, setLoadingEmpresas] = useState(false);
+  const [defaultEmpresaAplicado, setDefaultEmpresaAplicado] = useState(false);
 
   const ctrl = useRegistroDespacho((nuevo) => {
     onSuccess(nuevo);
@@ -65,30 +81,71 @@ export const RegistroDespachoModal = ({
   });
   const { notifyError } = useNotify();
 
+  // Items disponibles filtrados por la empresa seleccionada.
+  const { items, loading: loadingItems, refrescar: refrescarItems } =
+    useItemsDisponibles(ctrl.idEmpresa);
+
+  const handleClose = () => {
+    ctrl.reset();
+    setDefaultEmpresaAplicado(false);
+    onClose();
+  };
+
+  // Cargar empresas al abrir y auto-seleccionar Fabero (o match por nombre).
   useEffect(() => {
     if (!opened) return;
     let cancelled = false;
-    setLoadingItems(true);
-    ProgramacionDespachosService.getItemsDisponibles()
-      .then((data) => {
-        if (!cancelled) setItems(Array.isArray(data) ? data : []);
+    setLoadingEmpresas(true);
+    AuxService.get_empresas({ estado: "Activo" })
+      .then((resp) => {
+        if (cancelled) return;
+        const lista = Array.isArray(resp?.data) ? resp.data : [];
+        setEmpresas(lista);
       })
       .catch((e) => {
         console.error(e);
-        if (!cancelled) notifyError("Error al cargar los items disponibles");
+        if (!cancelled) notifyError("Error al cargar las empresas");
       })
       .finally(() => {
-        if (!cancelled) setLoadingItems(false);
+        if (!cancelled) setLoadingEmpresas(false);
       });
+
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opened]);
 
+  // Auto-selecciona empresa preferida una vez que el catálogo carga y aún no
+  // se ha aplicado el default en esta sesión de modal.
+  useEffect(() => {
+    if (!opened || defaultEmpresaAplicado || loadingEmpresas) return;
+    if (empresas.length === 0) return;
+    if (ctrl.idEmpresa !== null) return;
+    const match = matchEmpresaPreferida(empresas);
+    if (match) {
+      ctrl.setIdEmpresa(match.id_empresa);
+    }
+    setDefaultEmpresaAplicado(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [opened, loadingEmpresas, empresas, defaultEmpresaAplicado]);
+
+  // Refrescar items cuando cambia idEmpresa (el hook useItemsDisponibles ya
+  // dispara refetch interno cuando cambia su parametro; este effect es solo
+  // un fallback para forzar el caso null->valor en el mismo ciclo).
+  useEffect(() => {
+    if (opened) refrescarItems();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ctrl.idEmpresa]);
+
   const plantasData = plantas.map((p) => ({
     value: String(p.id),
     label: p.ruc ? `${p.razon_social} (${p.ruc})` : p.razon_social,
+  }));
+
+  const empresasData = empresas.map((e) => ({
+    value: String(e.id_empresa),
+    label: e.ruc ? `${e.razon_social} (${e.ruc})` : e.razon_social,
   }));
 
   const itemsData = items.map((it) => {
@@ -124,7 +181,7 @@ export const RegistroDespachoModal = ({
       });
       return;
     }
-    const item = items.find((it) => {
+    const item = items.find((it: ItemDisponibleDespacho) => {
       if (value.startsWith("LOTE-")) {
         return it.id_lote_mineral === Number(value.replace("LOTE-", ""));
       }
@@ -153,8 +210,15 @@ export const RegistroDespachoModal = ({
     }
   };
 
-  const getItemKey = (it: { id_lote_mineral: number | null; id_blending: number | null }) =>
-    it.id_lote_mineral ? `LOTE-${it.id_lote_mineral}` : it.id_blending ? `BLENDING-${it.id_blending}` : null;
+  const getItemKey = (it: {
+    id_lote_mineral: number | null;
+    id_blending: number | null;
+  }) =>
+    it.id_lote_mineral
+      ? `LOTE-${it.id_lote_mineral}`
+      : it.id_blending
+        ? `BLENDING-${it.id_blending}`
+        : null;
 
   return (
     <ModalEstandar
@@ -162,26 +226,64 @@ export const RegistroDespachoModal = ({
       close={handleClose}
       title="Registrar Despacho"
       size="xl"
-      validateClose={ctrl.items.length > 0 || ctrl.idPlantaDestino !== null}
+      validateClose={
+        ctrl.items.length > 0 ||
+        ctrl.idPlantaDestino !== null ||
+        ctrl.idEmpresa !== null
+      }
       closeConfirmationTitle="¿Cerrar sin guardar?"
     >
       <Stack gap="md">
         <Grid gutter="sm">
-          <Grid.Col span={{ base: 12 }}>
+          <Grid.Col span={{ base: 12, sm: 6 }}>
             <Select
               label="Planta Destino"
-              placeholder={loadingPlantas ? "Cargando plantas..." : "Seleccione la planta destino"}
+              placeholder={
+                loadingPlantas ? "Cargando plantas..." : "Seleccione la planta destino"
+              }
               data={plantasData}
               value={ctrl.idPlantaDestino ? String(ctrl.idPlantaDestino) : null}
-              onChange={(val) => ctrl.setIdPlantaDestino(val ? Number(val) : null)}
+              onChange={(val) =>
+                ctrl.setIdPlantaDestino(val ? Number(val) : null)
+              }
               leftSection={<IconTruckDelivery className="w-4 h-4 text-zinc-500" />}
               withAsterisk
               required
               searchable
               clearable
               radius="lg"
+              size="xs"
               disabled={loadingPlantas || ctrl.loading}
               rightSection={loadingPlantas ? <Loader size={16} /> : undefined}
+              classNames={fieldClasses}
+            />
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, sm: 6 }}>
+            <Select
+              label="Empresa"
+              placeholder={
+                loadingEmpresas
+                  ? "Cargando empresas..."
+                  : empresas.length === 0
+                    ? "Sin empresas activas"
+                    : "Seleccione la empresa"
+              }
+              data={empresasData}
+              value={ctrl.idEmpresa ? String(ctrl.idEmpresa) : null}
+              onChange={(val) => ctrl.setIdEmpresa(val ? Number(val) : null)}
+              leftSection={
+                <IconBuildingSkyscraper className="w-4 h-4 text-zinc-500" />
+              }
+              withAsterisk
+              required
+              searchable
+              clearable
+              radius="lg"
+              size="xs"
+              disabled={loadingEmpresas || ctrl.loading}
+              rightSection={
+                loadingEmpresas ? <Loader size={16} /> : undefined
+              }
               classNames={fieldClasses}
             />
           </Grid.Col>
@@ -194,7 +296,7 @@ export const RegistroDespachoModal = ({
         />
 
         <Text size="xs" className="text-zinc-500">
-          Seleccione los lotes / blendings y asigne el peso a despachar (KG). Cada item acepta como máximo su peso actual disponible.
+          Seleccione los lotes / blendings y asigne el peso a despachar (KG). Cada item acepta como máximo su peso actual disponible. El código preliminar es opcional (máx. 20 caracteres).
         </Text>
 
         <Stack gap="xs">
@@ -215,67 +317,98 @@ export const RegistroDespachoModal = ({
               return (
                 <div
                   key={it.uid}
-                  className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-3 flex items-end gap-3"
+                  className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-3"
                 >
-                  <Select
-                    label="Item"
-                    placeholder={loadingItems ? "Cargando items..." : "Seleccione"}
-                    data={itemsDataParaFila(it.uid)}
-                    value={key}
-                    onChange={(val) => handleItemSelect(it.uid, val)}
-                    leftSection={<IconBox className="w-4 h-4 text-zinc-500" />}
-                    radius="lg"
-                    searchable
-                    clearable
-                    disabled={loadingItems || ctrl.loading}
-                    rightSection={loadingItems ? <Loader size={16} /> : undefined}
-                    classNames={{ ...fieldClasses, root: "flex-1" }}
-                  />
-                  <NumberInput
-                    label="Peso Tomado (KG)"
-                    placeholder="0.000"
-                    min={0}
-                    max={maxPeso ?? undefined}
-                    decimalScale={3}
-                    fixedDecimalScale
-                    hideControls
-                    value={it.peso_tomado || ""}
-                    error={
-                      maxPeso !== null && it.peso_tomado > maxPeso
-                        ? `Máx ${maxPeso.toFixed(3)} KG`
-                        : undefined
-                    }
-                    onChange={(val) => {
-                      let n = typeof val === "number" ? val : Number(val);
-                      if (isNaN(n)) n = 0;
-                      ctrl.actualizarItem(it.uid, { peso_tomado: n });
-                    }}
-                    disabled={!key || ctrl.loading}
-                    radius="lg"
-                    classNames={{ ...fieldClasses, root: "w-44" }}
-                  />
-                  <Tooltip label="Eliminar item">
-                    <ActionIcon
-                      type="button"
-                      variant="filled"
-                      color="red"
-                      radius="xl"
-                      size="lg"
-                      disabled={ctrl.loading}
-                      onClick={() => {
-                        mostrarConfirmacion({
-                          title: "¿Eliminar item?",
-                          message: "Se quitará esta fila de la lista.",
-                          onConfirm: () => ctrl.eliminarItem(it.uid),
-                          tipo: "peligro",
-                          confirmLabel: "Eliminar",
-                        });
+                  <div className="flex flex-wrap items-end gap-3">
+                    <Select
+                      label="Item"
+                      placeholder={
+                        ctrl.idEmpresa === null
+                          ? "Seleccione empresa primero"
+                          : loadingItems
+                            ? "Cargando items..."
+                            : "Seleccione"
+                      }
+                      data={itemsDataParaFila(it.uid)}
+                      value={key}
+                      onChange={(val) => handleItemSelect(it.uid, val)}
+                      leftSection={<IconBox className="w-4 h-4 text-zinc-500" />}
+                      radius="lg"
+                      size="xs"
+                      searchable
+                      clearable
+                      disabled={
+                        ctrl.idEmpresa === null ||
+                        loadingItems ||
+                        ctrl.loading
+                      }
+                      rightSection={
+                        loadingItems ? <Loader size={16} /> : undefined
+                      }
+                      classNames={{ ...fieldClasses, root: "flex-1 min-w-[200px]" }}
+                    />
+                    <TextInput
+                      label="Cód. Preliminar"
+                      placeholder="MAX 20 CHARS"
+                      maxLength={20}
+                      value={it.codigo_preliminar}
+                      onChange={(e) =>
+                        ctrl.actualizarItem(it.uid, {
+                          codigo_preliminar: e.currentTarget.value,
+                        })
+                      }
+                      radius="lg"
+                      size="xs"
+                      disabled={!key || ctrl.loading}
+                      classNames={{ ...fieldClasses, root: "w-44" }}
+                    />
+                    <NumberInput
+                      label="Peso Tomado (KG)"
+                      placeholder="0.000"
+                      min={0}
+                      max={maxPeso ?? undefined}
+                      decimalScale={3}
+                      fixedDecimalScale
+                      hideControls
+                      value={it.peso_tomado || ""}
+                      error={
+                        maxPeso !== null && it.peso_tomado > maxPeso
+                          ? `Máx ${maxPeso.toFixed(3)} KG`
+                          : undefined
+                      }
+                      onChange={(val) => {
+                        let n = typeof val === "number" ? val : Number(val);
+                        if (isNaN(n)) n = 0;
+                        ctrl.actualizarItem(it.uid, { peso_tomado: n });
                       }}
-                      className="bg-red-500/10! hover:bg-red-500/20! text-red-400! border-red-500/20! mb-0.5"
-                    >
-                      <IconTrash size={16} />
-                    </ActionIcon>
-                  </Tooltip>
+                      disabled={!key || ctrl.loading}
+                      radius="lg"
+                      size="xs"
+                      classNames={{ ...fieldClasses, root: "w-44" }}
+                    />
+                    <Tooltip label="Eliminar item">
+                      <ActionIcon
+                        type="button"
+                        variant="filled"
+                        color="red"
+                        radius="xl"
+                        size="lg"
+                        disabled={ctrl.loading}
+                        onClick={() => {
+                          mostrarConfirmacion({
+                            title: "¿Eliminar item?",
+                            message: "Se quitará esta fila de la lista.",
+                            onConfirm: () => ctrl.eliminarItem(it.uid),
+                            tipo: "peligro",
+                            confirmLabel: "Eliminar",
+                          });
+                        }}
+                        className="bg-red-500/10! hover:bg-red-500/20! text-red-400! border-red-500/20! mb-0.5"
+                      >
+                        <IconTrash size={16} />
+                      </ActionIcon>
+                    </Tooltip>
+                  </div>
                 </div>
               );
             })

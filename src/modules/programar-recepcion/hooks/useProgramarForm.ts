@@ -6,6 +6,7 @@ import type { ProgramacionDetail } from "../service/programar-recepcion.response
 import type { RES_EmpresaTransporte } from "../../../service/responses/empresa-transporte";
 import type { RES_Vehiculo } from "../../../service/responses/vehiculo";
 import type { RES_Proveedor } from "../../../service/responses/proveedor";
+import type { RES_TipoVehiculo } from "../../../service/responses/tipo-vehiculo";
 import type { EmpresaTransporteResponse } from "../../empresas-transporte/service/empresas-transporte.responses";
 import type { ProveedorResponse } from "../../proveedores-mineros/service/proveedores.responses";
 import { useNotify } from "../../../hooks/useNotify";
@@ -24,6 +25,7 @@ const INITIAL_FORM: CrearProgramacionRequest = {
   fecha_estimada_llegada: "",
   guia_remitente: "",
   guia_transportista: "",
+  id_vehiculo_carreta: undefined,
   guia_remitente_file: null,
   guia_transportista_file: null,
   documentos_programacion_existentes: null,
@@ -40,21 +42,25 @@ export const useProgramarForm = (
   const [empresas, setEmpresas] = useState<RES_EmpresaTransporte[]>([]);
   const [vehiculos, setVehiculos] = useState<RES_Vehiculo[]>([]);
   const [proveedores, setProveedores] = useState<RES_Proveedor[]>([]);
+  const [tiposVehiculo, setTiposVehiculo] = useState<RES_TipoVehiculo[]>([]);
 
   const [loadingEmpresas, setLoadingEmpresas] = useState(false);
   const [loadingVehiculos, setLoadingVehiculos] = useState(false);
   const [loadingProveedores, setLoadingProveedores] = useState(false);
+  const [loadingTiposVehiculo, setLoadingTiposVehiculo] = useState(false);
 
   const cargarCatalogos = useCallback(async () => {
     setLoadingEmpresas(true);
     setLoadingVehiculos(true);
     setLoadingProveedores(true);
+    setLoadingTiposVehiculo(true);
 
     try {
-      const [emp, veh, prov] = await Promise.all([
+      const [emp, veh, prov, tipos] = await Promise.all([
         AuxService.get_empresas_transporte(),
         AuxService.get_vehiculos(),
         AuxService.get_proveedores(),
+        AuxService.get_tipos_vehiculo(),
       ]);
       setEmpresas(Array.isArray(emp) ? emp : []);
       setVehiculos(Array.isArray(veh) ? veh : []);
@@ -63,6 +69,7 @@ export const useProgramarForm = (
       } else if (Array.isArray(prov)) {
         setProveedores(prov as unknown as RES_Proveedor[]);
       }
+      setTiposVehiculo(Array.isArray(tipos) ? tipos : []);
     } catch (e) {
       console.error(e);
       notifyError("Error al cargar los catálogos de programación");
@@ -70,6 +77,7 @@ export const useProgramarForm = (
       setLoadingEmpresas(false);
       setLoadingVehiculos(false);
       setLoadingProveedores(false);
+      setLoadingTiposVehiculo(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -181,6 +189,14 @@ export const useProgramarForm = (
     [setField],
   );
 
+  const handleCarretaCreada = useCallback(
+    (nueva: RES_Vehiculo) => {
+      setVehiculos((prev) => [nueva, ...prev.filter((v) => v.id_vehiculo !== nueva.id_vehiculo)]);
+      setField("id_vehiculo_carreta", nueva.id_vehiculo);
+    },
+    [setField],
+  );
+
   return {
     form,
     setField,
@@ -190,12 +206,15 @@ export const useProgramarForm = (
     empresas,
     vehiculos,
     proveedores,
+    tiposVehiculo,
     loadingEmpresas,
     loadingVehiculos,
     loadingProveedores,
+    loadingTiposVehiculo,
     cargarCatalogos,
     handleEmpresaCreada,
     handleVehiculoCreado,
     handleProveedorCreado,
+    handleCarretaCreada,
   };
 };

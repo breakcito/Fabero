@@ -47,6 +47,7 @@ export const ProgramarRecepcionModal = ({ opened, onClose, onSuccess }: Props) =
   const [openEmpresaModal, setOpenEmpresaModal] = useState(false);
   const [openVehiculoModal, setOpenVehiculoModal] = useState(false);
   const [openProveedorModal, setOpenProveedorModal] = useState(false);
+  const [openCarretaModal, setOpenCarretaModal] = useState(false);
 
   const ctrl = useProgramarForm((nueva) => {
     onSuccess(nueva);
@@ -61,14 +62,17 @@ export const ProgramarRecepcionModal = ({ opened, onClose, onSuccess }: Props) =
     empresas,
     vehiculos,
     proveedores,
+    tiposVehiculo,
     loadingEmpresas,
     loadingVehiculos,
     loadingProveedores,
+    loadingTiposVehiculo,
     cargarCatalogos,
     reset,
     handleEmpresaCreada,
     handleVehiculoCreado,
     handleProveedorCreado,
+    handleCarretaCreada,
   } = ctrl;
 
   useEffect(() => {
@@ -82,15 +86,32 @@ export const ProgramarRecepcionModal = ({ opened, onClose, onSuccess }: Props) =
     label: e.ruc ? `${e.razon_social} (${e.ruc})` : e.razon_social,
   }));
 
-  const vehiculosData = (vehiculos ?? []).map((v) => ({
-    value: String(v.id_vehiculo),
-    label: v.placa || `Vehículo #${v.id_vehiculo}`,
-  }));
+  const vehiculosData = (vehiculos ?? [])
+    .filter((v) => !v.es_carreta || Number(v.es_carreta) === 0)
+    .map((v) => ({
+      value: String(v.id_vehiculo),
+      label: v.placa || `Vehículo #${v.id_vehiculo}`,
+    }));
 
   const proveedoresData = (proveedores ?? []).map((p) => ({
     value: String(p.id_proveedor),
     label: p.razon_social,
   }));
+
+  // Vehículos tipo carreta (es_carreta === 1) para el dropdown opcional de "Vehículo Carreta".
+  // El backend serializa TINYINT(1) como número 0/1, mismo patrón que guias-primer-tramo.
+  const vehiculosCarreta = (vehiculos ?? []).filter(
+    (v) => Number(v.es_carreta) === 1,
+  );
+
+  const carretasData = vehiculosCarreta.map((v) => ({
+    value: String(v.id_vehiculo),
+    label: v.placa || `Vehículo #${v.id_vehiculo}`,
+  }));
+
+  // id_tipo_vehiculo del TipoVehiculo con es_carreta=1, para pre-asignar al sub-modal de registro.
+  const idTipoVehiculoCarreta =
+    (tiposVehiculo ?? []).find((t) => Number(t.es_carreta) === 1)?.id_tipo_vehiculo ?? null;
 
   return (
     <>
@@ -224,7 +245,7 @@ export const ProgramarRecepcionModal = ({ opened, onClose, onSuccess }: Props) =
               </div>
             </Grid.Col>
 
-            {/* Fila 3: Fecha (ocupa media fila) */}
+            {/* Fila 3: Fecha + Vehículo Carreta (opcional) */}
             <Grid.Col span={{ base: 12, sm: 6 }}>
               <CustomDatePicker
                 label="Fecha Estimada de Llegada"
@@ -246,7 +267,58 @@ export const ProgramarRecepcionModal = ({ opened, onClose, onSuccess }: Props) =
             </Grid.Col>
 
             <Grid.Col span={{ base: 12, sm: 6 }}>
-              {/* Columna vacía para balancear la fila 3 */}
+              <div className="flex gap-2 items-end">
+                <Select
+                  label="Vehículo Carreta (opcional)"
+                  placeholder={
+                    loadingVehiculos || loadingTiposVehiculo
+                      ? "Cargando..."
+                      : carretasData.length === 0
+                        ? "Sin vehículos carreta registrados"
+                        : "Seleccione (opcional)"
+                  }
+                  data={carretasData}
+                  value={
+                    form.id_vehiculo_carreta
+                      ? String(form.id_vehiculo_carreta)
+                      : null
+                  }
+                  onChange={(val) =>
+                    setField("id_vehiculo_carreta", val ? Number(val) : undefined)
+                  }
+                  leftSection={<IconTruck className="w-4 h-4 text-zinc-500" />}
+                  searchable
+                  clearable
+                  radius="xl"
+                  disabled={loadingVehiculos || loadingTiposVehiculo || loading}
+                  rightSection={
+                    loadingVehiculos || loadingTiposVehiculo ? (
+                      <Loader size={16} />
+                    ) : undefined
+                  }
+                  classNames={fieldClasses}
+                  className="flex-1"
+                />
+                <Tooltip label="Registrar nuevo Vehículo Carreta">
+                  <ActionIcon
+                    type="button"
+                    variant="filled"
+                    color="zinc"
+                    radius="xl"
+                    size="lg"
+                    disabled={loadingTiposVehiculo || loading}
+                    onClick={() => {
+                      if (idTipoVehiculoCarreta === null) {
+                        return;
+                      }
+                      setOpenCarretaModal(true);
+                    }}
+                    className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 mb-0.5"
+                  >
+                    <IconPlus size={18} />
+                  </ActionIcon>
+                </Tooltip>
+              </div>
             </Grid.Col>
 
             {/* Fila 4: Guías (TextInputs serie-numero) */}
@@ -396,6 +468,23 @@ export const ProgramarRecepcionModal = ({ opened, onClose, onSuccess }: Props) =
           handleProveedorCreado(nuevo);
         }}
       />
+
+      <ModalEstandar
+        opened={openCarretaModal}
+        close={() => setOpenCarretaModal(false)}
+        title="Registrar Vehículo Carreta"
+        size="md"
+      >
+        <RegistroVehiculoSimple
+          idEmpresaTransporte={form.id_empresa_transporte || null}
+          idTipoVehiculo={idTipoVehiculoCarreta}
+          onCancel={() => setOpenCarretaModal(false)}
+          onSuccess={(nuevo) => {
+            handleCarretaCreada(nuevo);
+            setOpenCarretaModal(false);
+          }}
+        />
+      </ModalEstandar>
     </>
   );
 };

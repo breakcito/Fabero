@@ -40,6 +40,7 @@ export interface DTO_UpdateParticion {
   estado?: string;
   recepcion?: {
     id_vehiculo?: number | null;
+    id_vehiculo_carreta?: number | null;
     id_conductor?: number | null;
     id_sucursal?: number | null;
     id_empresa_transporte?: number | null;

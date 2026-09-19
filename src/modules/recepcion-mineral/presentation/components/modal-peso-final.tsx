@@ -30,9 +30,16 @@ interface Props {
   lote: RES_LoteMineral;
   onCancel: () => void;
   onSubmit: (loteId: number, dto: DTO_PesoFinal) => Promise<void>;
+  /**
+   * ID alternativo para usar al llamar onSubmit. Útil cuando el modal se
+   * reusa para pesar el peso final de una PARTICIÓN (donde el id real a
+   * enviar al backend es el de la partición, no el del lote padre que se
+   * pasa en `lote`). Si no se pasa, onSubmit recibe `lote.id`.
+   */
+  targetIdOverride?: number;
 }
 
-export const ModalPesoFinal = ({ lote, onCancel, onSubmit }: Props) => {
+export const ModalPesoFinal = ({ lote, onCancel, onSubmit, targetIdOverride }: Props) => {
   const { notifyError } = useNotify();
 
   // Estados Catálogos
@@ -46,7 +53,15 @@ export const ModalPesoFinal = ({ lote, onCancel, onSubmit }: Props) => {
   const [nuevaZonaNombre, setNuevaZonaNombre] = useState("");
 
   // Estados Formulario - Peso Inicial (Izquierda)
-  const [idProveedor, setIdProveedor] = useState<string | null>(lote.id_proveedor_minero ? String(lote.id_proveedor_minero) : null);
+  // Mismo fallback que modal-peso-inicial.tsx:36-39 — primero el proveedor
+  // de la unidad (denormalizado como id_proveedor_minero_recepcion), luego
+  // el del propio lote. Garantiza que una partición sin proveedor asignado
+  // en la unidad aún herede el dato del lote padre.
+  const initialProveedorId =
+    lote.id_proveedor_minero_recepcion ?? lote.id_proveedor_minero ?? null;
+  const [idProveedor, setIdProveedor] = useState<string | null>(
+    initialProveedorId ? String(initialProveedorId) : null,
+  );
   const [idZona, setIdZona] = useState<string | null>(lote.id_zona_origen ? String(lote.id_zona_origen) : null);
   const [contacto, setContacto] = useState<string>(lote.numero_contacto || "");
   // Producto y Material son opcionales (pueden quedar null en el primer pesaje).
@@ -127,7 +142,7 @@ export const ModalPesoFinal = ({ lote, onCancel, onSubmit }: Props) => {
         peso_inicial: pesoBruto,
       };
 
-      await onSubmit(lote.id, dto);
+      await onSubmit(targetIdOverride ?? lote.id, dto);
       onCancel();
     } catch (e) {
       console.error(e);

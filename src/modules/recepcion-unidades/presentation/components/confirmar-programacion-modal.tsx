@@ -30,6 +30,7 @@ import {
 } from "@tabler/icons-react";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
 import { useConfirmarProgramacion } from "../../hooks/useConfirmarProgramacion";
+import { useNotify } from "../../../../hooks/useNotify";
 import type { RecepcionUnidadResponse } from "../../service/recepcion-unidades.responses";
 import { AgregarAcompananteModal, type DatosAcompananteForm } from "./agregar-acompanante-modal";
 import { AgregarVehiculoModal, type DatosVehiculoForm } from "./agregar-vehiculo-modal";
@@ -63,6 +64,7 @@ export const ConfirmarProgramacionModal = ({
   onConfirmada,
 }: Props) => {
   const ctrl = useConfirmarProgramacion({ programacion, opened });
+  const { notifyError } = useNotify();
 
   const [openModalAcompanante, setOpenModalAcompanante] = useState(false);
   const [openModalVehiculo, setOpenModalVehiculo] = useState(false);
@@ -71,6 +73,7 @@ export const ConfirmarProgramacionModal = ({
   const [openTipoVehiculoModal, setOpenTipoVehiculoModal] = useState(false);
   const [openEmpresaModal, setOpenEmpresaModal] = useState(false);
   const [openProveedorModal, setOpenProveedorModal] = useState(false);
+  const [openCarretaModal, setOpenCarretaModal] = useState(false);
 
   const [editingAcompanante, setEditingAcompanante] = useState<{
     index: number;
@@ -98,10 +101,12 @@ export const ConfirmarProgramacionModal = ({
     label: e.ruc ? `${e.razon_social} (${e.ruc})` : e.razon_social,
   }));
 
-  const vehiculosOptions = (ctrl.vehiculosCatalog ?? []).map((v) => ({
-    value: String(v.id_vehiculo),
-    label: v.placa || `Vehículo #${v.id_vehiculo}`,
-  }));
+  const vehiculosOptions = (ctrl.vehiculosCatalog ?? [])
+    .filter((v) => !v.es_carreta || Number(v.es_carreta) === 0)
+    .map((v) => ({
+      value: String(v.id_vehiculo),
+      label: v.placa || `Vehículo #${v.id_vehiculo}`,
+    }));
 
   const conductoresOptions = (ctrl.conductoresCatalog ?? []).map((c) => ({
     value: String(c.id_conductor),
@@ -120,6 +125,19 @@ const esDespacho =
     value: String(tv.id_tipo_vehiculo),
     label: tv.nombre,
   }));
+
+  // Vehículos tipo carreta (es_carreta === 1) para el dropdown opcional de "Vehículo Carreta".
+  // El backend serializa TINYINT(1) como número 0/1, mismo patrón que guias-primer-tramo.
+  const vehiculosCarretaOptions = (ctrl.vehiculosCatalog ?? [])
+    .filter((v) => Number(v.es_carreta) === 1)
+    .map((v) => ({
+      value: String(v.id_vehiculo),
+      label: v.placa || `Vehículo #${v.id_vehiculo}`,
+    }));
+
+  // id_tipo_vehiculo del TipoVehiculo con es_carreta=1, para pre-asignar al sub-modal de registro.
+  const idTipoVehiculoCarreta =
+    (ctrl.tiposVehiculoCatalog ?? []).find((t) => Number(t.es_carreta) === 1)?.id_tipo_vehiculo ?? null;
 
   const handleConfirmar = async () => {
     setConfirmando(true);
@@ -402,6 +420,69 @@ const esDespacho =
                       size="lg"
                       disabled={confirmando}
                       onClick={() => setOpenTipoVehiculoModal(true)}
+                      className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700"
+                    >
+                      <IconPlus size={18} />
+                    </ActionIcon>
+                  </Tooltip>
+                )}
+              </div>
+            </Grid.Col>
+
+            <Grid.Col span={{ base: 12, sm: 6 }}>
+              <div className="flex gap-2 items-end">
+                <Select
+                  label="Vehículo Carreta (opcional)"
+                  placeholder={
+                    ctrl.loadingCatalogos
+                      ? "Cargando..."
+                      : vehiculosCarretaOptions.length === 0
+                        ? "Sin vehículos carreta registrados"
+                        : "Seleccione (opcional)"
+                  }
+                  data={vehiculosCarretaOptions}
+                  value={
+                    ctrl.programacion?.id_vehiculo_carreta
+                      ? String(ctrl.programacion.id_vehiculo_carreta)
+                      : ctrl.idVehiculoCarreta
+                        ? String(ctrl.idVehiculoCarreta)
+                        : null
+                  }
+                  onChange={(val) => ctrl.setIdVehiculoCarreta(val ? Number(val) : null)}
+                  leftSection={<IconTruck className="w-4 h-4 text-zinc-500" />}
+                  searchable
+                  clearable
+                  radius="xl"
+                  className="flex-1"
+                  disabled={confirmando}
+                  readOnly={Boolean(ctrl.programacion?.id_vehiculo_carreta)}
+                  rightSection={
+                    ctrl.programacion?.id_vehiculo_carreta ? (
+                      <IconLock size={14} className="text-zinc-500" />
+                    ) : ctrl.loadingCatalogos ? (
+                      <Loader size={16} />
+                    ) : undefined
+                  }
+                  classNames={fieldClasses}
+                />
+                {!ctrl.programacion?.id_vehiculo_carreta && (
+                  <Tooltip label="Registrar Vehículo Carreta" withArrow>
+                    <ActionIcon
+                      type="button"
+                      variant="filled"
+                      color="zinc"
+                      radius="xl"
+                      size="lg"
+                      disabled={confirmando}
+                      onClick={() => {
+                        if (idTipoVehiculoCarreta === null) {
+                          notifyError(
+                            "No existe un Tipo de Vehículo marcado como 'Carreta'. Créelo en Gestión de Tipos de Vehículo antes de continuar.",
+                          );
+                          return;
+                        }
+                        setOpenCarretaModal(true);
+                      }}
                       className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700"
                     >
                       <IconPlus size={18} />
@@ -947,6 +1028,24 @@ const esDespacho =
             setOpenProveedorModal(false);
           }}
         />
+
+        {/* Modal: Registro Rápido de Vehículo Carreta */}
+        <ModalEstandar
+          opened={openCarretaModal}
+          close={() => setOpenCarretaModal(false)}
+          title="Registrar Vehículo Carreta"
+          size="md"
+        >
+          <RegistroVehiculoSimple
+            idEmpresaTransporte={ctrl.programacion?.id_empresa_transporte ?? ctrl.idEmpresaTransporteEditado ?? null}
+            idTipoVehiculo={idTipoVehiculoCarreta}
+            onCancel={() => setOpenCarretaModal(false)}
+            onSuccess={(v) => {
+              ctrl.handleCarretaCreada(v);
+              setOpenCarretaModal(false);
+            }}
+          />
+        </ModalEstandar>
 
         {/* Acciones */}
         <Group justify="flex-end" gap="md" mt="xl">

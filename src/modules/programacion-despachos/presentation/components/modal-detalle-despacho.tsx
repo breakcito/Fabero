@@ -13,6 +13,7 @@ import {
 } from "@mantine/core";
 import {
   IconAlertCircle,
+  IconBuildingSkyscraper,
   IconCalendar,
   IconInfoCircle,
   IconPackage,
@@ -157,6 +158,21 @@ export const ModalDetalleDespacho = ({
           </div>
           <Divider orientation="vertical" className="hidden md:block" />
           <div className="flex items-center gap-2">
+            <IconBuildingSkyscraper size={14} className="text-teal-400" />
+            <Text size="10px" c="dimmed" className="uppercase tracking-wider">
+              Empresa
+            </Text>
+            <Text size="sm" fw={700} c="white">
+              {cab.empresa_razon_social ?? "—"}
+            </Text>
+            {cab.empresa_ruc && (
+              <Text size="11px" c="dimmed" className="font-mono">
+                {cab.empresa_ruc}
+              </Text>
+            )}
+          </div>
+          <Divider orientation="vertical" className="hidden md:block" />
+          <div className="flex items-center gap-2">
             <IconCalendar size={14} className="text-zinc-400" />
             <Text size="10px" c="dimmed" className="uppercase tracking-wider">
               Registrado
@@ -208,6 +224,7 @@ export const ModalDetalleDespacho = ({
             <tr className="text-[10px] uppercase tracking-wider text-zinc-500 bg-zinc-900/70 font-bold border-b border-zinc-800/80">
               <th className="py-2.5 px-3 text-center font-bold">Correlativo / Proveedor</th>
               <th className="py-2.5 px-3 text-center font-bold">Tipo</th>
+              <th className="py-2.5 px-3 text-center font-bold">Cód. Preliminar</th>
               <th className="py-2.5 px-3 text-center font-bold">Peso Tomado (KG)</th>
               <th className="py-2.5 px-3 text-center font-bold">Peso Pendiente (KG)</th>
               <th className="py-2.5 px-3 text-center font-bold">% Distribuido</th>
@@ -244,6 +261,17 @@ export const ModalDetalleDespacho = ({
                     >
                       {esLote ? "LOTE" : "BLEND"}
                     </Badge>
+                  </td>
+                  <td className="py-2.5 px-3 text-center align-middle">
+                    {d.codigo_preliminar ? (
+                      <span className="inline-flex items-center justify-center bg-teal-500/10 text-teal-300 border border-teal-500/30 px-2 py-0.5 rounded-md font-mono text-[11px] font-bold tracking-wide">
+                        {d.codigo_preliminar}
+                      </span>
+                    ) : (
+                      <Text size="11px" c="dimmed">
+                        —
+                      </Text>
+                    )}
                   </td>
                   <td className="py-2.5 px-3 text-center align-middle">
                     <Text size="xs" fw={600} className="text-zinc-200 font-mono">
@@ -286,7 +314,7 @@ export const ModalDetalleDespacho = ({
               );
             })}
             <tr className="bg-zinc-900/70 border-t-2 border-zinc-700 font-bold">
-              <td colSpan={2} className="py-2 px-3 text-right text-[10px] uppercase tracking-wider text-zinc-400">
+              <td colSpan={3} className="py-2 px-3 text-right text-[10px] uppercase tracking-wider text-zinc-400">
                 Totales
               </td>
               <td className="py-2 px-3 text-center text-xs text-zinc-100 font-mono">

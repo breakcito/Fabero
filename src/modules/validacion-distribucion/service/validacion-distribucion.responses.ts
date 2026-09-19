@@ -60,6 +60,8 @@ export interface RES_Particion {
   vehiculo_placa?: string | null;
   vehiculo_tara?: number | null;
   vehiculo_capacidad?: number | null;
+  id_vehiculo_carreta?: number | null;
+  vehiculo_carreta_placa?: string | null;
   // Estado de validación de la partición.
   esta_validado?: boolean;
   id_empleado_valida?: number | null;

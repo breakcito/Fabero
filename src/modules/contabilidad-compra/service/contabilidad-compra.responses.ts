@@ -84,6 +84,8 @@ export interface RES_ComprobanteCompra {
   avance_pago_neto: number;
   avance_pago_detraccion: number;
   id_cuenta_bancaria_proveedor_sugerida: number | null;
+  monto_penalidad: number;
+  monto_flete: number;
   aprobaciones: RES_AprobacionComprobante[];
   estado: EstadoComprobanteCompra;
   created_at: string;

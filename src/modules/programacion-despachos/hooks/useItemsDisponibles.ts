@@ -3,7 +3,7 @@ import { ProgramacionDespachosService } from "../service/programacion-despachos.
 import type { ItemDisponibleDespacho } from "../service/programacion-despachos.responses";
 import { useNotify } from "../../../hooks/useNotify";
 
-export const useItemsDisponibles = () => {
+export const useItemsDisponibles = (idEmpresa: number | null = null) => {
   const [items, setItems] = useState<ItemDisponibleDespacho[]>([]);
   const [loading, setLoading] = useState(false);
   const { notifyError } = useNotify();
@@ -11,7 +11,9 @@ export const useItemsDisponibles = () => {
   const fetchItems = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await ProgramacionDespachosService.getItemsDisponibles();
+      const data = await ProgramacionDespachosService.getItemsDisponibles({
+        id_empresa: idEmpresa,
+      });
       setItems(data);
     } catch (e) {
       console.error(e);
@@ -19,7 +21,7 @@ export const useItemsDisponibles = () => {
     } finally {
       setLoading(false);
     }
-  }, [notifyError]);
+  }, [idEmpresa, notifyError]);
 
   useEffect(() => {
     fetchItems();

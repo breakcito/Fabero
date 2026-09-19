@@ -10,6 +10,7 @@ interface ItemForm {
   id_blending: number | null;
   peso_tomado: number;
   peso_maximo: number | null;
+  codigo_preliminar: string;
 }
 
 const initialItems = (): ItemForm[] => [];
@@ -19,13 +20,21 @@ export const useRegistroDespacho = (
 ) => {
   const { notifySuccess, notifyError } = useNotify();
   const [idPlantaDestino, setIdPlantaDestino] = useState<number | null>(null);
+  const [idEmpresa, setIdEmpresa] = useState<number | null>(null);
   const [items, setItems] = useState<ItemForm[]>(initialItems());
   const [loading, setLoading] = useState(false);
 
   const agregarItem = useCallback(() => {
     setItems((prev) => [
       ...prev,
-      { uid: Date.now() + Math.random(), id_lote_mineral: null, id_blending: null, peso_tomado: 0, peso_maximo: null },
+      {
+        uid: Date.now() + Math.random(),
+        id_lote_mineral: null,
+        id_blending: null,
+        peso_tomado: 0,
+        peso_maximo: null,
+        codigo_preliminar: "",
+      },
     ]);
   }, []);
 
@@ -44,6 +53,7 @@ export const useRegistroDespacho = (
 
   const reset = useCallback(() => {
     setIdPlantaDestino(null);
+    setIdEmpresa(null);
     setItems([]);
   }, []);
 
@@ -54,6 +64,11 @@ export const useRegistroDespacho = (
 
     if (!idPlantaDestino) {
       notifyError("Debe seleccionar la planta de destino.");
+      return false;
+    }
+
+    if (idEmpresa === null) {
+      notifyError("Debe seleccionar la empresa.");
       return false;
     }
 
@@ -78,19 +93,35 @@ export const useRegistroDespacho = (
 
     const payloadDetalles = items
       .filter((it) => (it.id_lote_mineral ?? null) || (it.id_blending ?? null))
-      .map((it) => ({
-        id_lote_mineral: it.id_lote_mineral,
-        id_blending: it.id_blending,
-        peso_tomado: it.peso_tomado,
-      }));
+      .map((it) => {
+        const cp = it.codigo_preliminar.trim();
+        return {
+          id_lote_mineral: it.id_lote_mineral,
+          id_blending: it.id_blending,
+          peso_tomado: it.peso_tomado,
+          codigo_preliminar: cp === "" ? null : cp,
+        };
+      });
 
     if (payloadDetalles.length === 0) {
       notifyError("Cada item debe tener un lote o blending asignado.");
       return false;
     }
 
+    // Validacion defensiva frontend: codigo_preliminar <= 20 chars (VARCHAR(20)).
+    const cpInvalidos = payloadDetalles.filter(
+      (d) => d.codigo_preliminar !== null && (d.codigo_preliminar as string).length > 20,
+    );
+    if (cpInvalidos.length > 0) {
+      notifyError(
+        `El código preliminar no puede superar 20 caracteres (${cpInvalidos.length} item(s) exceden el límite).`,
+      );
+      return false;
+    }
+
     const payload: CrearDespachoRequest = {
       id_planta_destino: idPlantaDestino,
+      id_empresa: idEmpresa,
       detalles: payloadDetalles,
     };
 
@@ -108,11 +139,13 @@ export const useRegistroDespacho = (
     } finally {
       setLoading(false);
     }
-  }, [idPlantaDestino, items, notifyError, notifySuccess, onSuccess, reset]);
+  }, [idPlantaDestino, idEmpresa, items, notifyError, notifySuccess, onSuccess, reset]);
 
   return {
     idPlantaDestino,
     setIdPlantaDestino,
+    idEmpresa,
+    setIdEmpresa,
     items,
     agregarItem,
     eliminarItem,

@@ -251,6 +251,7 @@ export const AuxService = {
    */
   get_vehiculos: async (filters?: {
     placa?: string;
+    solo_no_carreta?: boolean;
   }): Promise<RES_Vehiculo[]> => {
     const { data } = await api.get(`${path}/vehiculos`, {
       params: filters,

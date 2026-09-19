@@ -16,7 +16,7 @@ import {
   NumberInput,
   TextInput,
 } from "@mantine/core";
-import { IconPlus, IconTrash, IconFileText, IconCoins, IconBuildingBank, IconCheck, IconX, IconPencil, IconPaperclip, IconCalendar } from "@tabler/icons-react";
+import { IconPlus, IconTrash, IconFileText, IconCoins, IconBuildingBank, IconCheck, IconX, IconPencil, IconPaperclip } from "@tabler/icons-react";
 import { AuxService } from "../../../../service/auxiliar.service";
 import { useFormValorizacionCompra } from "../../hooks/useFormValorizacionCompra";
 import { ModalAgregarLote } from "./modal-agregar-lote";
@@ -211,6 +211,26 @@ export const ModalFormValorizacionCompra = ({
         }}
         comboboxProps={{ withinPortal: true }}
       />
+      <Group gap={6} wrap="nowrap" align="center">
+        <Text fz={10} fw={600} c="zinc.400" tt="uppercase" lts="0.04em">
+          Fecha Valorización:
+        </Text>
+        <CustomDatePicker
+          value={fechaHoraValorizacion ?? undefined}
+          onChange={(d) => {
+            if (!d) {
+              setFechaHoraValorizacion(null);
+              return;
+            }
+            const pad = (n: number) => n.toString().padStart(2, "0");
+            const now = new Date();
+            const iso = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+            setFechaHoraValorizacion(iso);
+          }}
+          placeholder="DD/MM/YYYY"
+          style={{ width: 150 }}
+        />
+      </Group>
       <Badge
         color="indigo"
         variant="filled"
@@ -229,10 +249,16 @@ export const ModalFormValorizacionCompra = ({
       opened={opened}
       close={onClose}
       title={modalTitle}
-      size="1250px"
+      size="1500px"
       rightSection={modalHeaderRight}
     >
       <Stack gap="sm" mt="xs" pb="md">
+        <button
+          data-autofocus
+          tabIndex={-1}
+          aria-hidden="true"
+          className="sr-only opacity-0 w-0 h-0 p-0 m-0 pointer-events-none absolute -z-50"
+        />
         {/* 3 Paneles Separados: Concesión, Cuentas Bancarias, Anticipos y Pago */}
         <Grid gutter="sm">
           {/* Panel 1: Información Concesión */}
@@ -532,40 +558,17 @@ export const ModalFormValorizacionCompra = ({
                 Lotes Valorizados ({detalles.length})
               </Text>
             </Group>
-            <Group gap="md" align="center" wrap="nowrap">
-              <Group gap={6} wrap="nowrap" align="center">
-                <IconCalendar size={14} className="text-zinc-500" />
-                <Text fz={10} fw={600} c="zinc.500" tt="uppercase" lts="0.04em">
-                  Fecha Valorización:
-                </Text>
-                <CustomDatePicker
-                  value={fechaHoraValorizacion ?? undefined}
-                  onChange={(d) => {
-                    if (!d) {
-                      setFechaHoraValorizacion(null);
-                      return;
-                    }
-                    const pad = (n: number) => n.toString().padStart(2, "0");
-                    const now = new Date();
-                    const iso = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
-                    setFechaHoraValorizacion(iso);
-                  }}
-                  placeholder="DD/MM/YYYY"
-                  style={{ width: 150 }}
-                />
-              </Group>
-              <Button
-                leftSection={<IconPlus size={16} />}
-                color="indigo"
-                size="xs"
-                radius="lg"
-                disabled={!idProveedor}
-                onClick={() => setModalLoteOpened(true)}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white h-8 text-xs"
-              >
-                Nuevo Lote
-              </Button>
-            </Group>
+            <Button
+              leftSection={<IconPlus size={16} />}
+              color="indigo"
+              size="xs"
+              radius="lg"
+              disabled={!idProveedor}
+              onClick={() => setModalLoteOpened(true)}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white h-8 text-xs"
+            >
+              Nuevo Lote
+            </Button>
           </Group>
 
           {detalles.length === 0 ? (
