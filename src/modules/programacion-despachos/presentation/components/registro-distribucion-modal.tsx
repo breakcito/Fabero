@@ -772,6 +772,79 @@ export const RegistroDistribucionModal = ({
                 </Grid.Col>
               </Grid>
 
+              {/* REMITENTE (ENTIDAD) — Empresa o Planta destino */}
+              <Box>
+                <Group justify="space-between" align="flex-end" mb={6} wrap="wrap">
+                  <Text
+                    size="xs"
+                    fw={800}
+                    tt="uppercase"
+                    lts="0.06em"
+                    className="text-zinc-100"
+                  >
+                    Remitente (Entidad)
+                  </Text>
+                  <Group gap="xs" align="center">
+                    <Text size="xs" c="zinc.4">
+                      Empresa
+                    </Text>
+                    <Switch
+                      size="xs"
+                      color="indigo"
+                      checked={ctrl.esPlantaDestinoRemitente}
+                      onChange={(e) => {
+                        const next = e.currentTarget.checked;
+                        ctrl.setEsPlantaDestinoRemitente(next);
+                        ctrl.setRemitenteId(null);
+                      }}
+                      onLabel="PLANTA"
+                      offLabel="EMPRESA"
+                      disabled={ctrl.loading}
+                    />
+                    <Text size="xs" c="zinc.4">
+                      Planta destino
+                    </Text>
+                  </Group>
+                </Group>
+                <Select
+                  label={
+                    ctrl.esPlantaDestinoRemitente
+                      ? "Planta destino remitente:"
+                      : "Empresa remitente:"
+                  }
+                  placeholder={
+                    ctrl.loadingCatalogosRemitente
+                      ? "Cargando..."
+                      : "Seleccione (opcional)"
+                  }
+                  data={
+                    ctrl.loadingCatalogosRemitente
+                      ? []
+                      : (ctrl.esPlantaDestinoRemitente
+                          ? ctrl.plantasRemitente
+                          : ctrl.empresasRemitente
+                        ).map((item) => ({
+                          value: String(item.id),
+                          label: `${item.razon_social || "Sin nombre"} — ${item.ruc || "Sin RUC"}`,
+                        }))
+                  }
+                  value={ctrl.remitenteId}
+                  onChange={ctrl.setRemitenteId}
+                  classNames={fieldClasses}
+                  radius="lg"
+                  size="xs"
+                  disabled={ctrl.loading}
+                  rightSection={
+                    ctrl.loadingCatalogosRemitente ? (
+                      <Loader size={16} />
+                    ) : undefined
+                  }
+                  searchable
+                  clearable
+                  comboboxProps={{ withinPortal: true }}
+                />
+              </Box>
+
               <Box>
                 <Group justify="space-between" align="flex-end" mb={6}>
                   <Text size="xs" fw={800} className="text-zinc-100 uppercase tracking-widest">

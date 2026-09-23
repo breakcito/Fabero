@@ -2,186 +2,256 @@ import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 import type { ActaSalidaVehiculoData } from "../../service/programacion-despachos.responses";
 
 /**
- * Acta de Salida de Vehículos con Carga (Ticket A5 horizontal 210×148 mm).
- * Réplica del formato "FABERO S.A.C.":
- *  - Fondo de página BLANCO
- *  - Franjas amarillas (yellow-300) en headers de sección + caja T.S.V.
- *  - Bordes negros finos en la grilla 2x2 y caja T.S.V.
- *  - Tipografía Courier monoespaciada (label bold, valor regular)
- *
- * Sin marca de agua "Pagina 1" — se usa `<Page>` sin `watermark`.
- * Los campos nulos se renderizan como "—".
+ * Ticket de Salida de Vehículos con Carga (A5 horizontal 210 × 148 mm).
+ * Réplica exacta del formato corporativo FABERO S.A.C.:
+ *  - Barra superior amarilla: "TICKET DE SALIDA DE VEHÍCULOS CON CARGA"
+ *  - Marco con esquinas en L doradas a la derecha: "FABERO S.A.C"
+ *  - Datos de Fabricaciones Fabero S.A.C. en tono mostaza/dorado a la izquierda
+ *  - Caja T.S.V. N° en amarillo a la derecha con el correlativo
+ *  - 4 cuadrantes con esquinas en L doradas/ámbar:
+ *      1. DATOS DEL REMITENTE (Empresa o Planta Destino seleccionada en Guía de 2do tramo)
+ *      2. DATOS DEL VEHÍCULO
+ *      3. DATOS DEL TRANSPORTISTA
+ *      4. DATOS GENERALES
+ *  - Barra inferior amarilla: "OBSERVACIONES:"
  */
 
-// A5 horizontal apaisado: 210 mm × 148 mm.
-// 1 mm = 2.834645669 pt → 595.28 × 419.53 pt.
-const PAGE_WIDTH = 595;
-const PAGE_HEIGHT = 420;
+const PAGE_WIDTH = 595.28;
+const PAGE_HEIGHT = 419.53;
 
-// Paleta
-const AMARILLO = "#FCD34D"; // yellow-300 (Tailwind)
-const NEGRO = "#000000";
+// Paleta de colores fiel a la imagen de referencia
+const COLOR_AMARILLO = "#F6C343";      // Amarillo dorado de barras y cajas
+const COLOR_CORNER = "#F59E0B";        // Ámbar/dorado de los bordes angulares en L
+const COLOR_DORADO_TEXT = "#D97706";   // Dorado de los datos fiscales de Fabero
+const COLOR_TEXTO = "#111827";         // Texto principal oscuro
+const COLOR_MUTED = "#374151";         // Texto secundario
 
 const styles = StyleSheet.create({
   page: {
     width: PAGE_WIDTH,
     height: PAGE_HEIGHT,
-    backgroundColor: "#FFFFFF", // ← FONDO BLANCO según la imagen
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    fontFamily: "Courier",
-    fontSize: 8,
-    color: NEGRO,
-    lineHeight: 1.2,
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 10,
+    fontFamily: "Helvetica",
+    fontSize: 7.5,
+    color: COLOR_TEXTO,
   },
 
-  // ========== HEADER ==========
-  header: {
+  // ========== ENCABEZADO SUPERIOR ==========
+  topRow: {
     flexDirection: "row",
+    alignItems: "stretch",
     justifyContent: "space-between",
-    alignItems: "flex-start",
     marginBottom: 6,
   },
-  headerLeft: {
+  titleBar: {
     flex: 1,
-    paddingRight: 6,
-  },
-  headerRight: {
-    width: 120,
-    alignItems: "flex-end",
-  },
-  title: {
-    fontFamily: "Courier-Bold",
-    fontSize: 11,
-    textAlign: "center",
-    marginBottom: 3,
-  },
-  brand: {
-    fontFamily: "Courier-Bold",
-    fontSize: 11,
-    textAlign: "center",
-    marginBottom: 1,
-  },
-  rucRow: {
-    flexDirection: "row",
-    fontSize: 8,
-    marginBottom: 1,
-  },
-  domicilio: {
-    fontSize: 7.5,
-    marginBottom: 0.5,
-  },
-  sede: {
-    fontSize: 7.5,
-    marginBottom: 0,
-  },
-  // Caja del T.S.V. N°: amarillo con borde negro
-  tsvBox: {
-    backgroundColor: AMARILLO,
-    borderWidth: 1,
-    borderColor: NEGRO,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
+    backgroundColor: COLOR_AMARILLO,
+    justifyContent: "center",
     alignItems: "center",
-    minWidth: 105,
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+    marginRight: 14,
   },
-  tsvLabel: {
-    fontFamily: "Courier-Bold",
-    fontSize: 8,
-    color: NEGRO,
-    marginBottom: 1,
-  },
-  tsvValue: {
-    fontFamily: "Courier-Bold",
+  titleText: {
+    fontFamily: "Helvetica-Bold",
     fontSize: 11,
-    color: NEGRO,
+    color: "#000000",
+    letterSpacing: 0.5,
+  },
+  logoBox: {
+    width: 140,
+    position: "relative",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+  },
+  logoCornerTL: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: 16,
+    height: 16,
+    borderTopWidth: 3,
+    borderLeftWidth: 3,
+    borderColor: COLOR_CORNER,
+  },
+  logoCornerBR: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: 16,
+    height: 16,
+    borderBottomWidth: 3,
+    borderRightWidth: 3,
+    borderColor: COLOR_CORNER,
+  },
+  logoText: {
+    fontFamily: "Helvetica-Bold",
+    fontSize: 14,
+    color: "#000000",
+    letterSpacing: 0.8,
   },
 
-  // ========== GRILLA 2x2 CON FRANJAS AMARILLAS EN HEADERS ==========
-  grid: {
+  // ========== SUB-HEADER: DATOS FABERO & TSV ==========
+  subHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+    marginBottom: 6,
+  },
+  faberoInfo: {
+    flex: 1,
+    paddingRight: 10,
+  },
+  faberoTitle: {
+    fontFamily: "Helvetica-Bold",
+    fontSize: 9.5,
+    color: COLOR_DORADO_TEXT,
+    marginBottom: 1.5,
+    letterSpacing: 0.3,
+  },
+  faberoRuc: {
+    fontFamily: "Helvetica-Bold",
+    fontSize: 7.2,
+    color: COLOR_DORADO_TEXT,
+    marginBottom: 1,
+  },
+  faberoText: {
+    fontFamily: "Helvetica-Bold",
+    fontSize: 6.8,
+    color: COLOR_DORADO_TEXT,
+    lineHeight: 1.2,
+  },
+  tsvContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  tsvLabel: {
+    fontFamily: "Helvetica-Bold",
+    fontSize: 8,
+    color: COLOR_DORADO_TEXT,
+  },
+  tsvBox: {
+    backgroundColor: COLOR_AMARILLO,
+    paddingVertical: 3.5,
+    paddingHorizontal: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 85,
+  },
+  tsvText: {
+    fontFamily: "Helvetica-Bold",
+    fontSize: 9.5,
+    color: "#000000",
+  },
+
+  // ========== GRILLA 2x2 DE CUADRANTES ==========
+  gridContainer: {
     flexDirection: "column",
-    // Borde exterior de la grilla (negro, 1pt)
-    borderWidth: 1,
-    borderColor: NEGRO,
+    gap: 6,
+    marginBottom: 6,
   },
   gridRow: {
     flexDirection: "row",
+    gap: 8,
   },
-  // Cada celda: divider interno entre filas (borderTop a partir de la 2da fila)
-  cell: {
-    width: "50%",
-    paddingHorizontal: 6,
-    paddingVertical: 4,
-    // Divisor vertical entre celdas izquierda/derecha (la mitad derecha)
-    borderLeftWidth: 1,
-    borderLeftColor: NEGRO,
+  card: {
+    flex: 1,
+    position: "relative",
+    paddingTop: 4,
+    paddingBottom: 6,
+    paddingHorizontal: 8,
+    minHeight: 110,
   },
-  // Franja amarilla del header de sección (mismo ancho que la celda)
-  cellTitleBar: {
-    backgroundColor: AMARILLO,
-    paddingHorizontal: 6,
-    paddingVertical: 4,
-    // Que ocupe todo el ancho interno de la celda
-    marginHorizontal: -6,
-    marginTop: -4,
-    paddingTop: 5,
-    paddingBottom: 5,
+  cardCornerTL: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: 14,
+    height: 14,
+    borderTopWidth: 2.5,
+    borderLeftWidth: 2.5,
+    borderColor: COLOR_CORNER,
   },
-  cellTitle: {
-    fontFamily: "Courier-Bold",
-    fontSize: 10,
-    color: NEGRO,
-    letterSpacing: 0.4,
+  cardCornerBR: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: 14,
+    height: 14,
+    borderBottomWidth: 2.5,
+    borderRightWidth: 2.5,
+    borderColor: COLOR_CORNER,
   },
-  field: {
+  cardTitle: {
+    fontFamily: "Helvetica-Bold",
+    fontSize: 8,
+    color: "#000000",
+    marginBottom: 4,
+    letterSpacing: 0.3,
+  },
+
+  // Campos dentro de cada cuadrante
+  fieldRow: {
     flexDirection: "row",
-    marginVertical: 1.5,
     alignItems: "flex-start",
+    marginBottom: 2,
   },
   fieldLabel: {
-    fontFamily: "Courier-Bold",
-    fontSize: 8,
-    width: 130,
+    fontFamily: "Helvetica-Bold",
+    fontSize: 6.8,
+    color: COLOR_TEXTO,
     flexShrink: 0,
   },
   fieldValue: {
-    fontFamily: "Courier",
-    fontSize: 8,
+    fontFamily: "Helvetica",
+    fontSize: 6.8,
+    color: COLOR_MUTED,
     flex: 1,
+    marginLeft: 3,
+  },
+  fieldValueBold: {
+    fontFamily: "Helvetica-Bold",
+    fontSize: 6.8,
+    color: "#000000",
+    flex: 1,
+    marginLeft: 3,
   },
 
-  // ========== OBSERVACIONES (franja amarilla al pie) ==========
-  observacionesWrap: {
-    borderTopWidth: 1,
-    borderTopColor: NEGRO,
-    marginTop: 0,
-  },
+  // ========== PIE / OBSERVACIONES ==========
   obsBar: {
-    backgroundColor: AMARILLO,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
+    backgroundColor: COLOR_AMARILLO,
+    paddingVertical: 3.5,
+    paddingHorizontal: 8,
+    flexDirection: "row",
+    alignItems: "center",
   },
   obsLabel: {
-    fontFamily: "Courier-Bold",
-    fontSize: 10,
-    color: NEGRO,
-    letterSpacing: 0.4,
+    fontFamily: "Helvetica-Bold",
+    fontSize: 7.5,
+    color: "#000000",
   },
-  obsBody: {
-    paddingHorizontal: 6,
-    paddingVertical: 4,
-    fontSize: 8,
+  obsText: {
+    fontFamily: "Helvetica",
+    fontSize: 7.5,
+    color: "#000000",
+    marginLeft: 6,
   },
 });
 
-// Helper para nulos: cualquier valor vacío o null cae a "—".
+// Helper para strings nulos/vacíos
 const dash = (v: string | number | null | undefined): string => {
   if (v === null || v === undefined) return "—";
   const s = String(v).trim();
   return s === "" ? "—" : s;
 };
 
-// Formato TM (3 decimales) si > 0; caso contrario "—".
+// Formato TM con 3 decimales
 const fmtTm = (n: number | null | undefined): string => {
   if (n === null || n === undefined || Number.isNaN(n) || n <= 0) return "—";
   return `${n.toFixed(3)} TM`;
@@ -192,166 +262,228 @@ export interface ActaSalidaPdfProps {
 }
 
 export const ActaSalidaPdf = ({ data }: ActaSalidaPdfProps) => {
+  // El remitente proviene de la Empresa o Planta de Destino seleccionada en la Guía de Segundo Tramo
+  const remitenteRazonSocial = dash(
+    data.remitente?.razon_social || data.proveedor?.razon_social
+  );
+  const remitenteRuc = dash(data.remitente?.ruc || data.proveedor?.ruc);
+  const remitentePartida = dash(
+    data.remitente?.direccion_partida || data.proveedor?.direccion_partida
+  );
+  const remitenteDestino = dash(
+    data.remitente?.direccion_destino || data.destino?.direccion
+  );
+
   return (
-    <Document title={`Acta de Salida ${data.correlativo}`}>
+    <Document title={`Ticket de Salida ${data.tsv || data.correlativo}`}>
       <Page size={[PAGE_WIDTH, PAGE_HEIGHT]} orientation="landscape" style={styles.page}>
-        {/* ========== HEADER ========== */}
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <Text style={styles.title}>TICKET DE SALIDA DE VEHÍCULOS CON CARGA</Text>
-            <Text style={styles.brand}>FABRICACIONES FABERO S.A.C</Text>
-            <View style={styles.rucRow}>
-              <Text style={styles.fieldLabel}>RUC:</Text>
-              <Text style={styles.fieldValue}>{`\u00A0${dash(data.empresa_remitente.ruc)}`}</Text>
-            </View>
-            <Text style={styles.domicilio}>
-              DOMICILIO FISCAL: {dash(data.empresa_remitente.domicilio_fiscal)}
+        {/* ========== ENCABEZADO SUPERIOR ========== */}
+        <View style={styles.topRow}>
+          <View style={styles.titleBar}>
+            <Text style={styles.titleText}>TICKET DE SALIDA DE VEHÍCULOS CON CARGA</Text>
+          </View>
+          <View style={styles.logoBox}>
+            <View style={styles.logoCornerTL} />
+            <View style={styles.logoCornerBR} />
+            <Text style={styles.logoText}>FABERO S.A.C</Text>
+          </View>
+        </View>
+
+        {/* ========== SUB-HEADER (EMPRESA EMISORA & TSV) ========== */}
+        <View style={styles.subHeaderRow}>
+          <View style={styles.faberoInfo}>
+            <Text style={styles.faberoTitle}>
+              {data.empresa_remitente?.razon_social || "FABRICACIONES FABERO S.A.C."}
             </Text>
-            <Text style={styles.sede}>
-              SEDE PRODUCTIVA: {dash(data.empresa_remitente.sede_productiva)}
+            <Text style={styles.faberoRuc}>
+              RUC: {data.empresa_remitente?.ruc || "20604623007"}
+            </Text>
+            <Text style={styles.faberoText}>
+              DOMICILIO FISCAL: {dash(data.empresa_remitente?.domicilio_fiscal)}
+            </Text>
+            <Text style={styles.faberoText}>
+              SEDE PRODUCTIVA: {dash(data.empresa_remitente?.sede_productiva)}
             </Text>
           </View>
-          <View style={styles.headerRight}>
+
+          <View style={styles.tsvContainer}>
+            <Text style={styles.tsvLabel}>T.S.V. Nº</Text>
             <View style={styles.tsvBox}>
-              <Text style={styles.tsvLabel}>T.S.V. N°:</Text>
-              <Text style={styles.tsvValue}>{dash(data.tsv)}</Text>
+              <Text style={styles.tsvText}>{dash(data.tsv || data.correlativo)}</Text>
             </View>
           </View>
         </View>
 
         {/* ========== GRILLA 2x2 ========== */}
-        <View style={styles.grid}>
+        <View style={styles.gridContainer}>
           {/* ---- FILA 1: REMITENTE | VEHÍCULO ---- */}
           <View style={styles.gridRow}>
-            {/* Celda 1: DATOS DEL REMITENTE */}
-            <View style={styles.cell}>
-              <View style={styles.cellTitleBar}>
-                <Text style={styles.cellTitle}>DATOS DEL REMITENTE</Text>
+            {/* Cuadrante 1: DATOS DEL REMITENTE */}
+            <View style={styles.card}>
+              <View style={styles.cardCornerTL} />
+              <View style={styles.cardCornerBR} />
+
+              <Text style={styles.cardTitle}>DATOS DEL REMITENTE</Text>
+
+              <View style={styles.fieldRow}>
+                <Text style={[styles.fieldLabel, { width: 75 }]}>RAZÓN SOCIAL:</Text>
+                <Text style={styles.fieldValue}>{remitenteRazonSocial}</Text>
               </View>
-              <View style={styles.field}>
-                <Text style={styles.fieldLabel}>RAZÓN SOCIAL:</Text>
-                <Text style={styles.fieldValue}>{dash(data.proveedor.razon_social)}</Text>
+
+              <View style={styles.fieldRow}>
+                <Text style={[styles.fieldLabel, { width: 75 }]}>R.U.C.:</Text>
+                <Text style={styles.fieldValue}>{remitenteRuc}</Text>
               </View>
-              <View style={styles.field}>
-                <Text style={styles.fieldLabel}>R.U.C.:</Text>
-                <Text style={styles.fieldValue}>{dash(data.proveedor.ruc)}</Text>
+
+              <View style={styles.fieldRow}>
+                <Text style={[styles.fieldLabel, { width: 75 }]}>PARTIDA:</Text>
+                <Text style={styles.fieldValue}>{remitentePartida}</Text>
               </View>
-              <View style={styles.field}>
-                <Text style={styles.fieldLabel}>PARTIDA:</Text>
-                <Text style={styles.fieldValue}>{dash(data.proveedor.direccion_partida)}</Text>
+
+              <View style={styles.fieldRow}>
+                <Text style={[styles.fieldLabel, { width: 75 }]}>DESTINO:</Text>
+                <Text style={styles.fieldValue}>{remitenteDestino}</Text>
               </View>
-              <View style={styles.field}>
-                <Text style={styles.fieldLabel}>DESTINO:</Text>
-                <Text style={styles.fieldValue}>{dash(data.destino.direccion)}</Text>
-              </View>
-              <View style={styles.field}>
-                <Text style={styles.fieldLabel}>GUÍA DE REMISIÓN REMITENTE:</Text>
+
+              <View style={styles.fieldRow}>
+                <Text style={[styles.fieldLabel, { width: 125 }]}>
+                  GUÍA DE REMISIÓN REMITENTE:
+                </Text>
                 <Text style={styles.fieldValue}>{dash(data.guia_remitente)}</Text>
               </View>
-              <View style={styles.field}>
-                <Text style={styles.fieldLabel}>PRODUCTO:</Text>
+
+              <View style={styles.fieldRow}>
+                <Text style={[styles.fieldLabel, { width: 60 }]}>PRODUCTO:</Text>
                 <Text style={styles.fieldValue}>{dash(data.producto)}</Text>
               </View>
             </View>
 
-            {/* Celda 2: DATOS DEL VEHÍCULO */}
-            <View style={styles.cell}>
-              <View style={styles.cellTitleBar}>
-                <Text style={styles.cellTitle}>DATOS DEL VEHÍCULO</Text>
-              </View>
-              <View style={styles.field}>
-                <Text style={styles.fieldLabel}>PLACA VEHÍCULO:</Text>
+            {/* Cuadrante 2: DATOS DEL VEHÍCULO */}
+            <View style={styles.card}>
+              <View style={styles.cardCornerTL} />
+              <View style={styles.cardCornerBR} />
+
+              <Text style={styles.cardTitle}>DATOS DEL VEHÍCULO</Text>
+
+              <View style={styles.fieldRow}>
+                <Text style={[styles.fieldLabel, { width: 85 }]}>PLACA VEHÍCULO:</Text>
                 <Text style={styles.fieldValue}>{dash(data.vehiculo.placa)}</Text>
               </View>
-              <View style={styles.field}>
-                <Text style={styles.fieldLabel}>MARCA TRACTO:</Text>
+
+              <View style={styles.fieldRow}>
+                <Text style={[styles.fieldLabel, { width: 85 }]}>MARCA TRACTO:</Text>
                 <Text style={styles.fieldValue}>{dash(data.vehiculo.marca_trabajo)}</Text>
               </View>
-              <View style={styles.field}>
-                <Text style={styles.fieldLabel}>PLACA CARRETA:</Text>
-                <Text style={styles.fieldValue}>{dash(data.carreta?.placa ?? null)}</Text>
+
+              <View style={styles.fieldRow}>
+                <Text style={[styles.fieldLabel, { width: 85 }]}>PLACA CARRETA:</Text>
+                <Text style={styles.fieldValue}>{dash(data.carreta?.placa)}</Text>
               </View>
-              <View style={styles.field}>
-                <Text style={styles.fieldLabel}>MARCA CARRETA:</Text>
-                <Text style={styles.fieldValue}>{dash(data.carreta?.marca_trabajo ?? null)}</Text>
+
+              <View style={styles.fieldRow}>
+                <Text style={[styles.fieldLabel, { width: 85 }]}>MARCA CARRETA:</Text>
+                <Text style={styles.fieldValue}>{dash(data.carreta?.marca_trabajo)}</Text>
               </View>
-              <View style={styles.field}>
-                <Text style={styles.fieldLabel}>CONFIG. VEHICULAR:</Text>
-                <Text style={styles.fieldValue}>{dash(data.vehiculo.configuracion_vehicular ?? null)}</Text>
-              </View>
-              <View style={styles.field}>
-                <Text style={styles.fieldLabel}>PLATAFORMA CONTRATISTA:</Text>
-                <Text style={styles.fieldValue}>{dash(data.transportista.plataforma_contratista ?? null)}</Text>
+
+              <View style={styles.fieldRow}>
+                <Text style={[styles.fieldLabel, { width: 155 }]}>
+                  INFORMACIÓN DEL SUB CONTRATISTA:
+                </Text>
+                <Text style={styles.fieldValue}>—</Text>
               </View>
             </View>
           </View>
 
-          {/* ---- FILA 2: TRANSPORTE | GENERALES ---- */}
+          {/* ---- FILA 2: TRANSPORTISTA | GENERALES ---- */}
           <View style={styles.gridRow}>
-            {/* Celda 3: DATOS TRANSPORTE */}
-            <View style={[styles.cell, { borderTopWidth: 1, borderTopColor: NEGRO }]}>
-              <View style={styles.cellTitleBar}>
-                <Text style={styles.cellTitle}>DATOS TRANSPORTE</Text>
-              </View>
-              <View style={styles.field}>
-                <Text style={styles.fieldLabel}>RAZÓN SOCIAL:</Text>
+            {/* Cuadrante 3: DATOS DEL TRANSPORTISTA */}
+            <View style={styles.card}>
+              <View style={styles.cardCornerTL} />
+              <View style={styles.cardCornerBR} />
+
+              <Text style={styles.cardTitle}>DATOS DEL TRANSPORTISTA</Text>
+
+              <View style={styles.fieldRow}>
+                <Text style={[styles.fieldLabel, { width: 75 }]}>RAZÓN SOCIAL:</Text>
                 <Text style={styles.fieldValue}>{dash(data.transportista.razon_social)}</Text>
               </View>
-              <View style={styles.field}>
-                <Text style={styles.fieldLabel}>R.U.C.:</Text>
+
+              <View style={styles.fieldRow}>
+                <Text style={[styles.fieldLabel, { width: 75 }]}>R.U.C.:</Text>
                 <Text style={styles.fieldValue}>{dash(data.transportista.ruc)}</Text>
               </View>
-              <View style={styles.field}>
-                <Text style={styles.fieldLabel}>GUÍA DE REMISIÓN TRANSPORTISTA:</Text>
+
+              <View style={styles.fieldRow}>
+                <Text style={[styles.fieldLabel, { width: 145 }]}>
+                  GUÍA DE REMISIÓN TRANSPORTISTA:
+                </Text>
                 <Text style={styles.fieldValue}>{dash(data.guia_transportista)}</Text>
               </View>
-              <View style={styles.field}>
-                <Text style={styles.fieldLabel}>NOMBRE DEL CONDUCTOR:</Text>
+
+              <View style={styles.fieldRow}>
+                <Text style={[styles.fieldLabel, { width: 120 }]}>NOMBRE DEL CONDUCTOR:</Text>
                 <Text style={styles.fieldValue}>{dash(data.conductor.nombre_completo)}</Text>
               </View>
-              <View style={styles.field}>
-                <Text style={styles.fieldLabel}>LICENCIA:</Text>
+
+              <View style={styles.fieldRow}>
+                <Text style={[styles.fieldLabel, { width: 55 }]}>LICENCIA:</Text>
                 <Text style={styles.fieldValue}>{dash(data.conductor.licencia)}</Text>
               </View>
             </View>
 
-            {/* Celda 4: DATOS GENERALES */}
-            <View style={[styles.cell, { borderTopWidth: 1, borderTopColor: NEGRO }]}>
-              <View style={styles.cellTitleBar}>
-                <Text style={styles.cellTitle}>DATOS GENERALES</Text>
-              </View>
-              <View style={styles.field}>
-                <Text style={styles.fieldLabel}>FECHA DE INGRESO:</Text>
+            {/* Cuadrante 4: DATOS GENERALES */}
+            <View style={styles.card}>
+              <View style={styles.cardCornerTL} />
+              <View style={styles.cardCornerBR} />
+
+              <Text style={styles.cardTitle}>DATOS GENERALES</Text>
+
+              <View style={styles.fieldRow}>
+                <Text style={[styles.fieldLabel, { width: 95 }]}>FECHA DE INGRESO:</Text>
                 <Text style={styles.fieldValue}>{dash(data.fecha_ingreso)}</Text>
               </View>
-              <View style={styles.field}>
-                <Text style={styles.fieldLabel}>HORA DE SALIDA:</Text>
+
+              <View style={styles.fieldRow}>
+                <Text style={[styles.fieldLabel, { width: 95 }]}>HORA DE INGRESO:</Text>
+                <Text style={styles.fieldValue}>{dash(data.hora_ingreso)}</Text>
+              </View>
+
+              <View style={styles.fieldRow}>
+                <Text style={[styles.fieldLabel, { width: 95 }]}>FECHA DE SALIDA:</Text>
+                <Text style={styles.fieldValue}>{dash(data.fecha_salida)}</Text>
+              </View>
+
+              <View style={styles.fieldRow}>
+                <Text style={[styles.fieldLabel, { width: 95 }]}>HORA DE SALIDA:</Text>
                 <Text style={styles.fieldValue}>{dash(data.hora_salida)}</Text>
               </View>
-              <View style={styles.field}>
-                <Text style={styles.fieldLabel}>PESO DE GUÍA DE REMISIÓN:</Text>
+
+              <View style={styles.fieldRow}>
+                <Text style={[styles.fieldLabel, { width: 130 }]}>
+                  PESO DE GUÍAS DE REMISIÓN:
+                </Text>
                 <Text style={styles.fieldValue}>{fmtTm(data.peso_guia_tm)}</Text>
               </View>
-              <View style={styles.field}>
-                <Text style={styles.fieldLabel}>PESO VEHICULAR TOTAL:</Text>
-                <Text style={styles.fieldValue}>{fmtTm(data.peso_vehicular_total_tm)}</Text>
+
+              <View style={styles.fieldRow}>
+                <Text style={[styles.fieldLabel, { width: 130 }]}>
+                  PESO VEHICULAR TOTAL:
+                </Text>
+                <Text style={styles.fieldValueBold}>{fmtTm(data.peso_vehicular_total_tm)}</Text>
               </View>
-              <View style={styles.field}>
-                <Text style={styles.fieldLabel}>COD. DE LOTE:</Text>
-                <Text style={styles.fieldValue}>{dash(data.cod_lote)}</Text>
+
+              <View style={styles.fieldRow}>
+                <Text style={[styles.fieldLabel, { width: 75 }]}>COD. DE LOTE:</Text>
+                <Text style={styles.fieldValueBold}>{dash(data.cod_lote)}</Text>
               </View>
             </View>
           </View>
         </View>
 
-        {/* ========== OBSERVACIONES (franja amarilla al pie) ========== */}
-        <View style={styles.observacionesWrap}>
-          <View style={styles.obsBar}>
-            <Text style={styles.obsLabel}>OBSERVACIONES:</Text>
-          </View>
-          <View style={styles.obsBody}>
-            <Text>—</Text>
-          </View>
+        {/* ========== OBSERVACIONES AL PIE ========== */}
+        <View style={styles.obsBar}>
+          <Text style={styles.obsLabel}>OBSERVACIONES:</Text>
+          <Text style={styles.obsText}>{data.observaciones && data.observaciones !== "—" ? data.observaciones : ""}</Text>
         </View>
       </Page>
     </Document>

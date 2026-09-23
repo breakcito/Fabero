@@ -34,12 +34,15 @@ import { SucursalesPage } from "../../modules/sucursales/presentation/sucursales
 import { GestionLeyesPage } from "../../modules/gestion-leyes/presentation/gestion-leyes.page.tsx";
 import { CierreLeyesPage } from "../../modules/cierre-leyes/presentation/cierre-leyes.page.tsx";
 import CondicionesComercialesProveedorPage from "../../modules/condiciones-comerciales-proveedor/presentation/condiciones-comerciales-proveedor.page.tsx";
+import CondicionesComercialesPlantaPage from "../../modules/condiciones-comerciales-planta/presentation/condiciones-comerciales-planta.page.tsx";
 import AnticiposProveedorPage from "../../modules/anticipos-proveedor/presentation/anticipos-proveedor.page.tsx";
+import AnticiposPlantaPage from "../../modules/anticipos-planta/presentation/anticipos-planta.page.tsx";
 import { ValorizacionesCompraPage } from "../../modules/valorizacion-compra/presentation/valorizacion-compra.page.tsx";
 import ContabilidadCompraPage from "../../modules/contabilidad-compra/presentation/contabilidad-compra.page.tsx";
 import BlendingPage from "../../modules/blending/presentation/blending.page.tsx";
 import ProgramacionDespachosPage from "../../modules/programacion-despachos/presentation/programacion-despachos.page.tsx";
 import ProgramarRecepcionPage from "../../modules/programar-recepcion/presentation/programar-recepcion.page.tsx";
+import { ValorizacionesVentaPage } from "../../modules/valorizacion-venta/presentation/valorizacion-venta.page.tsx";
 
 export const App = () => {
   const { setModoAuditoria } = useAuditoriaStore();
@@ -118,6 +121,10 @@ export const App = () => {
               path="proveedor"
               element={<CondicionesComercialesProveedorPage />}
             />
+            <Route
+              path="planta"
+              element={<CondicionesComercialesPlantaPage />}
+            />
             <Route path="plantas-destino" element={<PlantasDestinoPage />} />
             <Route
               path="empresas-transporte"
@@ -175,11 +182,13 @@ export const App = () => {
 
           <Route path="anticipos" element={<GenericLayout />}>
             <Route path="proveedor" element={<AnticiposProveedorPage />} />
+            <Route path="planta" element={<AnticiposPlantaPage />} />
           </Route>
 
           {/* Gestion Valorizaciones */}
           <Route path="valorizacion" element={<GenericLayout />}>
             <Route path="compra" element={<ValorizacionesCompraPage />} />
+            <Route path="venta" element={<ValorizacionesVentaPage />} />
           </Route>
 
           {/* Gestion Contabilidad */}

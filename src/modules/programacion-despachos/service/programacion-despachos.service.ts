@@ -157,6 +157,10 @@ export const ProgramacionDespachosService = {
       formData.append("sin_guia_transportista", "0");
       appendIfPresent(formData, "guia_transportista", dto.guia_transportista);
     }
+    // Remitente: solo se serializa `id_remitente`. El backend infiere si es
+    // Empresa o Planta destino a partir del FK que setee (id_empresa o
+    // id_planta_destino). No se envía `tipo_remitente` porque no es columna.
+    appendIfPresent(formData, "id_remitente", dto.id_remitente);
     appendDocumento(formData, "documento_guia_remitente", dto.documento_guia_remitente);
     if (!dto.sin_guia_transportista) {
       appendDocumento(formData, "documento_guia_transportista", dto.documento_guia_transportista);
@@ -187,6 +191,10 @@ export const ProgramacionDespachosService = {
       formData.append("sin_guia_transportista", "0");
       appendIfPresent(formData, "guia_transportista", dto.guia_transportista);
     }
+    // Remitente: solo se serializa `id_remitente`. El backend infiere si es
+    // Empresa o Planta destino a partir del FK que setee (id_empresa o
+    // id_planta_destino). No se envía `tipo_remitente` porque no es columna.
+    appendIfPresent(formData, "id_remitente", dto.id_remitente);
     appendIfPresent(formData, "motivo", dto.motivo);
     if (dto.nombres_evidencias_nuevas && dto.nombres_evidencias_nuevas.length > 0) {
       formData.append(

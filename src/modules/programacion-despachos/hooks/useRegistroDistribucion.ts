@@ -1,8 +1,8 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ProgramacionDespachosService } from "../service/programacion-despachos.service";
+import { AuxService } from "../../../service/auxiliar.service";
 import type {
   CrearDistribucionRequest,
-  TipoRemitente,
 } from "../service/programacion-despachos.requests";
 import type {
   CrearDistribucionResult,
@@ -11,6 +11,8 @@ import type {
 import { useNotify } from "../../../hooks/useNotify";
 import type { MotivoTraslado } from "../../../shared/enums/_generic/motivo-traslado";
 
+// `tipo_remitente` NO se persiste como columna; el backend lo infiere del FK
+// seteado. Solo guardamos `id_remitente` en estado local.
 type GuiaCampos = {
   motivo_traslado: MotivoTraslado | null;
   fecha_inicio_traslado: string | null;
@@ -20,7 +22,6 @@ type GuiaCampos = {
   guia_transportista: string;
   sin_guia_transportista: boolean;
   id_remitente: number | null;
-  tipo_remitente: TipoRemitente | null;
   documento_guia_remitente: File | null;
   documento_guia_transportista: File | null;
 };
@@ -34,7 +35,6 @@ const GUIA_INICIAL: GuiaCampos = {
   guia_transportista: "",
   sin_guia_transportista: false,
   id_remitente: null,
-  tipo_remitente: null,
   documento_guia_remitente: null,
   documento_guia_transportista: null,
 };
@@ -65,6 +65,19 @@ export const useRegistroDistribucion = (
   // Estado para el registro opcional de guía de segundo tramo en el mismo submit.
   const [registrarGuia, setRegistrarGuia] = useState(false);
   const [guia, setGuia] = useState<GuiaCampos>(GUIA_INICIAL);
+
+  // Estado para el remitente de la guía (Empresa o Planta destino).
+  const [esPlantaDestinoRemitente, setEsPlantaDestinoRemitente] = useState(false);
+  const [remitenteId, setRemitenteId] = useState<string | null>(null);
+  // El catálogo de empresas usa `id_empresa` como PK; el de plantas usa `id`.
+  // Para simplificar el mapeo en el UI, los proyectamos a un shape uniforme.
+  const [empresasRemitente, setEmpresasRemitente] = useState<
+    Array<{ id: number; razon_social: string; ruc: string }>
+  >([]);
+  const [plantasRemitente, setPlantasRemitente] = useState<
+    Array<{ id: number; ruc: string; razon_social: string }>
+  >([]);
+  const [loadingCatalogosRemitente, setLoadingCatalogosRemitente] = useState(false);
 
   const setField = useCallback(
     <K extends keyof CrearDistribucionRequest>(
@@ -98,7 +111,48 @@ export const useRegistroDistribucion = (
     setAdvertencias([]);
     setRegistrarGuia(false);
     setGuia(GUIA_INICIAL);
+    setEsPlantaDestinoRemitente(false);
+    setRemitenteId(null);
   }, []);
+
+  // Cargar catálogos de empresas y plantas destino para el selector de
+  // remitente de la guía (solo si el usuario marca "También registrar la guía").
+  useEffect(() => {
+    if (!registrarGuia) return;
+
+    let cancelled = false;
+    const cargar = async () => {
+      setLoadingCatalogosRemitente(true);
+      try {
+        const [emps, pls] = await Promise.all([
+          AuxService.get_empresas()
+            .then((res) => {
+              const data = Array.isArray(res?.data) ? res.data : [];
+              return data.map((e) => ({
+                id: e.id_empresa,
+                razon_social: e.razon_social,
+                ruc: e.ruc,
+              }));
+            })
+            .catch(() => []),
+          AuxService.get_plantas_despachable()
+            .then((res) => (Array.isArray(res) ? res : []))
+            .catch(() => []),
+        ]);
+        if (!cancelled) {
+          setEmpresasRemitente(emps);
+          setPlantasRemitente(pls);
+        }
+      } finally {
+        if (!cancelled) setLoadingCatalogosRemitente(false);
+      }
+    };
+    cargar();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [registrarGuia]);
 
   const submit = useCallback(async (): Promise<boolean> => {
     if (!form.id_sucursal) {
@@ -153,6 +207,10 @@ export const useRegistroDistribucion = (
       if (guiaMinima && guia.motivo_traslado) {
         setLoadingGuia(true);
         try {
+          // Solo se envía id_remitente. El backend infiere si es Empresa o
+          // Planta destino según el FK que se setee en el INSERT.
+          const idRemitenteNum = remitenteId ? Number(remitenteId) : null;
+
           await ProgramacionDespachosService.crearGuiaSegundoTramo(
             result.id_distribucion,
             {
@@ -165,8 +223,7 @@ export const useRegistroDistribucion = (
                 ? null
                 : guia.guia_transportista.trim() || null,
               sin_guia_transportista: guia.sin_guia_transportista,
-              id_remitente: guia.id_remitente ?? null,
-              tipo_remitente: guia.tipo_remitente ?? null,
+              id_remitente: idRemitenteNum ?? guia.id_remitente ?? null,
               documento_guia_remitente: guia.documento_guia_remitente,
               documento_guia_transportista: guia.sin_guia_transportista
                 ? null
@@ -198,7 +255,18 @@ export const useRegistroDistribucion = (
     } finally {
       setLoading(false);
     }
-  }, [form, _idDespacho, notifyError, notifySuccess, notifyWarning, onSuccess, registrarGuia, guia]);
+  }, [
+    form,
+    _idDespacho,
+    notifyError,
+    notifySuccess,
+    notifyWarning,
+    onSuccess,
+    registrarGuia,
+    guia,
+    remitenteId,
+    esPlantaDestinoRemitente,
+  ]);
 
   return {
     form,
@@ -213,5 +281,13 @@ export const useRegistroDistribucion = (
     setGuiaField,
     loadingGuia,
     submit,
+    // Remitente de la guía
+    esPlantaDestinoRemitente,
+    setEsPlantaDestinoRemitente,
+    remitenteId,
+    setRemitenteId,
+    empresasRemitente,
+    plantasRemitente,
+    loadingCatalogosRemitente,
   };
 };

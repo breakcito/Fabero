@@ -185,7 +185,7 @@ export interface GuiaSegundoTramo {
   guia_transportista: string | null;
   guia_remitente: string | null;
   id_remitente: number | null;
-  tipo_remitente: "EMPRESA_TRANSPORTE" | "PLANTA_DESTINO" | null;
+  tipo_remitente: "EMPRESA" | "PLANTA_DESTINO" | null;
   sin_guia_transportista: boolean;
   log_cambios: RES_CambiosLog[] | null;
   documentos: GuiaSegundoTramoDocumentos | null;
@@ -204,6 +204,10 @@ export interface ActaSalidaProveedor {
   razon_social: string;
   ruc: string;
   direccion_partida: string;
+}
+
+export interface ActaSalidaRemitente extends ActaSalidaProveedor {
+  direccion_destino?: string;
 }
 
 export interface ActaSalidaDestino {
@@ -234,6 +238,7 @@ export interface ActaSalidaVehiculoData {
   tsv: string;
   numero_correlativo: number | null;
   empresa_remitente: ActaSalidaEmpresa;
+  remitente?: ActaSalidaRemitente;
   proveedor: ActaSalidaProveedor;
   destino: ActaSalidaDestino;
   vehiculo: ActaSalidaVehiculoRef;
@@ -244,8 +249,11 @@ export interface ActaSalidaVehiculoData {
   producto: string;
   guia_transportista: string;
   fecha_ingreso: string;
+  hora_ingreso?: string;
+  fecha_salida?: string;
   hora_salida: string;
   peso_guia_tm: number;
   peso_vehicular_total_tm: number;
   cod_lote: string;
+  observaciones?: string;
 }

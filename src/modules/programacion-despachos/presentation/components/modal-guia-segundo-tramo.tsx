@@ -31,7 +31,7 @@ import { MOTIVO_TRASLADO_OPTIONS } from "../../../../shared/enums/_generic/motiv
 import type { MotivoTraslado } from "../../../../shared/enums/_generic/motivo-traslado";
 import { useGuiaSegundoTramo } from "../../hooks/useGuiaSegundoTramo";
 import { AuxService } from "../../../../service/auxiliar.service";
-import type { RES_EmpresaTransporte } from "../../../../service/responses/empresa-transporte";
+import type { RES_Empresa } from "../../../../service/responses/empresa";
 import type {
   GuiaSegundoTramo,
   GuiaSegundoTramoDocumento,
@@ -121,10 +121,10 @@ export const ModalGuiaSegundoTramo = ({
   const [guiaTransportista, setGuiaTransportista] = useState("");
   const [sinGuiaTransportista, setSinGuiaTransportista] = useState(false);
 
-  // ---- remitente (entidad): Empresa Transporte o Planta Destino
+  // ---- remitente (entidad): Empresa o Planta Destino
   const [esPlantaDestinoRemitente, setEsPlantaDestinoRemitente] = useState(false);
   const [remitenteId, setRemitenteId] = useState<string | null>(null);
-  const [empresas, setEmpresas] = useState<RES_EmpresaTransporte[]>([]);
+  const [empresas, setEmpresas] = useState<RES_Empresa[]>([]);
   const [plantas, setPlantas] = useState<
     Array<{ id: number; ruc: string; razon_social: string }>
   >([]);
@@ -229,11 +229,16 @@ export const ModalGuiaSegundoTramo = ({
     // ---- carga lazy de catalogos de remitente ----
     setLoadingCatalogos(true);
     Promise.all([
-      AuxService.get_empresas_transporte().catch(() => []),
+      AuxService.get_empresas().catch(() => ({ data: [] })),
       AuxService.get_plantas_despachable().catch(() => []),
     ])
-      .then(([emps, pls]) => {
+      .then(([empsRes, pls]) => {
         if (cancelled) return;
+        const emps = Array.isArray(empsRes)
+          ? empsRes
+          : Array.isArray((empsRes as { data?: RES_Empresa[] })?.data)
+            ? (empsRes as { data: RES_Empresa[] }).data
+            : [];
         setEmpresas(emps);
         setPlantas(pls);
       })
@@ -418,12 +423,6 @@ export const ModalGuiaSegundoTramo = ({
     }
 
     const idRemitenteNum = remitenteId ? Number(remitenteId) : null;
-    const tipoRemitenteVal: "EMPRESA_TRANSPORTE" | "PLANTA_DESTINO" | null =
-      idRemitenteNum != null
-        ? esPlantaDestinoRemitente
-          ? "PLANTA_DESTINO"
-          : "EMPRESA_TRANSPORTE"
-        : null;
 
     setSubmitting(true);
     try {
@@ -440,7 +439,6 @@ export const ModalGuiaSegundoTramo = ({
           guia_transportista: numeroGuiaTransportista,
           sin_guia_transportista: sinGuiaTransportista,
           id_remitente: idRemitenteNum,
-          tipo_remitente: tipoRemitenteVal,
           documento_guia_remitente: documentoRemitente,
           documento_guia_transportista: sinGuiaTransportista
             ? null
@@ -464,7 +462,6 @@ export const ModalGuiaSegundoTramo = ({
           guia_transportista: numeroGuiaTransportista,
           sin_guia_transportista: sinGuiaTransportista,
           id_remitente: idRemitenteNum,
-          tipo_remitente: tipoRemitenteVal,
           documento_guia_remitente: documentoRemitente,
           documento_guia_transportista: sinGuiaTransportista
             ? null
@@ -654,7 +651,7 @@ export const ModalGuiaSegundoTramo = ({
                 </Text>
                 <Group gap="xs" align="center">
                   <Text size="xs" c="zinc.4">
-                    Empresa transporte
+                    Empresa
                   </Text>
                   <Switch
                     size="xs"
@@ -677,7 +674,7 @@ export const ModalGuiaSegundoTramo = ({
                 label={
                   esPlantaDestinoRemitente
                     ? "Planta destino remitente:"
-                    : "Empresa transporte remitente:"
+                    : "Empresa remitente:"
                 }
                 placeholder={
                   loadingCatalogos ? "Cargando..." : "Seleccione (opcional)"
@@ -685,16 +682,22 @@ export const ModalGuiaSegundoTramo = ({
                 data={
                   loadingCatalogos
                     ? []
-                    : (esPlantaDestinoRemitente ? plantas : empresas).map(
-                        (item) => ({
-                          value: String(
-                            "id_empresa_transporte" in item
-                              ? item.id_empresa_transporte
-                              : item.id,
-                          ),
-                          label: `${item.razon_social} — ${item.ruc}`,
-                        }),
-                      )
+                    : (esPlantaDestinoRemitente ? plantas : empresas)
+                        .map((item) => {
+                          const idVal =
+                            "id_empresa" in item
+                              ? item.id_empresa
+                              : (item as { id: number }).id;
+                          if (idVal == null) return null;
+                          return {
+                            value: String(idVal),
+                            label: `${item.razon_social || "Sin nombre"} — ${item.ruc || "Sin RUC"}`,
+                          };
+                        })
+                        .filter(
+                          (opt): opt is { value: string; label: string } =>
+                            opt !== null,
+                        )
                 }
                 value={remitenteId}
                 onChange={setRemitenteId}
@@ -712,31 +715,36 @@ export const ModalGuiaSegundoTramo = ({
             <Divider className="border-zinc-800/80" />
 
             {/* ========== 3. Documentos adjuntos ========== */}
-            <DocumentoSlot
-              label="Documento Guía Remitente"
-              archivoExistente={
-                remitenteEliminado ? null : archivoRemitenteExistente
-              }
-              archivoNuevo={documentoRemitente}
-              onPick={(f) => handleArchivoSeleccionado("remitente", f)}
-              onQuitarExistente={() => handleQuitarExistente("remitente")}
-              onQuitarNuevo={() => handleQuitarNuevo("remitente")}
-              fileToIArchivoLocal={fileToIArchivoLocal}
-            />
-
-            {!sinGuiaTransportista && (
-              <DocumentoSlot
-                label="Documento Guía Transportista"
-                archivoExistente={
-                  transportistaEliminado ? null : archivoTransportistaExistente
-                }
-                archivoNuevo={documentoTransportista}
-                onPick={(f) => handleArchivoSeleccionado("transportista", f)}
-                onQuitarExistente={() => handleQuitarExistente("transportista")}
-                onQuitarNuevo={() => handleQuitarNuevo("transportista")}
-                fileToIArchivoLocal={fileToIArchivoLocal}
-              />
-            )}
+            <Grid gutter="md">
+              <Grid.Col span={{ base: 12, md: 6 }}>
+                <DocumentoSlot
+                  label="Documento Guía Remitente"
+                  archivoExistente={
+                    remitenteEliminado ? null : archivoRemitenteExistente
+                  }
+                  archivoNuevo={documentoRemitente}
+                  onPick={(f) => handleArchivoSeleccionado("remitente", f)}
+                  onQuitarExistente={() => handleQuitarExistente("remitente")}
+                  onQuitarNuevo={() => handleQuitarNuevo("remitente")}
+                  fileToIArchivoLocal={fileToIArchivoLocal}
+                />
+              </Grid.Col>
+              {!sinGuiaTransportista && (
+                <Grid.Col span={{ base: 12, md: 6 }}>
+                  <DocumentoSlot
+                    label="Documento Guía Transportista"
+                    archivoExistente={
+                      transportistaEliminado ? null : archivoTransportistaExistente
+                    }
+                    archivoNuevo={documentoTransportista}
+                    onPick={(f) => handleArchivoSeleccionado("transportista", f)}
+                    onQuitarExistente={() => handleQuitarExistente("transportista")}
+                    onQuitarNuevo={() => handleQuitarNuevo("transportista")}
+                    fileToIArchivoLocal={fileToIArchivoLocal}
+                  />
+                </Grid.Col>
+              )}
+            </Grid>
           </>
         )}
 

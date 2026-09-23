@@ -192,7 +192,7 @@ export const ModalDetalleDespacho = ({
                       {correlativo}
                     </Text>
                     {d.proveedor_razon_social && (
-                      <Text size="10px" c="dimmed" className="truncate max-w-[180px] mx-auto">
+                      <Text size="10px" c="dimmed" className="truncate max-w-45 mx-auto">
                         {d.proveedor_razon_social}
                       </Text>
                     )}
@@ -406,7 +406,7 @@ export const ModalDetalleDespacho = ({
                           leftSection={<IconPlus size={14} />}
                           onClick={abrirModalDistribucion}
                           disabled={!puedeAgregarDistribucion}
-                          className="bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-900/20"
+                          className="bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-900/20 disabled:opacity-100! disabled:bg-indigo-900/50! disabled:text-indigo-200! disabled:border! disabled:border-indigo-700/60! disabled:cursor-not-allowed"
                         >
                           Agregar Distribución
                         </Button>
