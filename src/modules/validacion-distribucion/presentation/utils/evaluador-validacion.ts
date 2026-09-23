@@ -56,8 +56,7 @@ export const evaluarParticion = (p: RES_Particion): EvaluacionParticion => {
     camposFaltantes.push("recepcion.id_proveedor_minero");
   if (!p.fecha_hora_ingreso)
     camposFaltantes.push("recepcion.fecha_hora_ingreso");
-  if (!p.fecha_hora_salida)
-    camposFaltantes.push("recepcion.fecha_hora_salida");
+  // fecha_hora_salida es opcional: no se exige para validar.
 
   const cumpleRecepcion =
     !camposFaltantes.includes("recepcion.id_vehiculo") &&
@@ -65,8 +64,7 @@ export const evaluarParticion = (p: RES_Particion): EvaluacionParticion => {
     !camposFaltantes.includes("recepcion.id_empresa_transporte") &&
     !camposFaltantes.includes("recepcion.id_tipo_vehiculo") &&
     !camposFaltantes.includes("recepcion.id_proveedor_minero") &&
-    !camposFaltantes.includes("recepcion.fecha_hora_ingreso") &&
-    !camposFaltantes.includes("recepcion.fecha_hora_salida");
+    !camposFaltantes.includes("recepcion.fecha_hora_ingreso");
 
   return {
     cumple_pesos: cumplePesos,
@@ -137,7 +135,6 @@ export const etiquetaCampoFaltante = (campo: string): string => {
     "recepcion.id_tipo_vehiculo": "Recepción: tipo vehículo",
     "recepcion.id_proveedor_minero": "Recepción: proveedor",
     "recepcion.fecha_hora_ingreso": "Recepción: fecha/hora ingreso",
-    "recepcion.fecha_hora_salida": "Recepción: fecha/hora salida",
   };
   return mapa[campo] ?? campo;
 };

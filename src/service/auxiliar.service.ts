@@ -251,7 +251,13 @@ export const AuxService = {
    */
   get_vehiculos: async (filters?: {
     placa?: string;
-    solo_no_carreta?: boolean;
+    /**
+     * Filtrar por tipo de vehículo:
+     *   true  → solo vehículos cuyo `tipo_vehiculo.es_carreta = true`
+     *   false → solo vehículos cuyo `tipo_vehiculo.es_carreta = false`
+     *   undefined → todos
+     */
+    es_carreta?: boolean;
   }): Promise<RES_Vehiculo[]> => {
     const { data } = await api.get(`${path}/vehiculos`, {
       params: filters,

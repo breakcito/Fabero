@@ -12,7 +12,7 @@ interface ModalCondicionIngresoProps {
   onConfirm: (
     condicion: CondicionIngreso,
     idEmpresa: number,
-    codigoManual?: {
+    flags?: {
       conCodigoManual: boolean;
       codigoManual?: string;
       particionar?: boolean;

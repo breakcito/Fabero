@@ -3,7 +3,6 @@ import {
   Badge,
   Box,
   Button,
-  Divider,
   Group,
   Loader,
   ScrollArea,
@@ -13,14 +12,10 @@ import {
 } from "@mantine/core";
 import {
   IconAlertCircle,
-  IconBuildingSkyscraper,
-  IconCalendar,
   IconInfoCircle,
   IconPackage,
   IconPlus,
   IconTruck,
-  IconTruckDelivery,
-  IconUser,
 } from "@tabler/icons-react";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
 import type {
@@ -30,9 +25,12 @@ import type {
   GuiaSegundoTramo,
 } from "../../service/programacion-despachos.responses";
 import { useDespachoDetalle } from "../../hooks/useDespachoDetalle";
+import { useActaSalidaVehiculo } from "../../hooks/useActaSalidaVehiculo";
 import { DistribucionCard } from "./distribucion-card";
 import { RegistroDistribucionModal } from "./registro-distribucion-modal";
 import { ModalGuiaSegundoTramo } from "./modal-guia-segundo-tramo";
+import { ModalLlegadaCliente } from "./modal-llegada-cliente";
+import type { DespachoDetalle } from "../../service/programacion-despachos.responses";
 
 interface Props {
   opened: boolean;
@@ -42,18 +40,6 @@ interface Props {
   onVerLog: (dist: DistribucionItem) => void;
 }
 
-const formatFechaHora = (f: string | null | undefined) => {
-  if (!f) return "—";
-  try {
-    const d = new Date(f.replace(" ", "T"));
-    if (isNaN(d.getTime())) return f;
-    const pad = (n: number) => n.toString().padStart(2, "0");
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  } catch {
-    return f;
-  }
-};
-
 export const ModalDetalleDespacho = ({
   opened,
   idDespacho,
@@ -62,6 +48,7 @@ export const ModalDetalleDespacho = ({
   onVerLog,
 }: Props) => {
   const { detalle, loading, refrescar } = useDespachoDetalle(idDespacho);
+  const { printActaSalida } = useActaSalidaVehiculo();
 
   const [modalDistribucionAbierto, setModalDistribucionAbierto] =
     useState(false);
@@ -73,6 +60,11 @@ export const ModalDetalleDespacho = ({
   //      a la distribucion seleccionada desde la card.
   const [modalGuiaAbierto, setModalGuiaAbierto] = useState(false);
   const [guiaDistribucionSeleccionada, setGuiaDistribucionSeleccionada] =
+    useState<DistribucionItem | null>(null);
+
+  // ---- modal de Llegada del Cliente: misma mecánica que el de guía.
+  const [modalLlegadaAbierto, setModalLlegadaAbierto] = useState(false);
+  const [llegadaDistribucionSeleccionada, setLlegadaDistribucionSeleccionada] =
     useState<DistribucionItem | null>(null);
 
   useEffect(() => {
@@ -108,6 +100,9 @@ export const ModalDetalleDespacho = ({
     setDetallesParaDistribuir([]);
     onDistribucionCreada(result);
     refrescar();
+    // Auto-imprimir acta de salida (mismo patrón que useTicketBalanza al
+    // confirmar pesaje). El usuario puede cerrarla si no la necesita.
+    printActaSalida(result.id_distribucion);
   };
 
   const abrirGuiaSegundoTramo = (dist: DistribucionItem) => {
@@ -115,9 +110,33 @@ export const ModalDetalleDespacho = ({
     setModalGuiaAbierto(true);
   };
 
+  const abrirActaSalida = (dist: DistribucionItem) => {
+    printActaSalida(dist.id);
+  };
+
   const cerrarGuiaSegundoTramo = () => {
     setModalGuiaAbierto(false);
     setGuiaDistribucionSeleccionada(null);
+  };
+
+  const abrirLlegadaCliente = (dist: DistribucionItem) => {
+    setLlegadaDistribucionSeleccionada(dist);
+    // Refrescar el detalle del despacho para asegurar que las nuevas columnas
+    // del backend (p.ej. blending_ley_humedad) estén en el cache cuando se
+    // renderiza el modal. Sin esto, el modal abre con datos viejos.
+    refrescar();
+    setModalLlegadaAbierto(true);
+  };
+
+  const cerrarLlegadaCliente = () => {
+    setModalLlegadaAbierto(false);
+    setLlegadaDistribucionSeleccionada(null);
+  };
+
+  const handleLlegadaSaved = (despachoActualizado: DespachoDetalle): void => {
+    void despachoActualizado;
+    cerrarLlegadaCliente();
+    refrescar();
   };
 
   /**
@@ -131,79 +150,6 @@ export const ModalDetalleDespacho = ({
     void guia;
     cerrarGuiaSegundoTramo();
     refrescar();
-  };
-
-  const renderCabecera = (cab: typeof cabecera) => {
-    if (!cab) return null;
-    return (
-      <Box className="rounded-xl border border-indigo-500/20 bg-gradient-to-br from-indigo-950/40 to-zinc-900/60 p-4">
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-          <div className="flex items-center gap-2">
-            <IconTruckDelivery size={20} className="text-indigo-400" />
-            <Text fw={800} size="lg" c="white" className="font-mono tracking-wider">
-              {cab.correlativo}
-            </Text>
-          </div>
-          <Divider orientation="vertical" className="hidden md:block" />
-          <div className="flex items-center gap-2">
-            <Text size="10px" c="dimmed" className="uppercase tracking-wider">
-              Planta Destino
-            </Text>
-            <Text size="sm" fw={700} c="white">
-              {cab.planta_destino_razon_social}
-            </Text>
-            <Text size="11px" c="dimmed" className="font-mono">
-              {cab.planta_destino_ruc}
-            </Text>
-          </div>
-          <Divider orientation="vertical" className="hidden md:block" />
-          <div className="flex items-center gap-2">
-            <IconBuildingSkyscraper size={14} className="text-teal-400" />
-            <Text size="10px" c="dimmed" className="uppercase tracking-wider">
-              Empresa
-            </Text>
-            <Text size="sm" fw={700} c="white">
-              {cab.empresa_razon_social ?? "—"}
-            </Text>
-            {cab.empresa_ruc && (
-              <Text size="11px" c="dimmed" className="font-mono">
-                {cab.empresa_ruc}
-              </Text>
-            )}
-          </div>
-          <Divider orientation="vertical" className="hidden md:block" />
-          <div className="flex items-center gap-2">
-            <IconCalendar size={14} className="text-zinc-400" />
-            <Text size="10px" c="dimmed" className="uppercase tracking-wider">
-              Registrado
-            </Text>
-            <Text size="xs" c="zinc.2">
-              {formatFechaHora(cab.created_at)}
-            </Text>
-          </div>
-          <div className="flex items-center gap-2">
-            <IconUser size={14} className="text-zinc-400" />
-            <Text size="10px" c="dimmed" className="uppercase tracking-wider">
-              Por
-            </Text>
-            <Text size="xs" c="zinc.2">
-              {cab.empleado_registro_nombre ?? "—"}
-            </Text>
-          </div>
-          <div className="ml-auto flex items-center gap-2">
-            {cab.es_anulado ? (
-              <Badge color="red" variant="filled" radius="md" size="lg">
-                ANULADO
-              </Badge>
-            ) : (
-              <Badge color="indigo" variant="filled" radius="md" size="lg">
-                ACTIVO
-              </Badge>
-            )}
-          </div>
-        </div>
-      </Box>
-    );
   };
 
   const renderItems = () => {
@@ -314,11 +260,14 @@ export const ModalDetalleDespacho = ({
               );
             })}
             <tr className="bg-zinc-900/70 border-t-2 border-zinc-700 font-bold">
-              <td colSpan={3} className="py-2 px-3 text-right text-[10px] uppercase tracking-wider text-zinc-400">
-                Totales
-              </td>
-              <td className="py-2 px-3 text-center text-xs text-zinc-100 font-mono">
-                {pesoTotalTomado.toFixed(3)}
+              <td colSpan={3} />
+              <td className="py-2 px-3 text-center align-middle">
+                <Text size="9px" c="dimmed" tt="uppercase" lts="0.04em" className="font-bold mb-0.5">
+                  Peso Total
+                </Text>
+                <Text size="xs" fw={800} c="zinc.100" className="font-mono">
+                  {pesoTotalTomado.toFixed(3)}
+                </Text>
               </td>
               <td
                 className={`py-2 px-3 text-center text-xs font-mono ${
@@ -363,6 +312,8 @@ export const ModalDetalleDespacho = ({
             distribucion={d}
             onVerLog={onVerLog}
             onAbrirGuiaSegundoTramo={abrirGuiaSegundoTramo}
+            onAbrirLlegadaCliente={abrirLlegadaCliente}
+            onVerActa={abrirActaSalida}
           />
         ))}
       </Stack>
@@ -410,8 +361,6 @@ export const ModalDetalleDespacho = ({
               </Box>
             ) : (
               <>
-                {renderCabecera(cabecera)}
-
                 {/* Items del despacho */}
                 <Stack gap="xs">
                   <Group gap={6}>
@@ -494,6 +443,15 @@ export const ModalDetalleDespacho = ({
           }}
           onClose={cerrarGuiaSegundoTramo}
           onSaved={handleGuiaSaved}
+        />
+      )}
+
+      {modalLlegadaAbierto && llegadaDistribucionSeleccionada !== null && (
+        <ModalLlegadaCliente
+          opened={modalLlegadaAbierto}
+          distribucion={llegadaDistribucionSeleccionada}
+          onClose={cerrarLlegadaCliente}
+          onSaved={handleLlegadaSaved}
         />
       )}
     </>

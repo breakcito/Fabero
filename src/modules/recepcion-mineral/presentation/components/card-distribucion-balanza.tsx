@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import {
   Paper,
   Text,
@@ -20,6 +21,7 @@ import {
   IconDroplet,
   IconSun,
   IconAlertTriangle,
+  IconPlus,
 } from "@tabler/icons-react";
 import type {
   RecepcionMineralResponse,
@@ -30,6 +32,8 @@ import type {
 import { usePesarDistribucionDetalle } from "../../hooks/usePesarDistribucionDetalle";
 import { useTicketBalanza } from "../../hooks/useTicketBalanza";
 import { useNotify } from "../../../../hooks/useNotify";
+import { ProgramacionDespachosService } from "../../../programacion-despachos/service/programacion-despachos.service";
+import { ModalAsignarCarga } from "./modal-asignar-carga";
 
 interface CardDistribucionBalanzaProps {
   ru: RecepcionMineralResponse;
@@ -363,6 +367,22 @@ export const CardDistribucionBalanza = ({
 }: CardDistribucionBalanzaProps) => {
   const { notifyError } = useNotify();
 
+  const [modalAsignarAbierto, setModalAsignarAbierto] = useState(false);
+
+  /**
+   * Flag para deshabilitar el botón "Asignar Carga" cuando ya no quedan lotes
+   * disponibles en el despacho para esta distribución. Inicia en `null` (cargando)
+   * hasta que el primer fetch termine.
+   *
+   * - `true`  → hay lotes disponibles, botón habilitado.
+   * - `false` → no quedan lotes, botón deshabilitado.
+   * - `null`  → estado inicial / revalidando, botón con spinner.
+   *
+   * Deduplicación: `lastLotesFetchRef` evita relanzar el fetch cuando se reabre
+   * el modal rápidamente sin asignar nada nuevo (no hay éxito → no debería
+   * revalidarse).
+   */
+  const distribucionId = ru.id_distribucion ?? null;
   const detalles = ru.distribucion_detalles ?? [];
   const todosPesados =
     detalles.length > 0 &&
@@ -375,6 +395,42 @@ export const CardDistribucionBalanza = ({
     );
 
   const despachoCorrelativo = detalles[0]?.despacho_correlativo ?? null;
+
+  const [tieneLotesDisponibles, setTieneLotesDisponibles] = useState<boolean | null>(
+    null,
+  );
+  const lastLotesFetchRef = useRef<number>(0);
+  const LOTES_DEBOUNCE_MS = 500;
+
+  const fetchLotesDisponibles = (esManual: boolean) => {
+    if (distribucionId === null) {
+      setTieneLotesDisponibles(null);
+      return;
+    }
+    const ahora = Date.now();
+    if (!esManual && ahora - lastLotesFetchRef.current < LOTES_DEBOUNCE_MS) {
+      return;
+    }
+    lastLotesFetchRef.current = ahora;
+
+    setTieneLotesDisponibles(null);
+    ProgramacionDespachosService.getLotesDisponiblesParaDistribucion(distribucionId)
+      .then((data) => {
+        setTieneLotesDisponibles(Array.isArray(data) && data.length > 0);
+      })
+      .catch(() => {
+        // En caso de error dejamos `null` para reintentar. No deshabilitamos el
+        // botón incorrectamente por un fallo de red transitorio.
+      });
+  };
+
+  useEffect(() => {
+    fetchLotesDisponibles(true);
+    return () => {
+      lastLotesFetchRef.current = 0;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [distribucionId]);
 
   return (
     <Paper
@@ -453,37 +509,59 @@ export const CardDistribucionBalanza = ({
                   </Badge>
                 )}
               </Group>
-              <Button
-                type="button"
-                radius="md"
-                disabled={!todosPesados}
-                loading={closingProcesoId === ru.id}
-                onClick={() => {
-                  cerrarProceso(ru.id).catch((e: unknown) => {
-                    const message =
-                      e instanceof Error
-                        ? e.message
-                        : "Error al cerrar el proceso";
-                    notifyError(message);
-                  });
-                }}
-                size="compact-xs"
-                leftSection={<IconCheck size={12} />}
-                className={`font-semibold h-6 px-2.5 text-[11px] ${
-                  todosPesados
-                    ? "bg-indigo-600 hover:bg-indigo-700 text-white"
-                    : "bg-zinc-800 text-zinc-500 cursor-not-allowed border border-zinc-800"
-                }`}
-              >
-                Cerrar Proceso
-              </Button>
+              <Group gap={6} wrap="nowrap">
+                {distribucionId !== null && (
+                  <Button
+                    type="button"
+                    radius="md"
+                    variant="light"
+                    color="indigo"
+                    onClick={() => setModalAsignarAbierto(true)}
+                    loading={tieneLotesDisponibles === null}
+                    disabled={tieneLotesDisponibles === false}
+                    size="compact-xs"
+                    leftSection={<IconPlus size={12} />}
+                    className="font-semibold h-6 px-2.5 text-[11px] bg-indigo-500/10! hover:bg-indigo-500/20! text-indigo-400! border-indigo-500/20! disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Asignar Carga
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  radius="md"
+                  disabled={!todosPesados}
+                  loading={closingProcesoId === ru.id}
+                  onClick={() => {
+                    cerrarProceso(ru.id).catch((e: unknown) => {
+                      const message =
+                        e instanceof Error
+                          ? e.message
+                          : "Error al cerrar el proceso";
+                      notifyError(message);
+                    });
+                  }}
+                  size="compact-xs"
+                  leftSection={<IconCheck size={12} />}
+                  className={`font-semibold h-6 px-2.5 text-[11px] ${
+                    todosPesados
+                      ? "bg-indigo-600 hover:bg-indigo-700 text-white"
+                      : "bg-zinc-800 text-zinc-500 cursor-not-allowed border border-zinc-800"
+                  }`}
+                >
+                  Cerrar Proceso
+                </Button>
+              </Group>
             </Group>
 
             {detalles.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-4 text-center gap-1">
-                <IconScale size={20} className="text-zinc-600" />
-                <Text size="10px" c="dimmed">
-                  Sin detalles asociados.
+              <div className="flex flex-col items-center justify-center py-6 text-center gap-2 border border-dashed border-amber-500/30 rounded-md bg-amber-500/5">
+                <IconScale size={20} className="text-amber-400" />
+                <Text size="10px" c="amber.3" fw={600}>
+                  No hay cargas asignadas.
+                </Text>
+                <Text size="10px" c="dimmed" fw={500}>
+                  Las cargas se asignan desde aquí, seleccionando los lotes del
+                  despacho y el peso a tomar para la distribución.
                 </Text>
               </div>
             ) : (
@@ -500,6 +578,19 @@ export const CardDistribucionBalanza = ({
           </Paper>
         </Grid.Col>
       </Grid>
+
+      <ModalAsignarCarga
+        opened={modalAsignarAbierto}
+        onClose={() => setModalAsignarAbierto(false)}
+        idDistribucion={distribucionId ?? 0}
+        onAsignado={(detalle) => {
+          onDetalleUpdated(detalle);
+          // Forzar refetch para actualizar el flag del botón (ignorando dedupe):
+          // tras una asignación exitosa la disponibilidad de lotes puede haber
+          // cambiado.
+          fetchLotesDisponibles(true);
+        }}
+      />
     </Paper>
   );
 };

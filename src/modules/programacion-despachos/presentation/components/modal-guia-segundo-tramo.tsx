@@ -30,6 +30,8 @@ import type { IArchivo } from "../../../../shared/interfaces/archivo";
 import { MOTIVO_TRASLADO_OPTIONS } from "../../../../shared/enums/_generic/motivo-traslado";
 import type { MotivoTraslado } from "../../../../shared/enums/_generic/motivo-traslado";
 import { useGuiaSegundoTramo } from "../../hooks/useGuiaSegundoTramo";
+import { AuxService } from "../../../../service/auxiliar.service";
+import type { RES_EmpresaTransporte } from "../../../../service/responses/empresa-transporte";
 import type {
   GuiaSegundoTramo,
   GuiaSegundoTramoDocumento,
@@ -119,6 +121,15 @@ export const ModalGuiaSegundoTramo = ({
   const [guiaTransportista, setGuiaTransportista] = useState("");
   const [sinGuiaTransportista, setSinGuiaTransportista] = useState(false);
 
+  // ---- remitente (entidad): Empresa Transporte o Planta Destino
+  const [esPlantaDestinoRemitente, setEsPlantaDestinoRemitente] = useState(false);
+  const [remitenteId, setRemitenteId] = useState<string | null>(null);
+  const [empresas, setEmpresas] = useState<RES_EmpresaTransporte[]>([]);
+  const [plantas, setPlantas] = useState<
+    Array<{ id: number; ruc: string; razon_social: string }>
+  >([]);
+  const [loadingCatalogos, setLoadingCatalogos] = useState(false);
+
   // ---- documentos: archivos nuevos seleccionados por el usuario
   const [documentoRemitente, setDocumentoRemitente] = useState<File | null>(null);
   const [documentoTransportista, setDocumentoTransportista] = useState<File | null>(null);
@@ -185,6 +196,14 @@ export const ModalGuiaSegundoTramo = ({
         setGuiaRemitente(guiaActual.guia_remitente ?? "");
         setGuiaTransportista(guiaActual.guia_transportista ?? "");
         setSinGuiaTransportista(!!guiaActual.sin_guia_transportista);
+        setEsPlantaDestinoRemitente(
+          guiaActual.tipo_remitente === "PLANTA_DESTINO",
+        );
+        setRemitenteId(
+          guiaActual.id_remitente != null
+            ? String(guiaActual.id_remitente)
+            : null,
+        );
         setArchivoRemitenteExistente(
           guiaActual.documentos?.guia_remitente ?? null,
         );
@@ -200,10 +219,27 @@ export const ModalGuiaSegundoTramo = ({
         setGuiaRemitente("");
         setGuiaTransportista("");
         setSinGuiaTransportista(false);
+        setEsPlantaDestinoRemitente(false);
+        setRemitenteId(null);
         setArchivoRemitenteExistente(null);
         setArchivoTransportistaExistente(null);
       }
     };
+
+    // ---- carga lazy de catalogos de remitente ----
+    setLoadingCatalogos(true);
+    Promise.all([
+      AuxService.get_empresas_transporte().catch(() => []),
+      AuxService.get_plantas_despachable().catch(() => []),
+    ])
+      .then(([emps, pls]) => {
+        if (cancelled) return;
+        setEmpresas(emps);
+        setPlantas(pls);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingCatalogos(false);
+      });
 
     void cargar();
 
@@ -381,6 +417,14 @@ export const ModalGuiaSegundoTramo = ({
       return;
     }
 
+    const idRemitenteNum = remitenteId ? Number(remitenteId) : null;
+    const tipoRemitenteVal: "EMPRESA_TRANSPORTE" | "PLANTA_DESTINO" | null =
+      idRemitenteNum != null
+        ? esPlantaDestinoRemitente
+          ? "PLANTA_DESTINO"
+          : "EMPRESA_TRANSPORTE"
+        : null;
+
     setSubmitting(true);
     try {
       if (esEdicion && guia) {
@@ -395,6 +439,8 @@ export const ModalGuiaSegundoTramo = ({
           guia_remitente: guiaRemitenteTrim,
           guia_transportista: numeroGuiaTransportista,
           sin_guia_transportista: sinGuiaTransportista,
+          id_remitente: idRemitenteNum,
+          tipo_remitente: tipoRemitenteVal,
           documento_guia_remitente: documentoRemitente,
           documento_guia_transportista: sinGuiaTransportista
             ? null
@@ -417,6 +463,8 @@ export const ModalGuiaSegundoTramo = ({
           guia_remitente: guiaRemitenteTrim,
           guia_transportista: numeroGuiaTransportista,
           sin_guia_transportista: sinGuiaTransportista,
+          id_remitente: idRemitenteNum,
+          tipo_remitente: tipoRemitenteVal,
           documento_guia_remitente: documentoRemitente,
           documento_guia_transportista: sinGuiaTransportista
             ? null
@@ -557,7 +605,7 @@ export const ModalGuiaSegundoTramo = ({
                   required
                 />
               </Grid.Col>
-              <Grid.Col span={{ base: 12, sm: 4 }}>
+              <Grid.Col span={{ base: 12, sm: 3 }}>
                 <TextInput
                   label="N° Guía Transportista:"
                   placeholder={
@@ -572,22 +620,94 @@ export const ModalGuiaSegundoTramo = ({
                   size="xs"
                   maxLength={20}
                   disabled={sinGuiaTransportista}
-                  rightSection={
-                    <Switch
-                      size="xs"
-                      color="indigo"
-                      checked={sinGuiaTransportista}
-                      onChange={(e) =>
-                        setSinGuiaTransportista(e.currentTarget.checked)
-                      }
-                      onLabel="SIN"
-                      offLabel="CON"
-                      className="mr-1"
-                    />
+                />
+              </Grid.Col>
+              <Grid.Col span={{ base: 12, sm: 1 }}>
+                <Text component="label" className={fieldClasses.label}>
+                  Sin guía:
+                </Text>
+                <Switch
+                  size="xs"
+                  color="indigo"
+                  checked={sinGuiaTransportista}
+                  onChange={(e) =>
+                    setSinGuiaTransportista(e.currentTarget.checked)
                   }
+                  onLabel="SIN"
+                  offLabel="CON"
+                  className="mt-1"
                 />
               </Grid.Col>
             </Grid>
+
+            <Divider className="border-zinc-800/80" />
+
+            {/* ========== 2.5 Remitente (entidad) ========== */}
+            <Box>
+              <Group justify="space-between" align="center" mb={6}>
+                <Text
+                  size="xs"
+                  fw={800}
+                  className="text-zinc-100 uppercase tracking-widest"
+                >
+                  Remitente (entidad)
+                </Text>
+                <Group gap="xs" align="center">
+                  <Text size="xs" c="zinc.4">
+                    Empresa transporte
+                  </Text>
+                  <Switch
+                    size="xs"
+                    color="indigo"
+                    checked={esPlantaDestinoRemitente}
+                    onChange={(e) => {
+                      const next = e.currentTarget.checked;
+                      setEsPlantaDestinoRemitente(next);
+                      setRemitenteId(null);
+                    }}
+                    onLabel="PLANTA"
+                    offLabel="EMPRESA"
+                  />
+                  <Text size="xs" c="zinc.4">
+                    Planta destino
+                  </Text>
+                </Group>
+              </Group>
+              <Select
+                label={
+                  esPlantaDestinoRemitente
+                    ? "Planta destino remitente:"
+                    : "Empresa transporte remitente:"
+                }
+                placeholder={
+                  loadingCatalogos ? "Cargando..." : "Seleccione (opcional)"
+                }
+                data={
+                  loadingCatalogos
+                    ? []
+                    : (esPlantaDestinoRemitente ? plantas : empresas).map(
+                        (item) => ({
+                          value: String(
+                            "id_empresa_transporte" in item
+                              ? item.id_empresa_transporte
+                              : item.id,
+                          ),
+                          label: `${item.razon_social} — ${item.ruc}`,
+                        }),
+                      )
+                }
+                value={remitenteId}
+                onChange={setRemitenteId}
+                classNames={fieldClasses}
+                radius="lg"
+                size="xs"
+                disabled={loadingCatalogos}
+                rightSection={loadingCatalogos ? <Loader size={16} /> : undefined}
+                searchable
+                clearable
+                comboboxProps={{ withinPortal: true }}
+              />
+            </Box>
 
             <Divider className="border-zinc-800/80" />
 

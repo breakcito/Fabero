@@ -58,10 +58,20 @@ export interface DistribucionDetalleItem {
   detalle_id_blending: number | null;
   lote_correlativo: string | null;
   lote_ley_humedad: number | null;
+  lote_ley_oro: number | null;
+  lote_ley_plata: number | null;
   blending_correlativo: string | null;
   blending_ley_humedad: number | null;
+  blending_ley_oro: number | null;
+  blending_ley_plata: number | null;
   proveedor_razon_social: string | null;
   despacho_correlativo: string | null;
+  /** Datos reportados por el cliente al recibir la distribución (nullable). */
+  peso_neto_cliente: number | null;
+  codigo_cliente: string | null;
+  ley_oro_cliente: number | null;
+  ley_plata_cliente: number | null;
+  ley_humedad_cliente: number | null;
 }
 
 export interface DistribucionItem {
@@ -80,6 +90,7 @@ export interface DistribucionItem {
   id_empleado_registro: number;
   empleado_registro_nombre: string | null;
   fecha_estimada_llegada: string | null;
+  fecha_llegada_cliente: string | null;
   log_cambios: RES_CambiosLog[] | null;
   estado: string;
   created_at: string;
@@ -129,6 +140,10 @@ export interface ItemDisponibleDespacho {
   id_blending: number | null;
   id_empresa: number | null;
   empresa_razon_social: string | null;
+  /** Código del lote (formateado, ej. "26-FB-00001"). Null cuando es BLENDING. */
+  lote_correlativo: string | null;
+  /** Código del blending (formateado). Null cuando es LOTE. */
+  blending_correlativo: string | null;
   correlativo: string;
   numero_correlativo: number;
   tipo_producto: string | null;
@@ -169,9 +184,68 @@ export interface GuiaSegundoTramo {
   fecha_en_planta: string | null;
   guia_transportista: string | null;
   guia_remitente: string | null;
+  id_remitente: number | null;
+  tipo_remitente: "EMPRESA_TRANSPORTE" | "PLANTA_DESTINO" | null;
   sin_guia_transportista: boolean;
   log_cambios: RES_CambiosLog[] | null;
   documentos: GuiaSegundoTramoDocumentos | null;
   estado: EstadoBase | string;
   created_at: string;
+}
+
+export interface ActaSalidaEmpresa {
+  razon_social: string;
+  ruc: string;
+  domicilio_fiscal: string;
+  sede_productiva: string;
+}
+
+export interface ActaSalidaProveedor {
+  razon_social: string;
+  ruc: string;
+  direccion_partida: string;
+}
+
+export interface ActaSalidaDestino {
+  razon_social: string;
+  ruc: string;
+  direccion: string;
+}
+
+export interface ActaSalidaVehiculoRef {
+  placa: string;
+  marca_trabajo: string;
+  configuracion_vehicular?: string;
+}
+
+export interface ActaSalidaTransportista {
+  razon_social: string;
+  ruc: string;
+  plataforma_contratista?: string;
+}
+
+export interface ActaSalidaConductor {
+  nombre_completo: string;
+  licencia: string;
+}
+
+export interface ActaSalidaVehiculoData {
+  correlativo: string;
+  tsv: string;
+  numero_correlativo: number | null;
+  empresa_remitente: ActaSalidaEmpresa;
+  proveedor: ActaSalidaProveedor;
+  destino: ActaSalidaDestino;
+  vehiculo: ActaSalidaVehiculoRef;
+  carreta: ActaSalidaVehiculoRef | null;
+  transportista: ActaSalidaTransportista;
+  conductor: ActaSalidaConductor;
+  guia_remitente: string;
+  producto: string;
+  guia_transportista: string;
+  fecha_ingreso: string;
+  hora_salida: string;
+  peso_guia_tm: number;
+  peso_vehicular_total_tm: number;
+  cod_lote: string;
 }

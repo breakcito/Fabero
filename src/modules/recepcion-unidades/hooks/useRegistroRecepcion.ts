@@ -129,7 +129,7 @@ export const useRegistroRecepcion = (
     try {
       const vResult = await AuxService.get_vehiculos({
         placa: placaLimpia,
-        solo_no_carreta: true,
+        es_carreta: false,
       });
       if (vResult && vResult.length > 0) {
         const found = vResult[0];

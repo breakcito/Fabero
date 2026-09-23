@@ -195,6 +195,8 @@ export const CierreLeyesPage = () => {
           onEliminarFila={ctrl.eliminarFila}
           onConfirmarLote={ctrl.confirmarLote}
           onActualizarOrigenFila={ctrl.actualizarOrigenFila}
+          onCheckAll={ctrl.confirmarTodoElLote}
+          isChequeandoLote={ctrl.isChequeandoLote}
           confirmandoLote={ctrl.confirmandoLote}
           agregandoAnalisisPorLote={ctrl.agregandoAnalisisPorLote}
           isGuardandoCelda={ctrl.isGuardandoCelda}

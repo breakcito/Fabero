@@ -3,25 +3,30 @@ import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
 import {
   ActionIcon,
   Alert,
-  Badge,
   Box,
   Button,
   Checkbox,
   Divider,
+  FileButton,
   Grid,
   Group,
   Loader,
-  NumberInput,
   Select,
   Stack,
+  Switch,
   Text,
+  TextInput,
   Tooltip,
 } from "@mantine/core";
 import {
   IconAlertTriangle,
   IconBuilding,
+  IconCalendar,
+  IconFileText,
   IconPlus,
+  IconTrash,
   IconTruck,
+  IconUpload,
   IconUser,
   IconTruckDelivery,
 } from "@tabler/icons-react";
@@ -41,6 +46,7 @@ import { RegistroEmpresaTransporte } from "../../../../presentation/utils/regist
 import { RegistroVehiculoSimple } from "../../../../presentation/utils/registro-vehiculo-simple";
 import { RegistroTipoVehiculoSimple } from "../../../../presentation/utils/registro-tipo-vehiculo-simple";
 import { RegistroConductor } from "../../../../presentation/utils/registro-conductor";
+import { ArchivoCard } from "../../../../presentation/utils/archivo/archivo-card";
 import type {
   RES_EmpresaTransporte,
 } from "../../../../service/responses/empresa-transporte";
@@ -50,6 +56,10 @@ import type { RES_Sucursal } from "../../../../service/responses/sucursal";
 import type { RES_TipoVehiculo } from "../../../../service/responses/tipo-vehiculo";
 import type { EmpresaTransporteResponse } from "../../../empresas-transporte/service/empresas-transporte.responses";
 import type { EstadoBase } from "../../../../shared/enums/_generic/estado-base";
+import {
+  MOTIVO_TRASLADO_OPTIONS,
+  type MotivoTraslado,
+} from "../../../../shared/enums/_generic/motivo-traslado";
 
 interface Props {
   opened: boolean;
@@ -63,6 +73,12 @@ const fieldClasses = {
   input:
     "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 focus:ring-1 focus:ring-zinc-300 transition-all",
   label: "text-zinc-300 mb-1 font-medium text-xs",
+};
+
+const todayIso = (): string => {
+  const d = new Date();
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
 
 export const RegistroDistribucionModal = ({
@@ -85,12 +101,14 @@ export const RegistroDistribucionModal = ({
   const [sucursales, setSucursales] = useState<RES_Sucursal[]>([]);
   const [empresas, setEmpresas] = useState<RES_EmpresaTransporte[]>([]);
   const [vehiculos, setVehiculos] = useState<RES_Vehiculo[]>([]);
+  const [vehiculosCarreta, setVehiculosCarreta] = useState<RES_Vehiculo[]>([]);
   const [tiposVehiculo, setTiposVehiculo] = useState<RES_TipoVehiculo[]>([]);
   const [conductores, setConductores] = useState<RES_Conductor[]>([]);
 
   const [loadingSucursales, setLoadingSucursales] = useState(false);
   const [loadingEmpresas, setLoadingEmpresas] = useState(false);
   const [loadingVehiculos, setLoadingVehiculos] = useState(false);
+  const [loadingVehiculosCarreta, setLoadingVehiculosCarreta] = useState(false);
   const [loadingTipos, setLoadingTipos] = useState(false);
   const [loadingConductores, setLoadingConductores] = useState(false);
 
@@ -98,6 +116,7 @@ export const RegistroDistribucionModal = ({
   const [modalCrearEmpresa, setModalCrearEmpresa] = useState(false);
   const [modalCrearTipoVehiculo, setModalCrearTipoVehiculo] = useState(false);
   const [modalCrearVehiculo, setModalCrearVehiculo] = useState(false);
+  const [modalCrearVehiculoCarreta, setModalCrearVehiculoCarreta] = useState(false);
   const [modalCrearConductor, setModalCrearConductor] = useState(false);
 
   useEffect(() => {
@@ -106,11 +125,11 @@ export const RegistroDistribucionModal = ({
       return;
     }
     let cancelled = false;
-    ctrl.inicializarDetalles();
 
     setLoadingSucursales(true);
     setLoadingEmpresas(true);
     setLoadingVehiculos(true);
+    setLoadingVehiculosCarreta(true);
     setLoadingTipos(true);
     setLoadingConductores(true);
 
@@ -138,7 +157,7 @@ export const RegistroDistribucionModal = ({
         if (!cancelled) setLoadingEmpresas(false);
       });
 
-    AuxService.get_vehiculos()
+    AuxService.get_vehiculos({ es_carreta: false })
       .then((data) => {
         if (!cancelled) setVehiculos(Array.isArray(data) ? data : []);
       })
@@ -148,6 +167,18 @@ export const RegistroDistribucionModal = ({
       })
       .finally(() => {
         if (!cancelled) setLoadingVehiculos(false);
+      });
+
+    AuxService.get_vehiculos({ es_carreta: true })
+      .then((data) => {
+        if (!cancelled) setVehiculosCarreta(Array.isArray(data) ? data : []);
+      })
+      .catch((e) => {
+        console.error(e);
+        if (!cancelled) notifyError("Error al cargar vehículos carreta");
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingVehiculosCarreta(false);
       });
 
     AuxService.get_tipos_vehiculo()
@@ -185,6 +216,10 @@ export const RegistroDistribucionModal = ({
     label: e.ruc ? `${e.razon_social} (${e.ruc})` : e.razon_social,
   }));
   const vehiculosData = vehiculos.map((v) => ({
+    value: String(v.id_vehiculo),
+    label: v.placa ? v.placa : `Vehículo #${v.id_vehiculo}`,
+  }));
+  const vehiculosCarretaData = vehiculosCarreta.map((v) => ({
     value: String(v.id_vehiculo),
     label: v.placa ? v.placa : `Vehículo #${v.id_vehiculo}`,
   }));
@@ -226,6 +261,16 @@ export const RegistroDistribucionModal = ({
     ctrl.setField("id_vehiculo", nuevo.id_vehiculo);
     setModalCrearVehiculo(false);
   };
+  const handleVehiculoCarretaCreado = (nuevo: RES_Vehiculo) => {
+    setVehiculosCarreta((prev) => [...prev, nuevo]);
+    ctrl.setField("id_vehiculo_carreta", nuevo.id_vehiculo);
+    setModalCrearVehiculoCarreta(false);
+  };
+
+  // Resolver id_tipo_vehiculo de la carreta a partir del catálogo ya cargado.
+  // Sin tipo carreta registrado, el submodal no puede crear nada coherente.
+  const idTipoVehiculoCarreta =
+    tiposVehiculo.find((t) => t.es_carreta === true)?.id_tipo_vehiculo ?? null;
   const handleConductorCreado = (nuevo: { id_conductor: number; nombre_completo: string; dni: string; numero_licencia?: string | null }) => {
     const adapt: RES_Conductor = {
       id_conductor: nuevo.id_conductor,
@@ -242,12 +287,65 @@ export const RegistroDistribucionModal = ({
   const vehiculoFormReady =
     ctrl.form.id_empresa_transporte > 0 && ctrl.form.id_tipo_vehiculo > 0;
 
+  /**
+   * Al activar "También registrar la Guía de Segundo Tramo ahora", precarga
+   * las fechas con el día actual si están vacías. Si el usuario desmarca y
+   * vuelve a marcar, no pisa valores que ya haya editado.
+   */
+  const handleToggleRegistrarGuia = (checked: boolean) => {
+    if (checked) {
+      const today = todayIso();
+      if (!ctrl.guia.fecha_inicio_traslado) {
+        ctrl.setGuiaField("fecha_inicio_traslado", today);
+      }
+      if (!ctrl.guia.fecha_emision) {
+        ctrl.setGuiaField("fecha_emision", today);
+      }
+      if (!ctrl.guia.fecha_en_planta) {
+        ctrl.setGuiaField("fecha_en_planta", today);
+      }
+    }
+    ctrl.setRegistrarGuia(checked);
+  };
+
   return (
     <ModalEstandar
       opened={opened}
       close={onClose}
       title="Registrar Distribución"
-      size="xl"
+      size="80%"
+      rightSection={
+        <div className="flex items-center gap-2 whitespace-nowrap">
+          <Text component="label" size="xs" fw={500} c="zinc.3" className="shrink-0">
+            Fecha Estimada de Llegada
+            <span className="text-red-400 ml-0.5">*</span>
+          </Text>
+          <div className="w-52">
+            <CustomDatePicker
+              label=""
+              placeholder="Seleccione fecha"
+              value={
+                ctrl.form.fecha_estimada_llegada
+                  ? parseLocalDate(ctrl.form.fecha_estimada_llegada)
+                  : null
+              }
+              onChange={(val: unknown) => {
+                if (!val) {
+                  ctrl.setField("fecha_estimada_llegada", "");
+                  return;
+                }
+                const d = typeof val === "string" ? new Date(val) : (val as Date);
+                ctrl.setField("fecha_estimada_llegada", formatLocalDate(d));
+              }}
+              disabled={ctrl.loading}
+              required
+              minDate={new Date()}
+              radius="lg"
+              size="xs"
+            />
+          </div>
+        </div>
+      }
       validateClose={
         ctrl.form.detalles.some((d) => d.peso_tomado > 0) ||
         ctrl.form.id_sucursal > 0
@@ -461,137 +559,357 @@ export const RegistroDistribucionModal = ({
           </Grid.Col>
 
           <Grid.Col span={{ base: 12, sm: 6 }}>
-            <CustomDatePicker
-              label="Fecha Estimada de Llegada"
-              placeholder="Seleccione fecha"
-              value={
-                ctrl.form.fecha_estimada_llegada
-                  ? parseLocalDate(ctrl.form.fecha_estimada_llegada)
-                  : null
-              }
-              onChange={(val: unknown) => {
-                if (!val) {
-                  ctrl.setField("fecha_estimada_llegada", "");
-                  return;
+            <Group gap={6} align="end" wrap="nowrap">
+              <Select
+                label="Vehículo Carreta (opcional)"
+                placeholder={
+                  loadingVehiculosCarreta
+                    ? "Cargando carretas..."
+                    : "Seleccione (opcional)"
                 }
-                const d = typeof val === "string" ? new Date(val) : (val as Date);
-                ctrl.setField("fecha_estimada_llegada", formatLocalDate(d));
-              }}
-              disabled={ctrl.loading}
-              withAsterisk
-              required
-              minDate={new Date()}
-              radius="lg"
-              size="sm"
-            />
+                data={vehiculosCarretaData}
+                value={
+                  ctrl.form.id_vehiculo_carreta
+                    ? String(ctrl.form.id_vehiculo_carreta)
+                    : null
+                }
+                onChange={(val) =>
+                  ctrl.setField("id_vehiculo_carreta", val ? Number(val) : null)
+                }
+                leftSection={<IconTruck className="w-4 h-4 text-zinc-500" />}
+                searchable
+                clearable
+                radius="lg"
+                disabled={loadingVehiculosCarreta || ctrl.loading}
+                rightSection={
+                  loadingVehiculosCarreta ? <Loader size={16} /> : undefined
+                }
+                comboboxProps={{ withinPortal: true }}
+                classNames={{ ...fieldClasses, root: "flex-1" }}
+                style={{ minWidth: 0 }}
+              />
+              <Tooltip
+                label={
+                  ctrl.form.id_empresa_transporte > 0
+                    ? "Registrar nuevo vehículo carreta"
+                    : "Selecciona primero la empresa de transporte"
+                }
+                withArrow
+              >
+                <ActionIcon
+                  type="button"
+                  variant="light"
+                  color="indigo"
+                  size="lg"
+                  radius="md"
+                  onClick={() => setModalCrearVehiculoCarreta(true)}
+                  disabled={ctrl.loading || ctrl.form.id_empresa_transporte <= 0}
+                  className="bg-indigo-500/10! hover:bg-indigo-500/20! text-indigo-400! border-indigo-500/20! mb-0.5 disabled:opacity-50"
+                  aria-label="Nuevo vehículo carreta"
+                >
+                  <IconPlus size={18} />
+                </ActionIcon>
+              </Tooltip>
+            </Group>
           </Grid.Col>
         </Grid>
 
         <Divider
-          label="Items del despacho a distribuir"
+          label="Guía de Segundo Tramo (opcional)"
           labelPosition="left"
           classNames={{ label: "text-zinc-400 text-xs uppercase tracking-wider" }}
         />
 
-        <Stack gap="xs">
-          {ctrl.form.detalles.length === 0 ? (
-            <Box className="text-center py-6 text-zinc-500 text-sm border border-dashed border-zinc-800 rounded-lg">
-              Este despacho no tiene items con peso pendiente.
-            </Box>
-          ) : (
-            ctrl.form.detalles.map((d) => {
-              const detalleDespacho = detallesDespacho.find(
-                (dd) => dd.id === d.id_despacho_detalle,
-              );
-              const max = detalleDespacho?.peso_actual ?? null;
-              const seleccionado = (d.peso_tomado ?? 0) > 0;
-              const excedido = max !== null && d.peso_tomado > max + 0.0001;
-              const esLote = Boolean(detalleDespacho?.lote_correlativo);
-              const labelTipo = esLote ? "Lote" : "Blending";
-              const correlativo =
-                detalleDespacho?.lote_correlativo ??
-                detalleDespacho?.blending_correlativo ??
-                `Detalle #${d.id_despacho_detalle}`;
-              return (
-                <Box
-                  key={d.id_despacho_detalle}
-                  className={`rounded-lg border p-3 transition-opacity ${
-                    excedido
-                      ? "border-red-500/50 bg-red-500/5"
-                      : "border-zinc-800 bg-zinc-900/30"
-                  } ${seleccionado ? "" : "opacity-50"}`}
-                >
-                  <Group justify="space-between" align="center" wrap="nowrap">
-                    <Group gap="sm" wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
-                      <Checkbox
-                        checked={seleccionado}
-                        onChange={(e) => {
-                          const checked = e.currentTarget.checked;
-                          ctrl.setDetallePeso(
-                            d.id_despacho_detalle,
-                            checked ? (max ?? 0) : 0,
-                          );
-                        }}
-                        disabled={ctrl.loading}
-                        size="md"
-                        color="indigo"
-                      />
-                      <Stack gap={2} style={{ minWidth: 0, flex: 1 }}>
-                        <Group gap={6} wrap="nowrap">
-                          <Badge
-                            color={esLote ? "yellow" : "gray"}
-                            variant="filled"
-                            size="xs"
-                            fw={700}
-                          >
-                            {labelTipo}
-                          </Badge>
-                          <Text fw={700} fz="xs" c="white" className="font-mono truncate">
-                            {correlativo}
-                          </Text>
-                        </Group>
-                        <Group gap={6} wrap="wrap">
-                          {detalleDespacho?.proveedor_razon_social && (
-                            <Text fz={10} c="dimmed">
-                              {detalleDespacho.proveedor_razon_social}
-                            </Text>
-                          )}
-                          {max !== null && (
-                            <Text fz={10} c="indigo.4" fw={600}>
-                              Pendiente: {max.toFixed(3)} KG
-                            </Text>
-                          )}
-                        </Group>
-                      </Stack>
-                    </Group>
-                    <NumberInput
-                      label="Peso Tomado (KG)"
-                      placeholder="0.000"
-                      min={0}
-                      max={max ?? undefined}
-                      decimalScale={3}
-                      fixedDecimalScale
-                      hideControls
-                      value={d.peso_tomado || ""}
-                      onChange={(val) => {
-                        const n = typeof val === "number" ? val : Number(val);
-                        ctrl.setDetallePeso(d.id_despacho_detalle, isNaN(n) ? 0 : n);
-                      }}
-                      disabled={ctrl.loading || !seleccionado}
-                      error={excedido ? "Supera el peso pendiente" : undefined}
-                      radius="lg"
-                      classNames={{
-                        ...fieldClasses,
-                        root: "w-44",
-                        error: "text-red-400 text-xs",
-                      }}
+        <Box className="rounded-lg border border-zinc-800 bg-zinc-900/20 p-3">
+          <Checkbox
+            label="También registrar la Guía de Segundo Tramo ahora"
+            checked={ctrl.registrarGuia}
+            onChange={(e) => handleToggleRegistrarGuia(e.currentTarget.checked)}
+            disabled={ctrl.loading}
+            color="indigo"
+            size="sm"
+          />
+          <Text fz={10} c="dimmed" mt={4}>
+            Si los campos quedan vacíos, se omite este registro y podrás llenar la guía después desde la distribución creada.
+          </Text>
+
+          {ctrl.registrarGuia && (
+            <Stack gap="xs" mt="md">
+              <Grid gutter="xs">
+                <Grid.Col span={{ base: 12, sm: 4 }}>
+                  <TextInput
+                    type="date"
+                    label="Fecha Inicio Traslado"
+                    value={ctrl.guia.fecha_inicio_traslado ?? ""}
+                    onChange={(e) =>
+                      ctrl.setGuiaField(
+                        "fecha_inicio_traslado",
+                        e.currentTarget.value || null,
+                      )
+                    }
+                    disabled={ctrl.loading}
+                    radius="lg"
+                    size="xs"
+                    leftSection={<IconCalendar size={14} />}
+                    classNames={fieldClasses}
+                  />
+                </Grid.Col>
+                <Grid.Col span={{ base: 12, sm: 4 }}>
+                  <TextInput
+                    type="date"
+                    label="Fecha Emisión"
+                    value={ctrl.guia.fecha_emision ?? ""}
+                    onChange={(e) =>
+                      ctrl.setGuiaField(
+                        "fecha_emision",
+                        e.currentTarget.value || null,
+                      )
+                    }
+                    disabled={ctrl.loading}
+                    radius="lg"
+                    size="xs"
+                    leftSection={<IconCalendar size={14} />}
+                    classNames={fieldClasses}
+                  />
+                </Grid.Col>
+                <Grid.Col span={{ base: 12, sm: 4 }}>
+                  <TextInput
+                    type="date"
+                    label="Fecha En Planta"
+                    value={ctrl.guia.fecha_en_planta ?? ""}
+                    onChange={(e) =>
+                      ctrl.setGuiaField(
+                        "fecha_en_planta",
+                        e.currentTarget.value || null,
+                      )
+                    }
+                    disabled={ctrl.loading}
+                    radius="lg"
+                    size="xs"
+                    leftSection={<IconCalendar size={14} />}
+                    classNames={fieldClasses}
+                  />
+                </Grid.Col>
+              </Grid>
+
+              <Grid gutter="xs" align="flex-end">
+                <Grid.Col span={{ base: 12, sm: 4 }}>
+                  <Select
+                    label="Motivo de Traslado"
+                    placeholder="Seleccione"
+                    data={MOTIVO_TRASLADO_OPTIONS.map((m) => ({ value: m, label: m }))}
+                    value={ctrl.guia.motivo_traslado}
+                    onChange={(val) =>
+                      ctrl.setGuiaField("motivo_traslado", val as MotivoTraslado | null)
+                    }
+                    disabled={ctrl.loading}
+                    searchable
+                    radius="lg"
+                    size="xs"
+                    classNames={fieldClasses}
+                  />
+                </Grid.Col>
+                <Grid.Col span={{ base: 12, sm: 4 }}>
+                  <TextInput
+                    label="N° Guía Remitente"
+                    placeholder="Ej. 001-12345"
+                    value={ctrl.guia.guia_remitente}
+                    onChange={(e) =>
+                      ctrl.setGuiaField(
+                        "guia_remitente",
+                        e.currentTarget.value.toUpperCase(),
+                      )
+                    }
+                    disabled={ctrl.loading}
+                    radius="lg"
+                    size="xs"
+                    maxLength={20}
+                    classNames={fieldClasses}
+                  />
+                </Grid.Col>
+                <Grid.Col span={{ base: 12, sm: 3 }}>
+                  <TextInput
+                    label="N° Guía Transportista"
+                    placeholder={
+                      ctrl.guia.sin_guia_transportista
+                        ? "Sin guía transportista"
+                        : "Ej. 001-12345"
+                    }
+                    value={ctrl.guia.guia_transportista}
+                    onChange={(e) =>
+                      ctrl.setGuiaField(
+                        "guia_transportista",
+                        e.currentTarget.value.toUpperCase(),
+                      )
+                    }
+                    disabled={ctrl.loading || ctrl.guia.sin_guia_transportista}
+                    radius="lg"
+                    size="xs"
+                    maxLength={20}
+                    classNames={fieldClasses}
+                  />
+                </Grid.Col>
+                <Grid.Col span={{ base: 12, sm: 1 }}>
+                  <Stack gap={2} align="center" justify="flex-end" pb={4}>
+                    <Text fz={10} c="zinc.400" fw={600} tt="uppercase" lts="0.04em" ta="center">
+                      Sin Guía
+                    </Text>
+                    <Switch
+                      size="md"
+                      color="indigo"
+                      checked={ctrl.guia.sin_guia_transportista}
+                      onChange={(e) =>
+                        ctrl.setGuiaField(
+                          "sin_guia_transportista",
+                          e.currentTarget.checked,
+                        )
+                      }
+                      onLabel="SÍ"
+                      offLabel="NO"
+                      disabled={ctrl.loading}
                     />
+                  </Stack>
+                </Grid.Col>
+              </Grid>
+
+              <Box>
+                <Group justify="space-between" align="flex-end" mb={6}>
+                  <Text size="xs" fw={800} className="text-zinc-100 uppercase tracking-widest">
+                    Documento Guía Remitente
+                  </Text>
+                  <FileButton
+                    onChange={(f) => f && ctrl.setGuiaField("documento_guia_remitente", f)}
+                    accept="*"
+                  >
+                    {(props) => (
+                      <Button
+                        {...props}
+                        variant="light"
+                        color="indigo"
+                        size="xs"
+                        radius="md"
+                        leftSection={<IconUpload size={14} />}
+                        disabled={ctrl.loading}
+                      >
+                        {ctrl.guia.documento_guia_remitente ? "Reemplazar" : "Adjuntar"}
+                      </Button>
+                    )}
+                  </FileButton>
+                </Group>
+                {ctrl.guia.documento_guia_remitente && (
+                  <Group gap="xs" wrap="nowrap" align="stretch">
+                    <div className="flex-1 min-w-0">
+                      <ArchivoCard
+                        archivo={{
+                          url: URL.createObjectURL(ctrl.guia.documento_guia_remitente),
+                          path_relativo: "",
+                          nombre_original: ctrl.guia.documento_guia_remitente.name,
+                          extension:
+                            ctrl.guia.documento_guia_remitente.name.split(".").pop()?.toLowerCase() ||
+                            null,
+                        }}
+                        className="h-full"
+                      />
+                    </div>
+                    <Tooltip label="Quitar archivo" withArrow>
+                      <ActionIcon
+                        variant="light"
+                        color="red"
+                        size="lg"
+                        radius="md"
+                        onClick={() => ctrl.setGuiaField("documento_guia_remitente", null)}
+                        disabled={ctrl.loading}
+                        className="bg-red-500/5 hover:bg-red-500/10 self-center"
+                      >
+                        <IconTrash size={16} />
+                      </ActionIcon>
+                    </Tooltip>
                   </Group>
+                )}
+                {!ctrl.guia.documento_guia_remitente && (
+                  <Box className="rounded-md border border-dashed border-zinc-800 p-2 text-center">
+                    <Group justify="center" gap="xs">
+                      <IconFileText size={14} className="text-zinc-600" />
+                      <Text fz={10} c="zinc.5" fw={600} fs="italic">
+                        Sin archivo adjunto.
+                      </Text>
+                    </Group>
+                  </Box>
+                )}
+              </Box>
+
+              {!ctrl.guia.sin_guia_transportista && (
+                <Box>
+                  <Group justify="space-between" align="flex-end" mb={6}>
+                    <Text size="xs" fw={800} className="text-zinc-100 uppercase tracking-widest">
+                      Documento Guía Transportista
+                    </Text>
+                    <FileButton
+                      onChange={(f) => f && ctrl.setGuiaField("documento_guia_transportista", f)}
+                      accept="*"
+                    >
+                      {(props) => (
+                        <Button
+                          {...props}
+                          variant="light"
+                          color="indigo"
+                          size="xs"
+                          radius="md"
+                          leftSection={<IconUpload size={14} />}
+                          disabled={ctrl.loading}
+                        >
+                          {ctrl.guia.documento_guia_transportista ? "Reemplazar" : "Adjuntar"}
+                        </Button>
+                      )}
+                    </FileButton>
+                  </Group>
+                  {ctrl.guia.documento_guia_transportista && (
+                    <Group gap="xs" wrap="nowrap" align="stretch">
+                      <div className="flex-1 min-w-0">
+                        <ArchivoCard
+                          archivo={{
+                            url: URL.createObjectURL(ctrl.guia.documento_guia_transportista),
+                            path_relativo: "",
+                            nombre_original: ctrl.guia.documento_guia_transportista.name,
+                            extension:
+                              ctrl.guia.documento_guia_transportista.name
+                                .split(".")
+                                .pop()
+                                ?.toLowerCase() || null,
+                          }}
+                          className="h-full"
+                        />
+                      </div>
+                      <Tooltip label="Quitar archivo" withArrow>
+                        <ActionIcon
+                          variant="light"
+                          color="red"
+                          size="lg"
+                          radius="md"
+                          onClick={() => ctrl.setGuiaField("documento_guia_transportista", null)}
+                          disabled={ctrl.loading}
+                          className="bg-red-500/5 hover:bg-red-500/10 self-center"
+                        >
+                          <IconTrash size={16} />
+                        </ActionIcon>
+                      </Tooltip>
+                    </Group>
+                  )}
+                  {!ctrl.guia.documento_guia_transportista && (
+                    <Box className="rounded-md border border-dashed border-zinc-800 p-2 text-center">
+                      <Group justify="center" gap="xs">
+                        <IconFileText size={14} className="text-zinc-600" />
+                        <Text fz={10} c="zinc.5" fw={600} fs="italic">
+                          Sin archivo adjunto.
+                        </Text>
+                      </Group>
+                    </Box>
+                  )}
                 </Box>
-              );
-            })
+              )}
+            </Stack>
           )}
-        </Stack>
+        </Box>
 
         <Group justify="flex-end" gap="md" mt="md">
           <Button
@@ -605,8 +923,8 @@ export const RegistroDistribucionModal = ({
             Cancelar
           </Button>
           <Button
-            loading={ctrl.loading}
-            disabled={ctrl.loading}
+            loading={ctrl.loading || ctrl.loadingGuia}
+            disabled={ctrl.loading || ctrl.loadingGuia}
             onClick={() => ctrl.submit()}
             radius="xl"
             size="sm"
@@ -654,6 +972,27 @@ export const RegistroDistribucionModal = ({
           onCancel={() => setModalCrearVehiculo(false)}
           onSuccess={handleVehiculoCreado}
         />
+      </ModalEstandar>
+
+      <ModalEstandar
+        opened={modalCrearVehiculoCarreta}
+        close={() => setModalCrearVehiculoCarreta(false)}
+        title="Nuevo Vehículo Carreta"
+        size="sm"
+      >
+        {idTipoVehiculoCarreta === null ? (
+          <Text size="sm" c="zinc.4" ta="center" py="md">
+            No existe un tipo de vehículo con <strong>es_carreta = true</strong>.
+            Créalo primero desde el catálogo de tipos de vehículo.
+          </Text>
+        ) : (
+          <RegistroVehiculoSimple
+            idEmpresaTransporte={ctrl.form.id_empresa_transporte || null}
+            idTipoVehiculo={idTipoVehiculoCarreta}
+            onCancel={() => setModalCrearVehiculoCarreta(false)}
+            onSuccess={handleVehiculoCarretaCreado}
+          />
+        )}
       </ModalEstandar>
 
       <ModalEstandar

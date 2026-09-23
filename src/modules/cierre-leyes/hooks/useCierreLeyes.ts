@@ -29,6 +29,7 @@ export const useCierreLeyes = () => {
   const [agregandoAnalisisPorLote, setAgregandoAnalisisPorLote] = useState<Record<number, boolean>>({});
   const [confirmandoLote, setConfirmandoLote] = useState<Record<number, boolean>>({});
   const [iniciandoLoteSugeridoId, setIniciandoLoteSugeridoId] = useState<number | null>(null);
+  const [checkeandoLote, setChequeandoLote] = useState<Record<number, boolean>>({});
 
   // Set de claves de celda actualmente guardando, para spinner per-cell.
   const [guardandoCelda, setGuardandoCelda] = useState<Set<string>>(new Set());
@@ -184,6 +185,63 @@ export const useCierreLeyes = () => {
       });
     }
   };
+
+  /**
+   * Marca como confirmados TODOS los análisis del lote (a través de todas las
+   * `uuid_fila`s) que tengan valor > 0 y aún no estén confirmados. Fan-out
+   * paralelo sobre `guardarValor` (cada uno mantiene su optimistic + rollback).
+   * Si no hay nada que confirmar, no-op silencioso.
+   */
+  const confirmarTodoElLote = useCallback(
+    async (idLoteMineral: number): Promise<void> => {
+      setChequeandoLote((prev) => ({ ...prev, [idLoteMineral]: true }));
+      try {
+        const lote = lotesRef.current.find((l) => l?.id === idLoteMineral);
+        if (!lote) return;
+
+        const recordsToCheck = lote.analisis.filter(
+          (a) => a.ley > 0 && !a.esta_confirmada,
+        );
+        if (recordsToCheck.length === 0) return;
+
+        const results = await Promise.allSettled(
+          recordsToCheck.map((a) =>
+            guardarValor({
+              id: a.id,
+              id_lote_mineral: idLoteMineral,
+              id_grupo_analisis_detalle: a.id_grupo_analisis_detalle,
+              tipo_origen: a.tipo_origen,
+              uuid_fila: a.uuid_fila,
+              ley: a.ley,
+              esta_confirmada: true,
+            }),
+          ),
+        );
+
+        const failed = results.filter(
+          (r) => r.status === "rejected" || r.value === false,
+        ).length;
+        if (failed > 0) {
+          notifyError(`${failed} análisis no se pudieron confirmar.`);
+        } else {
+          notifySuccess(
+            `Lote ${lote.correlativo}: ${recordsToCheck.length} análisis confirmados.`,
+          );
+        }
+      } finally {
+        setChequeandoLote((prev) => {
+          const { [idLoteMineral]: _, ...rest } = prev;
+          return rest;
+        });
+      }
+    },
+    [guardarValor, notifyError, notifySuccess],
+  );
+
+  const isChequeandoLote = useCallback(
+    (idLoteMineral: number): boolean => Boolean(checkeandoLote[idLoteMineral]),
+    [checkeandoLote],
+  );
 
   const agregarAnalisis = async (idLoteMineral: number): Promise<boolean> => {
     setAgregandoAnalisisPorLote((prev) => ({ ...prev, [idLoteMineral]: true }));
@@ -369,5 +427,7 @@ export const useCierreLeyes = () => {
     eliminarFila,
     confirmarLote,
     actualizarOrigenFila,
+    confirmarTodoElLote,
+    isChequeandoLote,
   };
 };

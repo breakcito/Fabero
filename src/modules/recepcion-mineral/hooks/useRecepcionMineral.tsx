@@ -18,6 +18,27 @@ import { mostrarConfirmacion } from "../../../presentation/utils/modal-confirmac
 import { CondicionIngreso } from "../../../shared/enums/_generic/condicion-ingreso";
 import type { DistribucionDetalleItem } from "../../programacion-despachos/service/programacion-despachos.responses";
 
+/**
+ * Extrae el mensaje legible del backend a partir de cualquier `Error` capturado.
+ *
+ * Cubre ambos casos:
+ *  1. Error HTTP 4xx/5xx de axios → `e.response.data.message`.
+ *  2. Error HTTP 200 con `success: false` → `unwrapApiResponse` lo transforma
+ *     en `throw new Error(message)`, accesible vía `e.message`.
+ *
+ * Si ninguno está presente, devuelve el `fallback` provisto.
+ */
+function extractApiErrorMessage(e: unknown, fallback: string): string {
+  const axiosLike = e as { response?: { data?: { message?: string } } };
+  if (axiosLike.response?.data?.message) {
+    return axiosLike.response.data.message;
+  }
+  if (e instanceof Error && e.message) {
+    return e.message;
+  }
+  return fallback;
+}
+
 export const useRecepcionMineral = () => {
   const sucursal = useUIStore((state) => state.sucursal_elegida);
   const idSucursal = sucursal?.id_sucursal || null;
@@ -58,7 +79,9 @@ export const useRecepcionMineral = () => {
 
   const { notifySuccess, notifyError } = useNotify();
 
-  const loadRecepciones = async () => {
+  const loadRecepciones = async (
+    options: { showLoading?: boolean } = {},
+  ) => {
     if (!idSucursal) {
       setSinPesarList([]);
       setEnProcesoList([]);
@@ -66,7 +89,9 @@ export const useRecepcionMineral = () => {
       return;
     }
 
-    setLoading(true);
+    if (options.showLoading !== false) {
+      setLoading(true);
+    }
     try {
       // Obtenemos todas las recepciones activas en planta de esta sucursal
       const data = await RecepcionMineralService.get_recepciones_mineral(idSucursal);
@@ -102,7 +127,9 @@ export const useRecepcionMineral = () => {
       console.error(e);
       notifyError("Ocurrió un error al cargar las recepciones de unidades");
     } finally {
-      setLoading(false);
+      if (options.showLoading !== false) {
+        setLoading(false);
+      }
     }
   };
 
@@ -207,7 +234,7 @@ export const useRecepcionMineral = () => {
     id: number,
     condicionIngreso: CondicionIngreso,
     idEmpresa: number,
-    codigoManual?: { conCodigoManual: boolean; codigoManual?: string; particionar?: boolean },
+    flags?: { conCodigoManual: boolean; codigoManual?: string; particionar?: boolean },
   ) => {
     const tempId = -Date.now();
     const tempLote: RES_LoteMineral = {
@@ -220,7 +247,7 @@ export const useRecepcionMineral = () => {
       id_zona_origen: null,
       correlativo: TEMP_LOTE_CORRELATIVO,
       numero_correlativo: null,
-      con_codigo_manual: codigoManual?.conCodigoManual ?? false,
+      con_codigo_manual: flags?.conCodigoManual ?? false,
       numero_contacto: null,
       tipo_producto: null,
       tipo_mineral: null,
@@ -246,6 +273,11 @@ export const useRecepcionMineral = () => {
       conductor_nombre_completo: null,
       conductor_dni: null,
       created_at: new Date().toISOString(),
+      // Si se va a particionar, marcar el temp como padre desde el inicio
+      // para que el filtro `!particionado_desde_balanza` lo oculte del grid
+      // de lotes regulares; sólo se mostrará la PARTICIÓN resultante.
+      particionado_desde_balanza: flags?.particionar ?? false,
+      tiene_particiones: flags?.particionar ?? false,
     };
 
     setEnProcesoList((prev) =>
@@ -261,54 +293,96 @@ export const useRecepcionMineral = () => {
         : prev,
     );
 
+    // Si se va a particionar, empujar también una PARTICIÓN temp al cache
+    // para que el card de la partición "A" aparezca inmediatamente (no
+    // tener que esperar a `refreshParticionesLote`). El render usa el campo
+    // `correlativo: "···-A"` como placeholder.
+    const tempParticion: RES_ParticionBalanza | null = flags?.particionar
+      ? {
+          id: tempId - 1,
+          id_lote_mineral: tempId,
+          id_ticket_balanza: null,
+          ticket_correlativo: null,
+          id_recepcion_unidad: id,
+          vehiculo_placa: null,
+          correlativo: `${TEMP_LOTE_CORRELATIVO}-A`,
+          particion: "A",
+          peso_inicial: null,
+          fecha_hora_peso_inicial: null,
+          peso_final: null,
+          fecha_hora_peso_final: null,
+          peso_neto: null,
+          estado: "Activo",
+          es_bloqueado: false,
+          esta_validado: false,
+          evidencias: null,
+          id_proveedor_minero: null,
+          proveedor_nombre: null,
+          id_zona_origen: null,
+          zona_origen_nombre: null,
+          numero_contacto: null,
+          tipo_producto: null,
+          tipo_mineral: null,
+          lote_correlativo: TEMP_LOTE_CORRELATIVO,
+        }
+      : null;
+
+    if (tempParticion) {
+      setParticionesByLote((prev) => ({
+        ...prev,
+        [tempId]: [tempParticion],
+      }));
+    }
+
     try {
       const nuevoLote = await RecepcionMineralService.crear_lote(id, {
         condicion_ingreso: condicionIngreso,
         id_empresa: idEmpresa,
-        con_codigo_manual: codigoManual?.conCodigoManual ?? false,
-        codigo_manual: codigoManual?.codigoManual,
-        particionar: codigoManual?.particionar ?? false,
+        con_codigo_manual: flags?.conCodigoManual ?? false,
+        codigo_manual: flags?.codigoManual,
+        particionar: flags?.particionar ?? false,
       });
-      const msg = codigoManual?.particionar
+      const msg = flags?.particionar
         ? "Lote particionado generado correctamente: " + nuevoLote.correlativo
         : "Lote generado correctamente: " + nuevoLote.correlativo;
       notifySuccess(msg);
 
-      const replaceTemp = (lotes: RES_LoteMineral[]) =>
-        lotes.map((l) => (l.id === tempId ? nuevoLote : l));
-      setEnProcesoList((prev) =>
-        prev.map((r) =>
-          r.id === id ? { ...r, lotes: replaceTemp(r.lotes || []) } : r,
-        ),
-      );
-      setSelectedRecepcion((prev) =>
-        prev?.id === id
-          ? { ...prev, lotes: replaceTemp(prev.lotes || []) }
-          : prev,
-      );
+      // Re-fetch completo: garantiza que `enProcesoList` refleja el backend
+      // (incluye el nuevo lote). Sin esto, en flujos no particionados el
+      // temp optim nunca se renderizaba como card visible. `showLoading: false`
+      // evita que el grid desaparezca detrás del spinner global durante el
+      // re-fetch — la card del lote se actualiza in-place sin parpadeo.
+      await loadRecepciones({ showLoading: false });
 
       // Si se particionó, refrescar header global + cache de particiones.
       if (nuevoLote.particionado_desde_balanza) {
+        // Migrar el temp de partición de la clave `tempId` a la clave
+        // definitiva `nuevoLote.id` ANTES del refresh para que la card
+        // permanezca visible mientras viaja el GET.
+        setParticionesByLote((prev) => {
+          if (!(tempId in prev)) return prev;
+          const tempParticiones = prev[tempId];
+          const { [tempId]: _drop, ...rest } = prev;
+          return { ...rest, [nuevoLote.id]: tempParticiones };
+        });
         await Promise.all([
           refreshLotesPadreParticionados(),
-          refreshParticionesLote(nuevoLote.id),
+          refreshParticionesLote(nuevoLote.id), // sobrescribe particionesByLote[nuevoLote.id]
         ]);
       }
     } catch (e: unknown) {
       console.error(e);
-      notifyError("No se pudo generar el lote");
-      const removeTemp = (lotes: RES_LoteMineral[]) =>
-        lotes.filter((l) => l.id !== tempId);
-      setEnProcesoList((prev) =>
-        prev.map((r) =>
-          r.id === id ? { ...r, lotes: removeTemp(r.lotes || []) } : r,
-        ),
-      );
-      setSelectedRecepcion((prev) =>
-        prev?.id === id
-          ? { ...prev, lotes: removeTemp(prev.lotes || []) }
-          : prev,
-      );
+      notifyError(extractApiErrorMessage(e, "No se pudo generar el lote"));
+      // Limpiar temp de partición si existía.
+      if (tempParticion) {
+        setParticionesByLote((prev) => {
+          if (!(tempId in prev)) return prev;
+          const { [tempId]: _drop, ...rest } = prev;
+          return rest;
+        });
+      }
+      // Re-fetch para limpiar cualquier estado optimista pendiente.
+      await loadRecepciones({ showLoading: false });
     }
   };
 
@@ -355,15 +429,23 @@ export const useRecepcionMineral = () => {
     recepcionId: number,
     detalleActualizado: DistribucionDetalleItem,
   ) => {
-    const replaceDetalle = (detalles: DistribucionDetalleItem[] | undefined) =>
-      (detalles ?? []).map((d) =>
-        d.id === detalleActualizado.id ? detalleActualizado : d,
-      );
+    const upsertDetalle = (detalles: DistribucionDetalleItem[] | undefined) => {
+      const arr = detalles ?? [];
+      const idx = arr.findIndex((d) => d.id === detalleActualizado.id);
+      if (idx >= 0) {
+        // Existe → reemplazar in-place (caso re-pesar / editar detalle existente).
+        return arr.map((d, i) => (i === idx ? detalleActualizado : d));
+      }
+      // No existe → agregar al final (caso "Asignar Carga" que crea un nuevo
+      // `distribucion_detalle` y debe aparecer de inmediato en el card sin
+      // recargar la página).
+      return [...arr, detalleActualizado];
+    };
 
     setEnProcesoList((prev) =>
       prev.map((r) =>
         r.id === recepcionId
-          ? { ...r, distribucion_detalles: replaceDetalle(r.distribucion_detalles) }
+          ? { ...r, distribucion_detalles: upsertDetalle(r.distribucion_detalles) }
           : r,
       ),
     );
@@ -371,7 +453,7 @@ export const useRecepcionMineral = () => {
     if (selectedRecepcion?.id === recepcionId) {
       setSelectedRecepcion((prev) =>
         prev
-          ? { ...prev, distribucion_detalles: replaceDetalle(prev.distribucion_detalles) }
+          ? { ...prev, distribucion_detalles: upsertDetalle(prev.distribucion_detalles) }
           : prev,
       );
     }
@@ -452,16 +534,26 @@ export const useRecepcionMineral = () => {
     try {
       await RecepcionMineralService.cerrar_proceso(id);
       notifySuccess("Proceso de balanza cerrado correctamente");
-      // Refrescar header global de lotes padre particionados (algunos pueden
-      // haberse finalizado como efecto secundario al cerrar la unidad).
-      await refreshLotesPadreParticionados();
+      // Refrescar cache de particiones: el `recepcion_estado_pesaje` cambia a
+      // 'Pesado' en backend y `canFinalizarParticionLote` lo lee desde ahí.
+      const padresAfectados = new Set<number>();
+      for (const arr of Object.values(particionesByLote)) {
+        for (const p of arr) {
+          if (p.id_recepcion_unidad === id) padresAfectados.add(p.id_lote_mineral);
+        }
+      }
+      await Promise.all([
+        refreshLotesPadreParticionados(),
+        ...Array.from(padresAfectados).map((idLote) =>
+          refreshParticionesLote(idLote),
+        ),
+      ]);
     } catch (e: unknown) {
       console.error(e);
       setEnProcesoList((prev) =>
         prev.some((r) => r.id === id) ? prev : [original, ...prev],
       );
-      const axiosError = e as { response?: { data?: { message?: string } } };
-      const msg = axiosError.response?.data?.message || "No se pudo cerrar el proceso de balanza";
+      const msg = extractApiErrorMessage(e, "No se pudo cerrar el proceso de balanza");
       notifyError(msg);
     } finally {
       setClosingProcesoId(null);
@@ -482,8 +574,7 @@ export const useRecepcionMineral = () => {
       return data;
     } catch (e: unknown) {
       console.error(e);
-      const axiosError = e as { response?: { data?: { message?: string } } };
-      const msg = axiosError.response?.data?.message || "No se pudo crear la partición";
+      const msg = extractApiErrorMessage(e, "No se pudo crear la partición");
       notifyError(msg);
       return null;
     } finally {
@@ -494,7 +585,7 @@ export const useRecepcionMineral = () => {
   const eliminarParticion = (idParticion: number, idLotePadre: number) => {
     mostrarConfirmacion({
       title: "Eliminar Partición",
-      message: "¿Está seguro de que desea eliminar esta partición de forma física? Se borrarán también los archivos adjuntos y la fila quedará registrada en el log de cambios del lote padre. Esta acción no se puede deshacer.",
+      message: "¿Está seguro de que desea eliminar esta partición? Se cambiará su estado a Eliminado (baja lógica): la fila se conserva para trazabilidad y los archivos adjuntos y el ticket asociado NO se borran del disco. El cambio quedará registrado en el log de cambios del lote padre.",
       confirmLabel: "Eliminar",
       cancelLabel: "Cancelar",
       tipo: "peligro",
@@ -507,8 +598,7 @@ export const useRecepcionMineral = () => {
           await refreshLotesPadreParticionados();
         } catch (e: unknown) {
           console.error(e);
-          const axiosError = e as { response?: { data?: { message?: string } } };
-          const msg = axiosError.response?.data?.message || "No se pudo eliminar la partición";
+          const msg = extractApiErrorMessage(e, "No se pudo eliminar la partición");
           notifyError(msg);
         } finally {
           setDeletingParticionId(null);
@@ -537,8 +627,7 @@ export const useRecepcionMineral = () => {
       return true;
     } catch (e: unknown) {
       console.error(e);
-      const axiosError = e as { response?: { data?: { message?: string } } };
-      const msg = axiosError.response?.data?.message || "No se pudieron actualizar los campos del lote";
+      const msg = extractApiErrorMessage(e, "No se pudieron actualizar los campos del lote");
       notifyError(msg);
       return false;
     }
@@ -581,8 +670,7 @@ export const useRecepcionMineral = () => {
           console.log("[finalizarParticionLote] OK completo");
         } catch (e: unknown) {
           console.error("[finalizarParticionLote] ERROR", e);
-          const axiosError = e as { response?: { data?: { message?: string } } };
-          const msg = axiosError.response?.data?.message || "No se pudo finalizar el lote particionado";
+          const msg = extractApiErrorMessage(e, "No se pudo finalizar el lote particionado");
           notifyError(msg);
         } finally {
           setFinalizandoLoteId(null);
@@ -630,37 +718,136 @@ export const useRecepcionMineral = () => {
    *
    * Reglas:
    *  - Cada lote REGULAR debe tener peso_final registrado.
-   *  - Cada PARTICIÓN activa de lotes padre particionados debe tener peso_final.
+   *  - Cada PARTICIÓN activa de la unidad debe tener peso_final.
    *  - (El backend valida adicionalmente que el lote padre esté finalizado.)
+   *
+   * NOTA: el lote PADRE con `particionado_desde_balanza=true` tiene
+   * `id_recepcion_unidad = NULL` y por tanto NUNCA aparece en `ru.lotes`
+   * (el backend hace INNER JOIN por `id_recepcion_unidad`, ver
+   * `Data::get_lotes_by_recepcion`). Se lo representa en pantalla a través
+   * de las particiones cacheadas en `particionesByLote`.
    */
   const canCloseProcesoRecepcion = useCallback(
     (ru: RecepcionMineralResponse): boolean => {
-      if (!ru.lotes || ru.lotes.length === 0) return false;
+      const lotesRegulares = ru.lotes ?? [];
+      const tieneLotesRegulares = lotesRegulares.length > 0;
+      const particionesDeUnidad = Object.values(particionesByLote)
+        .flat()
+        .filter((p) => p.id_recepcion_unidad === ru.id);
 
-      // Padres activos (no finalizados). Si un padre particionado ya fue
-      // finalizado vía `finalizar_particion_lote`, sus particiones hijas no
-      // deben bloquear el cierre del proceso de la unidad.
-      const padresActivos = new Set<number>(
-        lotesPadreParticionados
-          .filter((p) => !p.particion_finalizada)
-          .map((p) => p.id),
-      );
-
-      const lotesRegulares = ru.lotes.filter((l) => !l.particionado_desde_balanza);
-      const lotesPadreActivosDeUnidad = ru.lotes.filter(
-        (l) => l.particionado_desde_balanza && padresActivos.has(l.id),
-      );
+      const tieneContenido = tieneLotesRegulares || particionesDeUnidad.length > 0;
+      if (!tieneContenido) return false;
 
       if (lotesRegulares.some((l) => l.peso_final === null)) return false;
-
-      for (const padre of lotesPadreActivosDeUnidad) {
-        const particiones = particionesByLote[padre.id] ?? [];
-        if (particiones.some((p) => p.peso_final === null)) return false;
-      }
+      if (particionesDeUnidad.some((p) => p.peso_final === null)) return false;
 
       return true;
     },
-    [particionesByLote, lotesPadreParticionados],
+    [particionesByLote],
+  );
+
+  /**
+   * Determina si un lote PADRE particionado está listo para FINALIZAR.
+   *
+   * Reglas:
+   *  - Debe tener al menos 2 particiones activas.
+   *  - Todas las particiones deben tener peso_final registrado.
+   *  - Todas las particiones deben vivir en una unidad con `estado_pesaje === 'Pesado'`
+   *    (lo cual se logra cerrando el proceso de cada unidad huésped).
+   *
+   * Devuelve:
+   *  - `ok`: true sólo si todos los requisitos están cumplidos.
+   *  - `motivo`: descripción legible del bloqueo (si lo hay) para mostrar
+   *    debajo de la lista de requisitos en el tooltip.
+   *  - `requisitos`: lista de los 3 requisitos con su estado individual,
+   *    para renderizar el tooltip como checklist `(✓)` / `( )`.
+   */
+  type RequisitoFinalizar = { nombre: string; cumplido: boolean };
+  type CanFinalizarResultado = {
+    ok: boolean;
+    motivo: string | null;
+    requisitos: RequisitoFinalizar[];
+  };
+
+  const canFinalizarParticionLote = useCallback(
+    (padre: RES_LotePadreParticionado): CanFinalizarResultado => {
+      if (padre.particion_finalizada) {
+        return {
+          ok: false,
+          motivo: "El lote ya fue finalizado.",
+          requisitos: [
+            { nombre: "Todas las particiones pesadas", cumplido: true },
+            { nombre: "Al menos 2 particiones activas", cumplido: true },
+            { nombre: "Las unidades anfitrionas en estado Pesado", cumplido: true },
+          ],
+        };
+      }
+
+      const total = padre.total_particiones;
+      const cumplio2 = total >= 2;
+
+      const particiones = particionesByLote[padre.id] ?? [];
+      const cargando = particiones.length !== total;
+      const cumplioPeso = !cargando && particiones.every((p) => p.peso_final !== null);
+      const cumplioPesado =
+        !cargando &&
+        particiones.length > 0 &&
+        particiones.every((p) => p.recepcion_estado_pesaje === "Pesado");
+
+      const requisitos: RequisitoFinalizar[] = [
+        { nombre: "Todas las particiones pesadas", cumplido: cumplioPeso },
+        { nombre: "Al menos 2 particiones activas", cumplido: cumplio2 },
+        {
+          nombre: "Las unidades anfitrionas en estado Pesado",
+          cumplido: cumplioPesado,
+        },
+      ];
+
+      const ok = cumplioPeso && cumplio2 && cumplioPesado;
+
+      let motivo: string | null = null;
+      if (cargando) {
+        motivo = "Cargando particiones del lote padre…";
+      } else if (!cumplio2) {
+        motivo = `Se requieren al menos 2 particiones (hay ${total}).`;
+      } else if (!cumplioPeso) {
+        const sinPesoFinal = particiones.filter((p) => p.peso_final === null).length;
+        motivo = `Faltan ${sinPesoFinal} partición(es) por pesar.`;
+      } else if (!cumplioPesado) {
+        const sinCerrar = particiones.filter(
+          (p) => p.recepcion_estado_pesaje !== "Pesado",
+        ).length;
+        motivo = `Debe cerrar el proceso de ${sinCerrar} unidad(es) anfitriona(s).`;
+      }
+
+      return { ok, motivo, requisitos };
+    },
+    [particionesByLote],
+  );
+
+  /**
+   * Devuelve la etiqueta de proveedor del lote PADRE para agrupar en el header.
+   * El proveedor se setea en cascada cuando se pesa la primera partición (vía
+   * `persistir_campos_no_peso_en_padre` en backend) y el backend lo hidrata
+   * en cada `RES_ParticionBalanza`. Mientras no haya particiones pesadas, el
+   * proveedor es desconocido y el hook devuelve `null` — el page renderiza
+   * esos padres sin agrupar (mismo comportamiento que antes).
+   *
+   * Preferencia: nombre del proveedor > id como fallback.
+   */
+  const getProveedorDePadre = useCallback(
+    (padre: RES_LotePadreParticionado): string | null => {
+      const particiones = particionesByLote[padre.id] ?? [];
+      for (const p of particiones) {
+        if (p.proveedor_nombre) return p.proveedor_nombre;
+        if (p.id_proveedor_minero != null) {
+          return `id-${p.id_proveedor_minero}`;
+        }
+      }
+
+      return null;
+    },
+    [particionesByLote],
   );
 
   return {
@@ -696,5 +883,7 @@ export const useRecepcionMineral = () => {
     refreshLotesPadreParticionados,
     getLotesYParticionesDeUnidad,
     canCloseProcesoRecepcion,
+    canFinalizarParticionLote,
+    getProveedorDePadre,
   };
 };

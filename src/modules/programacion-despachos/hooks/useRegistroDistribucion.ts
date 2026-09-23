@@ -1,15 +1,47 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { ProgramacionDespachosService } from "../service/programacion-despachos.service";
-import type { CrearDistribucionRequest } from "../service/programacion-despachos.requests";
+import type {
+  CrearDistribucionRequest,
+  TipoRemitente,
+} from "../service/programacion-despachos.requests";
 import type {
   CrearDistribucionResult,
   DespachoDetalleItem,
 } from "../service/programacion-despachos.responses";
 import { useNotify } from "../../../hooks/useNotify";
+import type { MotivoTraslado } from "../../../shared/enums/_generic/motivo-traslado";
+
+type GuiaCampos = {
+  motivo_traslado: MotivoTraslado | null;
+  fecha_inicio_traslado: string | null;
+  fecha_emision: string | null;
+  fecha_en_planta: string | null;
+  guia_remitente: string;
+  guia_transportista: string;
+  sin_guia_transportista: boolean;
+  id_remitente: number | null;
+  tipo_remitente: TipoRemitente | null;
+  documento_guia_remitente: File | null;
+  documento_guia_transportista: File | null;
+};
+
+const GUIA_INICIAL: GuiaCampos = {
+  motivo_traslado: null,
+  fecha_inicio_traslado: null,
+  fecha_emision: null,
+  fecha_en_planta: null,
+  guia_remitente: "",
+  guia_transportista: "",
+  sin_guia_transportista: false,
+  id_remitente: null,
+  tipo_remitente: null,
+  documento_guia_remitente: null,
+  documento_guia_transportista: null,
+};
 
 export const useRegistroDistribucion = (
-  idDespacho: number,
-  detallesDespacho: DespachoDetalleItem[],
+  _idDespacho: number,
+  _detallesDespacho: DespachoDetalleItem[],
   onSuccess: (result: CrearDistribucionResult) => void,
 ) => {
   const { notifySuccess, notifyError, notifyWarning } = useNotify();
@@ -27,17 +59,12 @@ export const useRegistroDistribucion = (
   });
 
   const [loading, setLoading] = useState(false);
+  const [loadingGuia, setLoadingGuia] = useState(false);
   const [advertencias, setAdvertencias] = useState<string[]>([]);
 
-  const detallesIniciales = useMemo<{ id_despacho_detalle: number; peso_tomado: number }[]>(
-    () =>
-      detallesDespacho
-        .filter((d) => d.peso_actual > 0)
-        // Auto-fill: sugerimos todo el peso actual disponible para cada detalle.
-        // El operador puede ajustar o desmarcar el checkbox segun necesite.
-        .map((d) => ({ id_despacho_detalle: d.id, peso_tomado: d.peso_actual })),
-    [detallesDespacho],
-  );
+  // Estado para el registro opcional de guía de segundo tramo en el mismo submit.
+  const [registrarGuia, setRegistrarGuia] = useState(false);
+  const [guia, setGuia] = useState<GuiaCampos>(GUIA_INICIAL);
 
   const setField = useCallback(
     <K extends keyof CrearDistribucionRequest>(
@@ -49,22 +76,12 @@ export const useRegistroDistribucion = (
     [],
   );
 
-  const setDetallePeso = useCallback(
-    (idDespachoDetalle: number, pesoTomado: number) => {
-      setForm((prev) => ({
-        ...prev,
-        detalles: prev.detalles.map((d) =>
-          d.id_despacho_detalle === idDespachoDetalle ? { ...d, peso_tomado: pesoTomado } : d,
-        ),
-      }));
+  const setGuiaField = useCallback(
+    <K extends keyof GuiaCampos>(key: K, value: GuiaCampos[K]) => {
+      setGuia((prev) => ({ ...prev, [key]: value }));
     },
     [],
   );
-
-  const inicializarDetalles = useCallback(() => {
-    setForm((prev) => ({ ...prev, detalles: detallesIniciales }));
-    setAdvertencias([]);
-  }, [detallesIniciales]);
 
   const reset = useCallback(() => {
     setForm({
@@ -79,6 +96,8 @@ export const useRegistroDistribucion = (
       detalles: [],
     });
     setAdvertencias([]);
+    setRegistrarGuia(false);
+    setGuia(GUIA_INICIAL);
   }, []);
 
   const submit = useCallback(async (): Promise<boolean> => {
@@ -106,38 +125,70 @@ export const useRegistroDistribucion = (
       notifyError("Debe indicar la fecha estimada de llegada.");
       return false;
     }
-    if (!form.detalles.some((d) => d.peso_tomado > 0)) {
-      notifyError("Debe asignar al menos un peso en los detalles.");
-      return false;
-    }
-
-    const detallesFiltrados = form.detalles
-      .filter((d) => d.peso_tomado > 0)
-      .map((d) => ({
-        id_despacho_detalle: d.id_despacho_detalle,
-        peso_tomado: d.peso_tomado,
-      }));
 
     const payload: CrearDistribucionRequest = {
       ...form,
-      detalles: detallesFiltrados,
+      detalles: [],
       fecha_estimada_llegada: form.fecha_estimada_llegada || null,
     };
 
     setLoading(true);
     setAdvertencias([]);
     try {
-      const result = await ProgramacionDespachosService.crearDistribucion(idDespacho, payload);
+      const result = await ProgramacionDespachosService.crearDistribucion(_idDespacho, payload);
       if (!result) {
         notifyError("No se pudo registrar la distribución. Verifica los datos e inténtalo de nuevo.");
         return false;
       }
-      setAdvertencias(result.advertencias ?? []);
+
+      // Regla lenient: si el usuario marcó el checkbox y los campos mínimos
+      // están llenos (motivo_traslado + guia_remitente), encadenamos la creación
+      // de la guía. Si falla, NO revertimos la distribución (queda creada y
+      // el usuario puede llenar la guía después desde la card).
+      const guiaMinima =
+        registrarGuia &&
+        guia.motivo_traslado !== null &&
+        guia.guia_remitente.trim().length > 0;
+
+      if (guiaMinima && guia.motivo_traslado) {
+        setLoadingGuia(true);
+        try {
+          await ProgramacionDespachosService.crearGuiaSegundoTramo(
+            result.id_distribucion,
+            {
+              motivo_traslado: guia.motivo_traslado,
+              fecha_inicio_traslado: guia.fecha_inicio_traslado,
+              fecha_emision: guia.fecha_emision,
+              fecha_en_planta: guia.fecha_en_planta,
+              guia_remitente: guia.guia_remitente.trim(),
+              guia_transportista: guia.sin_guia_transportista
+                ? null
+                : guia.guia_transportista.trim() || null,
+              sin_guia_transportista: guia.sin_guia_transportista,
+              id_remitente: guia.id_remitente ?? null,
+              tipo_remitente: guia.tipo_remitente ?? null,
+              documento_guia_remitente: guia.documento_guia_remitente,
+              documento_guia_transportista: guia.sin_guia_transportista
+                ? null
+                : guia.documento_guia_transportista,
+            },
+          );
+        } catch (guiaErr) {
+          console.error(guiaErr);
+          notifyWarning(
+            "Distribución registrada. La guía de segundo tramo no se pudo registrar automáticamente; puedes llenarla después desde la distribución creada.",
+          );
+        } finally {
+          setLoadingGuia(false);
+        }
+      }
+
       if (result.advertencias && result.advertencias.length > 0) {
         notifyWarning("Distribución registrada con advertencias");
       } else {
         notifySuccess("Distribución registrada correctamente");
       }
+      setAdvertencias(result.advertencias ?? []);
       onSuccess(result);
       return true;
     } catch (e) {
@@ -147,16 +198,20 @@ export const useRegistroDistribucion = (
     } finally {
       setLoading(false);
     }
-  }, [form, idDespacho, notifyError, notifySuccess, notifyWarning, onSuccess]);
+  }, [form, _idDespacho, notifyError, notifySuccess, notifyWarning, onSuccess, registrarGuia, guia]);
 
   return {
     form,
     setField,
-    setDetallePeso,
-    inicializarDetalles,
     reset,
-    submit,
     loading,
     advertencias,
+    registrarGuia,
+    setRegistrarGuia,
+    guia,
+    setGuia,
+    setGuiaField,
+    loadingGuia,
+    submit,
   };
 };

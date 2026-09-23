@@ -151,6 +151,7 @@ export interface RecepcionMineralResponse {
   estado_pesaje: string | null;
   es_programacion: number;
   id_sucursal: number | null;
+  id_distribucion: number | null;
   lotes: RES_LoteMineral[];
   distribucion_detalles: DistribucionDetalleItem[];
   documentos_programacion: IDocumentoProgramacion | null;

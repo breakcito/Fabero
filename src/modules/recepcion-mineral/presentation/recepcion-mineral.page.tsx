@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Grid, Paper, Text, Group, Center, Loader, Stack, Badge, ActionIcon, Tooltip } from "@mantine/core";
 import { IconScale, IconChecklist, IconCheck } from "@tabler/icons-react";
 import { useTitlePage } from "../../../hooks/useTitlePage";
@@ -21,6 +21,7 @@ import type { RES_Vehiculo } from "../../../service/responses/vehiculo";
 import type {
   RES_LoteMineral,
   RES_ParticionBalanza,
+  RES_LotePadreParticionado,
 } from "../service/recepcion-mineral.responses";
 import type {
   DTO_PesoInicialParticion,
@@ -63,6 +64,8 @@ export const RecepcionMineralPage = () => {
     refreshLotesPadreParticionados,
     getLotesYParticionesDeUnidad,
     canCloseProcesoRecepcion,
+    canFinalizarParticionLote,
+    getProveedorDePadre,
   } = useRecepcionMineral();
 
   const getFullPlaca = (placa: string | null) => {
@@ -326,6 +329,29 @@ export const RecepcionMineralPage = () => {
     (p) => !p.particion_finalizada,
   );
 
+  /**
+   * Agrupa los lotes padre activos por etiqueta de proveedor.
+   *  - `conProveedorPorGrupo`: Map<etiqueta, lotes[]> para los que ya tienen
+   *    proveedor definido (vía cascada al pesar la primera partición).
+   *  - `sinProveedor`: padres cuyo proveedor aún no está definido → se
+   *    renderizan sin agrupar (mismo comportamiento que antes del agrupamiento).
+   */
+  const { conProveedorPorGrupo, sinProveedor } = useMemo(() => {
+    const grupos = new Map<string, RES_LotePadreParticionado[]>();
+    const sinProv: RES_LotePadreParticionado[] = [];
+    for (const padre of lotesPadreActivos) {
+      const label = getProveedorDePadre(padre);
+      if (label === null) {
+        sinProv.push(padre);
+        continue;
+      }
+      const arr = grupos.get(label) ?? [];
+      arr.push(padre);
+      grupos.set(label, arr);
+    }
+    return { conProveedorPorGrupo: grupos, sinProveedor: sinProv };
+  }, [lotesPadreActivos, getProveedorDePadre]);
+
   return (
     <div className="space-y-6 animate-fadeIn">
       {loading && (
@@ -487,17 +513,114 @@ export const RecepcionMineralPage = () => {
               {/* Header GLOBAL: agrupa el título y los cards de lotes padre particionados */}
               <div className="flex items-center gap-2 flex-wrap">
                 <Text size="md" fw={700} className="text-zinc-200">
-                  Proceso Pesaje 
+                  Proceso Pesaje
                 </Text>
                 {lotesPadreActivos.length > 0 && (
-                  <Group gap={4} wrap="wrap">
-                    {lotesPadreActivos.map((padre) => {
-                      const sinPesar = padre.particiones_sin_peso_final;
+                  <Group gap={6} wrap="wrap" align="center">
+                    {/* Padres agrupados por proveedor (uno por Paper, label arriba) */}
+                    {[...conProveedorPorGrupo.entries()].map(([label, padres]) => (
+                      <Paper
+                        key={`grupo-${label}`}
+                        radius="md"
+                        p={4}
+                        className="bg-zinc-900/40 border border-zinc-800/80"
+                      >
+                        <Text
+                          size="9px"
+                          fw={700}
+                          c="zinc.5"
+                          tt="uppercase"
+                          className="px-1 pb-1 tracking-wider truncate max-w-[180px]"
+                          title={label}
+                        >
+                          {label}
+                        </Text>
+                        <Group gap={4} wrap="wrap">
+                          {padres.map((padre) => {
+                            const total = padre.total_particiones;
+                            const { ok: puedeFinalizar, motivo: motivoBloqueo, requisitos } =
+                              canFinalizarParticionLote(padre);
+                            const requisitosLines =
+                              "Requisitos para finalizar:\n" +
+                              requisitos
+                                .map((r) => `(${r.cumplido ? "✓" : " "}) ${r.nombre}`)
+                                .join("\n");
+                            const tooltipFinalizar = puedeFinalizar
+                              ? `${requisitosLines}\n\nListo para finalizar.\nClick para sumar pesos y finalizar.`
+                              : `${requisitosLines}\n\nBloqueado: ${motivoBloqueo ?? "no se puede finalizar."}`;
+                            const isFinalizando = finalizandoLoteId === padre.id;
+                            return (
+                              <Paper
+                                key={padre.id}
+                                draggable
+                                onDragStart={(e) => {
+                                  e.dataTransfer.effectAllowed = "move";
+                                  e.dataTransfer.setData(
+                                    "application/lote-particionar",
+                                    String(padre.id),
+                                  );
+                                }}
+                                onDragEnd={() => setDragOverRecepcionId(null)}
+                                className="bg-linear-to-br from-indigo-950/40 to-zinc-900/40 border border-indigo-800/60 cursor-grab active:cursor-grabbing select-none transition-all hover:border-indigo-400 shadow-sm"
+                              >
+                                <Group
+                                  gap={4}
+                                  wrap="nowrap"
+                                  className="px-1.5 py-0.5"
+                                >
+                                  <Badge
+                                    variant="light"
+                                    color="indigo"
+                                    size="xs"
+                                    radius="sm"
+                                    className="font-mono font-bold text-[10px]"
+                                  >
+                                    {padre.correlativo}
+                                  </Badge>
+                                  <Tooltip
+                                    label={tooltipFinalizar}
+                                    withArrow
+                                    multiline
+                                    w={320}
+                                  >
+                                    <ActionIcon
+                                      color={puedeFinalizar ? "green" : "zinc"}
+                                      variant={puedeFinalizar ? "filled" : "subtle"}
+                                      radius="md"
+                                      size="xs"
+                                      loading={isFinalizando}
+                                      disabled={!puedeFinalizar || isFinalizando}
+                                      onClick={() => finalizarParticionLote(padre.id, total)}
+                                      className={
+                                        puedeFinalizar
+                                          ? "bg-green-600 hover:bg-green-700 text-white"
+                                          : "text-zinc-600"
+                                      }
+                                      aria-label="Finalizar lote particionado"
+                                    >
+                                      <IconCheck size={12} />
+                                    </ActionIcon>
+                                  </Tooltip>
+                                </Group>
+                              </Paper>
+                            );
+                          })}
+                        </Group>
+                      </Paper>
+                    ))}
+                    {/* Padres sin proveedor asignado: se renderizan sueltos (sin agrupar) */}
+                    {sinProveedor.map((padre) => {
                       const total = padre.total_particiones;
-                      const puedeFinalizar = sinPesar === 0 && total > 0;
+                      const { ok: puedeFinalizar, motivo: motivoBloqueo, requisitos } =
+                        canFinalizarParticionLote(padre);
+                      const requisitosLines =
+                        "Requisitos para finalizar:\n" +
+                        requisitos
+                          .map((r) => `(${r.cumplido ? "✓" : " "}) ${r.nombre}`)
+                          .join("\n");
                       const tooltipFinalizar = puedeFinalizar
-                        ? "Todas las particiones están pesadas. Click para sumar pesos y finalizar."
-                        : `No se puede finalizar: ${sinPesar} partición(es) sin pesar.`;
+                        ? `${requisitosLines}\n\nListo para finalizar.\nClick para sumar pesos y finalizar.`
+                        : `${requisitosLines}\n\nBloqueado: ${motivoBloqueo ?? "no se puede finalizar."}`;
                       const isFinalizando = finalizandoLoteId === padre.id;
                       return (
                         <Paper
@@ -513,7 +636,7 @@ export const RecepcionMineralPage = () => {
                           onDragEnd={() => setDragOverRecepcionId(null)}
                           className="bg-linear-to-br from-indigo-950/40 to-zinc-900/40 border border-indigo-800/60 cursor-grab active:cursor-grabbing select-none transition-all hover:border-indigo-400 shadow-sm"
                         >
-                          <Group gap={4} wrap="nowrap" className="px-2 py-1">
+                          <Group gap={4} wrap="nowrap" className="px-1.5 py-0.5">
                             <Badge
                               variant="light"
                               color="indigo"
@@ -523,12 +646,17 @@ export const RecepcionMineralPage = () => {
                             >
                               {padre.correlativo}
                             </Badge>
-                            <Tooltip label={tooltipFinalizar} withArrow>
+                            <Tooltip
+                              label={tooltipFinalizar}
+                              withArrow
+                              multiline
+                              w={320}
+                            >
                               <ActionIcon
                                 color={puedeFinalizar ? "green" : "zinc"}
                                 variant={puedeFinalizar ? "filled" : "subtle"}
                                 radius="md"
-                                size="sm"
+                                size="xs"
                                 loading={isFinalizando}
                                 disabled={!puedeFinalizar || isFinalizando}
                                 onClick={() => finalizarParticionLote(padre.id, total)}
@@ -539,7 +667,7 @@ export const RecepcionMineralPage = () => {
                                 }
                                 aria-label="Finalizar lote particionado"
                               >
-                                <IconCheck size={14} />
+                                <IconCheck size={12} />
                               </ActionIcon>
                             </Tooltip>
                           </Group>
@@ -735,9 +863,9 @@ export const RecepcionMineralPage = () => {
           setSelectedRecepcionIdForLote(null);
         }}
         empresasTitulares={empresasTitulares}
-        onConfirm={(condicion, idEmpresa, codigoManual) => {
+        onConfirm={(condicion, idEmpresa, flags) => {
           if (selectedRecepcionIdForLote) {
-            crearLote(selectedRecepcionIdForLote, condicion, idEmpresa, codigoManual);
+            crearLote(selectedRecepcionIdForLote, condicion, idEmpresa, flags);
           }
           setCondicionModalOpen(false);
           setSelectedRecepcionIdForLote(null);

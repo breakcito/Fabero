@@ -6,9 +6,11 @@ import type {
   DespachoFiltros,
   DTO_ActualizarGuiaSegundoTramo,
   DTO_CrearGuiaSegundoTramo,
+  DTO_DatosCliente,
   PesarDistribucionDetalleRequest,
 } from "./programacion-despachos.requests";
 import type {
+  ActaSalidaVehiculoData,
   CrearDistribucionResult,
   DespachoDetalle,
   DespachoListItem,
@@ -110,6 +112,26 @@ export const ProgramacionDespachosService = {
     return data.data;
   },
 
+  getLotesDisponiblesParaDistribucion: async (
+    idDistribucion: number,
+  ): Promise<ItemDisponibleDespacho[]> => {
+    const { data } = await api.get<IRespuesta<ItemDisponibleDespacho[]>>(
+      `/programacion-despachos/distribuciones/${idDistribucion}/lotes-disponibles`,
+    );
+    return data.data;
+  },
+
+  agregarDetalleDistribucion: async (
+    idDistribucion: number,
+    payload: { id_despacho_detalle: number; peso_tomado: number },
+  ): Promise<DistribucionDetalleItem> => {
+    const { data } = await api.post<IRespuesta<DistribucionDetalleItem>>(
+      `/programacion-despachos/distribuciones/${idDistribucion}/detalles`,
+      payload,
+    );
+    return data.data;
+  },
+
   getGuiaSegundoTramo: async (
     idDistribucion: number,
   ): Promise<GuiaSegundoTramo | null> => {
@@ -191,6 +213,25 @@ export const ProgramacionDespachosService = {
     return data.data;
   },
 
+  /**
+   * Persistir la fecha de llegada al cliente y los datos por detalle (peso neto,
+   * código, leyes, humedad). La distribución debe estar en "Salió de Planta"
+   * (primer registro) o "Llegó al Cliente" (edición).
+   *
+   * Devuelve el `DespachoDetalle` completo (cabecera + items + distribuciones
+   * actualizadas) para que el frontend pueda refrescar sin un GET extra.
+   */
+  actualizarDatosCliente: async (
+    idDistribucion: number,
+    dto: DTO_DatosCliente,
+  ): Promise<DespachoDetalle> => {
+    const { data } = await api.put<IRespuesta<DespachoDetalle>>(
+      `/programacion-despachos/distribuciones/${idDistribucion}/datos-cliente`,
+      dto,
+    );
+    return data.data;
+  },
+
   anularGuiaSegundoTramo: async (
     idDistribucion: number,
     idGuia: number,
@@ -198,5 +239,17 @@ export const ProgramacionDespachosService = {
     await api.patch(
       `/programacion-despachos/distribuciones/${idDistribucion}/guia-segundo-tramo/${idGuia}/anular`,
     );
+  },
+
+  /**
+   * Obtiene los datos para imprimir el acta de salida de vehículos con carga.
+   */
+  getActaSalida: async (
+    idDistribucion: number,
+  ): Promise<ActaSalidaVehiculoData> => {
+    const { data } = await api.get<IRespuesta<ActaSalidaVehiculoData>>(
+      `/programacion-despachos/distribuciones/${idDistribucion}/acta-salida`,
+    );
+    return data.data;
   },
 };

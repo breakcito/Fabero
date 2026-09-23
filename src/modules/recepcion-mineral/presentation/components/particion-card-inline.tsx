@@ -89,7 +89,7 @@ export const ParticionCardInline = ({
               </ActionIcon>
             </Tooltip>
           )}
-          <Tooltip label="Eliminar partición (borrado físico)" withArrow>
+          <Tooltip label="Eliminar partición (baja lógica)" withArrow>
             <ActionIcon
               color="red"
               variant="subtle"

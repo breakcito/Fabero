@@ -1,7 +1,8 @@
 import { Text, Badge, Group, ActionIcon, Tooltip, Divider } from "@mantine/core";
 import {
+  IconClipboardCheck,
   IconHistory,
-  IconScale,
+  IconReceipt2,
   IconTruckLoading,
 } from "@tabler/icons-react";
 import { EstadoDistribucion } from "../../../../shared/enums/programacion-despachos/estado-distribucion";
@@ -12,6 +13,14 @@ interface Props {
   distribucion: DistribucionItem;
   onVerLog: (dist: DistribucionItem) => void;
   onAbrirGuiaSegundoTramo: (dist: DistribucionItem) => void;
+  onAbrirLlegadaCliente?: (dist: DistribucionItem) => void;
+  /**
+   * Ver acta de salida (ticket A5 horizontal). Opcional para no romper
+   * consumidores existentes; si llega, se renderiza el botón. El handler
+   * siempre se llama con optional chaining para evitar TypeError si en
+   * algún bundle cacheado el prop quedó undefined.
+   */
+  onVerActa?: (dist: DistribucionItem) => void;
 }
 
 const formatFecha = (f: string | null | undefined) => {
@@ -77,20 +86,30 @@ const estadoPesajeBadge = (estado: string | null) => {
   }
 };
 
-export const DistribucionCard = ({ distribucion, onVerLog, onAbrirGuiaSegundoTramo }: Props) => {
+export const DistribucionCard = ({
+  distribucion,
+  onVerLog,
+  onAbrirGuiaSegundoTramo,
+  onAbrirLlegadaCliente,
+  onVerActa,
+}: Props) => {
   const totalPeso = distribucion.detalles.reduce(
     (acc, d) => acc + (d.peso_tomado ?? 0),
     0
   );
   const itemsCount = distribucion.detalles.length;
   const tieneGuiaSegundoTramo = !!distribucion.guia_segundo_tramo;
+  const permiteLlegadaCliente =
+    distribucion.estado === EstadoDistribucion.SalioDePlanta ||
+    distribucion.estado === EstadoDistribucion.LlegoAlCliente;
+  const yaLlegoAlCliente =
+    distribucion.estado === EstadoDistribucion.LlegoAlCliente;
 
   return (
     <div className="bg-zinc-950/60 border border-zinc-800/80 rounded-xl overflow-hidden">
       {/* Header */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 bg-zinc-900/60 border-b border-zinc-800/70">
         <div className="flex items-center gap-2 shrink-0">
-          <IconScale size={16} className="text-indigo-400" />
           {estadoDistribucionBadge(distribucion.estado)}
         </div>
         <Divider orientation="vertical" className="hidden md:block" />
@@ -142,16 +161,21 @@ export const DistribucionCard = ({ distribucion, onVerLog, onAbrirGuiaSegundoTra
               {formatFecha(distribucion.fecha_estimada_llegada)}
             </Text>
           </div>
-          <div className="flex items-center gap-1.5">
-            <Text size="10px" c="dimmed" className="uppercase tracking-wider">
-              Total
-            </Text>
-            <Text size="xs" fw={700} className="text-indigo-400 font-mono">
-              {totalPeso.toFixed(3)} KG
-            </Text>
-          </div>
         </div>
         <Group gap={6} wrap="nowrap" className="shrink-0">
+          <Tooltip label="Ver acta de salida" withArrow>
+            <ActionIcon
+              type="button"
+              color="teal"
+              variant="light"
+              radius="xl"
+              size="sm"
+              onClick={() => onVerActa?.(distribucion)}
+              className="bg-teal-500/10! hover:bg-teal-500/20! text-teal-400! border-teal-500/20! shrink-0"
+            >
+              <IconReceipt2 size={14} />
+            </ActionIcon>
+          </Tooltip>
           <Tooltip
             label={
               tieneGuiaSegundoTramo
@@ -172,6 +196,28 @@ export const DistribucionCard = ({ distribucion, onVerLog, onAbrirGuiaSegundoTra
               <IconTruckLoading size={14} />
             </ActionIcon>
           </Tooltip>
+          {permiteLlegadaCliente && onAbrirLlegadaCliente && (
+            <Tooltip
+              label={
+                yaLlegoAlCliente
+                  ? "Editar datos del cliente"
+                  : "Registrar llegada al cliente"
+              }
+              withArrow
+            >
+              <ActionIcon
+                type="button"
+                color="emerald"
+                variant="light"
+                radius="xl"
+                size="sm"
+                onClick={() => onAbrirLlegadaCliente(distribucion)}
+                className="bg-emerald-500/10! hover:bg-emerald-500/20! text-emerald-400! border-emerald-500/20! shrink-0"
+              >
+                <IconClipboardCheck size={14} />
+              </ActionIcon>
+            </Tooltip>
+          )}
           <Tooltip label="Ver historial" withArrow>
             <ActionIcon
               type="button"
@@ -238,6 +284,26 @@ export const DistribucionCard = ({ distribucion, onVerLog, onAbrirGuiaSegundoTra
               </div>
             );
           })}
+          <div
+            className="grid items-center gap-4 px-4 py-2 text-xs border-t-2 border-zinc-700 bg-zinc-900/40"
+            style={{ gridTemplateColumns: "2fr 80px 2fr 120px" }}
+          >
+            <span />
+            <span />
+            <Text
+              size="9px"
+              c="dimmed"
+              tt="uppercase"
+              lts="0.04em"
+              fw={700}
+              className="text-right"
+            >
+              Peso Total
+            </Text>
+            <Text size="xs" fw={800} c="zinc.100" className="font-mono tabular-nums text-center">
+              {totalPeso.toFixed(3)}
+            </Text>
+          </div>
         </div>
       )}
     </div>

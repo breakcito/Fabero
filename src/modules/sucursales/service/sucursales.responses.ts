@@ -28,6 +28,7 @@ export interface RES_Provincia {
 export interface RES_Distrito {
   id: number;
   id_provincia: number;
+  id_departamento: number;
   nombre: string;
   codigo: string;
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { IconCheck, IconTrash, IconPlus, IconTrashX, IconHistory } from "@tabler/icons-react";
+import { IconCheck, IconChecks, IconTrash, IconPlus, IconTrashX, IconHistory } from "@tabler/icons-react";
 import { Loader, Badge, Select, Tooltip, Group } from "@mantine/core";
 import { EstadoLeyes } from "../../../../shared/enums/_generic/estado-leyes";
 import { TipoOrigen } from "../../../../shared/enums/_generic/tipo-origen";
@@ -20,6 +20,8 @@ interface TablaCierreLeyesProps {
   onEliminarFila: (idLoteMineral: number, uuidFila: string) => Promise<boolean>;
   onConfirmarLote: (idLoteMineral: number, conValorComercial: boolean) => Promise<boolean>;
   onActualizarOrigenFila: (idLoteMineral: number, uuidFila: string, tipoOrigen: TipoOrigen | null) => Promise<boolean>;
+  onCheckAll?: (idLoteMineral: number) => Promise<void>;
+  isChequeandoLote?: (idLoteMineral: number) => boolean;
   confirmandoLote: Record<number, boolean>;
   agregandoAnalisisPorLote?: Record<number, boolean>;
   isGuardandoCelda?: (key: string) => boolean;
@@ -128,7 +130,7 @@ const CellInput = ({
         onBlur={handleBlur}
         onKeyDown={handleKeyDown}
         placeholder="0.00"
-        className="w-12 h-5 text-center text-[10px] leading-none px-1 bg-zinc-950 border border-zinc-800 text-white rounded-md focus:border-zinc-400 focus:outline-none transition-all placeholder:text-zinc-700 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-14 h-6 text-center text-[11px] leading-none px-1.5 bg-zinc-950 border border-zinc-800 text-white rounded-md focus:border-zinc-400 focus:outline-none transition-all placeholder:text-zinc-700 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:opacity-50 disabled:cursor-not-allowed"
       />
       {hasLog && (
         <Tooltip label="Ver historial de cambios" withArrow position="top">
@@ -163,6 +165,8 @@ export const TablaCierreLeyes = ({
   onEliminarFila,
   onConfirmarLote,
   onActualizarOrigenFila,
+  onCheckAll,
+  isChequeandoLote,
   confirmandoLote,
   agregandoAnalisisPorLote,
   isGuardandoCelda,
@@ -328,9 +332,29 @@ export const TablaCierreLeyes = ({
                           className="p-2.5 border-r border-zinc-800 font-semibold text-xs text-zinc-100 align-middle text-center"
                         >
                           <div className="flex flex-col items-center gap-2">
-                            <span className="px-2 py-0.5 bg-indigo-500/10 border border-indigo-500/25 text-indigo-300 rounded-full">
-                              {l.correlativo}
-                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="px-2 py-0.5 bg-indigo-500/10 border border-indigo-500/25 text-indigo-300 rounded-full">
+                                {l.correlativo}
+                              </span>
+                              <Tooltip label="Confirmar todos los análisis del lote" withArrow position="top">
+                                <button
+                                  type="button"
+                                  disabled={
+                                    l.estado_leyes === EstadoLeyes.Confirmado ||
+                                    isChequeandoLote?.(l.id) === true
+                                  }
+                                  onClick={() => onCheckAll?.(l.id)}
+                                  className="p-1 text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-lg hover:bg-emerald-500/25 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center"
+                                  aria-label="Confirmar todos los análisis del lote"
+                                >
+                                  {isChequeandoLote?.(l.id) ? (
+                                    <Loader size={11} color="currentColor" />
+                                  ) : (
+                                    <IconChecks size={12} stroke={2.5} />
+                                  )}
+                                </button>
+                              </Tooltip>
+                            </div>
                             {(() => {
                               const agregando = !!agregandoAnalisisPorLote?.[l.id];
                               const disabled = l.estado_leyes === EstadoLeyes.Confirmado || agregando;
