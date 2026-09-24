@@ -10,6 +10,7 @@ import {
   FileButton,
   Grid,
   Group,
+  Input,
   Loader,
   Select,
   Stack,
@@ -693,7 +694,70 @@ export const RegistroDistribucionModal = ({
               </Grid>
 
               <Grid gutter="xs" align="flex-end">
-                <Grid.Col span={{ base: 12, sm: 4 }}>
+                <Grid.Col span={{ base: 12, sm: 3 }}>
+                  <Input.Wrapper
+                    label={
+                      <Group justify="space-between" align="center" wrap="nowrap" w="100%">
+                        <Text fz={10} fw={600} tt="uppercase" lts="0.04em" className="text-zinc-400 whitespace-nowrap">
+                          Remitente:
+                        </Text>
+                        <Group gap={4} align="center" wrap="nowrap">
+                          <Text fz={9} c="zinc.5">Empresa</Text>
+                          <Switch
+                            size="xs"
+                            color="indigo"
+                            checked={ctrl.esPlantaDestinoRemitente}
+                            onChange={(e) => {
+                              const next = e.currentTarget.checked;
+                              ctrl.setEsPlantaDestinoRemitente(next);
+                              ctrl.setRemitenteId(null);
+                            }}
+                            onLabel="PLANTA"
+                            offLabel="EMPRESA"
+                            disabled={ctrl.loading}
+                          />
+                          <Text fz={9} c="zinc.5">Planta</Text>
+                        </Group>
+                      </Group>
+                    }
+                    classNames={{ label: "!w-full" }}
+                  >
+                    <Select
+                      placeholder={
+                        ctrl.loadingCatalogosRemitente
+                          ? "Cargando..."
+                          : "Seleccione (opcional)"
+                      }
+                      data={
+                        ctrl.loadingCatalogosRemitente
+                          ? []
+                          : (ctrl.esPlantaDestinoRemitente
+                              ? ctrl.plantasRemitente
+                              : ctrl.empresasRemitente
+                            ).map((item) => ({
+                              value: String(item.id),
+                              label: `${item.razon_social || "Sin nombre"} — ${item.ruc || "Sin RUC"}`,
+                            }))
+                      }
+                      value={ctrl.remitenteId}
+                      onChange={ctrl.setRemitenteId}
+                      classNames={fieldClasses}
+                      radius="lg"
+                      size="xs"
+                      disabled={ctrl.loading}
+                      rightSection={
+                        ctrl.loadingCatalogosRemitente ? (
+                          <Loader size={16} />
+                        ) : undefined
+                      }
+                      searchable
+                      clearable
+                      comboboxProps={{ withinPortal: true }}
+                      key={`${ctrl.esPlantaDestinoRemitente ? "p" : "e"}-${ctrl.remitenteId ?? "none"}`}
+                    />
+                  </Input.Wrapper>
+                </Grid.Col>
+                <Grid.Col span={{ base: 12, sm: 3 }}>
                   <Select
                     label="Motivo de Traslado"
                     placeholder="Seleccione"
@@ -709,7 +773,7 @@ export const RegistroDistribucionModal = ({
                     classNames={fieldClasses}
                   />
                 </Grid.Col>
-                <Grid.Col span={{ base: 12, sm: 4 }}>
+                <Grid.Col span={{ base: 12, sm: 3 }}>
                   <TextInput
                     label="N° Guía Remitente"
                     placeholder="Ej. 001-12345"
@@ -728,258 +792,196 @@ export const RegistroDistribucionModal = ({
                   />
                 </Grid.Col>
                 <Grid.Col span={{ base: 12, sm: 3 }}>
-                  <TextInput
-                    label="N° Guía Transportista"
-                    placeholder={
-                      ctrl.guia.sin_guia_transportista
-                        ? "Sin guía transportista"
-                        : "Ej. 001-12345"
+                  <Input.Wrapper
+                    label={
+                      <Group justify="space-between" align="center" wrap="nowrap" w="100%">
+                        <Text fz={10} fw={600} tt="uppercase" lts="0.04em" className="text-zinc-400 whitespace-nowrap">
+                          N° Guía Transportista:
+                        </Text>
+                        <Group gap={4} align="center" wrap="nowrap">
+                          <Text fz={9} c="zinc.5">Sin guía:</Text>
+                          <Switch
+                            size="xs"
+                            color="indigo"
+                            checked={ctrl.guia.sin_guia_transportista}
+                            onChange={(e) =>
+                              ctrl.setGuiaField(
+                                "sin_guia_transportista",
+                                e.currentTarget.checked,
+                              )
+                            }
+                            onLabel="SÍ"
+                            offLabel="NO"
+                            disabled={ctrl.loading}
+                          />
+                        </Group>
+                      </Group>
                     }
-                    value={ctrl.guia.guia_transportista}
-                    onChange={(e) =>
-                      ctrl.setGuiaField(
-                        "guia_transportista",
-                        e.currentTarget.value.toUpperCase(),
-                      )
-                    }
-                    disabled={ctrl.loading || ctrl.guia.sin_guia_transportista}
-                    radius="lg"
-                    size="xs"
-                    maxLength={20}
-                    classNames={fieldClasses}
-                  />
-                </Grid.Col>
-                <Grid.Col span={{ base: 12, sm: 1 }}>
-                  <Stack gap={2} align="center" justify="flex-end" pb={4}>
-                    <Text fz={10} c="zinc.400" fw={600} tt="uppercase" lts="0.04em" ta="center">
-                      Sin Guía
-                    </Text>
-                    <Switch
-                      size="md"
-                      color="indigo"
-                      checked={ctrl.guia.sin_guia_transportista}
+                    classNames={{ label: "!w-full" }}
+                  >
+                    <TextInput
+                      placeholder={
+                        ctrl.guia.sin_guia_transportista
+                          ? "Sin guía transportista"
+                          : "Ej. 001-12345"
+                      }
+                      value={ctrl.guia.guia_transportista}
                       onChange={(e) =>
                         ctrl.setGuiaField(
-                          "sin_guia_transportista",
-                          e.currentTarget.checked,
+                          "guia_transportista",
+                          e.currentTarget.value.toUpperCase(),
                         )
                       }
-                      onLabel="SÍ"
-                      offLabel="NO"
-                      disabled={ctrl.loading}
+                      disabled={ctrl.loading || ctrl.guia.sin_guia_transportista}
+                      radius="lg"
+                      size="xs"
+                      maxLength={20}
+                      classNames={fieldClasses}
                     />
-                  </Stack>
+                  </Input.Wrapper>
                 </Grid.Col>
               </Grid>
 
-              {/* REMITENTE (ENTIDAD) — Empresa o Planta destino */}
-              <Box>
-                <Group justify="space-between" align="flex-end" mb={6} wrap="wrap">
-                  <Text
-                    size="xs"
-                    fw={800}
-                    tt="uppercase"
-                    lts="0.06em"
-                    className="text-zinc-100"
-                  >
-                    Remitente (Entidad)
-                  </Text>
-                  <Group gap="xs" align="center">
-                    <Text size="xs" c="zinc.4">
-                      Empresa
-                    </Text>
-                    <Switch
-                      size="xs"
-                      color="indigo"
-                      checked={ctrl.esPlantaDestinoRemitente}
-                      onChange={(e) => {
-                        const next = e.currentTarget.checked;
-                        ctrl.setEsPlantaDestinoRemitente(next);
-                        ctrl.setRemitenteId(null);
-                      }}
-                      onLabel="PLANTA"
-                      offLabel="EMPRESA"
-                      disabled={ctrl.loading}
-                    />
-                    <Text size="xs" c="zinc.4">
-                      Planta destino
-                    </Text>
-                  </Group>
-                </Group>
-                <Select
-                  label={
-                    ctrl.esPlantaDestinoRemitente
-                      ? "Planta destino remitente:"
-                      : "Empresa remitente:"
-                  }
-                  placeholder={
-                    ctrl.loadingCatalogosRemitente
-                      ? "Cargando..."
-                      : "Seleccione (opcional)"
-                  }
-                  data={
-                    ctrl.loadingCatalogosRemitente
-                      ? []
-                      : (ctrl.esPlantaDestinoRemitente
-                          ? ctrl.plantasRemitente
-                          : ctrl.empresasRemitente
-                        ).map((item) => ({
-                          value: String(item.id),
-                          label: `${item.razon_social || "Sin nombre"} — ${item.ruc || "Sin RUC"}`,
-                        }))
-                  }
-                  value={ctrl.remitenteId}
-                  onChange={ctrl.setRemitenteId}
-                  classNames={fieldClasses}
-                  radius="lg"
-                  size="xs"
-                  disabled={ctrl.loading}
-                  rightSection={
-                    ctrl.loadingCatalogosRemitente ? (
-                      <Loader size={16} />
-                    ) : undefined
-                  }
-                  searchable
-                  clearable
-                  comboboxProps={{ withinPortal: true }}
-                />
-              </Box>
-
-              <Box>
-                <Group justify="space-between" align="flex-end" mb={6}>
-                  <Text size="xs" fw={800} className="text-zinc-100 uppercase tracking-widest">
-                    Documento Guía Remitente
-                  </Text>
-                  <FileButton
-                    onChange={(f) => f && ctrl.setGuiaField("documento_guia_remitente", f)}
-                    accept="*"
-                  >
-                    {(props) => (
-                      <Button
-                        {...props}
-                        variant="light"
-                        color="indigo"
-                        size="xs"
-                        radius="md"
-                        leftSection={<IconUpload size={14} />}
-                        disabled={ctrl.loading}
-                      >
-                        {ctrl.guia.documento_guia_remitente ? "Reemplazar" : "Adjuntar"}
-                      </Button>
-                    )}
-                  </FileButton>
-                </Group>
-                {ctrl.guia.documento_guia_remitente && (
-                  <Group gap="xs" wrap="nowrap" align="stretch">
-                    <div className="flex-1 min-w-0">
-                      <ArchivoCard
-                        archivo={{
-                          url: URL.createObjectURL(ctrl.guia.documento_guia_remitente),
-                          path_relativo: "",
-                          nombre_original: ctrl.guia.documento_guia_remitente.name,
-                          extension:
-                            ctrl.guia.documento_guia_remitente.name.split(".").pop()?.toLowerCase() ||
-                            null,
-                        }}
-                        className="h-full"
-                      />
-                    </div>
-                    <Tooltip label="Quitar archivo" withArrow>
-                      <ActionIcon
-                        variant="light"
-                        color="red"
-                        size="lg"
-                        radius="md"
-                        onClick={() => ctrl.setGuiaField("documento_guia_remitente", null)}
-                        disabled={ctrl.loading}
-                        className="bg-red-500/5 hover:bg-red-500/10 self-center"
-                      >
-                        <IconTrash size={16} />
-                      </ActionIcon>
-                    </Tooltip>
-                  </Group>
-                )}
-                {!ctrl.guia.documento_guia_remitente && (
-                  <Box className="rounded-md border border-dashed border-zinc-800 p-2 text-center">
-                    <Group justify="center" gap="xs">
-                      <IconFileText size={14} className="text-zinc-600" />
-                      <Text fz={10} c="zinc.5" fw={600} fs="italic">
-                        Sin archivo adjunto.
+              <Grid gutter="xs">
+                <Grid.Col span={{ base: 12, md: 6 }}>
+                  <Box>
+                    <Group justify="space-between" align="center" mb={6}>
+                      <Text size="xs" fw={800} className="text-zinc-100 uppercase tracking-widest">
+                        Documento Guía Remitente
                       </Text>
+                      <FileButton
+                        onChange={(f) => f && ctrl.setGuiaField("documento_guia_remitente", f)}
+                        accept="*"
+                      >
+                        {(props) => (
+                          <Button
+                            {...props}
+                            variant="light"
+                            color="indigo"
+                            size="xs"
+                            radius="md"
+                            leftSection={<IconUpload size={14} />}
+                            disabled={ctrl.loading}
+                          >
+                            {ctrl.guia.documento_guia_remitente ? "Reemplazar" : "Adjuntar"}
+                          </Button>
+                        )}
+                      </FileButton>
                     </Group>
-                  </Box>
-                )}
-              </Box>
-
-              {!ctrl.guia.sin_guia_transportista && (
-                <Box>
-                  <Group justify="space-between" align="flex-end" mb={6}>
-                    <Text size="xs" fw={800} className="text-zinc-100 uppercase tracking-widest">
-                      Documento Guía Transportista
-                    </Text>
-                    <FileButton
-                      onChange={(f) => f && ctrl.setGuiaField("documento_guia_transportista", f)}
-                      accept="*"
-                    >
-                      {(props) => (
-                        <Button
-                          {...props}
-                          variant="light"
-                          color="indigo"
-                          size="xs"
-                          radius="md"
-                          leftSection={<IconUpload size={14} />}
-                          disabled={ctrl.loading}
-                        >
-                          {ctrl.guia.documento_guia_transportista ? "Reemplazar" : "Adjuntar"}
-                        </Button>
-                      )}
-                    </FileButton>
-                  </Group>
-                  {ctrl.guia.documento_guia_transportista && (
-                    <Group gap="xs" wrap="nowrap" align="stretch">
-                      <div className="flex-1 min-w-0">
-                        <ArchivoCard
-                          archivo={{
-                            url: URL.createObjectURL(ctrl.guia.documento_guia_transportista),
-                            path_relativo: "",
-                            nombre_original: ctrl.guia.documento_guia_transportista.name,
-                            extension:
-                              ctrl.guia.documento_guia_transportista.name
-                                .split(".")
-                                .pop()
-                                ?.toLowerCase() || null,
-                          }}
-                          className="h-full"
-                        />
-                      </div>
-                      <Tooltip label="Quitar archivo" withArrow>
-                        <ActionIcon
-                          variant="light"
-                          color="red"
-                          size="lg"
-                          radius="md"
-                          onClick={() => ctrl.setGuiaField("documento_guia_transportista", null)}
-                          disabled={ctrl.loading}
-                          className="bg-red-500/5 hover:bg-red-500/10 self-center"
-                        >
-                          <IconTrash size={16} />
-                        </ActionIcon>
-                      </Tooltip>
-                    </Group>
-                  )}
-                  {!ctrl.guia.documento_guia_transportista && (
-                    <Box className="rounded-md border border-dashed border-zinc-800 p-2 text-center">
-                      <Group justify="center" gap="xs">
-                        <IconFileText size={14} className="text-zinc-600" />
-                        <Text fz={10} c="zinc.5" fw={600} fs="italic">
-                          Sin archivo adjunto.
-                        </Text>
+                    {ctrl.guia.documento_guia_remitente ? (
+                      <Group gap="xs" wrap="nowrap" align="stretch">
+                        <div className="flex-1 min-w-0">
+                          <ArchivoCard
+                            archivo={{
+                              url: URL.createObjectURL(ctrl.guia.documento_guia_remitente),
+                              path_relativo: "",
+                              nombre_original: ctrl.guia.documento_guia_remitente.name,
+                              extension:
+                                ctrl.guia.documento_guia_remitente.name
+                                  .split(".")
+                                  .pop()
+                                  ?.toLowerCase() || null,
+                            }}
+                            className="h-full"
+                          />
+                        </div>
+                        <Tooltip label="Quitar archivo" withArrow>
+                          <ActionIcon
+                            variant="light"
+                            color="red"
+                            size="lg"
+                            radius="md"
+                            onClick={() => ctrl.setGuiaField("documento_guia_remitente", null)}
+                            disabled={ctrl.loading}
+                            className="bg-red-500/5 hover:bg-red-500/10 self-center"
+                          >
+                            <IconTrash size={16} />
+                          </ActionIcon>
+                        </Tooltip>
                       </Group>
+                    ) : (
+                      <Box className="rounded-md border border-dashed border-zinc-800 p-2 text-center">
+                        <Group justify="center" gap="xs">
+                          <IconFileText size={14} className="text-zinc-600" />
+                          <Text fz={10} c="zinc.5" fw={600} fs="italic">
+                            Sin archivo adjunto.
+                          </Text>
+                        </Group>
+                      </Box>
+                    )}
+                  </Box>
+                </Grid.Col>
+                {!ctrl.guia.sin_guia_transportista && (
+                  <Grid.Col span={{ base: 12, md: 6 }}>
+                    <Box>
+                      <Group justify="space-between" align="center" mb={6}>
+                        <Text size="xs" fw={800} className="text-zinc-100 uppercase tracking-widest">
+                          Documento Guía Transportista
+                        </Text>
+                        <FileButton
+                          onChange={(f) => f && ctrl.setGuiaField("documento_guia_transportista", f)}
+                          accept="*"
+                        >
+                          {(props) => (
+                            <Button
+                              {...props}
+                              variant="light"
+                              color="indigo"
+                              size="xs"
+                              radius="md"
+                              leftSection={<IconUpload size={14} />}
+                              disabled={ctrl.loading}
+                            >
+                              {ctrl.guia.documento_guia_transportista ? "Reemplazar" : "Adjuntar"}
+                            </Button>
+                          )}
+                        </FileButton>
+                      </Group>
+                      {ctrl.guia.documento_guia_transportista ? (
+                        <Group gap="xs" wrap="nowrap" align="stretch">
+                          <div className="flex-1 min-w-0">
+                            <ArchivoCard
+                              archivo={{
+                                url: URL.createObjectURL(ctrl.guia.documento_guia_transportista),
+                                path_relativo: "",
+                                nombre_original: ctrl.guia.documento_guia_transportista.name,
+                                extension:
+                                  ctrl.guia.documento_guia_transportista.name
+                                    .split(".")
+                                    .pop()
+                                    ?.toLowerCase() || null,
+                              }}
+                              className="h-full"
+                            />
+                          </div>
+                          <Tooltip label="Quitar archivo" withArrow>
+                            <ActionIcon
+                              variant="light"
+                              color="red"
+                              size="lg"
+                              radius="md"
+                              onClick={() => ctrl.setGuiaField("documento_guia_transportista", null)}
+                              disabled={ctrl.loading}
+                              className="bg-red-500/5 hover:bg-red-500/10 self-center"
+                            >
+                              <IconTrash size={16} />
+                            </ActionIcon>
+                          </Tooltip>
+                        </Group>
+                      ) : (
+                        <Box className="rounded-md border border-dashed border-zinc-800 p-2 text-center">
+                          <Group justify="center" gap="xs">
+                            <IconFileText size={14} className="text-zinc-600" />
+                            <Text fz={10} c="zinc.5" fw={600} fs="italic">
+                              Sin archivo adjunto.
+                            </Text>
+                          </Group>
+                        </Box>
+                      )}
                     </Box>
-                  )}
-                </Box>
-              )}
+                  </Grid.Col>
+                )}
+              </Grid>
             </Stack>
           )}
         </Box>

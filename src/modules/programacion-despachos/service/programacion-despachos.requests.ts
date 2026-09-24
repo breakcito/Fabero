@@ -1,8 +1,8 @@
 import type { MotivoTraslado } from "../../../shared/enums/_generic/motivo-traslado";
 
 // Nota: `tipo_remitente` NO se persiste como columna en `guia_segundo_tramo`.
-// Se infiere en el backend (hydrate) según el FK seteado (id_empresa o id_planta_destino).
-// Por eso no forma parte de los DTOs de request — el frontend solo envía `id_remitente`.
+// El backend la usa para decidir si `id_remitente` va a `id_empresa` o `id_planta_destino`.
+// El frontend SIEMPRE debe enviarla cuando envía `id_remitente`.
 
 export interface DTO_CrearGuiaSegundoTramo {
   motivo_traslado: MotivoTraslado | string | null;
@@ -13,6 +13,7 @@ export interface DTO_CrearGuiaSegundoTramo {
   guia_remitente: string | null;
   sin_guia_transportista: boolean;
   id_remitente: number | null;
+  tipo_remitente: "EMPRESA" | "PLANTA_DESTINO" | null;
   documento_guia_remitente: File | null;
   documento_guia_transportista: File | null;
 }

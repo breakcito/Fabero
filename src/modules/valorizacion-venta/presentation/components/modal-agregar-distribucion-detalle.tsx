@@ -128,24 +128,7 @@ export const ModalAgregarDistribucionDetalle = ({
           idValorizacionEdicion,
         );
         const data = (res.success && res.data) ? res.data : [];
-        const disponibles = data.filter((d) => {
-          const tieneOro =
-            d.esta_valorizado_oro ||
-            existingDetalles.some(
-              (e) =>
-                e.id_distribucion_detalle === d.id_distribucion_detalle &&
-                e.elemento_quimico === ElementoQuimicoValorizacion.Oro,
-            );
-          const tienePlata =
-            d.esta_valorizado_plata ||
-            existingDetalles.some(
-              (e) =>
-                e.id_distribucion_detalle === d.id_distribucion_detalle &&
-                e.elemento_quimico === ElementoQuimicoValorizacion.Plata,
-            );
-          return !(tieneOro && tienePlata);
-        });
-        setDetalles(disponibles);
+        setDetalles(data);
       } catch (err) {
         notifyError(
           err instanceof Error ? err.message : "Error al cargar distribuciones disponibles",
@@ -156,7 +139,7 @@ export const ModalAgregarDistribucionDetalle = ({
     };
 
     cargar();
-  }, [opened, idPlanta, idValorizacionEdicion, existingDetalles, detalleEditar, notifyError]);
+  }, [opened, idPlanta, idValorizacionEdicion, detalleEditar, notifyError]);
 
   useEffect(() => {
     if (!detalleEditar) return;
@@ -216,6 +199,68 @@ export const ModalAgregarDistribucionDetalle = ({
     if (!selectedId) return null;
     return detalles.find((d) => d.id_distribucion_detalle === Number(selectedId)) ?? null;
   }, [selectedId, detalles, detalleEditar]);
+
+  // Si el lote seleccionado ya está valorizado en el elemento actual
+  // (en DB o en el form actual), auto-cambia al elemento disponible para
+  // que el usuario no se quede atrapado con un valor bloqueado (el Select
+  // de Elemento deshabilita la opción correspondiente).
+  useEffect(() => {
+    if (detalleEditar) return;
+    if (!detalleSeleccionado) return;
+    const enFormOro = existingDetalles.some(
+      (e) =>
+        e.id_distribucion_detalle === detalleSeleccionado.id_distribucion_detalle &&
+        e.elemento_quimico === ElementoQuimicoValorizacion.Oro,
+    );
+    const enFormPlata = existingDetalles.some(
+      (e) =>
+        e.id_distribucion_detalle === detalleSeleccionado.id_distribucion_detalle &&
+        e.elemento_quimico === ElementoQuimicoValorizacion.Plata,
+    );
+    const oroBloqueado =
+      detalleSeleccionado.esta_valorizado_oro || enFormOro;
+    const plataBloqueada =
+      detalleSeleccionado.esta_valorizado_plata || enFormPlata;
+
+    if (
+      elemento === ElementoQuimicoValorizacion.Oro &&
+      oroBloqueado &&
+      !plataBloqueada
+    ) {
+      setElemento(ElementoQuimicoValorizacion.Plata);
+    } else if (
+      elemento === ElementoQuimicoValorizacion.Plata &&
+      plataBloqueada &&
+      !oroBloqueado
+    ) {
+      setElemento(ElementoQuimicoValorizacion.Oro);
+    }
+  }, [detalleSeleccionado, detalleEditar, elemento, existingDetalles]);
+
+  // Filtro del Select: oculta lotes ya valorizados en AMBOS elementos
+  // (Oro+Plata) considerando DB y form actual. Oro y Plata son
+  // independientes, por lo que un lote valorizado en Oro sigue disponible
+  // para Plata (y viceversa). El control de duplicado dentro del mismo
+  // elemento lo hace el Select de Elemento (disabled) + `handleConfirmar`.
+  const detallesFiltrados = useMemo(() => {
+    if (detalleEditar) return detalles;
+    return detalles.filter((d) => {
+      const enFormOro = existingDetalles.some(
+        (e) =>
+          e.id_distribucion_detalle === d.id_distribucion_detalle &&
+          e.elemento_quimico === ElementoQuimicoValorizacion.Oro,
+      );
+      const enFormPlata = existingDetalles.some(
+        (e) =>
+          e.id_distribucion_detalle === d.id_distribucion_detalle &&
+          e.elemento_quimico === ElementoQuimicoValorizacion.Plata,
+      );
+      const valorizadoOro = d.esta_valorizado_oro || enFormOro;
+      const valorizadoPlata = d.esta_valorizado_plata || enFormPlata;
+      // Ocultar solo si está completamente consumido (ambos elementos).
+      return !(valorizadoOro && valorizadoPlata);
+    });
+  }, [detalles, existingDetalles, detalleEditar]);
 
   // Condición comercial auto-encontrada por el backend para el elemento seleccionado.
   // El backend ya buscó la condición cuyo rango [ley_inicio, ley_fin] contiene
@@ -295,6 +340,25 @@ export const ModalAgregarDistribucionDetalle = ({
         `Debe registrar el precio INTER para ${elemento} en la fecha seleccionada antes de valorizar. Use el botón "+" al lado de INTER.`,
       );
       return;
+    }
+
+    // Defensa en profundidad: bloquea duplicados aunque el filtro del Select falle.
+    if (!detalleEditar && detalleSeleccionado) {
+      const dupEnForm = existingDetalles.some(
+        (e) =>
+          e.id_distribucion_detalle === detalleSeleccionado.id_distribucion_detalle &&
+          e.elemento_quimico === elemento,
+      );
+      const dupEnDb =
+        elemento === ElementoQuimicoValorizacion.Oro
+          ? detalleSeleccionado.esta_valorizado_oro
+          : detalleSeleccionado.esta_valorizado_plata;
+      if (dupEnForm || dupEnDb) {
+        notifyError(
+          `Este lote ya está valorizado en ${elemento}. No se puede agregar duplicado.`,
+        );
+        return;
+      }
     }
 
     const numInter = typeof inter === "number" ? inter : parseFloat(String(inter)) || 0;
@@ -432,20 +496,18 @@ export const ModalAgregarDistribucionDetalle = ({
                       {
                         value: String(detalleEditar.display.id_distribucion_detalle),
                         label:
-                          detalleEditar.display.despacho_correlativo ||
-                          detalleEditar.display.lote_correlativo ||
-                          `Det. Distribución #${detalleEditar.display.id_distribucion_detalle}`,
+                          `Lote ${detalleEditar.display.lote_correlativo ?? detalleEditar.display.blending_correlativo ?? "S/L"} - ` +
+                          (detalleEditar.display.codigo_cliente ?? "s/código"),
                       },
                     ]
-                  : detalles.map((d) => ({
+                  : detallesFiltrados.map((d) => ({
                       value: String(d.id_distribucion_detalle),
                       label:
-                        `${d.despacho_correlativo ?? "S/D"} · ` +
-                        `${d.codigo_cliente ?? "s/código"} · ` +
-                        `Lote ${d.lote_correlativo ?? d.blending_correlativo ?? "S/L"}` +
+                        `Lote ${d.lote_correlativo ?? d.blending_correlativo ?? "S/L"} ` +
+                        
                         (d.numero_particion !== null && d.numero_particion !== undefined
-                          ? ` · Part. ${d.numero_particion}`
-                          : ""),
+                          ? ` · Part. ${d.numero_particion} - `
+                          : "") + `${d.codigo_cliente ?? "s/código"}` ,
                     }))
               }
               value={selectedId}
@@ -466,10 +528,40 @@ export const ModalAgregarDistribucionDetalle = ({
               label="Elemento:"
               placeholder="[Seleccione]"
               disabled={!!detalleEditar}
-              data={[
-                { value: ElementoQuimicoValorizacion.Oro, label: "Oro (Au)" },
-                { value: ElementoQuimicoValorizacion.Plata, label: "Plata (Ag)" },
-              ]}
+              data={(() => {
+                // Deshabilitar Oro/Plata si el lote ya está valorizado (DB o form actual)
+                // para ese elemento. Bloqueo proactivo antes de handleConfirmar.
+                const oroBloqueado =
+                  !!detalleSeleccionado?.esta_valorizado_oro ||
+                  existingDetalles.some(
+                    (e) =>
+                      e.id_distribucion_detalle ===
+                        detalleSeleccionado?.id_distribucion_detalle &&
+                      e.elemento_quimico === ElementoQuimicoValorizacion.Oro,
+                  );
+                const plataBloqueada =
+                  !!detalleSeleccionado?.esta_valorizado_plata ||
+                  existingDetalles.some(
+                    (e) =>
+                      e.id_distribucion_detalle ===
+                        detalleSeleccionado?.id_distribucion_detalle &&
+                      e.elemento_quimico === ElementoQuimicoValorizacion.Plata,
+                  );
+                return [
+                  {
+                    value: ElementoQuimicoValorizacion.Oro,
+                    label: oroBloqueado ? "Oro (Au)" : "Oro (Au)",
+                    disabled: oroBloqueado,
+                  },
+                  {
+                    value: ElementoQuimicoValorizacion.Plata,
+                    label: plataBloqueada
+                      ? "Plata (Ag) "
+                      : "Plata (Ag)",
+                    disabled: plataBloqueada,
+                  },
+                ];
+              })()}
               value={elemento}
               onChange={(val) => setElemento(val as ElementoQuimicoValorizacion)}
               size="xs"

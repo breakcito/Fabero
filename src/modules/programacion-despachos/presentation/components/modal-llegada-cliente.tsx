@@ -106,6 +106,26 @@ export const ModalLlegadaCliente = ({
     onClose();
   };
 
+  /**
+   * Variación (cliente − empresa) para el mensaje inline debajo de cada input.
+   * Retorna `null` cuando no hay referencia empresa, no hay valor cliente,
+   * o la diferencia es despreciable. Indicador NO bloqueante: sólo informa.
+   */
+  const variacionLabel = (
+    emp: number | null,
+    cli: number | null,
+    decimals: number,
+    unidad: string,
+  ): { texto: string; color: "emerald.4" | "red.4" } | null => {
+    if (emp == null || cli == null) return null;
+    const diff = cli - emp;
+    if (Math.abs(diff) <= 0.001) return null;
+    return {
+      texto: `${diff > 0 ? "+" : ""}${diff.toFixed(decimals)} ${unidad}`,
+      color: diff > 0 ? "emerald.4" : "red.4",
+    };
+  };
+
   const setDato = (
     idDetalle: number,
     campo: keyof Omit<DTO_DatoDetalleCliente, "id_detalle">,
@@ -245,10 +265,21 @@ export const ModalLlegadaCliente = ({
                     det.lote_correlativo ??
                     det.blending_correlativo ??
                     "—";
+                  const empPeso = det.peso_neto;
+                  const empAu =
+                    det.lote_ley_oro ?? det.blending_ley_oro ?? null;
+                  const empAg =
+                    det.lote_ley_plata ?? det.blending_ley_plata ?? null;
+                  const empHu =
+                    det.lote_ley_humedad ?? det.blending_ley_humedad ?? null;
+                  const vPeso = variacionLabel(empPeso, datos.peso_neto_cliente ?? null, 3, "KG");
+                  const vAu = variacionLabel(empAu, datos.ley_oro_cliente ?? null, 2, "g/t");
+                  const vAg = variacionLabel(empAg, datos.ley_plata_cliente ?? null, 2, "g/t");
+                  const vHu = variacionLabel(empHu, datos.ley_humedad_cliente ?? null, 2, "%");
                   return (
                     <React.Fragment>
                       <tr key={det.id} className="hover:bg-zinc-900/30">
-                      <td className="py-2 px-3 text-center align-middle">
+                      <td className="py-2 px-3 text-center align-top">
                         <Group gap={4} wrap="nowrap" justify="center">
                           <span
                             className={`inline-flex items-center justify-center px-2 py-0.5 rounded font-bold text-[10px] ${
@@ -264,14 +295,14 @@ export const ModalLlegadaCliente = ({
                           </Text>
                         </Group>
                       </td>
-                      <td className="py-2 px-2 text-center align-middle">
+                      <td className="py-2 px-2 text-center align-top">
                         <Text size="xs" className="font-mono text-zinc-400">
                           {det.numero_particion !== null
                             ? `P${det.numero_particion}`
                             : "—"}
                         </Text>
                       </td>
-                      <td className="py-2 px-2 text-center align-middle">
+                      <td className="py-2 px-2 text-center align-top">
                         <TextInput
                           size="xs"
                           radius="md"
@@ -289,7 +320,7 @@ export const ModalLlegadaCliente = ({
                           classNames={{ input: fieldClasses.input }}
                         />
                       </td>
-                      <td className="py-2 px-2 text-center align-middle">
+                      <td className="py-2 px-2 text-center align-top">
                         <NumberInput
                           size="xs"
                           radius="md"
@@ -310,8 +341,13 @@ export const ModalLlegadaCliente = ({
                           disabled={inputsDisabled}
                           classNames={{ input: fieldClasses.input }}
                         />
+                        {vPeso && (
+                          <Text fz={10} c={vPeso.color} fw={700} ta="center" className="mt-1 font-mono whitespace-nowrap">
+                            {vPeso.texto}
+                          </Text>
+                        )}
                       </td>
-                      <td className="py-2 px-1 text-center align-middle">
+                      <td className="py-2 px-1 text-center align-top">
                         <NumberInput
                           size="xs"
                           radius="md"
@@ -331,8 +367,13 @@ export const ModalLlegadaCliente = ({
                           disabled={inputsDisabled}
                           classNames={{ input: fieldClasses.input }}
                         />
+                        {vAu && (
+                          <Text fz={10} c={vAu.color} fw={700} ta="center" className="mt-1 font-mono whitespace-nowrap">
+                            {vAu.texto}
+                          </Text>
+                        )}
                       </td>
-                      <td className="py-2 px-1 text-center align-middle">
+                      <td className="py-2 px-1 text-center align-top">
                         <NumberInput
                           size="xs"
                           radius="md"
@@ -352,8 +393,13 @@ export const ModalLlegadaCliente = ({
                           disabled={inputsDisabled}
                           classNames={{ input: fieldClasses.input }}
                         />
+                        {vAg && (
+                          <Text fz={10} c={vAg.color} fw={700} ta="center" className="mt-1 font-mono whitespace-nowrap">
+                            {vAg.texto}
+                          </Text>
+                        )}
                       </td>
-                      <td className="py-2 px-1 text-center align-middle">
+                      <td className="py-2 px-1 text-center align-top">
                         <NumberInput
                           size="xs"
                           radius="md"
@@ -374,90 +420,13 @@ export const ModalLlegadaCliente = ({
                           disabled={inputsDisabled}
                           classNames={{ input: fieldClasses.input }}
                         />
+                        {vHu && (
+                          <Text fz={10} c={vHu.color} fw={700} ta="center" className="mt-1 font-mono whitespace-nowrap">
+                            {vHu.texto}
+                          </Text>
+                        )}
                       </td>
                     </tr>
-                    {(() => {
-                      // Comparativa: valor de la empresa (de lote/blending) vs
-                      // valor reportado por el cliente. Sin color — sólo números.
-                      const empPeso = det.peso_neto;
-                      const empAu =
-                        det.lote_ley_oro ?? det.blending_ley_oro ?? null;
-                      const empAg =
-                        det.lote_ley_plata ?? det.blending_ley_plata ?? null;
-                      const empHu =
-                        det.lote_ley_humedad ?? det.blending_ley_humedad ?? null;
-                      const cliPeso = datos.peso_neto_cliente ?? null;
-                      const cliAu = datos.ley_oro_cliente ?? null;
-                      const cliAg = datos.ley_plata_cliente ?? null;
-                      const cliHu = datos.ley_humedad_cliente ?? null;
-                      const fmt = (n: number | null, d: number): string =>
-                        n !== null && n !== undefined ? n.toFixed(d) : "—";
-                      const delta = (
-                        e: number | null | undefined,
-                        c: number | null | undefined,
-                        d: number,
-                      ): string => {
-                        if (e == null || c == null) return "—";
-                        return (e - c).toFixed(d);
-                      };
-                      return (
-                        <tr className="bg-zinc-950/40">
-                          <td className="py-1.5 px-3 text-[10px] font-bold uppercase tracking-wider text-zinc-500 text-center align-middle">
-                            <span>Comparativa</span>
-                          </td>
-                          <td className="py-1.5 px-2 text-center align-middle" />
-                          <td className="py-1.5 px-2 text-center align-middle" />
-                          <td className="py-1.5 px-2 text-center align-middle text-[11px] font-mono text-zinc-300">
-                            <div className="leading-tight">
-                              <div>
-                                <span className="text-zinc-500">P:</span>{" "}
-                                {fmt(empPeso, 3)}
-                              </div>
-                              <div>
-                                <span className="text-zinc-500">ΔP:</span>{" "}
-                                {delta(empPeso, cliPeso, 3)}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-1.5 px-1 text-center align-middle text-[11px] font-mono text-zinc-300">
-                            <div className="leading-tight">
-                              <div>
-                                <span className="text-zinc-500">Au:</span>{" "}
-                                {fmt(empAu, 3)}
-                              </div>
-                              <div>
-                                <span className="text-zinc-500">ΔAu:</span>{" "}
-                                {delta(empAu, cliAu, 3)}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-1.5 px-1 text-center align-middle text-[11px] font-mono text-zinc-300">
-                            <div className="leading-tight">
-                              <div>
-                                <span className="text-zinc-500">Ag:</span>{" "}
-                                {fmt(empAg, 3)}
-                              </div>
-                              <div>
-                                <span className="text-zinc-500">ΔAg:</span>{" "}
-                                {delta(empAg, cliAg, 3)}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-1.5 px-1 text-center align-middle text-[11px] font-mono text-zinc-300">
-                            <div className="leading-tight">
-                              <div>
-                                <span className="text-zinc-500">Hu:</span>{" "}
-                                {fmt(empHu, 2)}
-                              </div>
-                              <div>
-                                <span className="text-zinc-500">ΔHu:</span>{" "}
-                                {delta(empHu, cliHu, 2)}
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })()}
                     </React.Fragment>
                   );
                 })}

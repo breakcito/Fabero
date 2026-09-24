@@ -170,7 +170,7 @@ export const ValorizacionVentaPage = () => {
       .filter((log) => Array.isArray(log.cambios) && (log.cambios as unknown[]).length > 0)
       .map((log) => ({
         ...log,
-        motivo: `Valorización ${valorizacionHistorial.correlativo || valorizacionHistorial.numero_correlativo || ""} — ${String(log.accion || "Cambio en cabecera")}`,
+        motivo: `Valorización ${valorizacionHistorial.codigo || `#${valorizacionHistorial.id}`} — ${String(log.accion || "Cambio en cabecera")}`,
       }));
 
     // Detalle: modificaciones de parámetros.
@@ -253,16 +253,6 @@ export const ValorizacionVentaPage = () => {
 
   const columns = [
     { accessor: "index", title: "#", textAlign: "center" as const, width: 50 },
-    {
-      accessor: "correlativo",
-      title: "Correlativo",
-      textAlign: "center" as const,
-      render: (r: RES_ValorizacionVenta) => (
-        <Text fw={500} fz="xs" c="cyan.4" className="font-mono">
-          {r.correlativo || (r.numero_correlativo ? `VV-${r.numero_correlativo}` : "-")}
-        </Text>
-      ),
-    },
     {
       accessor: "planta_nombre",
       title: "Planta Destino",
@@ -395,7 +385,9 @@ export const ValorizacionVentaPage = () => {
                   size="sm"
                   onClick={() =>
                     setModalEvidenciasInfo({
-                      title: `Evidencias de Registro (${r.correlativo || `VV-${r.id}`})`,
+                      title: r.codigo
+                        ? `Evidencias de Registro (${r.codigo})`
+                        : `Evidencias de Registro (VV-${r.id})`,
                       files: r.evidencias || [],
                     })
                   }
@@ -690,7 +682,7 @@ export const ValorizacionVentaPage = () => {
             <IconHistory size={20} className="text-amber-400" />
             <Text fw={700} fz="sm" c="white">
               Historial de cambios:{" "}
-              {valorizacionHistorial?.numero_correlativo?.replace(/^VV/, "") ?? "-"}
+              {valorizacionHistorial?.codigo ?? `#${valorizacionHistorial?.id ?? "-"}`}
             </Text>
           </Group>
         }

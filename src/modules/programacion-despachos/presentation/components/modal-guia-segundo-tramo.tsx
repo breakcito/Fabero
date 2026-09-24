@@ -8,6 +8,7 @@ import {
   FileButton,
   Grid,
   Group,
+  Input,
   Loader,
   Paper,
   Select,
@@ -423,6 +424,12 @@ export const ModalGuiaSegundoTramo = ({
     }
 
     const idRemitenteNum = remitenteId ? Number(remitenteId) : null;
+    const tipoRemitente: "EMPRESA" | "PLANTA_DESTINO" | null =
+      idRemitenteNum !== null
+        ? esPlantaDestinoRemitente
+          ? "PLANTA_DESTINO"
+          : "EMPRESA"
+        : null;
 
     setSubmitting(true);
     try {
@@ -439,6 +446,7 @@ export const ModalGuiaSegundoTramo = ({
           guia_transportista: numeroGuiaTransportista,
           sin_guia_transportista: sinGuiaTransportista,
           id_remitente: idRemitenteNum,
+          tipo_remitente: tipoRemitente,
           documento_guia_remitente: documentoRemitente,
           documento_guia_transportista: sinGuiaTransportista
             ? null
@@ -462,6 +470,7 @@ export const ModalGuiaSegundoTramo = ({
           guia_transportista: numeroGuiaTransportista,
           sin_guia_transportista: sinGuiaTransportista,
           id_remitente: idRemitenteNum,
+          tipo_remitente: tipoRemitente,
           documento_guia_remitente: documentoRemitente,
           documento_guia_transportista: sinGuiaTransportista
             ? null
@@ -569,9 +578,74 @@ export const ModalGuiaSegundoTramo = ({
 
             <Divider className="border-zinc-800/80" />
 
-            {/* ========== 2. Motivo + guías (misma fila) ========== */}
+            {/* ========== 2. Remitente + Motivo + Guías (misma fila, Remitente al inicio) ========== */}
             <Grid gutter="sm">
-              <Grid.Col span={{ base: 12, sm: 4 }}>
+              <Grid.Col span={{ base: 12, sm: 3 }}>
+                <Input.Wrapper
+                  label={
+                    <Group justify="space-between" align="center" wrap="nowrap" w="100%">
+                      <Text fz={10} fw={600} tt="uppercase" lts="0.04em" className="text-zinc-400 whitespace-nowrap">
+                        Remitente:
+                      </Text>
+                      <Group gap={4} align="center" wrap="nowrap">
+                        <Text fz={9} c="zinc.5">Empresa</Text>
+                        <Switch
+                          size="xs"
+                          color="indigo"
+                          checked={esPlantaDestinoRemitente}
+                          onChange={(e) => {
+                            const next = e.currentTarget.checked;
+                            setEsPlantaDestinoRemitente(next);
+                            setRemitenteId(null);
+                          }}
+                          onLabel="PLANTA"
+                          offLabel="EMPRESA"
+                        />
+                        <Text fz={9} c="zinc.5">Planta</Text>
+                      </Group>
+                    </Group>
+                  }
+                  classNames={{ label: "!w-full" }}
+                >
+                  <Select
+                    placeholder={
+                      loadingCatalogos ? "Cargando..." : "Seleccione (opcional)"
+                    }
+                    data={
+                      loadingCatalogos
+                        ? []
+                        : (esPlantaDestinoRemitente ? plantas : empresas)
+                            .map((item) => {
+                              const idVal =
+                                "id_empresa" in item
+                                  ? item.id_empresa
+                                  : (item as { id: number }).id;
+                              if (idVal == null) return null;
+                              return {
+                                value: String(idVal),
+                                label: `${item.razon_social || "Sin nombre"} — ${item.ruc || "Sin RUC"}`,
+                              };
+                            })
+                            .filter(
+                              (opt): opt is { value: string; label: string } =>
+                                opt !== null,
+                            )
+                    }
+                    value={remitenteId}
+                    onChange={setRemitenteId}
+                    classNames={fieldClasses}
+                    radius="lg"
+                    size="xs"
+                    disabled={loadingCatalogos}
+                    rightSection={loadingCatalogos ? <Loader size={16} /> : undefined}
+                    searchable
+                    clearable
+                    comboboxProps={{ withinPortal: true }}
+                    key={`${esPlantaDestinoRemitente ? "p" : "e"}-${remitenteId ?? "none"}`}
+                  />
+                </Input.Wrapper>
+              </Grid.Col>
+              <Grid.Col span={{ base: 12, sm: 3 }}>
                 <Select
                   label="Motivo de traslado:"
                   placeholder="Seleccione"
@@ -587,7 +661,7 @@ export const ModalGuiaSegundoTramo = ({
                   required
                 />
               </Grid.Col>
-              <Grid.Col span={{ base: 12, sm: 4 }}>
+              <Grid.Col span={{ base: 12, sm: 3 }}>
                 <TextInput
                   label="N° Guía Remitente:"
                   placeholder="Ej. 001-12345"
@@ -603,119 +677,53 @@ export const ModalGuiaSegundoTramo = ({
                 />
               </Grid.Col>
               <Grid.Col span={{ base: 12, sm: 3 }}>
-                <TextInput
-                  label="N° Guía Transportista:"
-                  placeholder={
-                    sinGuiaTransportista ? "Sin guía transportista" : "Ej. 001-12345"
+                <Input.Wrapper
+                  label={
+                    <Group justify="space-between" align="center" wrap="nowrap" w="100%">
+                      <Text fz={10} fw={600} tt="uppercase" lts="0.04em" className="text-zinc-400 whitespace-nowrap">
+                        N° Guía Transportista:
+                      </Text>
+                      <Group gap={4} align="center" wrap="nowrap">
+                        <Text fz={9} c="zinc.5">Sin guía:</Text>
+                        <Switch
+                          size="xs"
+                          color="indigo"
+                          checked={sinGuiaTransportista}
+                          onChange={(e) =>
+                            setSinGuiaTransportista(e.currentTarget.checked)
+                          }
+                          onLabel="SÍ"
+                          offLabel="NO"
+                        />
+                      </Group>
+                    </Group>
                   }
-                  value={guiaTransportista}
-                  onChange={(e) =>
-                    setGuiaTransportista(e.currentTarget.value.toUpperCase())
-                  }
-                  classNames={fieldClasses}
-                  radius="lg"
-                  size="xs"
-                  maxLength={20}
-                  disabled={sinGuiaTransportista}
-                />
-              </Grid.Col>
-              <Grid.Col span={{ base: 12, sm: 1 }}>
-                <Text component="label" className={fieldClasses.label}>
-                  Sin guía:
-                </Text>
-                <Switch
-                  size="xs"
-                  color="indigo"
-                  checked={sinGuiaTransportista}
-                  onChange={(e) =>
-                    setSinGuiaTransportista(e.currentTarget.checked)
-                  }
-                  onLabel="SIN"
-                  offLabel="CON"
-                  className="mt-1"
-                />
+                  classNames={{ label: "!w-full" }}
+                >
+                  <TextInput
+                    placeholder={
+                      sinGuiaTransportista
+                        ? "Sin guía transportista"
+                        : "Ej. 001-12345"
+                    }
+                    value={guiaTransportista}
+                    onChange={(e) =>
+                      setGuiaTransportista(e.currentTarget.value.toUpperCase())
+                    }
+                    classNames={fieldClasses}
+                    radius="lg"
+                    size="xs"
+                    maxLength={20}
+                    disabled={sinGuiaTransportista}
+                  />
+                </Input.Wrapper>
               </Grid.Col>
             </Grid>
 
             <Divider className="border-zinc-800/80" />
 
-            {/* ========== 2.5 Remitente (entidad) ========== */}
-            <Box>
-              <Group justify="space-between" align="center" mb={6}>
-                <Text
-                  size="xs"
-                  fw={800}
-                  className="text-zinc-100 uppercase tracking-widest"
-                >
-                  Remitente (entidad)
-                </Text>
-                <Group gap="xs" align="center">
-                  <Text size="xs" c="zinc.4">
-                    Empresa
-                  </Text>
-                  <Switch
-                    size="xs"
-                    color="indigo"
-                    checked={esPlantaDestinoRemitente}
-                    onChange={(e) => {
-                      const next = e.currentTarget.checked;
-                      setEsPlantaDestinoRemitente(next);
-                      setRemitenteId(null);
-                    }}
-                    onLabel="PLANTA"
-                    offLabel="EMPRESA"
-                  />
-                  <Text size="xs" c="zinc.4">
-                    Planta destino
-                  </Text>
-                </Group>
-              </Group>
-              <Select
-                label={
-                  esPlantaDestinoRemitente
-                    ? "Planta destino remitente:"
-                    : "Empresa remitente:"
-                }
-                placeholder={
-                  loadingCatalogos ? "Cargando..." : "Seleccione (opcional)"
-                }
-                data={
-                  loadingCatalogos
-                    ? []
-                    : (esPlantaDestinoRemitente ? plantas : empresas)
-                        .map((item) => {
-                          const idVal =
-                            "id_empresa" in item
-                              ? item.id_empresa
-                              : (item as { id: number }).id;
-                          if (idVal == null) return null;
-                          return {
-                            value: String(idVal),
-                            label: `${item.razon_social || "Sin nombre"} — ${item.ruc || "Sin RUC"}`,
-                          };
-                        })
-                        .filter(
-                          (opt): opt is { value: string; label: string } =>
-                            opt !== null,
-                        )
-                }
-                value={remitenteId}
-                onChange={setRemitenteId}
-                classNames={fieldClasses}
-                radius="lg"
-                size="xs"
-                disabled={loadingCatalogos}
-                rightSection={loadingCatalogos ? <Loader size={16} /> : undefined}
-                searchable
-                clearable
-                comboboxProps={{ withinPortal: true }}
-              />
-            </Box>
-
-            <Divider className="border-zinc-800/80" />
-
-            {/* ========== 3. Documentos adjuntos ========== */}
-            <Grid gutter="md">
+            {/* ========== 3. Documentos adjuntos (misma fila) ========== */}
+            <Grid gutter="xs">
               <Grid.Col span={{ base: 12, md: 6 }}>
                 <DocumentoSlot
                   label="Documento Guía Remitente"
@@ -801,7 +809,7 @@ const DocumentoSlot = ({
 
   return (
     <Box>
-      <Group justify="space-between" align="flex-end" mb={6}>
+      <Group justify="space-between" align="center" mb={6}>
         <Text size="xs" fw={800} className="text-zinc-100 uppercase tracking-widest">
           {label}
         </Text>

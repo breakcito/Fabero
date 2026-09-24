@@ -134,7 +134,9 @@ export const ModalFormValorizacionVenta = ({
     <Group gap="xs">
       <Text fw={700} fz="sm" c="white">
         {isEdit
-          ? `Editar Valorización de Venta: ${valorizacionEditar.correlativo ?? valorizacionEditar.numero_correlativo ?? ""} | ${valorizacionEditar.planta_nombre ?? ""}`
+          ? valorizacionEditar.codigo
+            ? `Editar Valorización de Venta: ${valorizacionEditar.codigo} | ${valorizacionEditar.planta_nombre ?? ""}`
+            : `Editar Valorización de Venta | ${valorizacionEditar.planta_nombre ?? ""}`
           : "Nueva Valorización de Venta"}
       </Text>
     </Group>
@@ -224,7 +226,7 @@ export const ModalFormValorizacionVenta = ({
                       </Group>
                       <Group justify="space-between" wrap="nowrap">
                         <Text fz={10} c="zinc.4" tt="uppercase" fw={600}>Razón Social:</Text>
-                        <Text fz={11} c="white" fw={600} className="truncate max-w-[200px]">
+                        <Text fz={11} c="white" fw={600} className="truncate max-w-50">
                           {plantaSeleccionada.razon_social}
                         </Text>
                       </Group>

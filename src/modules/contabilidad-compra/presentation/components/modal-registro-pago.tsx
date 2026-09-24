@@ -393,20 +393,9 @@ export const ModalRegistroPago = ({
     });
 
     if (actualizado) {
-      const todoSaldado =
-        (actualizado.monto_neto - actualizado.avance_pago_neto) <= 0.01 &&
-        (actualizado.monto_detraccion_soles - actualizado.avance_pago_detraccion) <= 0.01;
-      if (todoSaldado) {
-        onClose();
-      } else {
-        setNumeroOperacion("");
-        setObservacion("");
-        setEvidencias([]);
-        setIdBancoEmpresa(null);
-        setIdCuentaEmpresa(null);
-        setIdBancoProveedor(null);
-        setIdCuentaProveedor(null);
-      }
+      // Cualquier pago registrado cierra el modal — si el usuario necesita
+      // registrar otro pago, vuelve a abrirlo desde la vista principal.
+      onClose();
     }
   };
 

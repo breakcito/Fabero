@@ -16,8 +16,8 @@ import type { ActaSalidaVehiculoData } from "../../service/programacion-despacho
  *  - Barra inferior amarilla: "OBSERVACIONES:"
  */
 
-const PAGE_WIDTH = 595.28;
-const PAGE_HEIGHT = 419.53;
+const PAGE_WIDTH = 400;
+const PAGE_HEIGHT = 420;
 
 // Paleta de colores fiel a la imagen de referencia
 const COLOR_AMARILLO = "#F6C343";      // Amarillo dorado de barras y cajas
@@ -276,7 +276,7 @@ export const ActaSalidaPdf = ({ data }: ActaSalidaPdfProps) => {
 
   return (
     <Document title={`Ticket de Salida ${data.tsv || data.correlativo}`}>
-      <Page size={[PAGE_WIDTH, PAGE_HEIGHT]} orientation="landscape" style={styles.page}>
+      <Page size={{ width: PAGE_WIDTH, height: PAGE_HEIGHT }}  style={styles.page}>
         {/* ========== ENCABEZADO SUPERIOR ========== */}
         <View style={styles.topRow}>
           <View style={styles.titleBar}>

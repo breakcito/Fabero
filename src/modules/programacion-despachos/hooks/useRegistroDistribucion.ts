@@ -207,9 +207,14 @@ export const useRegistroDistribucion = (
       if (guiaMinima && guia.motivo_traslado) {
         setLoadingGuia(true);
         try {
-          // Solo se envía id_remitente. El backend infiere si es Empresa o
-          // Planta destino según el FK que se setee en el INSERT.
           const idRemitenteNum = remitenteId ? Number(remitenteId) : null;
+          const idRemitenteFinal = idRemitenteNum ?? guia.id_remitente ?? null;
+          const tipoRemitente: "EMPRESA" | "PLANTA_DESTINO" | null =
+            idRemitenteFinal !== null
+              ? esPlantaDestinoRemitente
+                ? "PLANTA_DESTINO"
+                : "EMPRESA"
+              : null;
 
           await ProgramacionDespachosService.crearGuiaSegundoTramo(
             result.id_distribucion,
@@ -223,7 +228,8 @@ export const useRegistroDistribucion = (
                 ? null
                 : guia.guia_transportista.trim() || null,
               sin_guia_transportista: guia.sin_guia_transportista,
-              id_remitente: idRemitenteNum ?? guia.id_remitente ?? null,
+              id_remitente: idRemitenteFinal,
+              tipo_remitente: tipoRemitente,
               documento_guia_remitente: guia.documento_guia_remitente,
               documento_guia_transportista: guia.sin_guia_transportista
                 ? null
