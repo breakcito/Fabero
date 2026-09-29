@@ -97,7 +97,11 @@ const dateInputToIsoDate = (
   originalVal: string | null | undefined,
 ): string | null => {
   if (!currentVal) return null;
-  if (originalVal && originalVal.length >= 10 && originalVal.startsWith(currentVal)) {
+  if (
+    originalVal &&
+    originalVal.length >= 10 &&
+    originalVal.startsWith(currentVal)
+  ) {
     return originalVal;
   }
   return currentVal;
@@ -115,7 +119,9 @@ export const ModalGuiaSegundoTramo = ({
 
   // ---- estado del formulario
   const [motivoTraslado, setMotivoTraslado] = useState<string | null>(null);
-  const [fechaInicioTraslado, setFechaInicioTraslado] = useState<string | null>(null);
+  const [fechaInicioTraslado, setFechaInicioTraslado] = useState<string | null>(
+    null,
+  );
   const [fechaEmision, setFechaEmision] = useState<string | null>(null);
   const [fechaEnPlanta, setFechaEnPlanta] = useState<string | null>(null);
   const [guiaRemitente, setGuiaRemitente] = useState("");
@@ -123,7 +129,8 @@ export const ModalGuiaSegundoTramo = ({
   const [sinGuiaTransportista, setSinGuiaTransportista] = useState(false);
 
   // ---- remitente (entidad): Empresa o Planta Destino
-  const [esPlantaDestinoRemitente, setEsPlantaDestinoRemitente] = useState(false);
+  const [esPlantaDestinoRemitente, setEsPlantaDestinoRemitente] =
+    useState(false);
   const [remitenteId, setRemitenteId] = useState<string | null>(null);
   const [empresas, setEmpresas] = useState<RES_Empresa[]>([]);
   const [plantas, setPlantas] = useState<
@@ -132,8 +139,11 @@ export const ModalGuiaSegundoTramo = ({
   const [loadingCatalogos, setLoadingCatalogos] = useState(false);
 
   // ---- documentos: archivos nuevos seleccionados por el usuario
-  const [documentoRemitente, setDocumentoRemitente] = useState<File | null>(null);
-  const [documentoTransportista, setDocumentoTransportista] = useState<File | null>(null);
+  const [documentoRemitente, setDocumentoRemitente] = useState<File | null>(
+    null,
+  );
+  const [documentoTransportista, setDocumentoTransportista] =
+    useState<File | null>(null);
 
   // ---- archivos existentes traidos del backend (se descargan al abrir en modo edicion)
   const [archivoRemitenteExistente, setArchivoRemitenteExistente] =
@@ -146,8 +156,12 @@ export const ModalGuiaSegundoTramo = ({
   const [transportistaEliminado, setTransportistaEliminado] = useState(false);
 
   // ---- nombre del archivo nuevo que se persistira (para trazabilidad log_cambios)
-  const [nombresArchivosNuevos, setNombresArchivosNuevos] = useState<string[]>([]);
-  const [nombresArchivosEliminados, setNombresArchivosEliminados] = useState<string[]>([]);
+  const [nombresArchivosNuevos, setNombresArchivosNuevos] = useState<string[]>(
+    [],
+  );
+  const [nombresArchivosEliminados, setNombresArchivosEliminados] = useState<
+    string[]
+  >([]);
 
   const [cargandoInicial, setCargandoInicial] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -282,8 +296,8 @@ export const ModalGuiaSegundoTramo = ({
           <span>
             Ya existe un archivo adjunto (
             <strong>{existente.nombre_original ?? "sin nombre"}</strong>) para
-            la guía {field === "remitente" ? "remitente" : "transportista"}.
-            Si continúas, se reemplazará al guardar.
+            la guía {field === "remitente" ? "remitente" : "transportista"}. Si
+            continúas, se reemplazará al guardar.
           </span>
         ),
         confirmLabel: "Sí, reemplazar",
@@ -292,7 +306,10 @@ export const ModalGuiaSegundoTramo = ({
         onConfirm: () => {
           // Marcar el existente como eliminado y registrar el nombre del nuevo
           if (field === "remitente") {
-            if (!remitenteEliminado && archivoRemitenteExistente?.nombre_original) {
+            if (
+              !remitenteEliminado &&
+              archivoRemitenteExistente?.nombre_original
+            ) {
               setNombresArchivosEliminados((prev) => [
                 ...prev,
                 archivoRemitenteExistente.nombre_original as string,
@@ -305,7 +322,10 @@ export const ModalGuiaSegundoTramo = ({
               return [...prev, file.name];
             });
           } else {
-            if (!transportistaEliminado && archivoTransportistaExistente?.nombre_original) {
+            if (
+              !transportistaEliminado &&
+              archivoTransportistaExistente?.nombre_original
+            ) {
               setNombresArchivosEliminados((prev) => [
                 ...prev,
                 archivoTransportistaExistente.nombre_original as string,
@@ -440,8 +460,14 @@ export const ModalGuiaSegundoTramo = ({
             fechaInicioTraslado,
             guia.fecha_inicio_traslado,
           ),
-          fecha_emision: dateInputToIsoDateTime(fechaEmision, guia.fecha_emision),
-          fecha_en_planta: dateInputToIsoDateTime(fechaEnPlanta, guia.fecha_en_planta),
+          fecha_emision: dateInputToIsoDateTime(
+            fechaEmision,
+            guia.fecha_emision,
+          ),
+          fecha_en_planta: dateInputToIsoDateTime(
+            fechaEnPlanta,
+            guia.fecha_en_planta,
+          ),
           guia_remitente: guiaRemitenteTrim,
           guia_transportista: numeroGuiaTransportista,
           sin_guia_transportista: sinGuiaTransportista,
@@ -519,7 +545,11 @@ export const ModalGuiaSegundoTramo = ({
         ) : undefined
       }
     >
-      <Stack gap="md" className="max-h-[80vh] overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+      <Stack
+        gap="md"
+        className="max-h-[80vh] overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+      >
         {cargandoInicial ? (
           <div className="flex flex-col items-center justify-center py-12 gap-2">
             <Loader size="md" color="indigo" />
@@ -583,12 +613,25 @@ export const ModalGuiaSegundoTramo = ({
               <Grid.Col span={{ base: 12, sm: 3 }}>
                 <Input.Wrapper
                   label={
-                    <Group justify="space-between" align="center" wrap="nowrap" w="100%">
-                      <Text fz={10} fw={600} tt="uppercase" lts="0.04em" className="text-zinc-400 whitespace-nowrap">
+                    <Group
+                      justify="space-between"
+                      align="center"
+                      wrap="nowrap"
+                      w="100%"
+                    >
+                      <Text
+                        fz={10}
+                        fw={600}
+                        tt="uppercase"
+                        lts="0.04em"
+                        className="text-zinc-400 whitespace-nowrap"
+                      >
                         Remitente:
                       </Text>
                       <Group gap={4} align="center" wrap="nowrap">
-                        <Text fz={9} c="zinc.5">Empresa</Text>
+                        <Text fz={11} c="zinc.5">
+                          {esPlantaDestinoRemitente ? "Planta" : "Empresa"}
+                        </Text>
                         <Switch
                           size="xs"
                           color="indigo"
@@ -598,10 +641,7 @@ export const ModalGuiaSegundoTramo = ({
                             setEsPlantaDestinoRemitente(next);
                             setRemitenteId(null);
                           }}
-                          onLabel="PLANTA"
-                          offLabel="EMPRESA"
                         />
-                        <Text fz={9} c="zinc.5">Planta</Text>
                       </Group>
                     </Group>
                   }
@@ -637,7 +677,9 @@ export const ModalGuiaSegundoTramo = ({
                     radius="lg"
                     size="xs"
                     disabled={loadingCatalogos}
-                    rightSection={loadingCatalogos ? <Loader size={16} /> : undefined}
+                    rightSection={
+                      loadingCatalogos ? <Loader size={16} /> : undefined
+                    }
                     searchable
                     clearable
                     comboboxProps={{ withinPortal: true }}
@@ -679,12 +721,25 @@ export const ModalGuiaSegundoTramo = ({
               <Grid.Col span={{ base: 12, sm: 3 }}>
                 <Input.Wrapper
                   label={
-                    <Group justify="space-between" align="center" wrap="nowrap" w="100%">
-                      <Text fz={10} fw={600} tt="uppercase" lts="0.04em" className="text-zinc-400 whitespace-nowrap">
+                    <Group
+                      justify="space-between"
+                      align="center"
+                      wrap="nowrap"
+                      w="100%"
+                    >
+                      <Text
+                        fz={10}
+                        fw={600}
+                        tt="uppercase"
+                        lts="0.04em"
+                        className="text-zinc-400 whitespace-nowrap"
+                      >
                         N° Guía Transportista:
                       </Text>
                       <Group gap={4} align="center" wrap="nowrap">
-                        <Text fz={9} c="zinc.5">Sin guía:</Text>
+                        <Text fz={9} c="zinc.5">
+                          Sin guía:
+                        </Text>
                         <Switch
                           size="xs"
                           color="indigo"
@@ -742,11 +797,17 @@ export const ModalGuiaSegundoTramo = ({
                   <DocumentoSlot
                     label="Documento Guía Transportista"
                     archivoExistente={
-                      transportistaEliminado ? null : archivoTransportistaExistente
+                      transportistaEliminado
+                        ? null
+                        : archivoTransportistaExistente
                     }
                     archivoNuevo={documentoTransportista}
-                    onPick={(f) => handleArchivoSeleccionado("transportista", f)}
-                    onQuitarExistente={() => handleQuitarExistente("transportista")}
+                    onPick={(f) =>
+                      handleArchivoSeleccionado("transportista", f)
+                    }
+                    onQuitarExistente={() =>
+                      handleQuitarExistente("transportista")
+                    }
                     onQuitarNuevo={() => handleQuitarNuevo("transportista")}
                     fileToIArchivoLocal={fileToIArchivoLocal}
                   />
@@ -810,7 +871,11 @@ const DocumentoSlot = ({
   return (
     <Box>
       <Group justify="space-between" align="center" mb={6}>
-        <Text size="xs" fw={800} className="text-zinc-100 uppercase tracking-widest">
+        <Text
+          size="xs"
+          fw={800}
+          className="text-zinc-100 uppercase tracking-widest"
+        >
           {label}
         </Text>
         <FileButton onChange={(f) => f && onPick(f)} accept="*">

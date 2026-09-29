@@ -31,6 +31,7 @@ import { RegistroDistribucionModal } from "./registro-distribucion-modal";
 import { ModalGuiaSegundoTramo } from "./modal-guia-segundo-tramo";
 import { ModalLlegadaCliente } from "./modal-llegada-cliente";
 import type { DespachoDetalle } from "../../service/programacion-despachos.responses";
+import { formatNumber } from "../../../../shared/functions/formatNumber";
 
 interface Props {
   opened: boolean;
@@ -76,10 +77,13 @@ export const ModalDetalleDespacho = ({
   const cabecera = detalle?.cabecera ?? null;
   const detalles = detalle?.detalles ?? [];
   const distribuciones = detalle?.distribuciones ?? [];
-  const pesoTotalTomado = detalles.reduce((acc, d) => acc + (d.peso_tomado ?? 0), 0);
+  const pesoTotalTomado = detalles.reduce(
+    (acc, d) => acc + (d.peso_tomado ?? 0),
+    0,
+  );
   const pesoTotalPendiente = detalles.reduce(
     (acc, d) => acc + (d.peso_actual ?? 0),
-    0
+    0,
   );
   const pesoDistribuido = Math.max(pesoTotalTomado - pesoTotalPendiente, 0);
 
@@ -168,12 +172,20 @@ export const ModalDetalleDespacho = ({
         <table className="w-full text-xs border-collapse">
           <thead>
             <tr className="text-[10px] uppercase tracking-wider text-zinc-500 bg-zinc-900/70 font-bold border-b border-zinc-800/80">
-              <th className="py-2.5 px-3 text-center font-bold">Correlativo / Proveedor</th>
-              <th className="py-2.5 px-3 text-center font-bold">Tipo</th>
-              <th className="py-2.5 px-3 text-center font-bold">Cód. Preliminar</th>
-              <th className="py-2.5 px-3 text-center font-bold">Peso Tomado (KG)</th>
-              <th className="py-2.5 px-3 text-center font-bold">Peso Pendiente (KG)</th>
-              <th className="py-2.5 px-3 text-center font-bold">% Distribuido</th>
+              <th className="py-2.5 px-3 text-center font-bold">
+                Correlativo / Proveedor
+              </th>
+              {/* <th className="py-2.5 px-3 text-center font-bold">Tipo</th> */}
+              <th className="py-2.5 px-3 text-center font-bold">
+                Cód. Preliminar
+              </th>
+              <th className="py-2.5 px-3 text-center font-bold">
+                Peso Tomado (KG)
+              </th>
+              <th className="py-2.5 px-3 text-center font-bold">
+                Peso Pendiente (KG)
+              </th>
+              {/* <th className="py-2.5 px-3 text-center font-bold">% Distribuido</th> */}
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-800/60">
@@ -186,27 +198,34 @@ export const ModalDetalleDespacho = ({
               const correlativo =
                 d.lote_correlativo ?? d.blending_correlativo ?? "—";
               return (
-                <tr key={d.id} className="hover:bg-zinc-900/40 transition-colors">
-                  <td className="py-2.5 px-3 text-center align-middle">
-                    <Text size="xs" className="text-zinc-200 font-mono">
-                      {correlativo}
-                    </Text>
+                <tr
+                  key={d.id}
+                  className="hover:bg-zinc-900/40 transition-colors"
+                >
+                  <td className="py-2.5 px-3 text-center align-middle flex justify-center items-center flex-col gap-1.5">
+                    <Group className="grow">
+                      <Text size="xs" className="text-zinc-200 font-mono">
+                        {correlativo}
+                      </Text>{" "}
+                      <Badge
+                        color={esLote ? "yellow" : "gray"}
+                        variant="filled"
+                        size="xs"
+                        fw={700}
+                        radius="md"
+                      >
+                        {esLote ? "LOTE" : "BLEND"}
+                      </Badge>
+                    </Group>
                     {d.proveedor_razon_social && (
-                      <Text size="10px" c="dimmed" className="truncate max-w-45 mx-auto">
+                      <Text
+                        size="10px"
+                        c="dimmed"
+                        className="truncate max-w-45 mx-auto"
+                      >
                         {d.proveedor_razon_social}
                       </Text>
                     )}
-                  </td>
-                  <td className="py-2.5 px-3 text-center align-middle">
-                    <Badge
-                      color={esLote ? "yellow" : "gray"}
-                      variant="filled"
-                      size="xs"
-                      fw={700}
-                      radius="md"
-                    >
-                      {esLote ? "LOTE" : "BLEND"}
-                    </Badge>
                   </td>
                   <td className="py-2.5 px-3 text-center align-middle">
                     {d.codigo_preliminar ? (
@@ -220,9 +239,32 @@ export const ModalDetalleDespacho = ({
                     )}
                   </td>
                   <td className="py-2.5 px-3 text-center align-middle">
-                    <Text size="xs" fw={600} className="text-zinc-200 font-mono">
-                      {total.toFixed(3)}
+                    <Text
+                      size="xs"
+                      fw={600}
+                      className="text-zinc-200 font-mono"
+                    >
+                      {formatNumber(total)}
                     </Text>
+                    <div className="flex flex-row items-center gap-1 justify-center mt-1.5">
+                      <div className="w-10 h-1 bg-zinc-800 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full ${
+                            pct >= 99.99 ? "bg-emerald-400" : "bg-indigo-400"
+                          } transition-all`}
+                          style={{ width: `${Math.min(pct, 100)}%` }}
+                        />
+                      </div>
+                      <Text
+                        size="11px"
+                        fw={700}
+                        className={`font-mono ${
+                          pct >= 99.99 ? "text-emerald-400" : "text-zinc-300"
+                        }`}
+                      >
+                        {pct.toFixed(1)}%
+                      </Text>
+                    </div>
                   </td>
                   <td className="py-2.5 px-3 text-center align-middle">
                     <Text
@@ -235,34 +277,19 @@ export const ModalDetalleDespacho = ({
                       {pend.toFixed(3)}
                     </Text>
                   </td>
-                  <td className="py-2.5 px-3 text-center align-middle">
-                    <div className="flex flex-col items-center gap-1">
-                      <Text
-                        size="xs"
-                        fw={700}
-                        className={`font-mono ${
-                          pct >= 99.99 ? "text-emerald-400" : "text-zinc-300"
-                        }`}
-                      >
-                        {pct.toFixed(1)}%
-                      </Text>
-                      <div className="w-20 h-1 bg-zinc-800 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full ${
-                            pct >= 99.99 ? "bg-emerald-400" : "bg-indigo-400"
-                          } transition-all`}
-                          style={{ width: `${Math.min(pct, 100)}%` }}
-                        />
-                      </div>
-                    </div>
-                  </td>
                 </tr>
               );
             })}
             <tr className="bg-zinc-900/70 border-t-2 border-zinc-700 font-bold">
-              <td colSpan={3} />
+              <td colSpan={2} />
               <td className="py-2 px-3 text-center align-middle">
-                <Text size="9px" c="dimmed" tt="uppercase" lts="0.04em" className="font-bold mb-0.5">
+                <Text
+                  size="9px"
+                  c="dimmed"
+                  tt="uppercase"
+                  lts="0.04em"
+                  className="font-bold mb-0.5"
+                >
                   Peso Total
                 </Text>
                 <Text size="xs" fw={800} c="zinc.100" className="font-mono">
@@ -282,7 +309,7 @@ export const ModalDetalleDespacho = ({
                 }`}
               >
                 {pesoTotalTomado > 0
-                  ? (((pesoDistribuido / pesoTotalTomado) * 100).toFixed(1))
+                  ? ((pesoDistribuido / pesoTotalTomado) * 100).toFixed(1)
                   : "0.0"}
                 %
               </td>
@@ -321,9 +348,7 @@ export const ModalDetalleDespacho = ({
   };
 
   const puedeAgregarDistribucion =
-    cabecera !== null &&
-    !cabecera.es_anulado &&
-    pesoTotalPendiente > 0;
+    cabecera !== null && !cabecera.es_anulado && pesoTotalPendiente > 0;
 
   return (
     <>
@@ -383,7 +408,12 @@ export const ModalDetalleDespacho = ({
                       <Text size="sm" fw={700} c="zinc.2">
                         Distribuciones
                       </Text>
-                      <Badge variant="light" color="indigo" size="sm" radius="md">
+                      <Badge
+                        variant="light"
+                        color="indigo"
+                        size="sm"
+                        radius="md"
+                      >
                         {distribuciones.length}
                       </Badge>
                     </Group>
@@ -392,8 +422,8 @@ export const ModalDetalleDespacho = ({
                         puedeAgregarDistribucion
                           ? "Agregar nueva distribución"
                           : cabecera?.es_anulado
-                          ? "El despacho está anulado"
-                          : "No hay peso pendiente"
+                            ? "El despacho está anulado"
+                            : "No hay peso pendiente"
                       }
                       withArrow
                     >
