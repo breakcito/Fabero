@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Text, Button, Select, Textarea, Badge, Group, ActionIcon, Tooltip, Stack } from "@mantine/core";
+import { Text, Button, Select, Textarea, Badge, Group, ActionIcon, Tooltip, type MantineColor } from "@mantine/core";
 import { DataTableEstandar } from "../../../../presentation/utils/datatable-estandar";
 import { IconPaperclip, IconClipboardCheck, IconPencil, IconHistory, IconTruck } from "@tabler/icons-react";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
@@ -10,6 +10,7 @@ import type { IArchivo } from "../../../../shared/interfaces/archivo";
 import { RecepcionUnidadesService } from "../../service/recepcion-unidades.service";
 import { useNotify } from "../../../../hooks/useNotify";
 import { EstadoSalida } from "../../../../shared/enums/_generic/estado-salida";
+import { EstadoUnidad } from "../../../../shared/enums/_generic/estado-unidad";
 
 interface Props {
   recepciones: RecepcionUnidadResponse[];
@@ -64,6 +65,51 @@ export const TablaRecepciones = ({
     }
   };
 
+  /**
+   * Colores por valor del enum `EstadoUnidad`. Sólo los 2 valores válidos
+   * producen badge; cualquier otro valor (datos legacy fuera del enum,
+   * como "Salió de Planta") se renderiza como "—" sin inventar mappings.
+   */
+  const ESTADO_UNIDAD_COLORS: Record<EstadoUnidad, MantineColor> = {
+    [EstadoUnidad.EnPlanta]: "teal",
+    [EstadoUnidad.FueraDePlanta]: "dark",
+  };
+
+  const ESTADO_UNIDAD_VALUES = new Set<string>(
+    Object.values(EstadoUnidad) as string[],
+  );
+
+  /**
+   * Render del estado de la unit (`recepcion_unidad.estado`). Si el valor
+   * está en el enum `EstadoUnidad` se muestra como badge; si no, se muestra
+   * "—" (datos legacy fuera del enum no se inventan).
+   */
+  const estadoUnidadBadge = (estado: string | null | undefined) => {
+    const texto = estado ?? "—";
+    if (!ESTADO_UNIDAD_VALUES.has(texto)) {
+      return (
+        <Text size="sm" c="dimmed">
+          —
+        </Text>
+      );
+    }
+    const color = ESTADO_UNIDAD_COLORS[texto as EstadoUnidad];
+
+    return (
+      <Badge
+        color={color}
+        variant="filled"
+        radius="md"
+        size="sm"
+        fw={700}
+        tt="uppercase"
+        className="tracking-wide"
+      >
+        {texto}
+      </Badge>
+    );
+  };
+
   const handleSaveExit = async () => {
     if (!exitRecord) return;
     if (!estadoSalida) {
@@ -109,7 +155,7 @@ export const TablaRecepciones = ({
             accessor: "acciones",
             title: "Acciones",
             textAlign: "center",
-            width: 110,
+            width: 140,
             render: (r: RecepcionUnidadResponse) => {
               const tieneObservacionoEvidencias =
                 (r.observacion !== null && r.observacion.trim().length > 0) ||
@@ -117,6 +163,9 @@ export const TablaRecepciones = ({
 
               const noConfirmada = r.es_programacion && !r.id_empleado_recepcion;
               const disabledReason = "Confirme la programación para habilitar";
+
+              const puedeRegistrarSalida =
+                !noConfirmada && !r.fecha_hora_salida;
 
               return (
                 <Group gap={6} wrap="nowrap" justify="center">
@@ -184,6 +233,26 @@ export const TablaRecepciones = ({
                       <IconPencil size={16} />
                     </ActionIcon>
                   </Tooltip>
+
+                  {puedeRegistrarSalida && (
+                    <Tooltip label="Registrar salida" withArrow>
+                      <ActionIcon
+                        variant="light"
+                        color="red"
+                        radius="xl"
+                        size="md"
+                        onClick={() => {
+                          setExitRecord(r);
+                          setEstadoSalida(null);
+                          setObservacionSalida("");
+                          setEvidenciasSalida([]);
+                        }}
+                        className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20"
+                      >
+                        <IconTruck size={16} />
+                      </ActionIcon>
+                    </Tooltip>
+                  )}
                 </Group>
               );
             },
@@ -293,6 +362,13 @@ export const TablaRecepciones = ({
             },
           },
           {
+            accessor: "estado",
+            title: "Estado Unidad",
+            textAlign: "center",
+            width: 180,
+            render: (r: RecepcionUnidadResponse) => estadoUnidadBadge(r.estado),
+          },
+          {
             accessor: "empresa_transporte_razon_social",
             title: "Transportista",
             textAlign: "center",
@@ -359,35 +435,13 @@ export const TablaRecepciones = ({
           },
           {
             accessor: "fecha_hora_salida",
-            title: "Salida",
+            title: "F. Salida",
             textAlign: "center",
             width: 170,
             render: (r: RecepcionUnidadResponse) => (
-              <Stack gap={4} align="center">
-                {r.fecha_hora_salida ? (
-                  <Text size="sm" className="text-zinc-200" fw={500}>
-                    {formatFecha(r.fecha_hora_salida)}
-                  </Text>
-                ) : (
-                  !(r.es_programacion && !r.id_empleado_recepcion) && (
-                    <Button
-                      size="compact-xs"
-                      color="red"
-                      radius="lg"
-                      leftSection={<IconTruck size={12} />}
-                      onClick={() => {
-                        setExitRecord(r);
-                        setEstadoSalida(null);
-                        setObservacionSalida("");
-                        setEvidenciasSalida([]);
-                      }}
-                      className="bg-red-600 hover:bg-red-700 text-white font-semibold h-6 px-2.5"
-                    >
-                      Registrar Salida
-                    </Button>
-                  )
-                )}
-              </Stack>
+              <Text size="sm" className="text-zinc-200" fw={500}>
+                {r.fecha_hora_salida ? formatFecha(r.fecha_hora_salida) : "—"}
+              </Text>
             ),
           },
           {
@@ -407,19 +461,6 @@ export const TablaRecepciones = ({
                 </Tooltip>
               );
             },
-          },
-          {
-            accessor: "estado_salida",
-            title: "Estado Unidad",
-            textAlign: "center",
-            width: 150,
-            render: (r: RecepcionUnidadResponse) => (
-              <Group gap="xs" justify="center">
-                <Text size="sm" className="text-zinc-200">
-                  {r.estado_salida ?? r.estado ?? "—"}
-                </Text>
-              </Group>
-            ),
           },
           {
             accessor: "observacion_salida",

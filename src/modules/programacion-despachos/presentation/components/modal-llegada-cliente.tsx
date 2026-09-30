@@ -21,16 +21,18 @@ import type {
   DTO_DatosCliente,
 } from "../../service/programacion-despachos.requests";
 
-const todayIso = (): string => {
-  const d = new Date();
-  const pad = (n: number) => n.toString().padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-};
-
 interface Props {
   opened: boolean;
   onClose: () => void;
   distribucion: DistribucionItem;
+  /**
+   * Fecha de llegada al cliente en formato YYYY-MM-DD.
+   *
+   - En el flujo de primer registro, viene del `ModalFechaLlegadaCliente`
+     (paso 1 de 2) que ya la persistió.
+   - En edición, viene de `distribucion.fecha_llegada_cliente` (ya guardada).
+   */
+  fechaInicial: string;
   /**
    * Callback al guardar exitosamente. El padre refresca el detalle del despacho.
    */
@@ -44,21 +46,25 @@ const fieldClasses = {
 };
 
 /**
- * Modal para registrar / editar los datos reportados por el cliente al recibir la
- * distribución. Se abre cuando la distribución está en "Salió de Planta" (primer
- * registro) o "Llegó al Cliente" (edición).
+ * Modal (paso 2 de 2) para registrar / editar los datos reportados por el cliente
+ * al recibir la distribución. La fecha de llegada ya fue capturada en
+ * `ModalFechaLlegadaCliente` (o viene de la distribución en modo edición).
+ *
+ * Se abre cuando la distribución está en "Salió de Planta" (primer registro) o
+ * "Llegó al Cliente" (edición).
  */
 export const ModalLlegadaCliente = ({
   opened,
   onClose,
   distribucion,
+  fechaInicial,
   onSaved,
 }: Props) => {
   const { notifyError } = useNotify();
   const { loading, submit } = useLlegadaCliente();
 
-  const [fechaLlegadaCliente, setFechaLlegadaCliente] = useState<string | null>(
-    null,
+  const [fechaLlegadaCliente, setFechaLlegadaCliente] = useState<string>(
+    fechaInicial,
   );
   const [errorFecha, setErrorFecha] = useState<string | null>(null);
 
@@ -74,17 +80,13 @@ export const ModalLlegadaCliente = ({
   // Cargar / resetear estado al abrir.
   useEffect(() => {
     if (!opened) {
-      setFechaLlegadaCliente(null);
+      setFechaLlegadaCliente(fechaInicial);
       setErrorFecha(null);
       setDatosPorDetalle({});
       return;
     }
 
-    setFechaLlegadaCliente(
-      distribucion.fecha_llegada_cliente
-        ? distribucion.fecha_llegada_cliente.slice(0, 10)
-        : todayIso(),
-    );
+    setFechaLlegadaCliente(fechaInicial);
     setErrorFecha(null);
 
     const inicial: typeof datosPorDetalle = {};
@@ -137,10 +139,6 @@ export const ModalLlegadaCliente = ({
     }));
   };
 
-  // Inputs de detalle y botón Guardar quedan bloqueados hasta que se
-  // ingrese la fecha de llegada al cliente.
-  const inputsDisabled = !fechaLlegadaCliente || loading;
-
   const handleGuardar = async (): Promise<void> => {
     if (!fechaLlegadaCliente) {
       setErrorFecha("La fecha de llegada al cliente es obligatoria.");
@@ -179,7 +177,7 @@ export const ModalLlegadaCliente = ({
     ? `Editar Datos del Cliente — Distribución #${distribucion.id}`
     : `Registrar Datos del Cliente — Distribución #${distribucion.id}`;
 
-  // Header rightSection: input de fecha (obligatorio).
+  // Header rightSection: input de fecha (editable, pre-cargado).
   const headerRightSection = (
     <Group gap={6} align="center" wrap="nowrap">
       <Text
@@ -196,14 +194,15 @@ export const ModalLlegadaCliente = ({
         type="date"
         size="xs"
         radius="lg"
-        value={fechaLlegadaCliente ?? ""}
+        value={fechaLlegadaCliente}
         onChange={(e) => {
-          setFechaLlegadaCliente(e.currentTarget.value || null);
+          setFechaLlegadaCliente(e.currentTarget.value);
           if (errorFecha) setErrorFecha(null);
         }}
         leftSection={<IconCalendar size={14} />}
         classNames={{ input: fieldClasses.input }}
         error={errorFecha}
+        disabled={loading}
         required
       />
     </Group>
@@ -316,7 +315,7 @@ export const ModalLlegadaCliente = ({
                               e.currentTarget.value || null,
                             )
                           }
-                          disabled={inputsDisabled}
+                          disabled={loading}
                           classNames={{ input: fieldClasses.input }}
                         />
                       </td>
@@ -338,7 +337,7 @@ export const ModalLlegadaCliente = ({
                               typeof val === "number" ? val : parseFloat(String(val)) || null,
                             )
                           }
-                          disabled={inputsDisabled}
+                          disabled={loading}
                           classNames={{ input: fieldClasses.input }}
                         />
                         {vPeso && (
@@ -364,7 +363,7 @@ export const ModalLlegadaCliente = ({
                               typeof val === "number" ? val : parseFloat(String(val)) || null,
                             )
                           }
-                          disabled={inputsDisabled}
+                          disabled={loading}
                           classNames={{ input: fieldClasses.input }}
                         />
                         {vAu && (
@@ -390,7 +389,7 @@ export const ModalLlegadaCliente = ({
                               typeof val === "number" ? val : parseFloat(String(val)) || null,
                             )
                           }
-                          disabled={inputsDisabled}
+                          disabled={loading}
                           classNames={{ input: fieldClasses.input }}
                         />
                         {vAg && (
@@ -417,7 +416,7 @@ export const ModalLlegadaCliente = ({
                               typeof val === "number" ? val : parseFloat(String(val)) || null,
                             )
                           }
-                          disabled={inputsDisabled}
+                          disabled={loading}
                           classNames={{ input: fieldClasses.input }}
                         />
                         {vHu && (
@@ -451,7 +450,7 @@ export const ModalLlegadaCliente = ({
             size="sm"
             color="indigo"
             loading={loading}
-            disabled={inputsDisabled}
+            disabled={loading}
             onClick={() => void handleGuardar()}
             className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-900/30"
           >

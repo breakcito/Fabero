@@ -49,5 +49,39 @@ export const useLlegadaCliente = () => {
     [notifyError, notifySuccess],
   );
 
-  return { loading, submit };
+  /**
+   * Persistir SOLO la fecha de llegada al cliente (paso 1 del flujo de 2 pasos).
+   * Reutiliza el endpoint existente enviando `detalles: []` — el backend ya
+   * lo soporta (ver `actualizar_datos_cliente` en ProgramacionDespachosController).
+   * Devuelve el `DespachoDetalle` actualizado o `null` si falla.
+   */
+  const registrarFechaLlegada = useCallback(
+    async (
+      idDistribucion: number,
+      fecha: string,
+    ): Promise<DespachoDetalle | null> => {
+      setLoading(true);
+      try {
+        const result = await ProgramacionDespachosService.actualizarDatosCliente(
+          idDistribucion,
+          { fecha_llegada_cliente: fecha, detalles: [] },
+        );
+        notifySuccess("Fecha de llegada al cliente registrada correctamente.");
+        return result;
+      } catch (e: unknown) {
+        notifyError(
+          extractErrorMessage(
+            e,
+            "No se pudo registrar la fecha de llegada al cliente.",
+          ),
+        );
+        return null;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [notifyError, notifySuccess],
+  );
+
+  return { loading, submit, registrarFechaLlegada };
 };

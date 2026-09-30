@@ -888,7 +888,7 @@ export const CardProcesoBalanza = ({
           <Paper
             radius="md"
             p="xs"
-            className="bg-zinc-900/30 border border-zinc-800/80 h-full"
+            className="bg-zinc-900/30 border border-zinc-800/80 h-full flex flex-col"
           >
             {/* Header interno: contador de lotes/particiones + botones de acción.
                 El subtítulo "Proceso de Pesaje y Lotes" vive en el header GLOBAL
@@ -931,10 +931,14 @@ export const CardProcesoBalanza = ({
             </Group>
 
             {itemsAMostrar.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-4 text-center gap-1">
-                <IconCalendarTime size={20} className="text-zinc-600" />
-                <Text size="10px" c="dimmed">
-                  Sin lotes. Haz clic en "+ Lote".
+              <div className="flex flex-col items-center justify-center flex-1 min-h-[180px] my-1 text-center gap-2 border border-dashed border-blue-500/40 rounded-md bg-blue-500/5">
+                <IconCalendarTime size={26} className="text-blue-400" />
+                <Text size="sm" c="blue.3" fw={700}>
+                  No hay lotes.
+                </Text>
+                <Text size="10px" c="dimmed" fw={500}>
+                  Haz clic en &quot;+ Lote&quot; para registrar el primer lote de
+                  esta unidad.
                 </Text>
               </div>
             ) : (

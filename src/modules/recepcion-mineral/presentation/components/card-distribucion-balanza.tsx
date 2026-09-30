@@ -341,7 +341,7 @@ const DetallePesajeItem = ({ detalle, onSaved }: DetallePesajeItemProps) => {
         </Alert>
       )}
 
-      {!pesado && !taraMenorBruto && (ctrl.taraNum > 0 || ctrl.brutoNum > 0) && (
+      {!pesado && ctrl.taraNum > 0 && ctrl.brutoNum > 0 && !taraMenorBruto && (
         <Alert
           color="red"
           radius="sm"
@@ -514,14 +514,12 @@ export const CardDistribucionBalanza = ({
                   <Button
                     type="button"
                     radius="md"
-                    variant="light"
-                    color="indigo"
                     onClick={() => setModalAsignarAbierto(true)}
                     loading={tieneLotesDisponibles === null}
                     disabled={tieneLotesDisponibles === false}
                     size="compact-xs"
                     leftSection={<IconPlus size={12} />}
-                    className="font-semibold h-6 px-2.5 text-[11px] bg-indigo-500/10! hover:bg-indigo-500/20! text-indigo-400! border-indigo-500/20! disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold h-6 px-2.5 text-[11px] disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Asignar Carga
                   </Button>

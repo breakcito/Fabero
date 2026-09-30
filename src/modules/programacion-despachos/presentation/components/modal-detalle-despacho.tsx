@@ -30,6 +30,7 @@ import { DistribucionCard } from "./distribucion-card";
 import { RegistroDistribucionModal } from "./registro-distribucion-modal";
 import { ModalGuiaSegundoTramo } from "./modal-guia-segundo-tramo";
 import { ModalLlegadaCliente } from "./modal-llegada-cliente";
+import { ModalFechaLlegadaCliente } from "./modal-fecha-llegada-cliente";
 import type { DespachoDetalle } from "../../service/programacion-despachos.responses";
 
 interface Props {
@@ -66,6 +67,14 @@ export const ModalDetalleDespacho = ({
   const [modalLlegadaAbierto, setModalLlegadaAbierto] = useState(false);
   const [llegadaDistribucionSeleccionada, setLlegadaDistribucionSeleccionada] =
     useState<DistribucionItem | null>(null);
+
+  // ---- modal pequeño (paso 1): captura sólo la fecha de llegada.
+  //      Sólo se abre cuando la distribución NO tiene fecha registrada.
+  const [modalFechaAbierto, setModalFechaAbierto] = useState(false);
+
+  // ---- fecha YYYY-MM-DD que se pasa al ModalLlegadaCliente (paso 2).
+  //      Se setea al cerrar el modal pequeño o al abrir en modo edición.
+  const [fechaParaLlegada, setFechaParaLlegada] = useState<string | null>(null);
 
   useEffect(() => {
     if (opened && idDespacho !== null) {
@@ -125,12 +134,40 @@ export const ModalDetalleDespacho = ({
     // del backend (p.ej. blending_ley_humedad) estén en el cache cuando se
     // renderiza el modal. Sin esto, el modal abre con datos viejos.
     refrescar();
-    setModalLlegadaAbierto(true);
+
+    if (dist.fecha_llegada_cliente) {
+      // Edición: la fecha ya existe, vamos directo al modal grande.
+      setFechaParaLlegada(dist.fecha_llegada_cliente.slice(0, 10));
+      setModalLlegadaAbierto(true);
+    } else {
+      // Primer registro: primero el modal pequeño para capturar la fecha.
+      setModalFechaAbierto(true);
+    }
   };
 
   const cerrarLlegadaCliente = () => {
     setModalLlegadaAbierto(false);
     setLlegadaDistribucionSeleccionada(null);
+    setFechaParaLlegada(null);
+  };
+
+  /**
+   * Al confirmar el modal pequeño (paso 1): la fecha ya fue persistida por el
+   * hook. Refrescamos el detalle para que `distribucion.fecha_llegada_cliente`
+   * llegue actualizado al modal grande, y abrimos el modal grande (paso 2).
+   */
+  const handleFechaConfirmed = (
+    fecha: string,
+    _despachoActualizado: DespachoDetalle,
+  ): void => {
+    void _despachoActualizado;
+    refrescar();
+    setFechaParaLlegada(fecha);
+    setModalLlegadaAbierto(true);
+  };
+
+  const cerrarFechaLlegada = () => {
+    setModalFechaAbierto(false);
   };
 
   const handleLlegadaSaved = (despachoActualizado: DespachoDetalle): void => {
@@ -446,14 +483,26 @@ export const ModalDetalleDespacho = ({
         />
       )}
 
-      {modalLlegadaAbierto && llegadaDistribucionSeleccionada !== null && (
-        <ModalLlegadaCliente
-          opened={modalLlegadaAbierto}
-          distribucion={llegadaDistribucionSeleccionada}
-          onClose={cerrarLlegadaCliente}
-          onSaved={handleLlegadaSaved}
+      {modalFechaAbierto && llegadaDistribucionSeleccionada !== null && (
+        <ModalFechaLlegadaCliente
+          opened={modalFechaAbierto}
+          idDistribucion={llegadaDistribucionSeleccionada.id}
+          onClose={cerrarFechaLlegada}
+          onSuccess={handleFechaConfirmed}
         />
       )}
+
+      {modalLlegadaAbierto &&
+        llegadaDistribucionSeleccionada !== null &&
+        fechaParaLlegada !== null && (
+          <ModalLlegadaCliente
+            opened={modalLlegadaAbierto}
+            distribucion={llegadaDistribucionSeleccionada}
+            fechaInicial={fechaParaLlegada}
+            onClose={cerrarLlegadaCliente}
+            onSaved={handleLlegadaSaved}
+          />
+        )}
     </>
   );
 };
