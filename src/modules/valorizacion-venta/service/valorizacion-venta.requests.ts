@@ -6,7 +6,8 @@ export interface REQ_FiltroValorizacionesVenta {
 }
 
 export interface REQ_ValorizacionVentaDetalleItem {
-  id_distribucion_detalle: number;
+  id_despacho_detalle?: number;
+  id_distribucion_detalle?: number;
   elemento_quimico: ElementoQuimicoValorizacion;
   id_condicion_comercial?: number | null;
   id_valor_elemento_quimico?: number | null;

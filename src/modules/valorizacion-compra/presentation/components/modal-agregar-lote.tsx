@@ -24,7 +24,6 @@ import { ElementoQuimicoValorizacion } from "../../../../shared/enums/_generic/e
 import { AuxService } from "../../../../service/auxiliar.service";
 import { useNotify } from "../../../../hooks/useNotify";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
-import { ValorElementoQuimicoService } from "../../service/valor-elemento-quimico.service";
 import { ModalRegistrarPrecioInter } from "./modal-registrar-precio-inter";
 import type { REQ_ValorizacionDetalleItem } from "../../service/valorizacion-compra.requests";
 import type { RES_ValorizacionCompraDetalle } from "../../service/valorizacion-compra.responses";
@@ -227,7 +226,7 @@ export const ModalAgregarLote = ({
 
     let cancelado = false;
     console.log("[ModalAgregarLote] Buscar INTER:", { elemento: elemento, fecha: fechaCorta });
-    ValorElementoQuimicoService.buscarPrecio({
+    AuxService.buscar_precio_elemento({
       elemento,
       fecha: fechaCorta,
     })

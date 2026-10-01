@@ -18,17 +18,19 @@ import { IconCheck, IconCoin, IconFileText, IconPlus } from "@tabler/icons-react
 import { ElementoQuimicoValorizacion } from "../../../../shared/enums/_generic/elemento-quimico-valorizacion";
 import { useNotify } from "../../../../hooks/useNotify";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
-import { ValorElementoQuimicoService } from "../../../valorizacion-compra/service/valor-elemento-quimico.service";
+import { formatNumber } from "../../../../shared/functions/formatNumber";
+import { AuxService } from "../../../../service/auxiliar.service";
 import { ModalRegistrarPrecioInter } from "../../../valorizacion-compra/presentation/components/modal-registrar-precio-inter";
 import type { REQ_ValorizacionVentaDetalleItem } from "../../service/valorizacion-venta.requests";
 import type {
   RES_ValorizacionVentaDetalle,
-  RES_DistribucionDetalleDisponible,
+  RES_DespachoDetalleDisponible,
 } from "../../service/valorizacion-venta.responses";
 import { ValorizacionVentaAuxService } from "../../service/valorizacion-venta.service";
 
 interface ExistingDetalleItem {
-  id_distribucion_detalle: number;
+  id_despacho_detalle?: number;
+  id_distribucion_detalle?: number;
   elemento_quimico: ElementoQuimicoValorizacion;
 }
 
@@ -63,7 +65,7 @@ const fieldClasses = {
   label: "text-zinc-400 mb-1 font-medium text-xs ml-1 flex items-center gap-1.5",
 };
 
-export const ModalAgregarDistribucionDetalle = ({
+export const ModalAgregarDespachoDetalle = ({
   opened,
   onClose,
   idPlanta,
@@ -77,12 +79,10 @@ export const ModalAgregarDistribucionDetalle = ({
   const { notifyError, notifyWarning } = useNotify();
 
   const [loadingDetalles, setLoadingDetalles] = useState(false);
-  const [detalles, setDetalles] = useState<RES_DistribucionDetalleDisponible[]>([]);
+  const [detalles, setDetalles] = useState<RES_DespachoDetalleDisponible[]>([]);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [elemento, setElemento] = useState<ElementoQuimicoValorizacion | null>(
-    ElementoQuimicoValorizacion.Oro,
-  );
+  const [elemento, setElemento] = useState<ElementoQuimicoValorizacion | null>(null);
 
   const [recuperacion, setRecuperacion] = useState<number | string>(0);
   const [inter, setInter] = useState<number | string>(0);
@@ -104,6 +104,7 @@ export const ModalAgregarDistribucionDetalle = ({
     if (!opened) {
       setDetalles([]);
       setSelectedId(null);
+      setElemento(null);
       setPrecioEncontrado(null);
       return;
     }
@@ -123,15 +124,17 @@ export const ModalAgregarDistribucionDetalle = ({
     const cargar = async () => {
       setLoadingDetalles(true);
       try {
-        const res = await ValorizacionVentaAuxService.getDistribucionesDetallesDisponibles(
+        const res = await ValorizacionVentaAuxService.getDespachoDetallesDisponibles(
           idPlanta,
           idValorizacionEdicion,
         );
-        const data = (res.success && res.data) ? res.data : [];
+        const data = res.success && res.data ? res.data : [];
         setDetalles(data);
       } catch (err) {
         notifyError(
-          err instanceof Error ? err.message : "Error al cargar distribuciones disponibles",
+          err instanceof Error
+            ? err.message
+            : "Error al cargar items de despacho disponibles",
         );
       } finally {
         setLoadingDetalles(false);
@@ -144,7 +147,7 @@ export const ModalAgregarDistribucionDetalle = ({
   useEffect(() => {
     if (!detalleEditar) return;
     const { req } = detalleEditar;
-    setSelectedId(String(req.id_distribucion_detalle));
+    setSelectedId(String(req.id_despacho_detalle ?? req.id_distribucion_detalle));
     setElemento(req.elemento_quimico);
     setInter(req.inter ?? 0);
     setDesInter(req.des_inter ?? 0);
@@ -165,7 +168,7 @@ export const ModalAgregarDistribucionDetalle = ({
         return;
       }
       try {
-        const res = await ValorElementoQuimicoService.buscarPrecio({
+        const res = await AuxService.buscar_precio_elemento({
           elemento,
           fecha: fechaCorta,
         });
@@ -197,74 +200,94 @@ export const ModalAgregarDistribucionDetalle = ({
   const detalleSeleccionado = useMemo(() => {
     if (detalleEditar) return null;
     if (!selectedId) return null;
-    return detalles.find((d) => d.id_distribucion_detalle === Number(selectedId)) ?? null;
+    return detalles.find((d) => d.id_despacho_detalle === Number(selectedId)) ?? null;
   }, [selectedId, detalles, detalleEditar]);
 
-  // Si el lote seleccionado ya está valorizado en el elemento actual
-  // (en DB o en el form actual), auto-cambia al elemento disponible para
-  // que el usuario no se quede atrapado con un valor bloqueado (el Select
-  // de Elemento deshabilita la opción correspondiente).
-  useEffect(() => {
-    if (detalleEditar) return;
-    if (!detalleSeleccionado) return;
+  // Opciones de elementos químicos disponibles para el item seleccionado.
+  // Solo muestra Oro (Au) y/o Plata (Ag) si están confirmados y no están ya valorizados (ni en DB ni en el formulario).
+  const opcionesElemento = useMemo(() => {
+    if (detalleEditar) {
+      const val = detalleEditar.req.elemento_quimico;
+      return [
+        {
+          value: val,
+          label: val === ElementoQuimicoValorizacion.Oro ? "Oro (Au)" : "Plata (Ag)",
+        },
+      ];
+    }
+    if (!detalleSeleccionado) {
+      return [];
+    }
+
+    const idItem = detalleSeleccionado.id_despacho_detalle;
     const enFormOro = existingDetalles.some(
       (e) =>
-        e.id_distribucion_detalle === detalleSeleccionado.id_distribucion_detalle &&
+        (e.id_despacho_detalle ?? e.id_distribucion_detalle) === idItem &&
         e.elemento_quimico === ElementoQuimicoValorizacion.Oro,
     );
     const enFormPlata = existingDetalles.some(
       (e) =>
-        e.id_distribucion_detalle === detalleSeleccionado.id_distribucion_detalle &&
+        (e.id_despacho_detalle ?? e.id_distribucion_detalle) === idItem &&
         e.elemento_quimico === ElementoQuimicoValorizacion.Plata,
     );
-    const oroBloqueado =
-      detalleSeleccionado.esta_valorizado_oro || enFormOro;
-    const plataBloqueada =
-      detalleSeleccionado.esta_valorizado_plata || enFormPlata;
 
-    if (
-      elemento === ElementoQuimicoValorizacion.Oro &&
-      oroBloqueado &&
-      !plataBloqueada
-    ) {
-      setElemento(ElementoQuimicoValorizacion.Plata);
-    } else if (
-      elemento === ElementoQuimicoValorizacion.Plata &&
-      plataBloqueada &&
-      !oroBloqueado
-    ) {
-      setElemento(ElementoQuimicoValorizacion.Oro);
+    const oroDisponible =
+      !detalleSeleccionado.esta_valorizado_oro &&
+      !!detalleSeleccionado.ley_oro_final_confirmada &&
+      !enFormOro;
+
+    const plataDisponible =
+      !detalleSeleccionado.esta_valorizado_plata &&
+      !!detalleSeleccionado.ley_plata_final_confirmada &&
+      !enFormPlata;
+
+    const opts: { value: ElementoQuimicoValorizacion; label: string }[] = [];
+    if (oroDisponible) {
+      opts.push({ value: ElementoQuimicoValorizacion.Oro, label: "Oro (Au)" });
     }
-  }, [detalleSeleccionado, detalleEditar, elemento, existingDetalles]);
+    if (plataDisponible) {
+      opts.push({ value: ElementoQuimicoValorizacion.Plata, label: "Plata (Ag)" });
+    }
+    return opts;
+  }, [detalleEditar, detalleSeleccionado, existingDetalles]);
 
-  // Filtro del Select: oculta lotes ya valorizados en AMBOS elementos
-  // (Oro+Plata) considerando DB y form actual. Oro y Plata son
-  // independientes, por lo que un lote valorizado en Oro sigue disponible
-  // para Plata (y viceversa). El control de duplicado dentro del mismo
-  // elemento lo hace el Select de Elemento (disabled) + `handleConfirmar`.
+  // Auto-seleccionar primer elemento disponible cuando cambia detalleSeleccionado o cuando el actual no es válido
+  useEffect(() => {
+    if (detalleEditar) return;
+    if (!detalleSeleccionado) {
+      setElemento(null);
+      return;
+    }
+    const valoresValidos = opcionesElemento.map((o) => o.value);
+    if (!elemento || !valoresValidos.includes(elemento)) {
+      setElemento(valoresValidos[0] ?? null);
+    }
+  }, [detalleSeleccionado, opcionesElemento, elemento, detalleEditar]);
+
+  // Filtro del Select: oculta items que ya no pueden ser valorizados en ningún elemento
   const detallesFiltrados = useMemo(() => {
     if (detalleEditar) return detalles;
     return detalles.filter((d) => {
+      const idItem = d.id_despacho_detalle;
       const enFormOro = existingDetalles.some(
         (e) =>
-          e.id_distribucion_detalle === d.id_distribucion_detalle &&
+          (e.id_despacho_detalle ?? e.id_distribucion_detalle) === idItem &&
           e.elemento_quimico === ElementoQuimicoValorizacion.Oro,
       );
       const enFormPlata = existingDetalles.some(
         (e) =>
-          e.id_distribucion_detalle === d.id_distribucion_detalle &&
+          (e.id_despacho_detalle ?? e.id_distribucion_detalle) === idItem &&
           e.elemento_quimico === ElementoQuimicoValorizacion.Plata,
       );
-      const valorizadoOro = d.esta_valorizado_oro || enFormOro;
-      const valorizadoPlata = d.esta_valorizado_plata || enFormPlata;
-      // Ocultar solo si está completamente consumido (ambos elementos).
-      return !(valorizadoOro && valorizadoPlata);
+
+      const oroAgotado = d.esta_valorizado_oro || !d.ley_oro_final_confirmada || enFormOro;
+      const plataAgotada = d.esta_valorizado_plata || !d.ley_plata_final_confirmada || enFormPlata;
+
+      return !(oroAgotado && plataAgotada);
     });
   }, [detalles, existingDetalles, detalleEditar]);
 
-  // Condición comercial auto-encontrada por el backend para el elemento seleccionado.
-  // El backend ya buscó la condición cuyo rango [ley_inicio, ley_fin] contiene
-  // la ley cliente del detalle. Si existe, autollenar RECUPERACIÓN, MAQUILA, CONSUMO.
+  // Condición comercial auto-encontrada por el backend según la ley final del elemento.
   const condicionEncontrada = useMemo(() => {
     if (detalleEditar) return null;
     if (!detalleSeleccionado || !elemento) return null;
@@ -273,9 +296,7 @@ export const ModalAgregarDistribucionDetalle = ({
       : detalleSeleccionado.condicion_plata;
   }, [detalleSeleccionado, elemento, detalleEditar]);
 
-  // Cuando cambia el detalle seleccionado o el elemento, autollenar los campos
-  // de la condición comercial desde `condicionEncontrada` (sin pisar si el
-  // usuario ya está editando — solo se aplica en creación).
+  // Aplicar automáticamente las condiciones comerciales encontradas
   useEffect(() => {
     if (detalleEditar) return;
     if (condicionEncontrada) {
@@ -289,24 +310,26 @@ export const ModalAgregarDistribucionDetalle = ({
     }
   }, [condicionEncontrada, detalleEditar]);
 
+  // Ley aplicada: viene de la ley final confirmada de despacho_detalle
   const ley = useMemo(() => {
     if (detalleEditar) {
       return typeof detalleEditar.display.ley === "number" ? detalleEditar.display.ley : 0;
     }
     if (!detalleSeleccionado || !elemento) return 0;
     return elemento === ElementoQuimicoValorizacion.Oro
-      ? detalleSeleccionado.ley_oro_cliente
-      : detalleSeleccionado.ley_plata_cliente;
+      ? detalleSeleccionado.ley_oro_final
+      : detalleSeleccionado.ley_plata_final;
   }, [detalleSeleccionado, elemento, detalleEditar]);
 
+  // TMS calculado con peso tomado (TMH) y humedad cliente promedio
   const tms = useMemo(() => {
     if (detalleEditar) {
       return typeof detalleEditar.display.tms === "number" ? detalleEditar.display.tms : 0;
     }
     if (!detalleSeleccionado) return 0;
-    const pesoNeto = detalleSeleccionado.peso_neto_cliente;
+    const pesoNeto = detalleSeleccionado.peso_tomado;
     const leyHumedad = detalleSeleccionado.ley_humedad_cliente;
-    return pesoNeto * (1 - (leyHumedad / 100));
+    return pesoNeto * (1 - leyHumedad / 100);
   }, [detalleSeleccionado, detalleEditar]);
 
   // PTN y subtotal calculados en vivo
@@ -322,13 +345,11 @@ export const ModalAgregarDistribucionDetalle = ({
 
   const totalItem = useMemo(() => (ptn * tms) / 1000, [ptn, tms]);
 
-  // INTER siempre bloqueado: el valor proviene del lookup INTER para la fecha
-  // y elemento seleccionados (vía botón "+").
   const interBloqueado = true;
 
   const handleConfirmar = () => {
     if (!detalleEditar && !detalleSeleccionado) {
-      notifyError("Debe seleccionar un detalle de distribución");
+      notifyError("Debe seleccionar un item de despacho");
       return;
     }
     if (!elemento) {
@@ -342,21 +363,30 @@ export const ModalAgregarDistribucionDetalle = ({
       return;
     }
 
-    // Defensa en profundidad: bloquea duplicados aunque el filtro del Select falle.
     if (!detalleEditar && detalleSeleccionado) {
+      const idItem = detalleSeleccionado.id_despacho_detalle;
       const dupEnForm = existingDetalles.some(
         (e) =>
-          e.id_distribucion_detalle === detalleSeleccionado.id_distribucion_detalle &&
+          (e.id_despacho_detalle ?? e.id_distribucion_detalle) === idItem &&
           e.elemento_quimico === elemento,
       );
       const dupEnDb =
         elemento === ElementoQuimicoValorizacion.Oro
           ? detalleSeleccionado.esta_valorizado_oro
           : detalleSeleccionado.esta_valorizado_plata;
+
       if (dupEnForm || dupEnDb) {
-        notifyError(
-          `Este lote ya está valorizado en ${elemento}. No se puede agregar duplicado.`,
-        );
+        notifyError(`Este item ya está valorizado en ${elemento}. No se puede agregar duplicado.`);
+        return;
+      }
+
+      if (elemento === ElementoQuimicoValorizacion.Oro && !detalleSeleccionado.ley_oro_final_confirmada) {
+        notifyError("La ley final de Oro no está confirmada para este item.");
+        return;
+      }
+
+      if (elemento === ElementoQuimicoValorizacion.Plata && !detalleSeleccionado.ley_plata_final_confirmada) {
+        notifyError("La ley final de Plata no está confirmada para este item.");
         return;
       }
     }
@@ -368,36 +398,39 @@ export const ModalAgregarDistribucionDetalle = ({
     const numCon = typeof consumo === "number" ? consumo : parseFloat(String(consumo)) || 0;
     const numFac = typeof factor === "number" ? factor : parseFloat(String(factor)) || 1.1023;
 
-    // Para edición, conservamos el id_distribucion_detalle y los datos originales;
-    // para creación, leemos del detalle seleccionado.
     const dataRef = detalleEditar
       ? {
-          id_distribucion_detalle: detalleEditar.req.id_distribucion_detalle,
-          peso_neto_cliente: detalleEditar.display.tmh,
-          ley_humedad_cliente: detalleEditar.display.ley_humedad,
-          codigo_cliente: detalleEditar.display.codigo_cliente,
+          id_despacho_detalle: detalleEditar.req.id_despacho_detalle ?? detalleEditar.display.id_despacho_detalle,
+          id_distribucion_detalle: detalleEditar.req.id_distribucion_detalle ?? detalleEditar.display.id_distribucion_detalle,
+          codigo_preliminar: detalleEditar.display.codigo_preliminar,
           despacho_correlativo: detalleEditar.display.despacho_correlativo,
           lote_correlativo: detalleEditar.display.lote_correlativo,
           blending_correlativo: detalleEditar.display.blending_correlativo,
+          codigo_cliente: detalleEditar.display.codigo_cliente,
+          codigos_cliente: detalleEditar.display.codigos_cliente,
+          peso_tomado: detalleEditar.display.tmh,
+          ley_humedad: detalleEditar.display.ley_humedad,
         }
       : {
-          id_distribucion_detalle: detalleSeleccionado!.id_distribucion_detalle,
-          peso_neto_cliente: detalleSeleccionado!.peso_neto_cliente,
-          ley_humedad_cliente: detalleSeleccionado!.ley_humedad_cliente,
-          codigo_cliente: detalleSeleccionado!.codigo_cliente,
+          id_despacho_detalle: detalleSeleccionado!.id_despacho_detalle,
+          id_distribucion_detalle: detalleSeleccionado!.id_distribucion_detalle ?? detalleSeleccionado!.id_despacho_detalle,
+          codigo_preliminar: detalleSeleccionado!.codigo_preliminar,
           despacho_correlativo: detalleSeleccionado!.despacho_correlativo,
           lote_correlativo: detalleSeleccionado!.lote_correlativo,
           blending_correlativo: detalleSeleccionado!.blending_correlativo,
+          codigo_cliente: detalleSeleccionado!.codigo_cliente,
+          codigos_cliente: detalleSeleccionado!.codigos_cliente,
+          peso_tomado: detalleSeleccionado!.peso_tomado,
+          ley_humedad: detalleSeleccionado!.ley_humedad_cliente,
         };
 
-    // La condición comercial ya viene auto-encontrada por el backend según el rango
-    // de ley del elemento. Aquí solo persistimos su id (si existe).
     const idCondicionComercial = detalleEditar
       ? (detalleEditar.req.id_condicion_comercial ?? null)
       : (condicionEncontrada?.id_condicion_comercial ?? null);
 
     const req: REQ_ValorizacionVentaDetalleItem = {
-      id_distribucion_detalle: dataRef.id_distribucion_detalle,
+      id_despacho_detalle: dataRef.id_despacho_detalle ?? undefined,
+      id_distribucion_detalle: dataRef.id_distribucion_detalle ?? undefined,
       elemento_quimico: elemento,
       id_condicion_comercial: idCondicionComercial,
       id_valor_elemento_quimico: detalleEditar
@@ -414,18 +447,21 @@ export const ModalAgregarDistribucionDetalle = ({
     const display: RES_ValorizacionVentaDetalle = {
       id: detalleEditar ? detalleEditar.display.id : 0,
       id_valorizacion_venta: detalleEditar ? detalleEditar.display.id_valorizacion_venta : 0,
+      id_despacho_detalle: dataRef.id_despacho_detalle,
       id_distribucion_detalle: dataRef.id_distribucion_detalle,
       id_condicion_comercial: idCondicionComercial,
       id_valor_elemento_quimico: detalleEditar
         ? (detalleEditar.req.id_valor_elemento_quimico ?? precioEncontrado?.id ?? null)
         : (precioEncontrado?.id ?? null),
       elemento_quimico: elemento,
+      codigo_preliminar: dataRef.codigo_preliminar ?? null,
       despacho_correlativo: dataRef.despacho_correlativo,
       lote_correlativo: dataRef.lote_correlativo,
       blending_correlativo: dataRef.blending_correlativo,
-      codigo_cliente: dataRef.codigo_cliente,
-      tmh: dataRef.peso_neto_cliente,
-      ley_humedad: dataRef.ley_humedad_cliente,
+      codigo_cliente: dataRef.codigos_cliente || dataRef.codigo_cliente || null,
+      codigos_cliente: dataRef.codigos_cliente || dataRef.codigo_cliente || null,
+      tmh: dataRef.peso_tomado,
+      ley_humedad: dataRef.ley_humedad,
       tms,
       ley,
       inter: numInter,
@@ -446,17 +482,16 @@ export const ModalAgregarDistribucionDetalle = ({
     onClose();
   };
 
-  const titulo = detalleEditar
-    ? "Editar Lote de Despacho"
+  const titulo = detalleEditar ? "Editar Item de Despacho" : "Agregar Item a Valorización";
 
-    : "Agregar Lote a Valorización";
-  // Para mostrar TMH/H2O/TMS/Ley en el card de info (edición usa display, creación usa detalleSeleccionado)
-  const tmhMostrar = detalleEditar ? detalleEditar.display.tmh : (detalleSeleccionado?.peso_neto_cliente ?? 0);
+  const tmhMostrar = detalleEditar ? detalleEditar.display.tmh : (detalleSeleccionado?.peso_tomado ?? 0);
   const h2oMostrar = detalleEditar ? detalleEditar.display.ley_humedad : (detalleSeleccionado?.ley_humedad_cliente ?? 0);
-  const codigoMostrar = detalleEditar ? detalleEditar.display.codigo_cliente : detalleSeleccionado?.codigo_cliente;
   const despachoMostrar = detalleEditar ? detalleEditar.display.despacho_correlativo : detalleSeleccionado?.despacho_correlativo;
   const loteMostrar = detalleEditar ? detalleEditar.display.lote_correlativo : detalleSeleccionado?.lote_correlativo;
   const blendMostrar = detalleEditar ? detalleEditar.display.blending_correlativo : detalleSeleccionado?.blending_correlativo;
+  const codigosClienteMostrar = detalleEditar
+    ? (detalleEditar.display.codigos_cliente || detalleEditar.display.codigo_cliente)
+    : (detalleSeleccionado?.codigos_cliente || detalleSeleccionado?.codigo_cliente);
 
   return (
     <ModalEstandar
@@ -479,43 +514,49 @@ export const ModalAgregarDistribucionDetalle = ({
           aria-hidden="true"
           className="sr-only opacity-0 w-0 h-0 p-0 m-0 pointer-events-none absolute -z-50"
         />
-        {/* Selección de Lote de Despacho y Elemento Químico */}
 
-          <Grid>
-            <Grid.Col span={{ base: 12, sm: 8 }}>
-              <Select
-                label="Lote de Despacho:"
-              placeholder={
-                loadingDetalles ? "Cargando..." : "[Seleccione Detalle]"
-              }
+        {/* Selección de Item de Despacho y Elemento Químico */}
+        <Grid>
+          <Grid.Col span={{ base: 12, sm: 8 }}>
+            <Select
+              label="Item de Despacho:"
+              placeholder={loadingDetalles ? "Cargando items..." : "[Seleccione Item]"}
               disabled={loadingDetalles || !!detalleEditar || !idPlanta}
               rightSection={loadingDetalles ? <Loader size={16} /> : undefined}
               data={
                 detalleEditar
                   ? [
                       {
-                        value: String(detalleEditar.display.id_distribucion_detalle),
-                        label:
-                          `Lote ${detalleEditar.display.lote_correlativo ?? detalleEditar.display.blending_correlativo ?? "S/L"} - ` +
-                          (detalleEditar.display.codigo_cliente ?? "s/código"),
+                        value: String(
+                          detalleEditar.display.id_despacho_detalle ??
+                            detalleEditar.display.id_distribucion_detalle,
+                        ),
+                        label: (() => {
+                          const loteOBlend =
+                            detalleEditar.display.lote_correlativo ||
+                            detalleEditar.display.blending_correlativo ||
+                            "S/C";
+                          const codigos =
+                            detalleEditar.display.codigos_cliente ||
+                            detalleEditar.display.codigo_cliente;
+                          return codigos ? `${loteOBlend}-${codigos}` : loteOBlend;
+                        })(),
                       },
                     ]
-                  : detallesFiltrados.map((d) => ({
-                      value: String(d.id_distribucion_detalle),
-                      label:
-                        `Lote ${d.lote_correlativo ?? d.blending_correlativo ?? "S/L"} ` +
-                        
-                        (d.numero_particion !== null && d.numero_particion !== undefined
-                          ? ` · Part. ${d.numero_particion} - `
-                          : "") + `${d.codigo_cliente ?? "s/código"}` ,
-                    }))
+                  : detallesFiltrados.map((d) => {
+                      const loteOBlend =
+                        d.lote_correlativo || d.blending_correlativo || "S/C";
+                      const codigos = d.codigos_cliente || d.codigo_cliente;
+                      return {
+                        value: String(d.id_despacho_detalle),
+                        label: codigos ? `${loteOBlend}-${codigos}` : loteOBlend,
+                      };
+                    })
               }
               value={selectedId}
               onChange={(val) => {
                 setSelectedId(val);
-                // NO resetear INTER/precioEncontrado aquí: el lookup es por (elemento, fecha),
-                // no depende del detalle seleccionado. Al cambiar elemento, el useEffect de reset
-                // se encarga de limpiar correctamente.
+                setElemento(null);
               }}
               searchable
               size="xs"
@@ -523,47 +564,15 @@ export const ModalAgregarDistribucionDetalle = ({
               classNames={fieldClasses}
             />
           </Grid.Col>
+
           <Grid.Col span={{ base: 12, sm: 4 }}>
             <Select
               label="Elemento:"
-              placeholder="[Seleccione]"
-              disabled={!!detalleEditar}
-              data={(() => {
-                // Deshabilitar Oro/Plata si el lote ya está valorizado (DB o form actual)
-                // para ese elemento. Bloqueo proactivo antes de handleConfirmar.
-                const oroBloqueado =
-                  !!detalleSeleccionado?.esta_valorizado_oro ||
-                  existingDetalles.some(
-                    (e) =>
-                      e.id_distribucion_detalle ===
-                        detalleSeleccionado?.id_distribucion_detalle &&
-                      e.elemento_quimico === ElementoQuimicoValorizacion.Oro,
-                  );
-                const plataBloqueada =
-                  !!detalleSeleccionado?.esta_valorizado_plata ||
-                  existingDetalles.some(
-                    (e) =>
-                      e.id_distribucion_detalle ===
-                        detalleSeleccionado?.id_distribucion_detalle &&
-                      e.elemento_quimico === ElementoQuimicoValorizacion.Plata,
-                  );
-                return [
-                  {
-                    value: ElementoQuimicoValorizacion.Oro,
-                    label: oroBloqueado ? "Oro (Au)" : "Oro (Au)",
-                    disabled: oroBloqueado,
-                  },
-                  {
-                    value: ElementoQuimicoValorizacion.Plata,
-                    label: plataBloqueada
-                      ? "Plata (Ag) "
-                      : "Plata (Ag)",
-                    disabled: plataBloqueada,
-                  },
-                ];
-              })()}
+              placeholder={detalleSeleccionado ? "[Seleccione]" : "[Seleccione Item Primero]"}
+              disabled={!!detalleEditar || !detalleSeleccionado || opcionesElemento.length === 0}
+              data={opcionesElemento}
               value={elemento}
-              onChange={(val) => setElemento(val as ElementoQuimicoValorizacion)}
+              onChange={(val) => setElemento((val as ElementoQuimicoValorizacion) || null)}
               size="xs"
               radius="lg"
               classNames={fieldClasses}
@@ -571,7 +580,7 @@ export const ModalAgregarDistribucionDetalle = ({
           </Grid.Col>
         </Grid>
 
-        {/* Card de Información del Detalle Seleccionado o mensaje placeholder */}
+        {/* Card Informativa del Item Seleccionado */}
         {detalleSeleccionado || detalleEditar ? (
           <Paper p="sm" radius="md" bg="#18181b" className="border border-zinc-800/80 space-y-2">
             <Group justify="space-between" align="center">
@@ -582,11 +591,6 @@ export const ModalAgregarDistribucionDetalle = ({
                 </Text>
               </Group>
               <Group gap={6}>
-                {codigoMostrar && (
-                  <Badge variant="outline" color="indigo" size="xs">
-                    Cód. Cliente: {codigoMostrar}
-                  </Badge>
-                )}
                 {loteMostrar && (
                   <Badge variant="outline" color="cyan" size="xs">
                     Lote: {loteMostrar}
@@ -597,47 +601,52 @@ export const ModalAgregarDistribucionDetalle = ({
                     Blend: {blendMostrar}
                   </Badge>
                 )}
+                {codigosClienteMostrar && (
+                  <Badge variant="outline" color="indigo" size="xs">
+                    Cliente: {codigosClienteMostrar}
+                  </Badge>
+                )}
               </Group>
             </Group>
 
             <Grid gutter="xs" pt={4}>
-              <Grid.Col span={3}>
+              <Grid.Col span={{ base: 6, sm: 3 }}>
                 <Box p="xs" bg="#27272a" className="rounded-lg text-center border border-zinc-800">
                   <Text fz={10} c="zinc.4" tt="uppercase" fw={600}>
                     TMH (t)
                   </Text>
                   <Text fz="xs" fw={700} c="cyan.3">
-                    {(tmhMostrar / 1000).toFixed(3)}
+                    {formatNumber(tmhMostrar / 1000, 3)}
                   </Text>
                 </Box>
               </Grid.Col>
-              <Grid.Col span={3}>
+              <Grid.Col span={{ base: 6, sm: 3 }}>
                 <Box p="xs" bg="#27272a" className="rounded-lg text-center border border-zinc-800">
                   <Text fz={10} c="zinc.4" tt="uppercase" fw={600}>
-                    % H2O
+                    % H2O Prom.
                   </Text>
                   <Text fz="xs" fw={700} c="amber.3">
-                    {h2oMostrar.toFixed(2)}%
+                    {formatNumber(h2oMostrar, 2)}%
                   </Text>
                 </Box>
               </Grid.Col>
-              <Grid.Col span={3}>
+              <Grid.Col span={{ base: 6, sm: 3 }}>
                 <Box p="xs" bg="#27272a" className="rounded-lg text-center border border-zinc-800">
                   <Text fz={10} c="zinc.4" tt="uppercase" fw={600}>
                     TMS (t)
                   </Text>
                   <Text fz="xs" fw={700} c="emerald.3">
-                    {(tms / 1000).toFixed(3)}
+                    {formatNumber(tms / 1000, 3)}
                   </Text>
                 </Box>
               </Grid.Col>
-              <Grid.Col span={3}>
+              <Grid.Col span={{ base: 6, sm: 3 }}>
                 <Box p="xs" bg="#27272a" className="rounded-lg text-center border border-zinc-800">
                   <Text fz={10} c="zinc.4" tt="uppercase" fw={600}>
-                    Ley Cliente ({elemento ?? "?"})
+                    Ley Final ({elemento ?? "?"})
                   </Text>
                   <Text fz="xs" fw={700} c="yellow.3">
-                    {ley.toFixed(4)}
+                    {formatNumber(ley, 3)} {elemento === ElementoQuimicoValorizacion.Oro ? "g/t" : "oz/t"}
                   </Text>
                 </Box>
               </Grid.Col>
@@ -646,7 +655,7 @@ export const ModalAgregarDistribucionDetalle = ({
         ) : (
           <Box p="sm" bg="#18181b" className="rounded-lg border border-dashed border-zinc-800 text-center">
             <Text fz="xs" c="zinc.5">
-              Seleccione un detalle de distribución para visualizar su información y balances.
+              Seleccione un item de despacho para visualizar su información de pesajes y leyes finales.
             </Text>
           </Box>
         )}
@@ -658,7 +667,7 @@ export const ModalAgregarDistribucionDetalle = ({
           </Text>
 
           <Grid gutter="xs">
-            {/* Fila 1: INTER (locked + botón +) | DES. INTER | RECUPERACIÓN */}
+            {/* Fila 1: INTER | DES. INTER | RECUPERACIÓN */}
             <Grid.Col span={{ base: 6, sm: 4 }}>
               <div className="flex items-end gap-1.5">
                 <NumberInput
@@ -696,9 +705,7 @@ export const ModalAgregarDistribucionDetalle = ({
                     variant={precioEncontrado ? "subtle" : "light"}
                     onClick={() => {
                       if (!elemento || !fechaCorta) {
-                        notifyWarning(
-                          "Seleccione elemento y fecha de valorización antes de registrar el precio.",
-                        );
+                        notifyWarning("Seleccione elemento y fecha de valorización antes de registrar el precio.");
                         return;
                       }
                       setModalPrecioAbierto(true);
@@ -712,6 +719,7 @@ export const ModalAgregarDistribucionDetalle = ({
                 </Tooltip>
               </div>
             </Grid.Col>
+
             <Grid.Col span={{ base: 6, sm: 4 }}>
               <NumberInput
                 label="DES. INTER ($/oz):"
@@ -728,6 +736,7 @@ export const ModalAgregarDistribucionDetalle = ({
                 classNames={fieldClasses}
               />
             </Grid.Col>
+
             <Grid.Col span={{ base: 6, sm: 4 }}>
               <NumberInput
                 label="RECUPERACIÓN (%):"
@@ -763,6 +772,7 @@ export const ModalAgregarDistribucionDetalle = ({
                 classNames={fieldClasses}
               />
             </Grid.Col>
+
             <Grid.Col span={{ base: 6, sm: 4 }}>
               <NumberInput
                 label="CONSUMO ($/TMS):"
@@ -779,6 +789,7 @@ export const ModalAgregarDistribucionDetalle = ({
                 classNames={fieldClasses}
               />
             </Grid.Col>
+
             <Grid.Col span={{ base: 6, sm: 4 }}>
               <NumberInput
                 label="FACTOR:"
@@ -807,7 +818,7 @@ export const ModalAgregarDistribucionDetalle = ({
                 Precio * Tonelada:
               </Text>
               <Text fz="sm" fw={700} c="white">
-                $ {ptn.toFixed(2)} / TN
+                $ {formatNumber(ptn, 2)} / TN
               </Text>
             </Stack>
 
@@ -816,7 +827,7 @@ export const ModalAgregarDistribucionDetalle = ({
                 Subtotal Detalle:
               </Text>
               <Text fz="md" fw={800} c="emerald.3">
-                $ {totalItem.toFixed(2)}
+                $ {formatNumber(totalItem, 2)}
               </Text>
             </Stack>
           </Group>
@@ -836,7 +847,7 @@ export const ModalAgregarDistribucionDetalle = ({
             disabled={!detalleEditar && !detalleSeleccionado}
             className="bg-indigo-600 hover:bg-indigo-700 text-white"
           >
-            {detalleEditar ? "Guardar Cambios" : "Agregar Lote"}
+            {detalleEditar ? "Guardar Cambios" : "Agregar Item"}
           </Button>
         </Group>
       </Stack>
@@ -855,3 +866,5 @@ export const ModalAgregarDistribucionDetalle = ({
     </ModalEstandar>
   );
 };
+
+export const ModalAgregarDistribucionDetalle = ModalAgregarDespachoDetalle;

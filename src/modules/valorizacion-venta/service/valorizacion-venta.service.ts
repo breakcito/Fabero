@@ -147,6 +147,18 @@ export const ValorizacionVentaAuxService = {
     return data;
   },
 
+  getDespachoDetallesDisponibles: async (
+    idPlanta: number,
+    idValorizacion?: number,
+  ): Promise<IRespuesta<RES_DistribucionDetalleDisponible[]>> => {
+    const params: Record<string, number> = { id_planta: idPlanta };
+    if (idValorizacion) {
+      params.id_valorizacion = idValorizacion;
+    }
+    const { data } = await api.get("/aux/distribuciones-detalles-disponibles-valorizacion", { params });
+    return data;
+  },
+
   getCondicionesComercialesPlanta: async (
     idPlanta: number,
   ): Promise<IRespuesta<{ Oro: RES_CondicionComercialPlanta[]; Plata: RES_CondicionComercialPlanta[] }>> => {

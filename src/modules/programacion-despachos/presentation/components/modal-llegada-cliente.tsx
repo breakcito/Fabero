@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Box,
   Button,
@@ -108,25 +108,6 @@ export const ModalLlegadaCliente = ({
     onClose();
   };
 
-  /**
-   * Variación (cliente − empresa) para el mensaje inline debajo de cada input.
-   * Retorna `null` cuando no hay referencia empresa, no hay valor cliente,
-   * o la diferencia es despreciable. Indicador NO bloqueante: sólo informa.
-   */
-  const variacionLabel = (
-    emp: number | null,
-    cli: number | null,
-    decimals: number,
-    unidad: string,
-  ): { texto: string; color: "emerald.4" | "red.4" } | null => {
-    if (emp == null || cli == null) return null;
-    const diff = cli - emp;
-    if (Math.abs(diff) <= 0.001) return null;
-    return {
-      texto: `${diff > 0 ? "+" : ""}${diff.toFixed(decimals)} ${unidad}`,
-      color: diff > 0 ? "emerald.4" : "red.4",
-    };
-  };
 
   const setDato = (
     idDetalle: number,
@@ -188,7 +169,7 @@ export const ModalLlegadaCliente = ({
         lts="0.04em"
         className="whitespace-nowrap"
       >
-        Fecha: *
+        Fecha Llegada Cliente: *
       </Text>
       <TextInput
         type="date"
@@ -264,21 +245,9 @@ export const ModalLlegadaCliente = ({
                     det.lote_correlativo ??
                     det.blending_correlativo ??
                     "—";
-                  const empPeso = det.peso_neto;
-                  const empAu =
-                    det.lote_ley_oro ?? det.blending_ley_oro ?? null;
-                  const empAg =
-                    det.lote_ley_plata ?? det.blending_ley_plata ?? null;
-                  const empHu =
-                    det.lote_ley_humedad ?? det.blending_ley_humedad ?? null;
-                  const vPeso = variacionLabel(empPeso, datos.peso_neto_cliente ?? null, 3, "KG");
-                  const vAu = variacionLabel(empAu, datos.ley_oro_cliente ?? null, 2, "g/t");
-                  const vAg = variacionLabel(empAg, datos.ley_plata_cliente ?? null, 2, "g/t");
-                  const vHu = variacionLabel(empHu, datos.ley_humedad_cliente ?? null, 2, "%");
                   return (
-                    <React.Fragment>
-                      <tr key={det.id} className="hover:bg-zinc-900/30">
-                      <td className="py-2 px-3 text-center align-top">
+                    <tr key={det.id} className="hover:bg-zinc-900/30">
+                      <td className="py-2 px-3 text-center align-middle">
                         <Group gap={4} wrap="nowrap" justify="center">
                           <span
                             className={`inline-flex items-center justify-center px-2 py-0.5 rounded font-bold text-[10px] ${
@@ -294,14 +263,14 @@ export const ModalLlegadaCliente = ({
                           </Text>
                         </Group>
                       </td>
-                      <td className="py-2 px-2 text-center align-top">
+                      <td className="py-2 px-2 text-center align-middle">
                         <Text size="xs" className="font-mono text-zinc-400">
                           {det.numero_particion !== null
                             ? `P${det.numero_particion}`
                             : "—"}
                         </Text>
                       </td>
-                      <td className="py-2 px-2 text-center align-top">
+                      <td className="py-2 px-2 text-center align-middle">
                         <TextInput
                           size="xs"
                           radius="md"
@@ -319,12 +288,13 @@ export const ModalLlegadaCliente = ({
                           classNames={{ input: fieldClasses.input }}
                         />
                       </td>
-                      <td className="py-2 px-2 text-center align-top">
+                      <td className="py-2 px-2 text-center align-middle">
                         <NumberInput
                           size="xs"
                           radius="md"
                           decimalScale={3}
                           fixedDecimalScale
+                          thousandSeparator=","
                           hideControls
                           min={0}
                           suffix=" KG"
@@ -340,13 +310,8 @@ export const ModalLlegadaCliente = ({
                           disabled={loading}
                           classNames={{ input: fieldClasses.input }}
                         />
-                        {vPeso && (
-                          <Text fz={10} c={vPeso.color} fw={700} ta="center" className="mt-1 font-mono whitespace-nowrap">
-                            {vPeso.texto}
-                          </Text>
-                        )}
                       </td>
-                      <td className="py-2 px-1 text-center align-top">
+                      <td className="py-2 px-1 text-center align-middle">
                         <NumberInput
                           size="xs"
                           radius="md"
@@ -366,13 +331,8 @@ export const ModalLlegadaCliente = ({
                           disabled={loading}
                           classNames={{ input: fieldClasses.input }}
                         />
-                        {vAu && (
-                          <Text fz={10} c={vAu.color} fw={700} ta="center" className="mt-1 font-mono whitespace-nowrap">
-                            {vAu.texto}
-                          </Text>
-                        )}
                       </td>
-                      <td className="py-2 px-1 text-center align-top">
+                      <td className="py-2 px-1 text-center align-middle">
                         <NumberInput
                           size="xs"
                           radius="md"
@@ -392,13 +352,8 @@ export const ModalLlegadaCliente = ({
                           disabled={loading}
                           classNames={{ input: fieldClasses.input }}
                         />
-                        {vAg && (
-                          <Text fz={10} c={vAg.color} fw={700} ta="center" className="mt-1 font-mono whitespace-nowrap">
-                            {vAg.texto}
-                          </Text>
-                        )}
                       </td>
-                      <td className="py-2 px-1 text-center align-top">
+                      <td className="py-2 px-1 text-center align-middle">
                         <NumberInput
                           size="xs"
                           radius="md"
@@ -419,14 +374,8 @@ export const ModalLlegadaCliente = ({
                           disabled={loading}
                           classNames={{ input: fieldClasses.input }}
                         />
-                        {vHu && (
-                          <Text fz={10} c={vHu.color} fw={700} ta="center" className="mt-1 font-mono whitespace-nowrap">
-                            {vHu.texto}
-                          </Text>
-                        )}
                       </td>
                     </tr>
-                    </React.Fragment>
                   );
                 })}
               </tbody>

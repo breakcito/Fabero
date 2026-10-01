@@ -8,6 +8,7 @@ import {
 import { EstadoDistribucion } from "../../../../shared/enums/programacion-despachos/estado-distribucion";
 import { EstadoPesaje } from "../../../../shared/enums/_generic/estado-pesaje";
 import type { DistribucionItem } from "../../service/programacion-despachos.responses";
+import { formatNumber } from "../../../../shared/functions/formatNumber";
 
 interface Props {
   distribucion: DistribucionItem;
@@ -236,73 +237,94 @@ export const DistribucionCard = ({
 
       {/* Items */}
       {itemsCount > 0 && (
-        <div className="overflow-hidden">
-          <div
-            className="grid items-center gap-4 px-4 py-2 text-[10px] uppercase tracking-wider text-zinc-500 bg-zinc-900/40 font-bold border-b border-zinc-800/60"
-            style={{ gridTemplateColumns: "2fr 80px 2fr 120px" }}
-          >
-            <span className="text-center">Item</span>
-            <span className="text-center">Parte</span>
-            <span className="text-center">Proveedor</span>
-            <span className="text-center">Peso (KG)</span>
-          </div>
-          {distribucion.detalles.map((det) => {
-            const esLote = det.lote_correlativo !== null;
-            const correlativo =
-              det.lote_correlativo ??
-              det.blending_correlativo ??
-              "—";
-            return (
-              <div
-                key={det.id}
-                className="grid items-center gap-4 px-4 py-2 text-xs border-t border-zinc-800/60 hover:bg-zinc-900/30 transition-colors"
-                style={{ gridTemplateColumns: "2fr 80px 2fr 120px" }}
-              >
-                <Group gap={6} wrap="nowrap" className="min-w-0 justify-center">
-                  <Badge
-                    color={esLote ? "yellow" : "gray"}
-                    variant="filled"
-                    size="xs"
-                    fw={700}
-                    radius="md"
-                  >
-                    {esLote ? "LOTE" : "BLEND"}
-                  </Badge>
-                  <Text size="xs" c="white" className="font-mono truncate">
-                    {correlativo}
-                  </Text>
-                </Group>
-                <Text size="xs" className="text-zinc-400 font-mono text-center">
-                  {det.numero_particion !== null ? `P${det.numero_particion}` : "—"}
-                </Text>
-                <Text size="xs" c="dimmed" className="truncate text-center">
-                  {det.proveedor_razon_social ?? "—"}
-                </Text>
-                <Text size="xs" className="text-zinc-200 font-mono tabular-nums text-center">
-                  {(det.peso_tomado ?? 0).toFixed(3)}
-                </Text>
-              </div>
-            );
-          })}
-          <div
-            className="grid items-center gap-4 px-4 py-2 text-xs border-t-2 border-zinc-700 bg-zinc-900/40"
-            style={{ gridTemplateColumns: "2fr 80px 2fr 120px" }}
-          >
-            <span />
-            <span />
-            <Text
-              size="9px"
-              c="dimmed"
-              tt="uppercase"
-              lts="0.04em"
-              fw={700}
-              className="text-right"
+        <div className="overflow-x-auto">
+          <div className="min-w-160">
+            <div
+              className="grid items-center gap-2 px-4 py-2 text-[10px] uppercase tracking-wider text-zinc-500 bg-zinc-900/40 font-bold border-b border-zinc-800/60"
+              style={{ gridTemplateColumns: "1.8fr 60px 1.4fr 80px 80px 75px 105px" }}
             >
-              Peso Total
-            </Text>
-            <Text size="xs" fw={800} c="zinc.100" className="font-mono tabular-nums text-center">
-              {totalPeso.toFixed(3)}
-            </Text>
+              <span className="text-center">Item</span>
+              <span className="text-center">Parte</span>
+              <span className="text-center">Proveedor</span>
+              <span className="text-center">Ley Au</span>
+              <span className="text-center">Ley Ag</span>
+              <span className="text-center">% H2O</span>
+              <span className="text-center">Peso (KG)</span>
+            </div>
+            {distribucion.detalles.map((det) => {
+              const esLote = det.lote_correlativo !== null;
+              const correlativo =
+                det.lote_correlativo ??
+                det.blending_correlativo ??
+                "—";
+              const leyOro = esLote ? det.lote_ley_oro : det.blending_ley_oro;
+              const leyPlata = esLote ? det.lote_ley_plata : det.blending_ley_plata;
+              const leyHumedad = esLote ? det.lote_ley_humedad : det.blending_ley_humedad;
+
+              return (
+                <div
+                  key={det.id}
+                  className="grid items-center gap-2 px-4 py-2 text-xs border-t border-zinc-800/60 hover:bg-zinc-900/30 transition-colors"
+                  style={{ gridTemplateColumns: "1.8fr 60px 1.4fr 80px 80px 75px 105px" }}
+                >
+                  <Group gap={6} wrap="nowrap" className="min-w-0 justify-center">
+                    <Badge
+                      color={esLote ? "yellow" : "gray"}
+                      variant="filled"
+                      size="xs"
+                      fw={700}
+                      radius="md"
+                    >
+                      {esLote ? "LOTE" : "BLEND"}
+                    </Badge>
+                    <Text size="xs" c="white" className="font-mono truncate">
+                      {correlativo}
+                    </Text>
+                  </Group>
+                  <Text size="xs" className="text-zinc-400 font-mono text-center">
+                    {det.numero_particion !== null ? `P${det.numero_particion}` : "—"}
+                  </Text>
+                  <Text size="xs" c="dimmed" className="truncate text-center">
+                    {det.proveedor_razon_social ?? "—"}
+                  </Text>
+                  <Text size="xs" className="text-amber-400/90 font-mono tabular-nums text-center font-medium">
+                    {leyOro !== null && leyOro !== undefined ? formatNumber(leyOro, 3) : "—"}
+                  </Text>
+                  <Text size="xs" className="text-slate-300 font-mono tabular-nums text-center font-medium">
+                    {leyPlata !== null && leyPlata !== undefined ? formatNumber(leyPlata, 3) : "—"}
+                  </Text>
+                  <Text size="xs" className="text-cyan-400/90 font-mono tabular-nums text-center font-medium">
+                    {leyHumedad !== null && leyHumedad !== undefined ? `${formatNumber(leyHumedad, 2)}%` : "—"}
+                  </Text>
+                  <Text size="xs" className="text-zinc-200 font-mono tabular-nums text-center font-semibold">
+                    {formatNumber(det.peso_tomado ?? 0, 3)}
+                  </Text>
+                </div>
+              );
+            })}
+            <div
+              className="grid items-center gap-2 px-4 py-2 text-xs border-t-2 border-zinc-700 bg-zinc-900/40"
+              style={{ gridTemplateColumns: "1.8fr 60px 1.4fr 80px 80px 75px 105px" }}
+            >
+              <span />
+              <span />
+              <span />
+              <span />
+              <span />
+              <Text
+                size="9px"
+                c="dimmed"
+                tt="uppercase"
+                lts="0.04em"
+                fw={700}
+                className="text-right"
+              >
+                Peso Total
+              </Text>
+              <Text size="xs" fw={800} c="zinc.100" className="font-mono tabular-nums text-center">
+                {formatNumber(totalPeso, 3)}
+              </Text>
+            </div>
           </div>
         </div>
       )}

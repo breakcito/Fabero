@@ -22,6 +22,11 @@ import type {
 import type { EstadoBase } from "../shared/enums/_generic/estado-base";
 import type { RES_Sucursal } from "./responses/sucursal";
 import type { RES_ZonaOrigen } from "./responses/zona-origen";
+import type { ElementoQuimicoValorizacion } from "../shared/enums/_generic/elemento-quimico-valorizacion";
+import type {
+  RES_ValorElementoQuimico,
+  REQ_RegistrarPrecioInter,
+} from "./responses/valor-elemento-quimico";
 
 const path = "/aux";
 
@@ -611,4 +616,46 @@ export const AuxService = {
     });
     return data.data;
   },
+
+  /**
+   * Precios internacionales de elementos químicos (Oro / Plata).
+   * Servicio transversal utilizado en Valorización Compra y Valorización Venta.
+   */
+  buscar_precio_elemento: async (params: {
+    elemento: ElementoQuimicoValorizacion;
+    fecha: string;
+  }): Promise<IRespuesta<RES_ValorElementoQuimico | null>> => {
+    try {
+      const { data } = await api.get<IRespuesta<RES_ValorElementoQuimico>>(
+        "/valor-elemento-quimico/buscar",
+        { params },
+      );
+      return data;
+    } catch (err) {
+      if (
+        err &&
+        typeof err === "object" &&
+        "response" in err &&
+        (err as { response?: { status?: number } }).response?.status === 400
+      ) {
+        return { success: false, data: null, message: "Sin precio registrado" };
+      }
+      throw err;
+    }
+  },
+
+  registrar_precio_elemento: async (
+    payload: REQ_RegistrarPrecioInter,
+  ): Promise<IRespuesta<RES_ValorElementoQuimico>> => {
+    const { data } = await api.post<IRespuesta<RES_ValorElementoQuimico>>(
+      "/valor-elemento-quimico",
+      payload,
+    );
+    return data;
+  },
+};
+
+export const ValorElementoQuimicoService = {
+  buscarPrecio: AuxService.buscar_precio_elemento,
+  registrarPrecio: AuxService.registrar_precio_elemento,
 };

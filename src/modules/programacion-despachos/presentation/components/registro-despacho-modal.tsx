@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
 import { mostrarConfirmacion } from "../../../../presentation/utils/modal-confirmacion";
+import { formatNumber } from "../../../../shared/functions/formatNumber";
 import {
   Loader,
   Select,
@@ -154,8 +155,8 @@ export const RegistroDespachoModal = ({
       : `BLENDING-${it.id_blending}`;
     const label =
       it.tipo_item === "LOTE"
-        ? `${it.correlativo} · Lote · ${it.proveedor_razon_social ?? "—"} · ${(it.peso_actual ?? 0).toFixed(3)} KG`
-        : `${it.correlativo} · Blending · ${(it.peso_actual ?? 0).toFixed(3)} KG`;
+        ? `${it.correlativo} · Lote · ${it.proveedor_razon_social ?? "—"} · ${formatNumber(it.peso_actual ?? 0, 3)} KG`
+        : `${it.correlativo} · Blending · ${formatNumber(it.peso_actual ?? 0, 3)} KG`;
     return { value, label };
   });
 
@@ -373,7 +374,7 @@ export const RegistroDespachoModal = ({
                       value={it.peso_tomado || ""}
                       error={
                         maxPeso !== null && it.peso_tomado > maxPeso
-                          ? `Máx ${maxPeso.toFixed(3)} KG`
+                          ? `Máx ${formatNumber(maxPeso, 3)} KG`
                           : undefined
                       }
                       onChange={(val) => {

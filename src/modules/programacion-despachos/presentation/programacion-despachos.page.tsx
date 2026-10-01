@@ -1,5 +1,5 @@
-import { Button, Stack } from "@mantine/core";
-import { IconTruckDelivery } from "@tabler/icons-react";
+import { Button, Stack, ActionIcon, Tooltip } from "@mantine/core";
+import { IconTruckDelivery, IconX } from "@tabler/icons-react";
 import { useState } from "react";
 import { useTitlePage } from "../../../hooks/useTitlePage";
 import { useNotify } from "../../../hooks/useNotify";
@@ -119,26 +119,39 @@ export const ProgramacionDespachosPage = () => {
   return (
     <div className="space-y-6 animate-fadeIn">
       <div className="flex flex-col xl:flex-row gap-4 items-end justify-between w-full">
-        <div className="flex-1 w-full">
-          <FiltrosDespachos
-            filtros={filtros}
-            setFiltros={setFiltros}
-            onLimpiar={limpiarFiltros}
-          />
-        </div>
+        <FiltrosDespachos
+          filtros={filtros}
+          setFiltros={setFiltros}
+        />
 
-        <div className="flex items-center gap-2 shrink-0 pb-0.5">
+        <div className="flex items-center gap-2 shrink-0">
+          <Tooltip label="Limpiar todos los filtros" withArrow>
+            <ActionIcon
+              type="button"
+              variant="light"
+              color="zinc"
+              radius="xl"
+              onClick={limpiarFiltros}
+              title="Limpiar todos los filtros"
+              aria-label="Limpiar filtros"
+              className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 h-9 w-9 min-h-9 min-w-9 shrink-0"
+            >
+              <IconX size={16} />
+            </ActionIcon>
+          </Tooltip>
+
           <RefreshButton
             onClick={() => void recargar()}
             loading={loading}
             label="Recargar despachos"
           />
+
           <Button
             radius="lg"
             size="sm"
             leftSection={<IconTruckDelivery size={18} />}
             onClick={() => setOpenRegistroDespacho(true)}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-900/20 shrink-0 h-9.5 px-6 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-900/20 shrink-0 h-9 px-6 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
           >
             Registrar Despacho
           </Button>

@@ -1,4 +1,5 @@
 import type { MotivoTraslado } from "../../../shared/enums/_generic/motivo-traslado";
+import type { TipoRemitente } from "../../../shared/enums/_generic/tipo-remitente";
 
 // Nota: `tipo_remitente` NO se persiste como columna en `guia_segundo_tramo`.
 // El backend la usa para decidir si `id_remitente` va a `id_empresa` o `id_planta_destino`.
@@ -13,7 +14,7 @@ export interface DTO_CrearGuiaSegundoTramo {
   guia_remitente: string | null;
   sin_guia_transportista: boolean;
   id_remitente: number | null;
-  tipo_remitente: "EMPRESA" | "PLANTA_DESTINO" | null;
+  tipo_remitente: TipoRemitente | "EMPRESA" | "PLANTA_DESTINO" | null;
   documento_guia_remitente: File | null;
   documento_guia_transportista: File | null;
 }

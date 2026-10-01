@@ -5,14 +5,17 @@ import type { IArchivo } from "../../../shared/interfaces/archivo";
 export interface RES_ValorizacionVentaDetalle {
   id: number;
   id_valorizacion_venta: number;
-  id_distribucion_detalle: number;
+  id_despacho_detalle?: number | null;
+  id_distribucion_detalle?: number | null;
   id_condicion_comercial: number | null;
   id_valor_elemento_quimico: number | null;
   elemento_quimico: ElementoQuimicoValorizacion;
+  codigo_preliminar?: string | null;
   despacho_correlativo: string | null;
   lote_correlativo: string | null;
   blending_correlativo: string | null;
   codigo_cliente: string | null;
+  codigos_cliente?: string | null;
   tmh: number;
   ley_humedad: number;
   tms: number;
@@ -61,19 +64,19 @@ export interface RES_CondicionEncontrada {
   consumo: number;
 }
 
-export interface RES_DistribucionDetalleDisponible {
-  id_distribucion_detalle: number;
-  id_distribucion: number;
+export interface RES_DespachoDetalleDisponible {
   id_despacho_detalle: number;
-  numero_particion: number | null;
-  peso_neto_cliente: number;
-  ley_oro_cliente: number;
-  ley_plata_cliente: number;
+  id_distribucion_detalle?: number;
+  codigo_preliminar: string | null;
+  peso_tomado: number;
+  peso_neto_cliente?: number;
   ley_humedad_cliente: number;
-  codigo_cliente: string | null;
+  ley_oro_final: number;
+  ley_plata_final: number;
+  ley_oro_final_confirmada: boolean;
+  ley_plata_final_confirmada: boolean;
   esta_valorizado_oro: boolean;
   esta_valorizado_plata: boolean;
-  fecha_llegada_cliente: string | null;
   id_despacho: number;
   despacho_correlativo: string | null;
   id_planta: number;
@@ -81,14 +84,14 @@ export interface RES_DistribucionDetalleDisponible {
   id_lote_mineral: number | null;
   id_blending: number | null;
   lote_correlativo: string | null;
-  lote_ley_oro: number | null;
-  lote_ley_plata: number | null;
-  lote_ley_humedad: number | null;
   blending_correlativo: string | null;
-  // Condición comercial auto-encontrada por rango de ley del elemento.
+  codigo_cliente?: string | null;
+  codigos_cliente?: string | null;
   condicion_oro: RES_CondicionEncontrada | null;
   condicion_plata: RES_CondicionEncontrada | null;
 }
+
+export type RES_DistribucionDetalleDisponible = RES_DespachoDetalleDisponible;
 
 export interface RES_CondicionComercialPlanta {
   id: number;

@@ -1,6 +1,8 @@
 import type { MotivoTraslado } from "../../../shared/enums/_generic/motivo-traslado";
 import type { CondicionIngreso } from "../../../shared/enums/_generic/condicion-ingreso";
 import { EstadoBase } from "../../../shared/enums/_generic/estado-base";
+import type { TipoProducto } from "../../../shared/enums/_generic/tipo-producto";
+import type { EstadoGuiaPrimerTramo } from "../../../shared/enums/_generic/estado-guia-primer-tramo";
 
 export interface RES_ConcesionPorProveedor {
   id_concesion: number;
@@ -27,7 +29,7 @@ export interface RES_LoteGuia {
   id_particion_lote_mineral: number | null;
   tipo_item: TipoItem;
   correlativo: string | null;
-  tipo_producto: string | null;
+  tipo_producto: TipoProducto | string | null;
   tipo_mineral: string | null;
   peso_inicial: number | null;
   peso_final: number | null;
@@ -80,7 +82,7 @@ export interface RES_GuiaPrimerTramo {
   documentos: RES_GuiaDocumentos | null;
   id_empleado_registro: number | null;
   log_cambios: RES_CambiosLog[] | null;
-  estado: EstadoBase;
+  estado: EstadoGuiaPrimerTramo | EstadoBase | string;
   created_at: string;
   lotes: RES_LoteGuia[];
 }

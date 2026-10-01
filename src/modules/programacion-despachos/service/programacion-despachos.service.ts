@@ -259,4 +259,22 @@ export const ProgramacionDespachosService = {
     );
     return data.data;
   },
+
+  /**
+   * Actualizar y confirmar/desconfirmar la ley final (Oro o Plata) de un despacho_detalle.
+   */
+  actualizarLeyFinal: async (
+    idDetalle: number,
+    payload: {
+      elemento: "Oro" | "Plata" | "oro" | "plata";
+      ley_final: number;
+      confirmada: boolean;
+    },
+  ): Promise<DespachoDetalle> => {
+    const { data } = await api.patch<IRespuesta<DespachoDetalle>>(
+      `/programacion-despachos/detalles/${idDetalle}/ley-final`,
+      payload,
+    );
+    return data.data;
+  },
 };

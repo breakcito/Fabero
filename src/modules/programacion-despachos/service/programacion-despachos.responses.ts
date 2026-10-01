@@ -1,6 +1,7 @@
 import type { RES_CambiosLog } from "../../../service/responses/_generic/cambios-log";
 import type { MotivoTraslado } from "../../../shared/enums/_generic/motivo-traslado";
 import type { EstadoBase } from "../../../shared/enums/_generic/estado-base";
+import type { TipoRemitente } from "../../../shared/enums/_generic/tipo-remitente";
 
 export interface DespachoListItem {
   id: number;
@@ -37,6 +38,20 @@ export interface DespachoDetalleItem {
   lote_tipo_producto: string | null;
   lote_tipo_mineral: string | null;
   proveedor_razon_social: string | null;
+  ley_oro_fabero?: number;
+  ley_plata_fabero?: number;
+  ley_oro_final?: number;
+  ley_plata_final?: number;
+  ley_oro_final_confirmada?: boolean;
+  ley_plata_final_confirmada?: boolean;
+  esta_valorizado_oro?: boolean;
+  esta_valorizado_plata?: boolean;
+  ley_oro_cliente_promedio?: number | null;
+  ley_plata_cliente_promedio?: number | null;
+  ley_humedad_cliente_promedio?: number | null;
+  total_distribuciones?: number;
+  total_distribuciones_con_leyes?: number;
+  puede_confirmar_leyes?: boolean;
 }
 
 export interface DistribucionDetalleItem {
@@ -185,7 +200,7 @@ export interface GuiaSegundoTramo {
   guia_transportista: string | null;
   guia_remitente: string | null;
   id_remitente: number | null;
-  tipo_remitente: "EMPRESA" | "PLANTA_DESTINO" | null;
+  tipo_remitente: TipoRemitente | string | null;
   sin_guia_transportista: boolean;
   log_cambios: RES_CambiosLog[] | null;
   documentos: GuiaSegundoTramoDocumentos | null;

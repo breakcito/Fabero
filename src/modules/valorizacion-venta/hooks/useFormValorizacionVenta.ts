@@ -150,7 +150,8 @@ export const useFormValorizacionVenta = ({
       setDetalles(
         valorizacionEditar.detalles.map((d) => ({
           req: {
-            id_distribucion_detalle: d.id_distribucion_detalle,
+            id_despacho_detalle: (d.id_despacho_detalle ?? d.id_distribucion_detalle) as number | undefined,
+            id_distribucion_detalle: d.id_distribucion_detalle as number | undefined,
             elemento_quimico: d.elemento_quimico,
             id_condicion_comercial: d.id_condicion_comercial,
             id_valor_elemento_quimico: d.id_valor_elemento_quimico ?? null,
@@ -218,7 +219,7 @@ export const useFormValorizacionVenta = ({
       return;
     }
     if (detalles.length === 0) {
-      notifyError("Debe agregar al menos un detalle de distribución a la valorización");
+      notifyError("Debe agregar al menos un item de despacho a la valorización");
       return;
     }
     if (codigo && codigo.length > 20) {

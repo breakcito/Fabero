@@ -12,7 +12,7 @@ import dayjs from "dayjs";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
 import { CustomDatePicker } from "../../../../presentation/utils/date-picker-input";
 import { useNotify } from "../../../../hooks/useNotify";
-import { ValorElementoQuimicoService } from "../../service/valor-elemento-quimico.service";
+import { AuxService } from "../../../../service/auxiliar.service";
 import type { ElementoQuimicoValorizacion } from "../../../../shared/enums/_generic/elemento-quimico-valorizacion";
 
 interface Props {
@@ -62,7 +62,7 @@ export const ModalRegistrarPrecioInter = ({
 
     const fechaStr = dayjs(fechaLocal).format("YYYY-MM-DD");
     let cancelado = false;
-    ValorElementoQuimicoService.buscarPrecio({
+    AuxService.buscar_precio_elemento({
       elemento: elementoQuimico,
       fecha: fechaStr,
     })
@@ -104,7 +104,7 @@ export const ModalRegistrarPrecioInter = ({
 
     setLoading(true);
     try {
-      const res = await ValorElementoQuimicoService.registrarPrecio({
+      const res = await AuxService.registrar_precio_elemento({
         elemento_quimico: elementoQuimico,
         fecha: fechaStr,
         inter: numInter,

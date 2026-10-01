@@ -4,6 +4,7 @@ import { DataTableEstandar } from "../../../../presentation/utils/datatable-esta
 import type {
   DespachoListItem,
 } from "../../service/programacion-despachos.responses";
+import { formatNumber } from "../../../../shared/functions/formatNumber";
 
 interface Props {
   despachos: DespachoListItem[];
@@ -96,13 +97,13 @@ export const TablaDespachos = ({
             return (
               <div className="flex flex-col items-center gap-0.5 w-full text-center font-mono">
                 <Text size="sm" className="text-zinc-200" fw={600}>
-                  {tomado.toFixed(3)} KG
+                  {formatNumber(tomado, 3)} KG
                 </Text>
                 <Text size="11px" className="text-zinc-500">
-                  Pendiente: <span className="text-amber-400">{pendiente.toFixed(3)} KG</span>
+                  Pendiente: <span className="text-amber-400">{formatNumber(pendiente, 3)} KG</span>
                 </Text>
                 <Text size="11px" className="text-emerald-400">
-                  Distribuido: {distribuido.toFixed(3)} KG
+                  Distribuido: {formatNumber(distribuido, 3)} KG
                 </Text>
               </div>
             );

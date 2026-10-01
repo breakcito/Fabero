@@ -39,6 +39,7 @@ import { CambiosLogViewer } from "../../../presentation/utils/cambios-log-viewer
 import { RefreshButton } from "../../../presentation/utils/refresh-button";
 import { mostrarConfirmacion } from "../../../presentation/utils/modal-confirmacion";
 import { EstadoValorizacionVenta } from "../../../shared/enums/valorizacion-venta/estado-valorizacion-venta";
+import { formatNumber } from "../../../shared/functions/formatNumber";
 import type { RES_CambiosLog } from "../../../service/responses/_generic/cambios-log";
 import type { RES_ValorizacionVenta } from "../service/valorizacion-venta.responses";
 import type { IArchivo } from "../../../shared/interfaces/archivo";
@@ -175,15 +176,15 @@ export const ValorizacionVentaPage = () => {
 
     // Detalle: modificaciones de parámetros.
     const logsDetalles: LogProcesado[] = (valorizacionHistorial.detalles || []).flatMap((d) => {
-      // Identificador específico: código cliente + despacho + lote/blend + partición
+      // Identificador específico: preliminar / código + despacho + lote/blend
       const partes: string[] = [];
-      if (d.codigo_cliente) partes.push(`Cód:${d.codigo_cliente}`);
+      if (d.codigos_cliente || d.codigo_cliente) partes.push(`Cód:${d.codigos_cliente || d.codigo_cliente}`);
       if (d.despacho_correlativo) partes.push(`Despacho:${d.despacho_correlativo}`);
       if (d.lote_correlativo) partes.push(`Lote:${d.lote_correlativo}`);
       if (d.blending_correlativo) partes.push(`Blend:${d.blending_correlativo}`);
       const identificador = partes.length > 0
         ? partes.join(' · ')
-        : `Det. Distribución #${d.id_distribucion_detalle}`;
+        : `Item Despacho #${d.id_despacho_detalle ?? d.id_distribucion_detalle}`;
       const elem = (d.elemento_quimico || "Oro").toUpperCase();
       return (d.log_cambios || [])
         .filter((log) => Array.isArray(log.cambios) && (log.cambios as unknown[]).length > 0)
@@ -282,7 +283,7 @@ export const ValorizacionVentaPage = () => {
         const totalFinal = r.total_subtotal + (r.monto_penalidad ?? 0) - (r.monto_flete ?? 0);
         return (
           <Text fw={700} c="emerald.4" fz="xs">
-            $ {totalFinal.toFixed(2)}
+            $ {formatNumber(totalFinal, 2)}
           </Text>
         );
       },
@@ -419,13 +420,13 @@ export const ValorizacionVentaPage = () => {
     return (
       <Box p="md" bg="#18181b">
         <Text fw={700} fz="xs" c="amber.4" mb="xs" className="flex items-center gap-1.5">
-          <IconFileText size={15} /> Detalles de Distribución ({detallesList.length})
+          <IconFileText size={15} /> Items de Despacho ({detallesList.length})
         </Text>
 
         {detallesList.length === 0 ? (
           <Box p="md" bg="#0f0f12" className="rounded-lg border border-dashed border-zinc-800 text-center">
             <Text fz="xs" c="zinc.5" fs="italic">
-              Sin detalle de distribuciones
+              Sin items de despacho valorizados
             </Text>
           </Box>
         ) : (
@@ -466,9 +467,9 @@ export const ValorizacionVentaPage = () => {
                           Blend: {d.blending_correlativo}
                         </Badge>
                       )}
-                      {d.codigo_cliente && (
+                      {(d.codigos_cliente || d.codigo_cliente) && (
                         <Badge variant="outline" color="indigo" size="xs">
-                          Cód: {d.codigo_cliente}
+                          Cliente: {d.codigos_cliente || d.codigo_cliente}
                         </Badge>
                       )}
                     </Group>
@@ -478,69 +479,122 @@ export const ValorizacionVentaPage = () => {
                         Subtotal
                       </Text>
                       <Text fz="sm" fw={800} c="emerald.3" className="font-mono">
-                        $ {d.subtotal.toFixed(2)}
+                        $ {formatNumber(d.subtotal, 2)}
                       </Text>
                     </Group>
                   </Group>
 
-                  <Box mt={6} p="xs" bg="#0f0f12" className="rounded border border-zinc-800">
-                    <Group gap="md" wrap="wrap">
-                      <Group gap={4} wrap="nowrap">
-                        <Text fz={10} c="zinc.5" tt="uppercase" fw={600}>TMH (t):</Text>
-                        <Text fz={11} fw={700} c="white">{(d.tmh / 1000).toFixed(3)}</Text>
-                      </Group>
-                      <Text c="zinc.7">·</Text>
-                      <Group gap={4} wrap="nowrap">
-                        <Text fz={10} c="zinc.5" tt="uppercase" fw={600}>% H2O:</Text>
-                        <Text fz={11} fw={700} c="cyan.3">{d.ley_humedad.toFixed(2)}%</Text>
-                      </Group>
-                      <Text c="zinc.7">·</Text>
-                      <Group gap={4} wrap="nowrap">
-                        <Text fz={10} c="zinc.5" tt="uppercase" fw={600}>TMS (t):</Text>
-                        <Text fz={11} fw={700} c="emerald.3">{(d.tms / 1000).toFixed(3)}</Text>
-                      </Group>
-                      <Text c="zinc.7">·</Text>
-                      <Group gap={4} wrap="nowrap">
-                        <Text fz={10} c="zinc.5" tt="uppercase" fw={600}>Ley cliente:</Text>
-                        <Text fz={11} fw={700} c="yellow.3">{d.ley.toFixed(4)}</Text>
-                      </Group>
-                      <Text c="zinc.7">·</Text>
-                      <Group gap={4} wrap="nowrap">
-                        <Text fz={10} c="zinc.5" tt="uppercase" fw={600}>REC:</Text>
-                        <Text fz={11} fw={700} c="amber.3">{d.recuperacion.toFixed(2)}%</Text>
-                      </Group>
-                      <Text c="zinc.7">·</Text>
-                      <Group gap={4} wrap="nowrap">
-                        <Text fz={10} c="zinc.5" tt="uppercase" fw={600}>Factor:</Text>
-                        <Text fz={11} fw={700} c="white">{d.factor.toFixed(4)}</Text>
-                      </Group>
-                      <Text c="zinc.7">·</Text>
-                      <Group gap={4} wrap="nowrap">
-                        <Text fz={10} c="zinc.5" tt="uppercase" fw={600}>Inter:</Text>
-                        <Text fz={11} fw={700} c="white">${d.inter.toFixed(2)}</Text>
-                      </Group>
-                      <Text c="zinc.7">·</Text>
-                      <Group gap={4} wrap="nowrap">
-                        <Text fz={10} c="zinc.5" tt="uppercase" fw={600}>Des.Inter:</Text>
-                        <Text fz={11} fw={700} c="white">${d.des_inter.toFixed(2)}</Text>
-                      </Group>
-                      <Text c="zinc.7">·</Text>
-                      <Group gap={4} wrap="nowrap">
-                        <Text fz={10} c="zinc.5" tt="uppercase" fw={600}>Maquila:</Text>
-                        <Text fz={11} fw={700} c="white">${d.maquila.toFixed(2)}</Text>
-                      </Group>
-                      <Text c="zinc.7">·</Text>
-                      <Group gap={4} wrap="nowrap">
-                        <Text fz={10} c="zinc.5" tt="uppercase" fw={600}>Consumo:</Text>
-                        <Text fz={11} fw={700} c="white">${d.consumo.toFixed(2)}</Text>
-                      </Group>
-                      <Text c="zinc.7">·</Text>
-                      <Group gap={4} wrap="nowrap">
-                        <Text fz={10} c="zinc.5" tt="uppercase" fw={600}>Precio/TN:</Text>
-                        <Text fz={11} fw={700} c="white">${d.precio_por_tonelada.toFixed(2)}</Text>
-                      </Group>
-                    </Group>
-                  </Box>
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-2 mt-2">
+                    {/* Bloque 1: Masa y Humedad */}
+                    <div className="xl:col-span-3 bg-[#0d0d10] border border-zinc-800/90 rounded-lg p-2.5 flex flex-col justify-between">
+                      <div className="text-[9px] font-bold uppercase tracking-wider text-zinc-500 mb-1.5">
+                        Masa y Humedad
+                      </div>
+                      <div className="grid grid-cols-3 gap-1 text-center items-center">
+                        <div>
+                          <div className="text-[10px] text-zinc-400 font-semibold uppercase">TMH (t)</div>
+                          <div className="text-xs font-mono font-bold text-white mt-0.5">
+                            {formatNumber(d.tmh / 1000, 3)}
+                          </div>
+                        </div>
+                        <div className="border-x border-zinc-800/80 px-1">
+                          <div className="text-[10px] text-zinc-400 font-semibold uppercase">% H2O</div>
+                          <div className="text-xs font-mono font-bold text-cyan-400 mt-0.5">
+                            {formatNumber(d.ley_humedad, 2)}%
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] text-zinc-400 font-semibold uppercase">TMS (t)</div>
+                          <div className="text-xs font-mono font-bold text-emerald-400 mt-0.5">
+                            {formatNumber(d.tms / 1000, 3)}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bloque 2: Ley y Metalurgia */}
+                    <div className="xl:col-span-3 bg-[#0d0d10] border border-zinc-800/90 rounded-lg p-2.5 flex flex-col justify-between">
+                      <div className="text-[9px] font-bold uppercase tracking-wider text-zinc-500 mb-1.5">
+                        Ley y Metalurgia
+                      </div>
+                      <div className="grid grid-cols-3 gap-1 text-center items-center">
+                        <div>
+                          <div className="text-[10px] text-zinc-400 font-semibold uppercase">Ley Final</div>
+                          <div className="text-xs font-mono font-bold text-yellow-400 mt-0.5 truncate">
+                            {formatNumber(d.ley, 3)}{" "}
+                            <span className="text-[9px] text-zinc-500 font-normal">
+                              {esOro ? "g/t" : "oz/t"}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="border-x border-zinc-800/80 px-1">
+                          <div className="text-[10px] text-zinc-400 font-semibold uppercase">REC (%)</div>
+                          <div className="text-xs font-mono font-bold text-amber-400 mt-0.5">
+                            {formatNumber(d.recuperacion, 2)}%
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] text-zinc-400 font-semibold uppercase">Factor</div>
+                          <div className="text-xs font-mono font-bold text-zinc-200 mt-0.5">
+                            {formatNumber(d.factor, 4)}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bloque 3: Condiciones Comerciales */}
+                    <div className="xl:col-span-3 bg-[#0d0d10] border border-zinc-800/90 rounded-lg p-2.5 flex flex-col justify-between">
+                      <div className="text-[9px] font-bold uppercase tracking-wider text-zinc-500 mb-1.5">
+                        Condiciones Comerciales
+                      </div>
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] text-zinc-400 font-semibold uppercase">Inter:</span>
+                          <span className="text-xs font-mono font-bold text-white">
+                            ${formatNumber(d.inter, 2)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] text-zinc-400 font-semibold uppercase">D.Inter:</span>
+                          <span className="text-xs font-mono font-bold text-zinc-300">
+                            ${formatNumber(d.des_inter, 2)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] text-zinc-400 font-semibold uppercase">Maquila:</span>
+                          <span className="text-xs font-mono font-bold text-zinc-300">
+                            ${formatNumber(d.maquila, 2)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] text-zinc-400 font-semibold uppercase">Consumo:</span>
+                          <span className="text-xs font-mono font-bold text-zinc-300">
+                            ${formatNumber(d.consumo, 2)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bloque 4: Precio y Subtotal Lote */}
+                    <div className="xl:col-span-3 flex flex-col justify-between gap-1.5">
+                      <div className="bg-[#0d0d10] border border-zinc-800/90 rounded-lg px-3 py-1.5 flex items-center justify-between flex-1">
+                        <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">
+                          Precio / TN
+                        </span>
+                        <span className="text-xs font-mono font-extrabold text-white whitespace-nowrap">
+                          $ {formatNumber(d.precio_por_tonelada, 2)}
+                        </span>
+                      </div>
+                      <div className="bg-emerald-950/40 border border-emerald-700/60 rounded-lg px-3 py-1.5 flex items-center justify-between flex-1">
+                        <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">
+                          Subtotal Lote
+                        </span>
+                        <span className="text-sm font-mono font-extrabold text-emerald-300 whitespace-nowrap">
+                          $ {formatNumber(d.subtotal, 2)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </Paper>
               );
             })}

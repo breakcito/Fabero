@@ -4,7 +4,7 @@ Frontend del ERP para una planta de beneficio de mineral de oro y plata. Maneja 
 
 ## Módulos
 
-Empresas, Sucursales, Bancos, Marcas, Organigrama, Personal, Roles, Cuentas, Perfil, Login, Modo Auditoría, Proveedores Mineros, Concesiones, Condiciones Comerciales Proveedor, Anticipos Proveedor, Cuentas Bancarias (Proveedor / Empresa / Planta Destino), Empresas Transporte, Vehículos, Conductores, Encargados de Muestra, Recepción Visitas, Guías Primer Tramo, Recepción Mineral, Recepción Unidades, Resumen Balanza, Gestión de Leyes, Cierre de Leyes, Blending, Valorización Compra, Contabilidad Compra, Plantas Destino, Tipo de Cambio, Ubigeo.
+Empresas, Sucursales, Bancos, Marcas, Organigrama, Personal, Roles, Cuentas, Perfil, Login, Modo Auditoría, Proveedores Mineros, Concesiones, Condiciones Comerciales Proveedor, Anticipos Proveedor, Cuentas Bancarias (Proveedor / Empresa / Planta Destino), Empresas Transporte, Vehículos, Conductores, Recepción Visitas, Programar Recepción, Guías Primer Tramo, Recepción Mineral, Recepción Unidades, Resumen Balanza, Gestión de Leyes, Cierre de Leyes, Blending, Validación Distribución, Programación Despachos, Condiciones Comerciales Planta, Anticipos Planta, Valorización Compra, Valorización Venta, Contabilidad Compra, Plantas Destino, Tipo de Cambio, Ubigeo.
 
 ## Stack
 

@@ -31,6 +31,7 @@ import { RegistroDistribucionModal } from "./registro-distribucion-modal";
 import { ModalGuiaSegundoTramo } from "./modal-guia-segundo-tramo";
 import { ModalLlegadaCliente } from "./modal-llegada-cliente";
 import { ModalFechaLlegadaCliente } from "./modal-fecha-llegada-cliente";
+import { FilaItemDespacho } from "./fila-item-despacho";
 import type { DespachoDetalle } from "../../service/programacion-despachos.responses";
 import { formatNumber } from "../../../../shared/functions/formatNumber";
 
@@ -94,7 +95,6 @@ export const ModalDetalleDespacho = ({
     (acc, d) => acc + (d.peso_actual ?? 0),
     0,
   );
-  const pesoDistribuido = Math.max(pesoTotalTomado - pesoTotalPendiente, 0);
 
   const handleClose = () => {
     onClose();
@@ -210,146 +210,72 @@ export const ModalDetalleDespacho = ({
           <thead>
             <tr className="text-[10px] uppercase tracking-wider text-zinc-500 bg-zinc-900/70 font-bold border-b border-zinc-800/80">
               <th className="py-2.5 px-3 text-center font-bold">
-                Correlativo / Proveedor
-              </th>
-              {/* <th className="py-2.5 px-3 text-center font-bold">Tipo</th> */}
-              <th className="py-2.5 px-3 text-center font-bold">
-                Cód. Preliminar
+                Ítem / Proveedor
               </th>
               <th className="py-2.5 px-3 text-center font-bold">
-                Peso Tomado (KG)
+                Pesos (Tomado / Pendiente)
               </th>
-              <th className="py-2.5 px-3 text-center font-bold">
-                Peso Pendiente (KG)
+              <th className="py-2.5 px-3 text-center font-bold min-w-24">
+                Ley Fabero
               </th>
-              {/* <th className="py-2.5 px-3 text-center font-bold">% Distribuido</th> */}
+              <th className="py-2.5 px-3 text-center font-bold min-w-28">
+                Ley Cliente (Prom.)
+              </th>
+              <th className="py-2.5 px-3 text-center font-bold min-w-36">
+                Ley Final (Au / Ag)
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-800/60">
-            {detalles.map((d) => {
-              const total = d.peso_tomado ?? 0;
-              const pend = d.peso_actual ?? 0;
-              const dist = Math.max(total - pend, 0);
-              const pct = total > 0 ? (dist / total) * 100 : 0;
-              const esLote = d.lote_correlativo !== null;
-              const correlativo =
-                d.lote_correlativo ?? d.blending_correlativo ?? "—";
-              return (
-                <tr
-                  key={d.id}
-                  className="hover:bg-zinc-900/40 transition-colors"
-                >
-                  <td className="py-2.5 px-3 text-center align-middle flex justify-center items-center flex-col gap-1.5">
-                    <Group className="grow">
-                      <Text size="xs" className="text-zinc-200 font-mono">
-                        {correlativo}
-                      </Text>{" "}
-                      <Badge
-                        color={esLote ? "yellow" : "gray"}
-                        variant="filled"
-                        size="xs"
-                        fw={700}
-                        radius="md"
-                      >
-                        {esLote ? "LOTE" : "BLEND"}
-                      </Badge>
-                    </Group>
-                    {d.proveedor_razon_social && (
-                      <Text
-                        size="10px"
-                        c="dimmed"
-                        className="truncate max-w-45 mx-auto"
-                      >
-                        {d.proveedor_razon_social}
-                      </Text>
-                    )}
-                  </td>
-                  <td className="py-2.5 px-3 text-center align-middle">
-                    {d.codigo_preliminar ? (
-                      <span className="inline-flex items-center justify-center bg-teal-500/10 text-teal-300 border border-teal-500/30 px-2 py-0.5 rounded-md font-mono text-[11px] font-bold tracking-wide">
-                        {d.codigo_preliminar}
-                      </span>
-                    ) : (
-                      <Text size="11px" c="dimmed">
-                        —
-                      </Text>
-                    )}
-                  </td>
-                  <td className="py-2.5 px-3 text-center align-middle">
+            {detalles.map((d) => (
+              <FilaItemDespacho
+                key={d.id}
+                detalle={d}
+                onRefresh={refrescar}
+              />
+            ))}
+            <tr className="bg-zinc-900/70 border-t-2 border-zinc-700 font-bold">
+              <td />
+              <td className="py-2 px-3 text-center align-middle">
+                <Group gap="xs" justify="center" wrap="nowrap">
+                  <div>
                     <Text
-                      size="xs"
-                      fw={600}
-                      className="text-zinc-200 font-mono"
+                      size="9px"
+                      c="dimmed"
+                      tt="uppercase"
+                      lts="0.04em"
+                      className="font-bold mb-0.5"
                     >
-                      {formatNumber(total)}
+                      Total Tomado
                     </Text>
-                    <div className="flex flex-row items-center gap-1 justify-center mt-1.5">
-                      <div className="w-10 h-1 bg-zinc-800 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full ${
-                            pct >= 99.99 ? "bg-emerald-400" : "bg-indigo-400"
-                          } transition-all`}
-                          style={{ width: `${Math.min(pct, 100)}%` }}
-                        />
-                      </div>
-                      <Text
-                        size="11px"
-                        fw={700}
-                        className={`font-mono ${
-                          pct >= 99.99 ? "text-emerald-400" : "text-zinc-300"
-                        }`}
-                      >
-                        {pct.toFixed(1)}%
-                      </Text>
-                    </div>
-                  </td>
-                  <td className="py-2.5 px-3 text-center align-middle">
+                    <Text size="xs" fw={800} c="zinc.100" className="font-mono">
+                      {formatNumber(pesoTotalTomado, 3)}
+                    </Text>
+                  </div>
+                  <Text c="zinc.7" className="select-none">|</Text>
+                  <div>
+                    <Text
+                      size="9px"
+                      c="dimmed"
+                      tt="uppercase"
+                      lts="0.04em"
+                      className="font-bold mb-0.5"
+                    >
+                      Total Pendiente
+                    </Text>
                     <Text
                       size="xs"
-                      fw={600}
+                      fw={800}
                       className={`font-mono ${
-                        pend > 0 ? "text-amber-400" : "text-emerald-400"
+                        pesoTotalPendiente > 0 ? "text-amber-400" : "text-emerald-400"
                       }`}
                     >
-                      {pend.toFixed(3)}
+                      {formatNumber(pesoTotalPendiente, 3)}
                     </Text>
-                  </td>
-                </tr>
-              );
-            })}
-            <tr className="bg-zinc-900/70 border-t-2 border-zinc-700 font-bold">
-              <td colSpan={2} />
-              <td className="py-2 px-3 text-center align-middle">
-                <Text
-                  size="9px"
-                  c="dimmed"
-                  tt="uppercase"
-                  lts="0.04em"
-                  className="font-bold mb-0.5"
-                >
-                  Peso Total
-                </Text>
-                <Text size="xs" fw={800} c="zinc.100" className="font-mono">
-                  {pesoTotalTomado.toFixed(3)}
-                </Text>
+                  </div>
+                </Group>
               </td>
-              <td
-                className={`py-2 px-3 text-center text-xs font-mono ${
-                  pesoTotalPendiente > 0 ? "text-amber-400" : "text-emerald-400"
-                }`}
-              >
-                {pesoTotalPendiente.toFixed(3)}
-              </td>
-              <td
-                className={`py-2 px-3 text-center text-xs font-mono ${
-                  pesoTotalPendiente <= 0 ? "text-emerald-400" : "text-zinc-300"
-                }`}
-              >
-                {pesoTotalTomado > 0
-                  ? ((pesoDistribuido / pesoTotalTomado) * 100).toFixed(1)
-                  : "0.0"}
-                %
-              </td>
+              <td colSpan={3} />
             </tr>
           </tbody>
         </table>
