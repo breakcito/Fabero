@@ -55,8 +55,10 @@ export const CierreLeyesPage = () => {
   // Estado drag & drop (HTML5 nativo)
   const [muestraArrastradaId, setMuestraArrastradaId] = useState<number | null>(null);
 
-  // Leyes manuales por detalle de grupo de análisis (override al promedio automático al confirmar)
-  const [leyManualPorDetalle, setLeyManualPorDetalle] = useState<Record<number, string>>({});
+  // Leyes manuales por lote y detalle: Record<idLote, Record<idGrupoAnalisisDetalle, string>>
+  const [leyManualPorLoteYDetalle, setLeyManualPorLoteYDetalle] = useState<
+    Record<number, Record<number, string>>
+  >({});
 
   const filtrosActuales: FiltrosLotesSugeridos = useMemo(
     () => ({
@@ -143,8 +145,14 @@ export const CierreLeyesPage = () => {
     return Array.from(map.values());
   }, [lotes, lotesSugeridos]);
 
-  const handleLeyManualChange = (idGrupoAnalisisDetalle: number, val: string) => {
-    setLeyManualPorDetalle((prev) => ({ ...prev, [idGrupoAnalisisDetalle]: val }));
+  const handleLeyManualChange = (idLoteMineral: number, idGrupoAnalisisDetalle: number, val: string) => {
+    setLeyManualPorLoteYDetalle((prev) => ({
+      ...prev,
+      [idLoteMineral]: {
+        ...(prev[idLoteMineral] ?? {}),
+        [idGrupoAnalisisDetalle]: val,
+      },
+    }));
   };
 
   const handleDragStart = (idMuestraExterna: number, e: React.DragEvent<HTMLTableRowElement>) => {
@@ -341,7 +349,7 @@ export const CierreLeyesPage = () => {
               muestraArrastradaId={muestraArrastradaId}
               onCargarMuestrasAsociadas={ctrl.cargarMuestrasAsociadas}
               onDropMuestra={handleDropMuestra}
-              leyManualPorDetalle={leyManualPorDetalle}
+              leyManualPorLoteYDetalle={leyManualPorLoteYDetalle}
               onChangeLeyManual={handleLeyManualChange}
             />
           )}

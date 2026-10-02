@@ -41,9 +41,9 @@ interface TablaCierreLeyesProps {
   onCargarMuestrasAsociadas?: (idLoteMineral: number) => Promise<MuestraAsociadaResponse[]>;
   /** Indica a la tabla que la fila del lote es una zona de drop válida. */
   onDropMuestra?: (idLoteMineral: number, idMuestraExterna: number) => Promise<void>;
-  /** Ley manual que el usuario está escribiendo en la celda de promedio (id_detalle => string). */
-  leyManualPorDetalle?: Record<number, string>;
-  onChangeLeyManual?: (idGrupoAnalisisDetalle: number, val: string) => void;
+  /** Leyes manuales por lote y detalle: Record<idLote, Record<idGrupoAnalisisDetalle, string>> */
+  leyManualPorLoteYDetalle?: Record<number, Record<number, string>>;
+  onChangeLeyManual?: (idLoteMineral: number, idGrupoAnalisisDetalle: number, val: string) => void;
 }
 
 export const TablaCierreLeyes = ({
@@ -65,7 +65,7 @@ export const TablaCierreLeyes = ({
   muestraArrastradaId,
   onCargarMuestrasAsociadas,
   onDropMuestra,
-  leyManualPorDetalle,
+  leyManualPorLoteYDetalle,
   onChangeLeyManual,
 }: TablaCierreLeyesProps) => {
   const { notifyWarning } = useNotify();
@@ -152,27 +152,67 @@ export const TablaCierreLeyes = ({
       : `${p.id_lote_mineral}|${p.id_grupo_analisis_detalle}|${p.uuid_fila}|${p.tipo_origen ?? "_"}|${p.id ?? "new"}`;
 
   /**
-   * Recolecta las leyes manuales que el usuario escribió y las devuelve como array para enviar al backend.
-   * Solo devuelve entradas con un valor numérico parseable y > 0.
+   * Obtiene el valor para la ley consolidada del analito en el lote:
+   *  - Si el usuario escribió un valor manual en ese input, se usa ese valor.
+   *  - Por defecto, toma el valor del promedio calculado (formateado a 3 decimales si es > 0).
+   */
+  const getValorLeyConsolidada = (loteId: number, detalleId: number, promedio: number): string => {
+    const manual = leyManualPorLoteYDetalle?.[loteId]?.[detalleId];
+    if (manual !== undefined) return manual;
+    return promedio > 0 ? promedio.toFixed(3) : "";
+  };
+
+  /**
+   * Valida que todos los analitos desplegables del lote con análisis confirmados
+   * tengan un valor válido (> 0) en su input de ley consolidada.
+   * Si no coloca un valor o lo deja vacío, no podrá cerrar.
+   */
+  const validarInputsLeyesConsolidadas = (
+    lote: LoteCierreResponse,
+    gruposActivos: GrupoAnalisisResponse[],
+  ): { ok: boolean; motivo?: string } => {
+    for (const g of gruposActivos) {
+      for (const a of g.analitos) {
+        if (!a.es_desplegable) continue;
+        const records = lote.analisis.filter(
+          (it) => it.id_grupo_analisis_detalle === a.detalle_id && it.esta_confirmada,
+        );
+        if (records.length === 0) continue;
+        const promedio = getPromedioAnalito(lote, a.detalle_id);
+        const valStr = getValorLeyConsolidada(lote.id, a.detalle_id, promedio);
+        const parsed = parseFloat(valStr.trim());
+        if (valStr.trim() === "" || Number.isNaN(parsed) || parsed <= 0) {
+          return {
+            ok: false,
+            motivo: `Debe ingresar un valor mayor a cero en la ley de "${a.nombre}".`,
+          };
+        }
+      }
+    }
+    return { ok: true };
+  };
+
+  /**
+   * Recolecta las leyes consolidadas (manual o promedio por defecto) para enviarlas al backend.
    */
   const buildLeyesManuales = (
     lote: LoteCierreResponse,
     gruposActivos: GrupoAnalisisResponse[],
   ): Array<{ id_grupo_analisis_detalle: number; ley: number }> => {
-    if (!leyManualPorDetalle) return [];
     const out: Array<{ id_grupo_analisis_detalle: number; ley: number }> = [];
-    // Considerar todos los detalles desplegables del lote
     for (const g of gruposActivos) {
       for (const a of g.analitos) {
         if (!a.es_desplegable) continue;
-        const raw = leyManualPorDetalle[Number(a.detalle_id)];
-        if (raw === undefined || raw === "") continue;
-        const parsed = parseFloat(raw);
-        if (Number.isNaN(parsed) || parsed < 0) continue;
-        // Solo tiene sentido si hay al menos 1 análisis confirmado para ese detalle en el lote
-        const existeAlguna = lote.analisis.some((it) => it.id_grupo_analisis_detalle === a.detalle_id);
-        if (!existeAlguna) continue;
-        out.push({ id_grupo_analisis_detalle: a.detalle_id, ley: parsed });
+        const records = lote.analisis.filter(
+          (it) => it.id_grupo_analisis_detalle === a.detalle_id && it.esta_confirmada,
+        );
+        if (records.length === 0) continue;
+        const promedio = getPromedioAnalito(lote, a.detalle_id);
+        const valStr = getValorLeyConsolidada(lote.id, a.detalle_id, promedio);
+        const parsed = parseFloat(valStr);
+        if (!Number.isNaN(parsed) && parsed > 0) {
+          out.push({ id_grupo_analisis_detalle: a.detalle_id, ley: parsed });
+        }
       }
     }
     return out;
@@ -182,6 +222,11 @@ export const TablaCierreLeyes = ({
     const validacion = validacionCierrePorLote?.[lote.id] ?? { ok: false, motivo: "Validación pendiente" };
     if (!validacion.ok) {
       notifyWarning(validacion.motivo ?? "No se puede cerrar el lote");
+      return;
+    }
+    const valInputs = validarInputsLeyesConsolidadas(lote, grupos);
+    if (!valInputs.ok) {
+      notifyWarning(valInputs.motivo ?? "Complete todos los campos de leyes consolidadas con un valor mayor a cero.");
       return;
     }
     const leyesManuales = buildLeyesManuales(lote, grupos);
@@ -490,29 +535,37 @@ export const TablaCierreLeyes = ({
                                         />
                                       </div>
                                     </td>
-                                    {runIdx === 0 && (
-                                      <td
-                                        rowSpan={totalRowsForLote}
-                                        className="p-1.5 border-r border-zinc-800 text-center align-middle"
-                                      >
-                                        <div className="flex flex-col gap-1 items-center">
-                                          <span className="font-bold text-[11px] text-indigo-400">
-                                            {promedio.toFixed(3)}
-                                          </span>
-                                          <input
-                                            type="number"
-                                            step="any"
-                                            min="0"
-                                            disabled={l.estado_leyes === EstadoLeyes.Confirmado || promedio <= 0}
-                                            placeholder="manual"
-                                            value={leyManualPorDetalle?.[a.detalle_id] ?? ""}
-                                            onChange={(e) => onChangeLeyManual?.(a.detalle_id, e.currentTarget.value)}
-                                            className="w-14 h-5 text-center text-[10px] leading-none px-1 bg-zinc-950 border border-indigo-700/50 text-indigo-200 rounded-md focus:border-indigo-400 focus:outline-none transition-all placeholder:text-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                            title={`Ley manual para ${a.nombre} (override del promedio automático al confirmar)`}
-                                          />
-                                        </div>
-                                      </td>
-                                    )}
+                                    {runIdx === 0 && (() => {
+                                      const valActual = getValorLeyConsolidada(l.id, a.detalle_id, promedio);
+                                      const estaInvalido = valActual.trim() === "" || Number(valActual) <= 0;
+                                      return (
+                                        <td
+                                          rowSpan={totalRowsForLote}
+                                          className="p-1.5 border-r border-zinc-800 text-center align-middle"
+                                        >
+                                          <div className="flex flex-col gap-1 items-center">
+                                            <span className="font-bold text-[11px] text-indigo-400">
+                                              {promedio.toFixed(3)}
+                                            </span>
+                                            <input
+                                              type="number"
+                                              step="any"
+                                              min="0"
+                                              disabled={l.estado_leyes === EstadoLeyes.Confirmado || promedio <= 0}
+                                              placeholder={promedio > 0 ? promedio.toFixed(3) : "0.000"}
+                                              value={valActual}
+                                              onChange={(e) => onChangeLeyManual?.(l.id, a.detalle_id, e.currentTarget.value)}
+                                              className={`w-16 h-5 text-center text-[10px] leading-none px-1 bg-zinc-950 border ${
+                                                estaInvalido
+                                                  ? "border-amber-500/80 text-amber-300 focus:border-amber-400 ring-1 ring-amber-500/20"
+                                                  : "border-indigo-700/50 text-indigo-200 focus:border-indigo-400"
+                                              } rounded-md focus:outline-none transition-all placeholder:text-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
+                                              title={`Ley consolidada para ${a.nombre} (por defecto es el promedio, editable manualmente)`}
+                                            />
+                                          </div>
+                                        </td>
+                                      );
+                                    })()}
                                   </React.Fragment>
                                 );
                               } else {
@@ -613,29 +666,37 @@ export const TablaCierreLeyes = ({
                                     />
                                   </div>
                                 </td>
-                                {runIdx === 0 && (
-                                  <td
-                                    rowSpan={totalRowsForLote}
-                                    className="p-1.5 border-r border-zinc-800 text-center align-middle"
-                                  >
-                                    <div className="flex flex-col gap-1 items-center">
-                                      <span className="font-bold text-[11px] text-indigo-400">
-                                        {promedio.toFixed(3)}
-                                      </span>
-                                      <input
-                                        type="number"
-                                        step="any"
-                                        min="0"
-                                        disabled={l.estado_leyes === EstadoLeyes.Confirmado || promedio <= 0}
-                                        placeholder="manual"
-                                        value={leyManualPorDetalle?.[a.detalle_id] ?? ""}
-                                        onChange={(e) => onChangeLeyManual?.(a.detalle_id, e.currentTarget.value)}
-                                        className="w-14 h-5 text-center text-[10px] leading-none px-1 bg-zinc-950 border border-indigo-700/50 text-indigo-200 rounded-md focus:border-indigo-400 focus:outline-none transition-all placeholder:text-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                        title={`Ley manual para ${a.nombre} (override del promedio automático al confirmar)`}
-                                      />
-                                    </div>
-                                  </td>
-                                )}
+                                {runIdx === 0 && (() => {
+                                  const valActual = getValorLeyConsolidada(l.id, a.detalle_id, promedio);
+                                  const estaInvalido = valActual.trim() === "" || Number(valActual) <= 0;
+                                  return (
+                                    <td
+                                      rowSpan={totalRowsForLote}
+                                      className="p-1.5 border-r border-zinc-800 text-center align-middle"
+                                    >
+                                      <div className="flex flex-col gap-1 items-center">
+                                        <span className="font-bold text-[11px] text-indigo-400">
+                                          {promedio.toFixed(3)}
+                                        </span>
+                                        <input
+                                          type="number"
+                                          step="any"
+                                          min="0"
+                                          disabled={l.estado_leyes === EstadoLeyes.Confirmado || promedio <= 0}
+                                          placeholder={promedio > 0 ? promedio.toFixed(3) : "0.000"}
+                                          value={valActual}
+                                          onChange={(e) => onChangeLeyManual?.(l.id, a.detalle_id, e.currentTarget.value)}
+                                          className={`w-16 h-5 text-center text-[10px] leading-none px-1 bg-zinc-950 border ${
+                                            estaInvalido
+                                              ? "border-amber-500/80 text-amber-300 focus:border-amber-400 ring-1 ring-amber-500/20"
+                                              : "border-indigo-700/50 text-indigo-200 focus:border-indigo-400"
+                                          } rounded-md focus:outline-none transition-all placeholder:text-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
+                                          title={`Ley consolidada para ${a.nombre} (por defecto es el promedio, editable manualmente)`}
+                                        />
+                                      </div>
+                                    </td>
+                                  );
+                                })()}
                               </React.Fragment>
                             );
                           } else {
@@ -727,8 +788,12 @@ export const TablaCierreLeyes = ({
                             </div>
                           ) : (() => {
                             const validacion = validacionCierrePorLote?.[l.id] ?? { ok: false, motivo: "Validación pendiente" };
-                            const bloqueado = confirmandoLote[l.id] || !validacion.ok;
-                            const tooltip = validacion.ok ? "Cerrar lote" : (validacion.motivo ?? "No se puede cerrar el lote");
+                            const valInputs = validarInputsLeyesConsolidadas(l, grupos);
+                            const okParaCerrar = validacion.ok && valInputs.ok;
+                            const bloqueado = confirmandoLote[l.id] || !okParaCerrar;
+                            const tooltip = okParaCerrar
+                              ? "Cerrar lote"
+                              : (!validacion.ok ? validacion.motivo : valInputs.motivo) ?? "No se puede cerrar el lote";
                             return (
                               <div className="flex flex-col gap-2 w-full max-w-40 mx-auto">
                                 <button
