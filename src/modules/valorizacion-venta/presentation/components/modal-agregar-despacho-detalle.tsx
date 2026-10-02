@@ -646,7 +646,7 @@ export const ModalAgregarDespachoDetalle = ({
                     Ley Final ({elemento ?? "?"})
                   </Text>
                   <Text fz="xs" fw={700} c="yellow.3">
-                    {formatNumber(ley, 3)} {elemento === ElementoQuimicoValorizacion.Oro ? "g/t" : "oz/t"}
+                    {formatNumber(ley, 3)} oz/tc
                   </Text>
                 </Box>
               </Grid.Col>

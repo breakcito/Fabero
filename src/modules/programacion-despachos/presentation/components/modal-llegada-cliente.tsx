@@ -232,8 +232,8 @@ export const ModalLlegadaCliente = ({
                   <th className="py-2 px-3 text-center font-bold">Parte</th>
                   <th className="py-2 px-3 text-center font-bold">Cód. Cliente</th>
                   <th className="py-2 px-3 text-center font-bold">Peso Neto (KG)</th>
-                  <th className="py-2 px-3 text-center font-bold">Ley Oro (g/t)</th>
-                  <th className="py-2 px-3 text-center font-bold">Ley Plata (g/t)</th>
+                  <th className="py-2 px-3 text-center font-bold">Ley Oro (oz/tc)</th>
+                  <th className="py-2 px-3 text-center font-bold">Ley Plata (oz/tc)</th>
                   <th className="py-2 px-3 text-center font-bold">Humedad (%)</th>
                 </tr>
               </thead>

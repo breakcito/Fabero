@@ -596,7 +596,7 @@ export const ValorizacionVentaPage = () => {
                           <div className="text-xs font-mono font-bold text-yellow-400 mt-0.5 truncate">
                             {formatNumber(d.ley, 3)}{" "}
                             <span className="text-[9px] text-zinc-500 font-normal">
-                              {esOro ? "g/t" : "oz/t"}
+                              oz/tc
                             </span>
                           </div>
                         </div>
