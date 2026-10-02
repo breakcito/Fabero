@@ -184,8 +184,8 @@ export const useFormValorizacionVenta = ({
       setEvidencias([]);
       setEvidenciasExistentes([]);
       setFechaHoraValorizacion(nowIsoDateTime());
-      montoPenalidad && setMontoPenalidad(0);
-      montoFlete && setMontoFlete(0);
+      setMontoPenalidad(0);
+      setMontoFlete(0);
     }
   }, [opened, valorizacionEditar]);
 

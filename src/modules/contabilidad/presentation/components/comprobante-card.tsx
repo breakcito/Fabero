@@ -46,6 +46,20 @@ const badgeEstado = (estado: string) => {
   }
 };
 
+const badgeTipoPago = (tipoPago?: string | null) => {
+  if (!tipoPago) return null;
+  switch (tipoPago) {
+    case "Anticipo":
+      return <Badge color="violet" variant="light" size="sm">Anticipo</Badge>;
+    case "Mixto":
+      return <Badge color="orange" variant="light" size="sm">Mixto</Badge>;
+    case "Transferencia":
+      return <Badge color="cyan" variant="light" size="sm">Transferencia</Badge>;
+    default:
+      return <Badge color="gray" variant="light" size="sm">{tipoPago}</Badge>;
+  }
+};
+
 const formatFecha = (iso: string): string => {
   if (!iso) return "—";
   try {
@@ -112,14 +126,26 @@ export const ComprobanteCard = ({
   const isAnulado = comprobante.estado === EstadoComprobanteCompra.Anulado || comprobante.estado === "Anulado";
   const numEvidencias = Array.isArray(comprobante.evidencias) ? comprobante.evidencias.length : 0;
 
+  const saldoPendienteNeto = Math.max(comprobante.monto_neto - comprobante.avance_pago_neto, 0);
+  const saldoPendienteDetraccion = Math.max(
+    comprobante.monto_detraccion_soles - comprobante.avance_pago_detraccion,
+    0,
+  );
+
   const pctPagadoNeto =
-    !isAnulado && comprobante.monto_neto > 0
-      ? Math.min(100, (comprobante.avance_pago_neto / comprobante.monto_neto) * 100)
+    !isAnulado
+      ? comprobante.monto_neto > 0
+        ? Math.min(100, (comprobante.avance_pago_neto / comprobante.monto_neto) * 100)
+        : 100
       : 0;
+
   const pctPagadoDetraccion =
-    !isAnulado && comprobante.monto_detraccion_soles > 0
-      ? Math.min(100, (comprobante.avance_pago_detraccion / comprobante.monto_detraccion_soles) * 100)
+    !isAnulado
+      ? comprobante.monto_detraccion_soles > 0
+        ? Math.min(100, (comprobante.avance_pago_detraccion / comprobante.monto_detraccion_soles) * 100)
+        : 100
       : 0;
+
   const totalPagadoUsd = isAnulado
     ? 0
     : comprobante.monto_pagado_anticipos +
@@ -127,14 +153,23 @@ export const ComprobanteCard = ({
       (comprobante.tipo_cambio_venta > 0
         ? comprobante.avance_pago_detraccion / comprobante.tipo_cambio_venta
         : 0);
+
   const pctPagadoTotal =
     !isAnulado && comprobante.total_dolares > 0
       ? Math.min(100, (totalPagadoUsd / comprobante.total_dolares) * 100)
       : 0;
 
-  const isDetraccionSaldado = !isAnulado && pctPagadoDetraccion >= 99.99;
-  const isNetoSaldado = !isAnulado && pctPagadoNeto >= 99.99;
-  const isTotalSaldado = !isAnulado && pctPagadoTotal >= 99.99;
+  const isDetraccionSaldado =
+    !isAnulado &&
+    (comprobante.monto_detraccion_soles <= 0.001 || saldoPendienteDetraccion <= 0.01);
+
+  const isNetoSaldado =
+    !isAnulado &&
+    (comprobante.monto_neto <= 0.001 || saldoPendienteNeto <= 0.01);
+
+  const isTotalSaldado =
+    !isAnulado &&
+    (pctPagadoTotal >= 99.99 || (comprobante.total_dolares - totalPagadoUsd) <= 0.01);
 
   const todasAprobadas = isCompra
     ? (comprobante as RES_ComprobanteCompra).aprobaciones.every((a) => a.esta_aprobado)
@@ -169,6 +204,9 @@ export const ComprobanteCard = ({
               {comprobante.codigo_completo}
             </Text>
             {badgeEstado(comprobante.estado)}
+            {!isCompra &&
+              "tipo_pago" in comprobante &&
+              badgeTipoPago((comprobante as RES_ComprobanteVenta).tipo_pago)}
           </Group>
           <Group gap={4}>
             <IconCalendar size={12} className="text-zinc-500" />

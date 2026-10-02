@@ -117,6 +117,21 @@ export const useRecepcionMineral = () => {
         setLoadingLotesPadre(true);
         const padres = await RecepcionMineralService.get_lotes_padre_particionados(idSucursal);
         setLotesPadreParticionados(padres);
+        // Limpiar del cache de particiones cualquier lote padre que ya no esté activo/existente
+        const activeIds = new Set(padres.map((p) => p.id));
+        setParticionesByLote((prev) => {
+          let changed = false;
+          const next: Record<number, RES_ParticionBalanza[]> = {};
+          for (const [idStr, parts] of Object.entries(prev)) {
+            const numId = Number(idStr);
+            if (activeIds.has(numId)) {
+              next[numId] = parts;
+            } else {
+              changed = true;
+            }
+          }
+          return changed ? next : prev;
+        });
       } catch (e) {
         console.error("Error al cargar lotes padre particionados", e);
         setLotesPadreParticionados([]);
@@ -147,6 +162,21 @@ export const useRecepcionMineral = () => {
     try {
       const padres = await RecepcionMineralService.get_lotes_padre_particionados(idSucursal);
       setLotesPadreParticionados(padres);
+      // Limpiar del cache de particiones cualquier lote padre que ya no esté activo/existente
+      const activeIds = new Set(padres.map((p) => p.id));
+      setParticionesByLote((prev) => {
+        let changed = false;
+        const next: Record<number, RES_ParticionBalanza[]> = {};
+        for (const [idStr, parts] of Object.entries(prev)) {
+          const numId = Number(idStr);
+          if (activeIds.has(numId)) {
+            next[numId] = parts;
+          } else {
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
     } catch (e) {
       console.error("Error al refrescar header de lotes padre", e);
     } finally {
@@ -362,8 +392,9 @@ export const useRecepcionMineral = () => {
         setParticionesByLote((prev) => {
           if (!(tempId in prev)) return prev;
           const tempParticiones = prev[tempId];
-          const { [tempId]: _drop, ...rest } = prev;
-          return { ...rest, [nuevoLote.id]: tempParticiones };
+          const next = { ...prev };
+          delete next[tempId];
+          return { ...next, [nuevoLote.id]: tempParticiones };
         });
         await Promise.all([
           refreshLotesPadreParticionados(),
@@ -377,8 +408,9 @@ export const useRecepcionMineral = () => {
       if (tempParticion) {
         setParticionesByLote((prev) => {
           if (!(tempId in prev)) return prev;
-          const { [tempId]: _drop, ...rest } = prev;
-          return rest;
+          const next = { ...prev };
+          delete next[tempId];
+          return next;
         });
       }
       // Re-fetch para limpiar cualquier estado optimista pendiente.
@@ -408,6 +440,12 @@ export const useRecepcionMineral = () => {
               return r;
             })
           );
+
+          setParticionesByLote((prev) => {
+            const next = { ...prev };
+            delete next[loteId];
+            return next;
+          });
 
           if (selectedRecepcion?.id === recepcionId) {
             setSelectedRecepcion((prev) => {
@@ -680,6 +718,31 @@ export const useRecepcionMineral = () => {
   };
 
   /**
+   * Elimina de forma lógica un lote padre particionado y todas sus particiones.
+   * Realiza una limpieza optimista e inmediata de `lotesPadreParticionados` y
+   * `particionesByLote`, haciendo que tanto el card del lote padre como los cards
+   * de sus particiones hijas desaparezcan instantáneamente de la vista sin parpadeos.
+   */
+  const eliminarLotePadreParticionado = async (idLotePadre: number): Promise<void> => {
+    // 1. Limpieza optimista inmediata del estado local:
+    setLotesPadreParticionados((prev) => prev.filter((p) => p.id !== idLotePadre));
+    setParticionesByLote((prev) => {
+      const next = { ...prev };
+      delete next[idLotePadre];
+      return next;
+    });
+
+    // 2. Ejecutar baja lógica en el backend
+    await RecepcionMineralService.eliminar_lote(idLotePadre);
+
+    // 3. Sincronizar en segundo plano
+    await Promise.all([
+      refreshLotesPadreParticionados(),
+      loadRecepciones({ showLoading: false }),
+    ]);
+  };
+
+  /**
    * Construye el grid unificado de Lotes para una unidad: mezcla lotes regulares
    * (de `lote_mineral`) con particiones (de `particion_lote_mineral`) que tengan
    * `id_recepcion_unidad = ru.id`. Las particiones reemplazan visualmente el slot
@@ -879,6 +942,7 @@ export const useRecepcionMineral = () => {
     eliminarParticion,
     actualizarCamposNoPeso,
     finalizarParticionLote,
+    eliminarLotePadreParticionado,
     refreshParticionesLote,
     refreshLotesPadreParticionados,
     getLotesYParticionesDeUnidad,

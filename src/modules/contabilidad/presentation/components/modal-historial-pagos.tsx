@@ -117,7 +117,6 @@ export const ModalHistorialPagos = ({
 
   const todoPagado =
     comprobante.estado === "Pagado" ||
-    comprobante.estado === EstadoComprobanteCompra.Pagado ||
     (saldoPendienteNeto <= 0.01 && saldoPendienteDetraccion <= 0.01);
 
   const habilitadoRegistrar = todasAprobadas && !isAnulado && !todoPagado;

@@ -76,4 +76,22 @@ export const AnticiposPlantaService = {
     );
     return data;
   },
+
+  get_transacciones: async (
+    id: number
+  ): Promise<IRespuesta<import("./anticipos-planta.responses").RES_TransaccionAnticipoPlanta[]>> => {
+    const { data } = await api.get<
+      IRespuesta<import("./anticipos-planta.responses").RES_TransaccionAnticipoPlanta[]>
+    >(`/anticipos-planta/${id}/transacciones`);
+    return data;
+  },
+
+  getHistorialCambios: async (
+    id: number
+  ): Promise<IRespuesta<import("../../../service/responses/_generic/cambios-log").RES_CambiosLog[]>> => {
+    const { data } = await api.get<
+      IRespuesta<import("../../../service/responses/_generic/cambios-log").RES_CambiosLog[]>
+    >(`/anticipos-planta/${id}/historial-cambios`);
+    return data;
+  },
 };

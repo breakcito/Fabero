@@ -1,11 +1,13 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { CierreLeyesService } from "../service/cierre-leyes.service";
 import { GestionLeyesService } from "../../gestion-leyes/service/gestion-leyes.service";
-import type { LoteSugeridoResponse, LoteCierreResponse } from "../service/cierre-leyes.responses";
+import { AuxService } from "../../../service/auxiliar.service";
+import type { LoteSugeridoResponse, LoteCierreResponse, MuestraExternaResponse, MuestraAsociadaResponse } from "../service/cierre-leyes.responses";
 import type { GrupoAnalisisResponse } from "../../gestion-leyes/service/gestion-leyes.responses";
 import { useNotify } from "../../../hooks/useNotify";
-import type { FiltrosLotesSugeridos, GuardarValorPayload } from "../service/cierre-leyes.service";
+import type { FiltrosLotesSugeridos, GuardarValorPayload, GuardarValorMuestraPayload } from "../service/cierre-leyes.service";
 import { TipoOrigen } from "../../../shared/enums/_generic/tipo-origen";
+import type { RES_Proveedor } from "../../../service/responses/proveedor";
 
 export type CierreValidacion = { ok: boolean; motivo?: string };
 
@@ -15,30 +17,71 @@ export type CierreValidacion = { ok: boolean; motivo?: string };
 const cellKey = (p: Pick<GuardarValorPayload, "id_lote_mineral" | "id_grupo_analisis_detalle" | "uuid_fila" | "tipo_origen"> & { id?: number | null }) =>
   `${p.id_lote_mineral}|${p.id_grupo_analisis_detalle}|${p.uuid_fila}|${p.tipo_origen ?? "_"}|${p.id ?? "new"}`;
 
+/**
+ * Determina si una muestra externa está lista para asociarse a un lote:
+ * requiere que CADA análisis de CADA corrida tenga ley > 0 (dato cargado).
+ * Si falta cualquier valor, retorna false y motivo explicativo.
+ */
+export const puedeAsociarMuestra = (m: MuestraExternaResponse): { ok: boolean; motivo?: string } => {
+  if (!m.analisis || m.analisis.length === 0) {
+    return { ok: false, motivo: "La muestra no tiene análisis cargados." };
+  }
+  const sinDatos = m.analisis.filter((a) => !(a.ley > 0));
+  if (sinDatos.length > 0) {
+    return {
+      ok: false,
+      motivo: `Faltan ${sinDatos.length} análisis con datos. Todas deben tener un valor > 0.`,
+    };
+  }
+  return { ok: true };
+};
+
+/**
+ * Clave estable para celdas de una muestra externa.
+ */
+const cellKeyMuestra = (p: Pick<GuardarValorMuestraPayload, "id_muestra_externa" | "id_grupo_analisis_detalle" | "uuid_fila" | "tipo_origen"> & { id?: number | null }) =>
+  `m${p.id_muestra_externa}|${p.id_grupo_analisis_detalle}|${p.uuid_fila}|${p.tipo_origen ?? "_"}|${p.id ?? "new"}`;
+
 export const useCierreLeyes = () => {
   const { notifySuccess, notifyError } = useNotify();
 
   const [lotes, setLotes] = useState<LoteCierreResponse[]>([]);
   const [lotesSugeridos, setLotesSugeridos] = useState<LoteSugeridoResponse[]>([]);
   const [grupos, setGrupos] = useState<GrupoAnalisisResponse[]>([]);
+  const [muestras, setMuestras] = useState<MuestraExternaResponse[]>([]);
+  const [proveedores, setProveedores] = useState<RES_Proveedor[]>([]);
 
   const [loading, setLoading] = useState(false);
   const [loadingSugeridos, setLoadingSugeridos] = useState(false);
   const [loadingGrupos, setLoadingGrupos] = useState(false);
+  const [loadingMuestras, setLoadingMuestras] = useState(false);
+  const [loadingProveedores, setLoadingProveedores] = useState(false);
   const [guardandoValorPorLote, setGuardandoValorPorLote] = useState<Record<number, boolean>>({});
   const [agregandoAnalisisPorLote, setAgregandoAnalisisPorLote] = useState<Record<number, boolean>>({});
   const [confirmandoLote, setConfirmandoLote] = useState<Record<number, boolean>>({});
   const [iniciandoLoteSugeridoId, setIniciandoLoteSugeridoId] = useState<number | null>(null);
+  const [iniciandoMuestraExterna, setIniciandoMuestraExterna] = useState(false);
   const [checkeandoLote, setChequeandoLote] = useState<Record<number, boolean>>({});
+  const [asociandoMuestra, setAsociandoMuestra] = useState<Record<number, boolean>>({});
+  const [agregandoAnalisisMuestra, setAgregandoAnalisisMuestra] = useState<Record<number, boolean>>({});
 
   // Set de claves de celda actualmente guardando, para spinner per-cell.
   const [guardandoCelda, setGuardandoCelda] = useState<Set<string>>(new Set());
+
+  // Map idLote -> muestras externas asociadas (cache para no re-disparar fetch cada vez que se abre el modal)
+  const [muestrasAsociadasPorLote, setMuestrasAsociadasPorLote] = useState<Record<number, MuestraAsociadaResponse[]>>({});
 
   // Ref espejo de `lotes` para snapshots / deduplicacion sin causar renders.
   const lotesRef = useRef(lotes);
   useEffect(() => {
     lotesRef.current = lotes;
   }, [lotes]);
+
+  // Ref espejo de `muestras` para el drag & drop lookup sin causar renders.
+  const muestrasRef = useRef(muestras);
+  useEffect(() => {
+    muestrasRef.current = muestras;
+  }, [muestras]);
 
   const cargarLotes = useCallback(async (filtros?: FiltrosLotesSugeridos) => {
     setLoading(true);
@@ -79,6 +122,44 @@ export const useCierreLeyes = () => {
     }
   }, [notifyError]);
 
+  const cargarMuestrasExternas = useCallback(async () => {
+    setLoadingMuestras(true);
+    try {
+      const data = await CierreLeyesService.getMuestrasExternas();
+      setMuestras((data ?? []).filter((m): m is MuestraExternaResponse => m != null && m.id != null));
+    } catch (err: unknown) {
+      console.error(err);
+      notifyError("Ocurrió un error al cargar las muestras externas");
+    } finally {
+      setLoadingMuestras(false);
+    }
+  }, [notifyError]);
+
+  const cargarProveedores = useCallback(async () => {
+    setLoadingProveedores(true);
+    try {
+      const respuesta = await AuxService.get_proveedores();
+      setProveedores(respuesta?.data ?? []);
+    } catch (err: unknown) {
+      console.error(err);
+      notifyError("Ocurrió un error al cargar los proveedores");
+    } finally {
+      setLoadingProveedores(false);
+    }
+  }, [notifyError]);
+
+  const cargarMuestrasAsociadas = useCallback(async (idLoteMineral: number): Promise<MuestraAsociadaResponse[]> => {
+    try {
+      const data = await CierreLeyesService.getMuestrasAsociadasPorLote(idLoteMineral);
+      setMuestrasAsociadasPorLote((prev) => ({ ...prev, [idLoteMineral]: data }));
+      return data;
+    } catch (err: unknown) {
+      console.error(err);
+      notifyError("Ocurrió un error al cargar las muestras asociadas");
+      return [];
+    }
+  }, [notifyError]);
+
   useEffect(() => {
     cargarGrupos();
   }, [cargarGrupos]);
@@ -104,6 +185,26 @@ export const useCierreLeyes = () => {
     }
   };
 
+  const iniciarMuestraExterna = async (idProveedorMinero: number): Promise<boolean> => {
+    setIniciandoMuestraExterna(true);
+    try {
+      const nuevaMuestra = await CierreLeyesService.iniciarMuestraExterna(idProveedorMinero);
+      if (!nuevaMuestra || nuevaMuestra.id == null) {
+        notifyError("La respuesta del servidor no contiene la muestra iniciada.");
+        return false;
+      }
+      setMuestras((prev) => [nuevaMuestra, ...prev]);
+      notifySuccess(`Muestra externa ${nuevaMuestra.correlativo} iniciada correctamente`);
+      return true;
+    } catch (err: unknown) {
+      console.error(err);
+      notifyError("No se pudo iniciar la muestra externa");
+      return false;
+    } finally {
+      setIniciandoMuestraExterna(false);
+    }
+  };
+
   /**
    * Guarda un valor de ley.
    *
@@ -115,7 +216,7 @@ export const useCierreLeyes = () => {
    *  4) Si falla, revierte la mutacion local usando snapshot y muestra error.
    *  5) Flag per-cell (`guardandoCelda`) para spinner fino, no global.
    */
-  const guardarValor = async (payload: GuardarValorPayload): Promise<boolean> => {
+  const guardarValor = useCallback(async (payload: GuardarValorPayload): Promise<boolean> => {
     if (payload.esta_confirmada && payload.ley <= 0) {
       notifyError("No se puede confirmar un análisis sin un valor mayor a cero.");
       return false;
@@ -184,6 +285,70 @@ export const useCierreLeyes = () => {
         return next;
       });
     }
+  }, [notifyError]);
+
+  /**
+   * Guarda un valor de ley para una muestra externa (misma mecánica que guardarValor pero apuntando a la muestra).
+   */
+  const guardarValorMuestra = async (payload: GuardarValorMuestraPayload): Promise<boolean> => {
+    if (payload.esta_confirmada && payload.ley <= 0) {
+      notifyError("No se puede confirmar un análisis sin un valor mayor a cero.");
+      return false;
+    }
+
+    const key = cellKeyMuestra(payload);
+    setGuardandoCelda((prev) => {
+      const next = new Set(prev);
+      next.add(key);
+      return next;
+    });
+
+    const snapshot = muestrasRef.current.find((m) => m.id === payload.id_muestra_externa);
+
+    // Mutación optimista local
+    setMuestras((prev) =>
+      prev.map((m) => {
+        if (!m || m.id !== payload.id_muestra_externa) return m;
+        return {
+          ...m,
+          analisis: m.analisis.map((a) => {
+            const matchesById = payload.id != null && a.id === payload.id;
+            const matchesByKey =
+              a.id_grupo_analisis_detalle === payload.id_grupo_analisis_detalle &&
+              a.uuid_fila === payload.uuid_fila &&
+              a.tipo_origen === payload.tipo_origen;
+            if (!matchesById && !matchesByKey) return a;
+            return { ...a, ley: payload.ley, esta_confirmada: payload.esta_confirmada };
+          }),
+        };
+      }),
+    );
+
+    try {
+      const servidor = await CierreLeyesService.guardarValorMuestraExterna(payload);
+      if (!servidor || servidor.id == null) {
+        notifyError("La respuesta del servidor es inválida.");
+        if (snapshot) {
+          setMuestras((prev) => prev.map((m) => (m && m.id === snapshot.id ? snapshot : m)));
+        }
+        return false;
+      }
+      setMuestras((prev) => prev.map((m) => (m && m.id === servidor.id ? servidor : m)));
+      return true;
+    } catch (err: unknown) {
+      console.error(err);
+      notifyError("Error al guardar el valor de la ley en la muestra externa");
+      if (snapshot) {
+        setMuestras((prev) => prev.map((m) => (m && m.id === snapshot.id ? snapshot : m)));
+      }
+      return false;
+    } finally {
+      setGuardandoCelda((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
+    }
   };
 
   /**
@@ -230,7 +395,8 @@ export const useCierreLeyes = () => {
         }
       } finally {
         setChequeandoLote((prev) => {
-          const { [idLoteMineral]: _, ...rest } = prev;
+          const rest = { ...prev };
+          delete rest[idLoteMineral];
           return rest;
         });
       }
@@ -291,10 +457,92 @@ export const useCierreLeyes = () => {
     }
   };
 
-  const confirmarLote = async (idLoteMineral: number, conValorComercial: boolean): Promise<boolean> => {
+const eliminarFilaMuestra = async (idMuestraExterna: number, uuidFila: string): Promise<boolean> => {
+    try {
+      const muestraActualizada = await CierreLeyesService.eliminarFilaMuestraExterna(idMuestraExterna, uuidFila);
+      // Si el backend retorna null, la muestra fue eliminada en cascada (sin análisis restantes).
+      if (muestraActualizada === null || muestraActualizada === undefined) {
+        setMuestras((prev) => prev.filter((m) => m.id !== idMuestraExterna));
+        notifySuccess("Muestra externa eliminada por quedar sin análisis");
+        return true;
+      }
+      if (!muestraActualizada.id) {
+        notifyError("La respuesta del servidor es inválida.");
+        return false;
+      }
+      setMuestras((prev) => prev.map((m) => (m && m.id === idMuestraExterna ? muestraActualizada : m)));
+      notifySuccess("Corrida de análisis de muestra externa eliminada");
+      return true;
+    } catch (err: unknown) {
+      console.error(err);
+      notifyError("Error al eliminar la corrida de la muestra");
+      return false;
+    }
+  };
+
+  const agregarAnalisisMuestra = async (idMuestraExterna: number): Promise<boolean> => {
+    setAgregandoAnalisisMuestra((prev) => ({ ...prev, [idMuestraExterna]: true }));
+    try {
+      const muestraActualizada = await CierreLeyesService.agregarAnalisisMuestra(idMuestraExterna);
+      if (!muestraActualizada || muestraActualizada.id == null) {
+        notifyError("La respuesta del servidor es inválida.");
+        return false;
+      }
+      setMuestras((prev) => prev.map((m) => (m && m.id === idMuestraExterna ? muestraActualizada : m)));
+      notifySuccess("Nuevo análisis agregado a la muestra externa");
+      return true;
+    } catch (err: unknown) {
+      console.error(err);
+      notifyError("Error al agregar el análisis a la muestra externa");
+      return false;
+    } finally {
+      setAgregandoAnalisisMuestra((prev) => {
+        const copy = { ...prev };
+        delete copy[idMuestraExterna];
+        return copy;
+      });
+    }
+  };
+
+  const actualizarOrigenFilaMuestra = async (
+    idMuestraExterna: number,
+    uuidFila: string,
+    tipoOrigen: TipoOrigen | null,
+  ): Promise<boolean> => {
+    try {
+      const muestraActualizada = await CierreLeyesService.actualizarOrigenFilaMuestraExterna(
+        idMuestraExterna,
+        uuidFila,
+        tipoOrigen,
+      );
+      if (!muestraActualizada || muestraActualizada.id == null) {
+        notifyError("La respuesta del servidor es inválida.");
+        return false;
+      }
+      setMuestras((prev) => prev.map((m) => (m && m.id === idMuestraExterna ? muestraActualizada : m)));
+      return true;
+    } catch (err: unknown) {
+      console.error(err);
+      notifyError("Error al actualizar el origen de la corrida de la muestra");
+      return false;
+    }
+  };
+
+  /**
+   * Confirmar lote con leyes manuales opcionales. Si el front provee leyes_manuales, el backend las usa como override del promedio automático.
+   */
+  const confirmarLote = async (
+    idLoteMineral: number,
+    conValorComercial: boolean,
+    leyesManuales?: Array<{ id_grupo_analisis_detalle: number; ley: number }>,
+  ): Promise<boolean> => {
     setConfirmandoLote((prev) => ({ ...prev, [idLoteMineral]: true }));
     try {
-      const loteActualizado = await CierreLeyesService.confirmarLoteLeyes(idLoteMineral, conValorComercial);
+      const loteActualizado = await CierreLeyesService.confirmarLoteLeyes(
+        idLoteMineral,
+        conValorComercial,
+        leyesManuales,
+      );
       if (!loteActualizado || loteActualizado.id == null) {
         notifyError("La respuesta del servidor es inválida.");
         return false;
@@ -316,6 +564,63 @@ export const useCierreLeyes = () => {
       });
     }
   };
+
+  /**
+   * Asocia una muestra externa a un lote. Tras el éxito:
+   *  - Remueve la muestra de la lista de activas.
+   *  - Reemplaza/actualiza el lote con la respuesta del servidor.
+   *  - Limpia cache de muestrasAsociadasPorLote para que se refresque al abrir.
+   */
+  const asociarMuestraALote = async (idMuestraExterna: number, idLoteMineral: number): Promise<boolean> => {
+    setAsociandoMuestra((prev) => ({ ...prev, [idMuestraExterna]: true }));
+    try {
+      const respuesta = await CierreLeyesService.asociarMuestraALote(idMuestraExterna, idLoteMineral);
+      if (!respuesta || !respuesta.lote) {
+        notifyError("La respuesta del servidor es inválida.");
+        return false;
+      }
+      setMuestras((prev) => prev.filter((m) => m.id !== idMuestraExterna));
+      setLotes((prev) => {
+        const existe = prev.some((l) => l && l.id === idLoteMineral);
+        if (existe) {
+          return prev.map((l) => (l && l.id === idLoteMineral ? respuesta.lote : l));
+        }
+        return [respuesta.lote, ...prev];
+      });
+      setLotesSugeridos((prev) => prev.filter((l) => l.id !== idLoteMineral));
+      void cargarLotesSugeridos();
+      // Recargar muestras asociadas inmediatamente
+      void cargarMuestrasAsociadas(idLoteMineral);
+
+
+
+
+      notifySuccess(
+        `Muestra asociada al lote ${respuesta.lote.correlativo} (${respuesta.analisis_migrados} análisis migrados).`,
+      );
+      return true;
+    } catch (err: unknown) {
+      console.error(err);
+      notifyError("Error al asociar la muestra externa al lote");
+      return false;
+    } finally {
+      setAsociandoMuestra((prev) => {
+        const copy = { ...prev };
+        delete copy[idMuestraExterna];
+        return copy;
+      });
+    }
+  };
+
+  const isAsociandoMuestra = useCallback(
+    (idMuestraExterna: number): boolean => Boolean(asociandoMuestra[idMuestraExterna]),
+    [asociandoMuestra],
+  );
+
+  const isAgregandoAnalisisMuestra = useCallback(
+    (idMuestraExterna: number): boolean => Boolean(agregandoAnalisisMuestra[idMuestraExterna]),
+    [agregandoAnalisisMuestra],
+  );
 
   const actualizarOrigenFila = async (
     idLoteMineral: number,
@@ -410,24 +715,42 @@ export const useCierreLeyes = () => {
     lotes,
     lotesSugeridos,
     grupos,
+    muestras,
+    proveedores,
     loading: loading || loadingGrupos,
     loadingSugeridos,
+    loadingMuestras,
+    loadingProveedores,
     guardandoValorPorLote,
     agregandoAnalisisPorLote,
     confirmandoLote,
     validacionCierrePorLote,
     iniciandoLoteSugeridoId,
+    iniciandoMuestraExterna,
+    muestrasAsociadasPorLote,
     isGuardandoCelda,
+    isAsociandoMuestra,
     cellKey,
     cargarLotes,
     cargarLotesSugeridos,
+    cargarGrupos,
+    cargarMuestrasExternas,
+    cargarProveedores,
+    cargarMuestrasAsociadas,
     iniciarLote,
+    iniciarMuestraExterna,
     guardarValor,
+    guardarValorMuestra,
     agregarAnalisis,
     eliminarFila,
+    eliminarFilaMuestra,
     confirmarLote,
     actualizarOrigenFila,
+    actualizarOrigenFilaMuestra,
     confirmarTodoElLote,
     isChequeandoLote,
+    asociarMuestraALote,
+    agregarAnalisisMuestra,
+    isAgregandoAnalisisMuestra,
   };
 };

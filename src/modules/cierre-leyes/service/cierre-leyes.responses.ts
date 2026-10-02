@@ -41,3 +41,33 @@ export interface LoteCierreResponse {
   empleado_confirmacion_nombre: string | null;
   analisis: AnalisisMineralResponse[];
 }
+
+export interface MuestraExternaResponse {
+  id: number;
+  id_empleado_registro: number;
+  id_proveedor_minero: number;
+  correlativo: string;
+  numero_correlativo: number;
+  created_at: string;
+  proveedor_razon_social: string | null;
+  empleado_registro_nombre: string | null;
+  analisis: AnalisisMineralResponse[];
+}
+
+export interface MuestraAsociadaResponse {
+  id: number;
+  id_empleado_registro: number;
+  id_proveedor_minero: number;
+  correlativo: string;
+  numero_correlativo: number;
+  created_at: string;
+  proveedor_razon_social: string | null;
+  empleado_registro_nombre: string | null;
+}
+
+export interface AsociarMuestraResponse {
+  lote: LoteCierreResponse;
+  muestra: MuestraExternaResponse;
+  analisis_migrados: number;
+  lote_iniciado: boolean;
+}

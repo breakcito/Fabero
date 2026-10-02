@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from "react";
-import { IconCheck, IconChecks, IconTrash, IconPlus, IconTrashX, IconHistory } from "@tabler/icons-react";
+import React, { useState } from "react";
+import { IconChecks, IconPlus, IconTrashX, IconHistory, IconClipboardList } from "@tabler/icons-react";
 import { Loader, Badge, Select, Tooltip, Group } from "@mantine/core";
 import { EstadoLeyes } from "../../../../shared/enums/_generic/estado-leyes";
 import { TipoOrigen } from "../../../../shared/enums/_generic/tipo-origen";
-import type { LoteCierreResponse, AnalisisMineralResponse } from "../../service/cierre-leyes.responses";
+import type { LoteCierreResponse, AnalisisMineralResponse, MuestraAsociadaResponse } from "../../service/cierre-leyes.responses";
 import type { GrupoAnalisisResponse, GrupoAnalisisDetalleResponse } from "../../../../modules/gestion-leyes/service/gestion-leyes.responses";
 import type { GuardarValorPayload } from "../../service/cierre-leyes.service";
 import type { CierreValidacion } from "../../hooks/useCierreLeyes";
@@ -11,6 +11,8 @@ import { useNotify } from "../../../../hooks/useNotify";
 import type { RES_CambiosLog } from "../../../../service/responses/_generic/cambios-log";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
 import { CambiosLogViewer } from "../../../../presentation/utils/cambios-log-viewer";
+import { mostrarConfirmacion } from "../../../../presentation/utils/modal-confirmacion";
+import { CellInput } from "./cell-input";
 
 interface TablaCierreLeyesProps {
   lotes: LoteCierreResponse[];
@@ -18,7 +20,11 @@ interface TablaCierreLeyesProps {
   onGuardarValor: (payload: GuardarValorPayload) => Promise<boolean>;
   onAgregarAnalisis: (idLoteMineral: number) => Promise<boolean>;
   onEliminarFila: (idLoteMineral: number, uuidFila: string) => Promise<boolean>;
-  onConfirmarLote: (idLoteMineral: number, conValorComercial: boolean) => Promise<boolean>;
+  onConfirmarLote: (
+    idLoteMineral: number,
+    conValorComercial: boolean,
+    leyesManuales?: Array<{ id_grupo_analisis_detalle: number; ley: number }>,
+  ) => Promise<boolean>;
   onActualizarOrigenFila: (idLoteMineral: number, uuidFila: string, tipoOrigen: TipoOrigen | null) => Promise<boolean>;
   onCheckAll?: (idLoteMineral: number) => Promise<void>;
   isChequeandoLote?: (idLoteMineral: number) => boolean;
@@ -27,135 +33,18 @@ interface TablaCierreLeyesProps {
   isGuardandoCelda?: (key: string) => boolean;
   cellKeyFn?: (p: Pick<GuardarValorPayload, "id_lote_mineral" | "id_grupo_analisis_detalle" | "uuid_fila" | "tipo_origen"> & { id?: number | null }) => string;
   validacionCierrePorLote?: Record<number, CierreValidacion>;
+  /** Muestras externas ya asociadas a cada lote (para mostrar botón + modal de muestras). */
+  muestrasAsociadasPorLote?: Record<number, MuestraAsociadaResponse[]>;
+  /** Muestra actualmente siendo arrastrada desde la tabla inferior (HTML5 drag & drop). */
+  muestraArrastradaId?: number | null;
+  /** Cargar muestras asociadas cuando se abre el modal. */
+  onCargarMuestrasAsociadas?: (idLoteMineral: number) => Promise<MuestraAsociadaResponse[]>;
+  /** Indica a la tabla que la fila del lote es una zona de drop válida. */
+  onDropMuestra?: (idLoteMineral: number, idMuestraExterna: number) => Promise<void>;
+  /** Ley manual que el usuario está escribiendo en la celda de promedio (id_detalle => string). */
+  leyManualPorDetalle?: Record<number, string>;
+  onChangeLeyManual?: (idGrupoAnalisisDetalle: number, val: string) => void;
 }
-
-interface CellInputProps {
-  initialValue: number;
-  initialChecked: boolean;
-  onSave: (val: number, checked: boolean) => void;
-  onDelete?: () => void;
-  disabled?: boolean;
-  saving?: boolean;
-  logCambios?: RES_CambiosLog[] | null;
-  onViewLog?: () => void;
-}
-
-const CellInput = ({
-  initialValue,
-  initialChecked,
-  onSave,
-  onDelete,
-  disabled,
-  saving,
-  logCambios,
-  onViewLog,
-}: CellInputProps) => {
-  const { notifyWarning } = useNotify();
-  const [val, setVal] = useState<string>(initialValue > 0 ? initialValue.toString() : "");
-  const [checked, setChecked] = useState(initialChecked);
-
-  const hasLog = Boolean(logCambios && logCambios.length > 0);
-
-  useEffect(() => {
-    setVal(initialValue > 0 ? initialValue.toString() : "");
-  }, [initialValue]);
-
-  useEffect(() => {
-    setChecked(initialChecked);
-  }, [initialChecked]);
-
-  const handleBlur = () => {
-    if (saving) return;
-    const numericVal = parseFloat(val);
-    if (!isNaN(numericVal)) {
-      if (numericVal !== initialValue) {
-        let newChecked = checked;
-        if (numericVal <= 0 && checked) {
-          newChecked = false;
-          setChecked(false);
-          notifyWarning("El análisis se desmarcó como confirmado porque el valor no es mayor a cero.");
-        }
-        onSave(numericVal, newChecked);
-      }
-    } else if (val === "") {
-      if (initialValue !== 0) {
-        let newChecked = checked;
-        if (checked) {
-          newChecked = false;
-          setChecked(false);
-          notifyWarning("El análisis se desmarcó como confirmado porque el valor está vacío.");
-        }
-        onSave(0, newChecked);
-      }
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      e.currentTarget.blur();
-    }
-  };
-
-  const handleCheckboxToggle = () => {
-    if (saving) return;
-    const numericVal = parseFloat(val) || 0;
-    if (!checked && numericVal <= 0) {
-      notifyWarning("No se puede confirmar un análisis sin un valor mayor a cero.");
-      return;
-    }
-    const newChecked = !checked;
-    setChecked(newChecked);
-    onSave(numericVal, newChecked);
-  };
-
-  return (
-    <div className="flex items-center gap-0.5 min-w-22 justify-center py-0.5">
-      <button
-        type="button"
-        disabled={disabled || saving}
-        onClick={handleCheckboxToggle}
-        className={`w-3.5 h-3.5 rounded-md border flex items-center justify-center transition-all ${checked
-            ? "bg-emerald-600 border-emerald-500 text-white shadow-sm shadow-emerald-900/30"
-            : "border-zinc-700 bg-zinc-900/50 text-transparent hover:border-zinc-500"
-          }`}
-      >
-        <IconCheck size={9} stroke={3} />
-      </button>
-      <input
-        type="number"
-        step="any"
-        disabled={disabled || saving}
-        value={val}
-        onChange={(e) => setVal(e.target.value)}
-        onBlur={handleBlur}
-        onKeyDown={handleKeyDown}
-        placeholder="0.00"
-        className="w-14 h-6 text-center text-[11px] leading-none px-1.5 bg-zinc-950 border border-zinc-800 text-white rounded-md focus:border-zinc-400 focus:outline-none transition-all placeholder:text-zinc-700 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:opacity-50 disabled:cursor-not-allowed"
-      />
-      {hasLog && (
-        <Tooltip label="Ver historial de cambios" withArrow position="top">
-          <button
-            type="button"
-            onClick={onViewLog}
-            className="p-0.5 text-amber-400 hover:text-amber-300 rounded-md hover:bg-amber-500/10 transition-all flex items-center justify-center"
-          >
-            <IconHistory size={11} />
-          </button>
-        </Tooltip>
-      )}
-      {saving && <Loader size={7} color="indigo" />}
-      {onDelete && !disabled && (
-        <button
-          type="button"
-          onClick={onDelete}
-          className="p-0.5 text-zinc-500 hover:text-red-400 rounded-md hover:bg-zinc-850 transition-all"
-        >
-          <IconTrash size={11} />
-        </button>
-      )}
-    </div>
-  );
-};
 
 export const TablaCierreLeyes = ({
   lotes,
@@ -172,6 +61,12 @@ export const TablaCierreLeyes = ({
   isGuardandoCelda,
   cellKeyFn,
   validacionCierrePorLote,
+  muestrasAsociadasPorLote,
+  muestraArrastradaId,
+  onCargarMuestrasAsociadas,
+  onDropMuestra,
+  leyManualPorDetalle,
+  onChangeLeyManual,
 }: TablaCierreLeyesProps) => {
   const { notifyWarning } = useNotify();
 
@@ -181,6 +76,24 @@ export const TablaCierreLeyes = ({
     analitoNombre: string;
     cambios: RES_CambiosLog[] | null | undefined;
   } | null>(null);
+
+  // Modal "Ver muestras asociadas"
+  const [modalMuestrasAbierto, setModalMuestrasAbierto] = useState(false);
+  const [muestrasModalLoteId, setMuestrasModalLoteId] = useState<number | null>(null);
+  const [cargandoMuestrasModal, setCargandoMuestrasModal] = useState(false);
+
+  const handleAbrirModalMuestras = async (idLote: number) => {
+    setMuestrasModalLoteId(idLote);
+    setModalMuestrasAbierto(true);
+    if (onCargarMuestrasAsociadas) {
+      setCargandoMuestrasModal(true);
+      try {
+        await onCargarMuestrasAsociadas(idLote);
+      } finally {
+        setCargandoMuestrasModal(false);
+      }
+    }
+  };
 
   const handleOpenLogModal = (analitoNombre: string, cambios?: RES_CambiosLog[] | null) => {
     setSelectedLogInfo({ analitoNombre, cambios });
@@ -199,10 +112,24 @@ export const TablaCierreLeyes = ({
     await onActualizarOrigenFila(loteId, uuidFila, newOrigen);
   };
 
-  const handleRemoveFilaLocal = async (loteId: number, uuidFila: string) => {
-    if (confirm("¿Estás seguro de que deseas eliminar este análisis? Se borrarán todos los valores ingresados en él.")) {
-      await onEliminarFila(loteId, uuidFila);
-    }
+  const handleRemoveFilaLocal = (loteId: number, uuidFila: string) => {
+    mostrarConfirmacion({
+      title: "Eliminar corrida de análisis",
+      tipo: "peligro",
+      confirmLabel: "Eliminar",
+      cancelLabel: "Cancelar",
+      message: (
+        <div className="space-y-1">
+          <p>¿Estás seguro de que deseas eliminar este análisis?</p>
+          <p className="text-zinc-500 text-xs">
+            Se borrarán todos los valores ingresados en esta corrida (no se puden revertir).
+          </p>
+        </div>
+      ),
+      onConfirm: async () => {
+        await onEliminarFila(loteId, uuidFila);
+      },
+    });
   };
 
   // Helper function to calculate averages on the fly
@@ -223,6 +150,58 @@ export const TablaCierreLeyes = ({
     cellKeyFn
       ? cellKeyFn(p)
       : `${p.id_lote_mineral}|${p.id_grupo_analisis_detalle}|${p.uuid_fila}|${p.tipo_origen ?? "_"}|${p.id ?? "new"}`;
+
+  /**
+   * Recolecta las leyes manuales que el usuario escribió y las devuelve como array para enviar al backend.
+   * Solo devuelve entradas con un valor numérico parseable y > 0.
+   */
+  const buildLeyesManuales = (
+    lote: LoteCierreResponse,
+    gruposActivos: GrupoAnalisisResponse[],
+  ): Array<{ id_grupo_analisis_detalle: number; ley: number }> => {
+    if (!leyManualPorDetalle) return [];
+    const out: Array<{ id_grupo_analisis_detalle: number; ley: number }> = [];
+    // Considerar todos los detalles desplegables del lote
+    for (const g of gruposActivos) {
+      for (const a of g.analitos) {
+        if (!a.es_desplegable) continue;
+        const raw = leyManualPorDetalle[Number(a.detalle_id)];
+        if (raw === undefined || raw === "") continue;
+        const parsed = parseFloat(raw);
+        if (Number.isNaN(parsed) || parsed < 0) continue;
+        // Solo tiene sentido si hay al menos 1 análisis confirmado para ese detalle en el lote
+        const existeAlguna = lote.analisis.some((it) => it.id_grupo_analisis_detalle === a.detalle_id);
+        if (!existeAlguna) continue;
+        out.push({ id_grupo_analisis_detalle: a.detalle_id, ley: parsed });
+      }
+    }
+    return out;
+  };
+
+  const intentarCerrarLote = (lote: LoteCierreResponse, conValor: boolean) => {
+    const validacion = validacionCierrePorLote?.[lote.id] ?? { ok: false, motivo: "Validación pendiente" };
+    if (!validacion.ok) {
+      notifyWarning(validacion.motivo ?? "No se puede cerrar el lote");
+      return;
+    }
+    const leyesManuales = buildLeyesManuales(lote, grupos);
+    void onConfirmarLote(lote.id, conValor, leyesManuales.length > 0 ? leyesManuales : undefined);
+  };
+
+  const handleDragOverRow = (e: React.DragEvent<HTMLTableRowElement>) => {
+    if (!muestraArrastradaId) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "link";
+  };
+
+  const handleDropRow = async (idLoteMineral: number, e: React.DragEvent<HTMLTableRowElement>) => {
+    e.preventDefault();
+    const idMuestra = muestraArrastradaId;
+    if (!idMuestra || !onDropMuestra) return;
+    await onDropMuestra(idLoteMineral, idMuestra);
+  };
+
+  const muestrasModalActual = muestrasModalLoteId !== null ? muestrasAsociadasPorLote?.[muestrasModalLoteId] ?? [] : [];
 
   return (
     <>
@@ -317,13 +296,22 @@ export const TablaCierreLeyes = ({
               );
               const runs = dbUuids.length > 0 ? dbUuids : [`default-run-${l.id}`];
               const totalRowsForLote = runs.length;
+              const muestrasDeEsteLote = muestrasAsociadasPorLote?.[l.id] ?? [];
+              const puedeRecibirDrop =
+                muestraArrastradaId !== null && muestraArrastradaId !== undefined &&
+                (l.estado_leyes === EstadoLeyes.Pendiente || l.estado_leyes === EstadoLeyes.EnProceso);
 
               return runs.map((uuidFila: string, runIdx: number) => {
                 const dbRecord = l.analisis.find((item: AnalisisMineralResponse) => item.uuid_fila === uuidFila && item.tipo_origen !== null);
                 const currentTipoOrigen = (dbRecord?.tipo_origen ?? runOrigines[uuidFila] ?? null) as TipoOrigen | null;
 
                 return (
-                  <tr key={`${l.id}-${uuidFila}`} className="hover:bg-zinc-800/10 transition-colors border-b border-zinc-800">
+                  <tr
+                    key={`${l.id}-${uuidFila}`}
+                    onDragOver={handleDragOverRow}
+                    onDrop={(e) => void handleDropRow(l.id, e)}
+                    className={`hover:bg-zinc-800/10 transition-colors border-b border-zinc-800 ${puedeRecibirDrop ? "bg-indigo-500/5 ring-1 ring-indigo-500/40" : ""}`}
+                  >
                     {/* Lote Code & Date - render only on first row of run */}
                     {runIdx === 0 && (
                       <>
@@ -370,6 +358,17 @@ export const TablaCierreLeyes = ({
                                 </button>
                               );
                             })()}
+                            {/* Botón ver muestras asociadas al lote */}
+                              <button
+                                type="button"
+                                onClick={() => void handleAbrirModalMuestras(l.id)}
+                                className={`flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded-lg border transition-all ${muestrasDeEsteLote.length > 0 ? "text-indigo-300 bg-indigo-500/15 border-indigo-500/30 hover:bg-indigo-500/25" : "text-zinc-400 bg-zinc-800/40 border-zinc-700/50 hover:bg-zinc-800 hover:text-zinc-200"}`}
+                                title={muestrasDeEsteLote.length > 0 ? `${muestrasDeEsteLote.length} muestra(s) externa(s) asociada(s) — clic para ver` : "Ver muestras externas asociadas"}
+                              >
+                                <IconClipboardList size={10} />
+                                {muestrasDeEsteLote.length > 0 ? `${muestrasDeEsteLote.length} muestra${muestrasDeEsteLote.length === 1 ? "" : "s"}` : "Ver muestras"}
+                              </button>
+
                           </div>
                         </td>
                         <td
@@ -463,6 +462,8 @@ export const TablaCierreLeyes = ({
                                   }),
                                 );
 
+                                const promedio = getPromedioAnalito(l, a.detalle_id);
+
                                 return (
                                   <React.Fragment key={`${l.id}-${uuidFila}-orig-frag-${a.detalle_id}`}>
                                     <td className="p-1.5 border-r border-zinc-800 text-center align-middle">
@@ -492,9 +493,24 @@ export const TablaCierreLeyes = ({
                                     {runIdx === 0 && (
                                       <td
                                         rowSpan={totalRowsForLote}
-                                        className="p-1.5 border-r border-zinc-800 text-center font-bold text-[11px] text-indigo-400 bg-zinc-900/20 align-middle"
+                                        className="p-1.5 border-r border-zinc-800 text-center align-middle"
                                       >
-                                        {getPromedioAnalito(l, a.detalle_id).toFixed(3)}
+                                        <div className="flex flex-col gap-1 items-center">
+                                          <span className="font-bold text-[11px] text-indigo-400">
+                                            {promedio.toFixed(3)}
+                                          </span>
+                                          <input
+                                            type="number"
+                                            step="any"
+                                            min="0"
+                                            disabled={l.estado_leyes === EstadoLeyes.Confirmado || promedio <= 0}
+                                            placeholder="manual"
+                                            value={leyManualPorDetalle?.[a.detalle_id] ?? ""}
+                                            onChange={(e) => onChangeLeyManual?.(a.detalle_id, e.currentTarget.value)}
+                                            className="w-14 h-5 text-center text-[10px] leading-none px-1 bg-zinc-950 border border-indigo-700/50 text-indigo-200 rounded-md focus:border-indigo-400 focus:outline-none transition-all placeholder:text-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                            title={`Ley manual para ${a.nombre} (override del promedio automático al confirmar)`}
+                                          />
+                                        </div>
                                       </td>
                                     )}
                                   </React.Fragment>
@@ -569,6 +585,8 @@ export const TablaCierreLeyes = ({
                               }),
                             );
 
+                            const promedio = getPromedioAnalito(l, a.detalle_id);
+
                             return (
                               <React.Fragment key={`${l.id}-${uuidFila}-noorig-${a.detalle_id}`}>
                                 <td className="p-1.5 border-r border-zinc-800 text-center align-middle">
@@ -598,9 +616,24 @@ export const TablaCierreLeyes = ({
                                 {runIdx === 0 && (
                                   <td
                                     rowSpan={totalRowsForLote}
-                                    className="p-1.5 border-r border-zinc-800 text-center font-bold text-[11px] text-indigo-400 bg-zinc-900/20 align-middle"
+                                    className="p-1.5 border-r border-zinc-800 text-center align-middle"
                                   >
-                                    {getPromedioAnalito(l, a.detalle_id).toFixed(3)}
+                                    <div className="flex flex-col gap-1 items-center">
+                                      <span className="font-bold text-[11px] text-indigo-400">
+                                        {promedio.toFixed(3)}
+                                      </span>
+                                      <input
+                                        type="number"
+                                        step="any"
+                                        min="0"
+                                        disabled={l.estado_leyes === EstadoLeyes.Confirmado || promedio <= 0}
+                                        placeholder="manual"
+                                        value={leyManualPorDetalle?.[a.detalle_id] ?? ""}
+                                        onChange={(e) => onChangeLeyManual?.(a.detalle_id, e.currentTarget.value)}
+                                        className="w-14 h-5 text-center text-[10px] leading-none px-1 bg-zinc-950 border border-indigo-700/50 text-indigo-200 rounded-md focus:border-indigo-400 focus:outline-none transition-all placeholder:text-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                        title={`Ley manual para ${a.nombre} (override del promedio automático al confirmar)`}
+                                      />
+                                    </div>
                                   </td>
                                 )}
                               </React.Fragment>
@@ -696,20 +729,13 @@ export const TablaCierreLeyes = ({
                             const validacion = validacionCierrePorLote?.[l.id] ?? { ok: false, motivo: "Validación pendiente" };
                             const bloqueado = confirmandoLote[l.id] || !validacion.ok;
                             const tooltip = validacion.ok ? "Cerrar lote" : (validacion.motivo ?? "No se puede cerrar el lote");
-                            const intentarCerrar = (conValor: boolean) => {
-                              if (!validacion.ok) {
-                                notifyWarning(validacion.motivo ?? "No se puede cerrar el lote");
-                                return;
-                              }
-                              onConfirmarLote(l.id, conValor);
-                            };
                             return (
                               <div className="flex flex-col gap-2 w-full max-w-40 mx-auto">
                                 <button
                                   type="button"
                                   disabled={bloqueado}
                                   title={tooltip}
-                                  onClick={() => intentarCerrar(true)}
+                                  onClick={() => intentarCerrarLote(l, true)}
                                   className="w-full py-1 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[11px] font-semibold shadow-md shadow-emerald-950/20 transition-all flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
                                 >
                                   {confirmandoLote[l.id] ? <Loader size={12} color="white" /> : null}
@@ -719,7 +745,7 @@ export const TablaCierreLeyes = ({
                                   type="button"
                                   disabled={bloqueado}
                                   title={tooltip}
-                                  onClick={() => intentarCerrar(false)}
+                                  onClick={() => intentarCerrarLote(l, false)}
                                   className="w-full py-1 px-2.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 rounded-xl text-[11px] font-semibold transition-all flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
                                 >
                                   {confirmandoLote[l.id] ? <Loader size={12} color="white" /> : null}
@@ -751,13 +777,73 @@ export const TablaCierreLeyes = ({
         size="lg"
       >
         <CambiosLogViewer
-          cambios={selectedLogInfo?.cambios}
+          cambios={selectedLogInfo?.cambios?.filter((c) => !c.motivo?.toLowerCase().includes("muestra externa") && !c.cambios?.some((sub) => sub.campo_bd === "id_muestra_externa" || (sub.campo_bd === "id_lote_mineral" && sub.valor_anterior === null)))}
           camposLegiblesCustom={{
             ley: "Ley",
             esta_confirmada: "Estado Confirmado",
             tipo_origen: "Tipo de origen",
+            id_lote_mineral: "Lote Mineral",
+            id_muestra_externa: "Muestra Externa",
           }}
         />
+      </ModalEstandar>
+
+      <ModalEstandar
+        opened={modalMuestrasAbierto}
+        close={() => setModalMuestrasAbierto(false)}
+        title={
+          <div className="flex items-center gap-2 text-sm!">
+            <IconClipboardList size={16} className="text-indigo-400 shrink-0" />
+            <span className="text-sm! font-semibold">Muestras asociadas</span>
+            {muestrasModalLoteId != null && (
+              <span className="text-xs! px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-mono font-medium">
+                {lotes.find((l) => l.id === muestrasModalLoteId)?.correlativo ?? `#${muestrasModalLoteId}`}
+              </span>
+            )}
+          </div>
+        }
+        size="md"
+      >
+        {cargandoMuestrasModal ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader size="sm" color="indigo" />
+          </div>
+        ) : muestrasModalActual.length === 0 ? (
+          <div className="text-center py-6 text-sm text-zinc-500">
+            Este lote no tiene muestras externas asociadas.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {muestrasModalActual.map((m) => (
+              <div
+                key={m.id}
+                className="flex items-center justify-between p-2.5 rounded-lg border border-indigo-700/30 bg-indigo-950/20"
+              >
+                <div className="flex flex-col">
+                  <span className="font-mono text-indigo-300 font-semibold text-sm">{m.correlativo}</span>
+                  <span className="text-xs text-zinc-400">
+                    {m.proveedor_razon_social ?? `Prov #${m.id_proveedor_minero}`}
+                  </span>
+                </div>
+                <div className="flex flex-col items-end">
+                  <span className="text-[10px] text-zinc-500 uppercase tracking-wide">Asociada</span>
+                  <span className="text-[11px] text-zinc-300">
+                    {new Date(m.created_at).toLocaleString("es-ES", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "2-digit",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                  {m.empleado_registro_nombre && (
+                    <span className="text-[10px] text-zinc-500">por {m.empleado_registro_nombre}</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </ModalEstandar>
     </>
   );

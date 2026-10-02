@@ -15,6 +15,7 @@ import {
   IconHistory,
   IconBan,
   IconFiles,
+  IconReceipt2,
 } from "@tabler/icons-react";
 import { useTitlePage } from "../../../hooks/useTitlePage";
 import { DataTableEstandar } from "../../../presentation/utils/datatable-estandar";
@@ -28,6 +29,8 @@ import type { IArchivo } from "../../../shared/interfaces/archivo";
 import { useAnticiposPlanta } from "../hooks/useAnticiposPlanta";
 import { ModalCrearAnticipoPlanta } from "./components/modal-crear-anticipo";
 import { ModalAnularAnticipoPlanta } from "./components/modal-anular-anticipo";
+import { ModalTransaccionesAnticipoPlanta } from "./components/modal-transacciones-anticipo";
+import { AnticiposPlantaService } from "../service/anticipos-planta.service";
 import type { RES_AnticipoPlanta } from "../service/anticipos-planta.responses";
 
 const formatearFechaHora = (fechaIso: string): string => {
@@ -132,8 +135,29 @@ export default function AnticiposPlantaPage() {
     planta: string;
     saldo: number;
   } | null>(null);
+  const [modalTransaccionesInfo, setModalTransaccionesInfo] =
+    useState<RES_AnticipoPlanta | null>(null);
   const [modalLogInfo, setModalLogInfo] = useState<RES_CambiosLog[] | null>(null);
   const [modalEvidenciasInfo, setModalEvidenciasInfo] = useState<(IArchivo | string)[] | null>(null);
+  const [loadingLogId, setLoadingLogId] = useState<number | null>(null);
+
+  const handleAbrirHistorialCombinado = async (id: number) => {
+    setLoadingLogId(id);
+    try {
+      const res = await AnticiposPlantaService.getHistorialCambios(id);
+      if (res.success && res.data) {
+        setModalLogInfo(res.data);
+      } else {
+        const row = anticipos.find((a) => a.id === id);
+        setModalLogInfo(row ? [...row.log_cambios].reverse() : []);
+      }
+    } catch {
+      const row = anticipos.find((a) => a.id === id);
+      setModalLogInfo(row ? [...row.log_cambios].reverse() : []);
+    } finally {
+      setLoadingLogId(null);
+    }
+  };
 
   const fieldClasses = {
     input:
@@ -283,6 +307,19 @@ export default function AnticiposPlantaPage() {
             width: 150,
             render: (r: RES_AnticipoPlanta) => (
               <Group gap={6} justify="center">
+                {/* Ver Transacciones */}
+                <Tooltip label="Ver Transacciones">
+                  <ActionIcon
+                    variant="light"
+                    color="cyan"
+                    size="sm"
+                    radius="md"
+                    onClick={() => setModalTransaccionesInfo(r)}
+                  >
+                    <IconReceipt2 size={14} />
+                  </ActionIcon>
+                </Tooltip>
+
                 {/* Ver evidencias */}
                 {r.evidencias && r.evidencias.length > 0 && (
                   <Tooltip label="Ver Evidencias">
@@ -298,22 +335,20 @@ export default function AnticiposPlantaPage() {
                   </Tooltip>
                 )}
 
-                {/* Registro / Historial de cambios (columna log_cambios del anticipo). */}
-                {r.log_cambios && r.log_cambios.length > 0 && (
-                  <Tooltip label="Historial de Cambios">
-                    <ActionIcon
-                      variant="light"
-                      color="amber"
-                      size="sm"
-                      radius="md"
-                      onClick={() =>
-                        setModalLogInfo([...r.log_cambios].reverse())
-                      }
-                    >
-                      <IconHistory size={14} />
-                    </ActionIcon>
-                  </Tooltip>
-                )}
+                {/* Registro / Historial de cambios unificado */}
+                <Tooltip label="Historial de Cambios">
+                  <ActionIcon
+                    variant="light"
+                    color="amber"
+                    size="sm"
+                    radius="md"
+                    loading={loadingLogId === r.id}
+                    disabled={loadingLogId === r.id}
+                    onClick={() => handleAbrirHistorialCombinado(r.id)}
+                  >
+                    <IconHistory size={14} />
+                  </ActionIcon>
+                </Tooltip>
 
                 {/* Anular */}
                 {r.estado !== EstadoAnticipoProveedor.Anulado && (
@@ -366,6 +401,13 @@ export default function AnticiposPlantaPage() {
         }}
         loading={anulandoId !== null}
         anticipoInfo={modalAnularInfo}
+      />
+
+      {/* Modal Transacciones */}
+      <ModalTransaccionesAnticipoPlanta
+        opened={modalTransaccionesInfo !== null}
+        onClose={() => setModalTransaccionesInfo(null)}
+        anticipoInfo={modalTransaccionesInfo}
       />
 
       {/* Modal Log de Cambios (lee log_cambios del row cacheado). */}
