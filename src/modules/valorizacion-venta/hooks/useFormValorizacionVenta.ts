@@ -124,6 +124,7 @@ export const useFormValorizacionVenta = ({
 
   // Form Fields
   const [idPlanta, setIdPlanta] = useState<number | null>(null);
+  const [idEmpresa, setIdEmpresa] = useState<number | null>(null);
   const [codigo, setCodigo] = useState<string>("");
   const [detalles, setDetalles] = useState<
     { req: REQ_ValorizacionVentaDetalleItem; display: RES_ValorizacionVentaDetalle }[]
@@ -145,6 +146,7 @@ export const useFormValorizacionVenta = ({
 
     if (valorizacionEditar) {
       setIdPlanta(valorizacionEditar.id_planta);
+      setIdEmpresa(valorizacionEditar.id_empresa ?? null);
       setCodigo(valorizacionEditar.codigo ?? "");
 
       setDetalles(
@@ -176,13 +178,14 @@ export const useFormValorizacionVenta = ({
       setMontoFlete(valorizacionEditar.monto_flete ?? 0);
     } else {
       setIdPlanta(null);
+      setIdEmpresa(null);
       setCodigo("");
       setDetalles([]);
       setEvidencias([]);
       setEvidenciasExistentes([]);
       setFechaHoraValorizacion(nowIsoDateTime());
-      setMontoPenalidad(0);
-      setMontoFlete(0);
+      montoPenalidad && setMontoPenalidad(0);
+      montoFlete && setMontoFlete(0);
     }
   }, [opened, valorizacionEditar]);
 
@@ -233,6 +236,7 @@ export const useFormValorizacionVenta = ({
       if (valorizacionEditar) {
         await ValorizacionVentaService.editarValorizacion(valorizacionEditar.id, {
           id_planta: idPlanta,
+          id_empresa: idEmpresa,
           detalles: detalles.map((d) => d.req),
           codigo: codigo.trim() || null,
           evidencias,
@@ -244,6 +248,7 @@ export const useFormValorizacionVenta = ({
       } else {
         await ValorizacionVentaService.crearValorizacion({
           id_planta: idPlanta,
+          id_empresa: idEmpresa,
           detalles: detalles.map((d) => d.req),
           codigo: codigo.trim() || null,
           evidencias,
@@ -267,6 +272,8 @@ export const useFormValorizacionVenta = ({
     loadingSubmit,
     idPlanta,
     setIdPlanta,
+    idEmpresa,
+    setIdEmpresa,
     codigo,
     setCodigo,
     detalles,

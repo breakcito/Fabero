@@ -1,59 +1,51 @@
 import { useEffect, useState } from "react";
-import { Stack, Textarea, Group, Button, Text, Badge } from "@mantine/core";
-import { IconTrash } from "@tabler/icons-react";
+import { Stack, Textarea, Group, Button, Text, Badge, Alert } from "@mantine/core";
+import { IconAlertTriangle, IconBan } from "@tabler/icons-react";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
-import { MultiFilePicker } from "../../../../presentation/utils/archivo/multifile-picker";
 import { useNotify } from "../../../../hooks/useNotify";
-import type { RES_PagoComprobante } from "../../service/contabilidad-compra.responses";
+import type { RES_ComprobanteCompra } from "../../service/contabilidad-compra.responses";
+import type { RES_ComprobanteVenta } from "../../service/contabilidad-venta.responses";
 
-interface ModalAnularPagoProps {
+interface ModalAnularComprobanteProps {
   opened: boolean;
   onClose: () => void;
-  pago: RES_PagoComprobante | null;
-  onConfirm: (motivo: string, evidenciasAnulacion?: File[]) => Promise<void> | void;
+  comprobante: RES_ComprobanteCompra | RES_ComprobanteVenta | null;
+  onConfirm: (motivo: string) => Promise<void> | void;
   loading: boolean;
 }
 
-const formatDateTime = (s: string): string => {
+const formatFecha = (iso: string): string => {
+  if (!iso) return "—";
   try {
-    const d = new Date(s);
-    if (Number.isNaN(d.getTime())) return s;
-    return d.toLocaleString("es-PE", {
+    return new Date(iso).toLocaleDateString("es-PE", {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
     });
   } catch {
-    return s;
+    return iso;
   }
 };
 
-export const ModalAnularPago = ({
+export const ModalAnularComprobante = ({
   opened,
   onClose,
-  pago,
+  comprobante,
   onConfirm,
   loading,
-}: ModalAnularPagoProps) => {
+}: ModalAnularComprobanteProps) => {
   const { notifyError } = useNotify();
   const [motivo, setMotivo] = useState<string>("");
-  const [evidenciasAnulacion, setEvidenciasAnulacion] = useState<File[]>([]);
 
   useEffect(() => {
     if (!opened) {
-      queueMicrotask(() => {
-        setMotivo("");
-        setEvidenciasAnulacion([]);
-      });
+      queueMicrotask(() => setMotivo(""));
     }
   }, [opened]);
 
   const handleClose = () => {
     if (loading) return;
     setMotivo("");
-    setEvidenciasAnulacion([]);
     onClose();
   };
 
@@ -63,65 +55,83 @@ export const ModalAnularPago = ({
       notifyError("Debe ingresar un motivo válido de anulación (mínimo 3 caracteres).");
       return;
     }
-    await onConfirm(trimmed, evidenciasAnulacion.length > 0 ? evidenciasAnulacion : undefined);
+    await onConfirm(trimmed);
   };
 
-  if (!pago) return null;
+  if (!comprobante) return null;
+
+  const isVenta = "id_planta_destino" in comprobante;
+  const entidadNombre = isVenta
+    ? (comprobante as RES_ComprobanteVenta).planta_nombre
+    : (comprobante as RES_ComprobanteCompra).proveedor_nombre;
 
   return (
     <ModalEstandar
       opened={opened}
       close={handleClose}
-      title="Anular Pago"
+      title={
+        <Group gap={6}>
+          <IconBan size={20} className="text-red-400" />
+          <Text fw={700} fz="sm" c="white">
+            Anular Comprobante de {isVenta ? "Venta" : "Compra"}
+          </Text>
+        </Group>
+      }
       size="md"
     >
       <Stack gap="md">
+        <Alert
+          variant="light"
+          color="red"
+          title="Atención: Acción irreversible"
+          icon={<IconAlertTriangle size={16} />}
+        >
+          {isVenta && (comprobante as RES_ComprobanteVenta).monto_pagado_anticipos > 0
+            ? "Al anular, los lotes quedarán liberados, los anticipos se reintegrarán a la planta y los pagos quedarán anulados."
+            : "Al anular este comprobante, también se anularán automáticamente todos sus pagos registrados en cascada."}
+        </Alert>
+
         <div className="p-3 rounded-lg border border-zinc-800 bg-zinc-900/40 text-xs space-y-2">
           <Group justify="space-between" gap="xs">
             <Text size="xs" c="dimmed">
-              Pago #
+              Comprobante
             </Text>
-            <Badge
-              color={pago.es_para_detraccion ? "yellow" : "indigo"}
-              variant="filled"
-              size="xs"
-            >
-              {pago.es_para_detraccion ? "Detracción" : "Neto"}
+            <Badge color="red" variant="filled" size="xs">
+              {comprobante.estado}
             </Badge>
           </Group>
-          <Text size="sm" c="white" fw={700}>
-            #{pago.id} — {pago.medio_pago}
-            {pago.numero_operacion && (
-              <Text component="span" c="dimmed" ml="xs">
-                · Op: {pago.numero_operacion}
-              </Text>
-            )}
+          <Text size="sm" c="cyan.4" fw={800} className="font-mono">
+            {comprobante.codigo_completo}
           </Text>
           <Group justify="space-between" gap="xs">
             <Text size="xs" c="dimmed">
-              Fecha Pago
+              {isVenta ? "Planta Destino" : "Proveedor"}
             </Text>
             <Text size="xs" c="white" fw={600}>
-              {formatDateTime(pago.fecha_hora_pago)}
+              {entidadNombre}
             </Text>
           </Group>
           <Group justify="space-between" gap="xs">
             <Text size="xs" c="dimmed">
-              Monto
+              Fecha Emisión
             </Text>
-            <Text
-              size="sm"
-              fw={800}
-              c={pago.es_para_detraccion ? "yellow.4" : "emerald.4"}
-            >
-              {pago.es_para_detraccion ? "S/" : "$"} {pago.monto_pagado.toFixed(2)}
+            <Text size="xs" c="white" fw={600}>
+              {formatFecha(comprobante.fecha_emision)}
+            </Text>
+          </Group>
+          <Group justify="space-between" gap="xs">
+            <Text size="xs" c="dimmed">
+              Total ($)
+            </Text>
+            <Text size="sm" fw={800} c="white" className="font-mono">
+              $ {comprobante.total_dolares.toFixed(2)}
             </Text>
           </Group>
         </div>
 
         <Textarea
           label="Motivo de Anulación:"
-          placeholder="Escriba la razón de la anulación..."
+          placeholder="Escriba la razón de la anulación del comprobante..."
           value={motivo}
           onChange={(e) => setMotivo(e.currentTarget.value)}
           rows={3}
@@ -134,12 +144,6 @@ export const ModalAnularPago = ({
               "bg-zinc-900/50 border-zinc-800 focus:border-rose-500 focus:ring-1 focus:ring-rose-500 text-white placeholder:text-zinc-500 transition-all",
             label: "text-zinc-300 mb-1 font-medium",
           }}
-        />
-
-        <MultiFilePicker
-          label="Evidencias de Anulación (Opcional)"
-          files={evidenciasAnulacion}
-          onFilesChange={setEvidenciasAnulacion}
         />
 
         <Group justify="end" mt="xs" gap="xs">
@@ -157,7 +161,7 @@ export const ModalAnularPago = ({
             color="red"
             size="xs"
             radius="lg"
-            leftSection={<IconTrash size={14} />}
+            leftSection={<IconBan size={14} />}
             onClick={handleSubmit}
             loading={loading}
           >

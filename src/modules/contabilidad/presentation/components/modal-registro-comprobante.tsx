@@ -147,7 +147,7 @@ export const ModalRegistroComprobante = ({
       .then((res) => {
         if (cancelled) return;
         if (res.success && res.data) {
-          setTipoCambio({ id: res.data.id, valor_venta: res.data.valor_venta });
+          setTipoCambio({ id: res.data.id, valor_venta: Number(res.data.valor_venta) || 0 });
         } else {
           setTipoCambio(null);
         }
@@ -189,7 +189,7 @@ export const ModalRegistroComprobante = ({
       Number(valorizacionSeleccionada.monto_flete ?? 0);
     const totalDolares = Math.max(totalDolaresAntesDescuento - descuento, 0);
     const totalAnticipos = Number(valorizacionSeleccionada.monto_anticipos);
-    const tcVenta = tipoCambio.valor_venta;
+    const tcVenta = Number(tipoCambio.valor_venta) || 0;
     const totalSolesAntesDescuento = totalDolaresAntesDescuento * tcVenta;
     const totalSoles = Math.max(totalSolesAntesDescuento - descuento * tcVenta, 0);
     const baseDetraccion = Math.max(totalDolaresAntesDescuento - totalAnticipos, 0);
@@ -459,7 +459,7 @@ export const ModalRegistroComprobante = ({
         onCreated={() => {
           AuxService.get_tipo_cambio_por_fecha(fechaEmisionStr).then((res) => {
             if (res.success && res.data) {
-              setTipoCambio({ id: res.data.id, valor_venta: res.data.valor_venta });
+              setTipoCambio({ id: res.data.id, valor_venta: Number(res.data.valor_venta) || 0 });
             }
           });
         }}

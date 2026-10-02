@@ -12,6 +12,7 @@ import {
 import { IconAlertTriangle, IconTrash, IconBan } from "@tabler/icons-react";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
 import { MultiFilePicker } from "../../../../presentation/utils/archivo/multifile-picker";
+import { EstadoValorizacionVenta } from "../../../../shared/enums/valorizacion-venta/estado-valorizacion-venta";
 import type { RES_ValorizacionVenta } from "../../service/valorizacion-venta.responses";
 import type { REQ_AnularValorizacionVenta } from "../../service/valorizacion-venta.requests";
 
@@ -34,7 +35,9 @@ export const ModalAnularValorizacionVenta = ({
   close,
   onConfirm,
   loading = false,
+  valorizacion,
 }: Props) => {
+  const isAlreadyAnulado = valorizacion?.estado === EstadoValorizacionVenta.Anulado;
   const [tipoEliminacion, setTipoEliminacion] = useState<"logica" | "fisica">("logica");
   const [motivoAnulacion, setMotivoAnulacion] = useState("");
   const [evidenciasFiles, setEvidenciasFiles] = useState<File[]>([]);
@@ -44,7 +47,7 @@ export const ModalAnularValorizacionVenta = ({
   if (opened !== prevOpened) {
     setPrevOpened(opened);
     if (opened) {
-      setTipoEliminacion("logica");
+      setTipoEliminacion(isAlreadyAnulado ? "fisica" : "logica");
       setMotivoAnulacion("");
       setEvidenciasFiles([]);
       setErrorMotivo(null);
@@ -65,8 +68,8 @@ export const ModalAnularValorizacionVenta = ({
     await onConfirm({
       motivo_anulacion: motivoAnulacion.trim(),
       tipo_eliminacion: tipoEliminacion,
+      evidencias_anulacion: evidenciasFiles,
     });
-    void evidenciasFiles; // Se acepta el picker pero no se persiste (columnas no existen)
   };
 
   return (
@@ -79,41 +82,55 @@ export const ModalAnularValorizacionVenta = ({
           <Text fw={700} fz="sm" c="white">
             Anular / Eliminar Valorización de Venta
           </Text>
+          {valorizacion?.codigo && (
+            <Text fw={700} fz="xs" c="cyan.4" className="font-mono">
+              {valorizacion.codigo}
+            </Text>
+          )}
         </Group>
       }
       rightSection={
-        <SegmentedControl
-          size="xs"
-          radius="lg"
-          value={tipoEliminacion}
-          onChange={(val) => setTipoEliminacion(val as "logica" | "fisica")}
-          data={[
-            {
-              label: (
-                <Group gap={4} wrap="nowrap" justify="center">
-                  <IconBan size={12} />
-                  <span>Lógica</span>
-                </Group>
-              ),
-              value: "logica",
-            },
-            {
-              label: (
-                <Group gap={4} wrap="nowrap" justify="center">
-                  <IconTrash size={12} />
-                  <span>Física</span>
-                </Group>
-              ),
-              value: "fisica",
-            },
-          ]}
-          color={tipoEliminacion === "fisica" ? "red" : "yellow"}
-          bg="zinc.9"
-          styles={{
-            root: { minWidth: 180 },
-            label: { paddingLeft: 10, paddingRight: 10 },
-          }}
-        />
+        isAlreadyAnulado ? (
+          <Group gap={4} bg="red.9" px="xs" py={4} className="rounded-lg border border-red-700/50">
+            <IconTrash size={13} className="text-white" />
+            <Text fz={11} fw={700} c="white">
+              Eliminación Física
+            </Text>
+          </Group>
+        ) : (
+          <SegmentedControl
+            size="xs"
+            radius="lg"
+            value={tipoEliminacion}
+            onChange={(val) => setTipoEliminacion(val as "logica" | "fisica")}
+            data={[
+              {
+                label: (
+                  <Group gap={4} wrap="nowrap" justify="center">
+                    <IconBan size={12} />
+                    <span>Lógica</span>
+                  </Group>
+                ),
+                value: "logica",
+              },
+              {
+                label: (
+                  <Group gap={4} wrap="nowrap" justify="center">
+                    <IconTrash size={12} />
+                    <span>Física</span>
+                  </Group>
+                ),
+                value: "fisica",
+              },
+            ]}
+            color={tipoEliminacion === "fisica" ? "red" : "yellow"}
+            bg="zinc.9"
+            styles={{
+              root: { minWidth: 180 },
+              label: { paddingLeft: 10, paddingRight: 10 },
+            }}
+          />
+        )
       }
       size="lg"
       validateClose={false}
@@ -166,7 +183,7 @@ export const ModalAnularValorizacionVenta = ({
 
         <Box>
           <Text fz="xs" fw={600} c="zinc.3" mb={4}>
-            Evidencias Multimedia (Opcional — no se persiste en esta versión)
+            Evidencias de Anulación (Opcional)
           </Text>
           <MultiFilePicker
             files={evidenciasFiles}

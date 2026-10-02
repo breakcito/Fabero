@@ -38,7 +38,7 @@ import CondicionesComercialesPlantaPage from "../../modules/condiciones-comercia
 import AnticiposProveedorPage from "../../modules/anticipos-proveedor/presentation/anticipos-proveedor.page.tsx";
 import AnticiposPlantaPage from "../../modules/anticipos-planta/presentation/anticipos-planta.page.tsx";
 import { ValorizacionesCompraPage } from "../../modules/valorizacion-compra/presentation/valorizacion-compra.page.tsx";
-import ContabilidadCompraPage from "../../modules/contabilidad-compra/presentation/contabilidad-compra.page.tsx";
+import ContabilidadPage from "../../modules/contabilidad/presentation/contabilidad.page.tsx";
 import BlendingPage from "../../modules/blending/presentation/blending.page.tsx";
 import ProgramacionDespachosPage from "../../modules/programacion-despachos/presentation/programacion-despachos.page.tsx";
 import ProgramarRecepcionPage from "../../modules/programar-recepcion/presentation/programar-recepcion.page.tsx";
@@ -193,7 +193,7 @@ export const App = () => {
 
           {/* Gestion Contabilidad */}
           <Route path="contabilidad" element={<GenericLayout />}>
-            <Route path="compra" element={<ContabilidadCompraPage />} />
+            <Route path="contabilidad" element={<ContabilidadPage />} />
           </Route>
 
           {/* Blending */}
@@ -207,7 +207,6 @@ export const App = () => {
           </Route>
         </Route>
 
-        {/* Redireccion */}
         <Route path="*" element={<Navigate to="/home" replace />} />
       </Route>
     </Routes>

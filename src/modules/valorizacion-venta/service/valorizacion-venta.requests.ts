@@ -21,6 +21,7 @@ export interface REQ_ValorizacionVentaDetalleItem {
 
 export interface REQ_CrearValorizacionVenta {
   id_planta: number;
+  id_empresa?: number | null;
   detalles: REQ_ValorizacionVentaDetalleItem[];
   codigo?: string | null;
   evidencias?: File[];
@@ -31,6 +32,7 @@ export interface REQ_CrearValorizacionVenta {
 
 export interface REQ_EditarValorizacionVenta {
   id_planta: number;
+  id_empresa?: number | null;
   detalles: REQ_ValorizacionVentaDetalleItem[];
   evidencias?: File[];
   evidencias_existentes?: IArchivo[];
@@ -43,4 +45,5 @@ export interface REQ_EditarValorizacionVenta {
 export interface REQ_AnularValorizacionVenta {
   motivo_anulacion: string;
   tipo_eliminacion: "logica" | "fisica";
+  evidencias_anulacion?: File[];
 }

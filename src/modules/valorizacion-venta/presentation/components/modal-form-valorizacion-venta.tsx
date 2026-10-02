@@ -29,6 +29,8 @@ import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
 import { MultiFilePicker } from "../../../../presentation/utils/archivo/multifile-picker";
 import { CustomDatePicker } from "../../../../presentation/utils/date-picker-input";
 import { formatNumber } from "../../../../shared/functions/formatNumber";
+import { AuxService } from "../../../../service/auxiliar.service";
+import type { RES_Empresa } from "../../../../service/responses/empresa";
 import { ValorizacionVentaAuxService } from "../../service/valorizacion-venta.service";
 import type {
   RES_ValorizacionVenta,
@@ -65,6 +67,8 @@ export const ModalFormValorizacionVenta = ({
 }: Props) => {
   const [loadingPlantas, setLoadingPlantas] = useState(false);
   const [plantas, setPlantas] = useState<PlantaDisponible[]>([]);
+  const [loadingEmpresas, setLoadingEmpresas] = useState(false);
+  const [empresas, setEmpresas] = useState<RES_Empresa[]>([]);
   const [detalleEditando, setDetalleEditando] = useState<{
     req: REQ_ValorizacionVentaDetalleItem;
     display: RES_ValorizacionVentaDetalle;
@@ -75,6 +79,8 @@ export const ModalFormValorizacionVenta = ({
     loadingSubmit,
     idPlanta,
     setIdPlanta,
+    idEmpresa,
+    setIdEmpresa,
     codigo,
     setCodigo,
     detalles,
@@ -107,22 +113,39 @@ export const ModalFormValorizacionVenta = ({
   useEffect(() => {
     if (!opened) return;
 
-    const cargar = async () => {
+    queueMicrotask(() => {
       setLoadingPlantas(true);
-      try {
-        const res = await ValorizacionVentaAuxService.getPlantasConDistribuciones();
-        if (res.success && res.data) {
-          setPlantas(res.data);
-        }
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoadingPlantas(false);
-      }
-    };
+      setLoadingEmpresas(true);
+    });
 
-    cargar();
-  }, [opened]);
+    Promise.all([
+      ValorizacionVentaAuxService.getPlantasConDistribuciones(),
+      AuxService.get_empresas(),
+    ])
+      .then(([resPlantas, resEmpresas]) => {
+        if (resPlantas.success && resPlantas.data) {
+          setPlantas(resPlantas.data);
+        }
+        if (resEmpresas.success && resEmpresas.data) {
+          setEmpresas(resEmpresas.data);
+          if (!idEmpresa && !valorizacionEditar) {
+            const fabero = resEmpresas.data.find((e) =>
+              e.razon_social?.toLowerCase().includes("fabero")
+            );
+            if (fabero) {
+              setIdEmpresa(fabero.id_empresa);
+            } else if (resEmpresas.data.length > 0) {
+              setIdEmpresa(resEmpresas.data[0].id_empresa);
+            }
+          }
+        }
+      })
+      .catch(console.error)
+      .finally(() => {
+        setLoadingPlantas(false);
+        setLoadingEmpresas(false);
+      });
+  }, [opened, valorizacionEditar, idEmpresa, setIdEmpresa]);
 
   const isEdit = !!valorizacionEditar;
 
@@ -130,6 +153,11 @@ export const ModalFormValorizacionVenta = ({
     if (!idPlanta) return null;
     return plantas.find((p) => p.id === idPlanta) ?? null;
   }, [idPlanta, plantas]);
+
+  const empresaSeleccionada = useMemo(() => {
+    if (!idEmpresa) return null;
+    return empresas.find((e) => e.id_empresa === idEmpresa) ?? null;
+  }, [idEmpresa, empresas]);
 
   const modalTitle = (
     <Group gap="xs">
@@ -144,7 +172,7 @@ export const ModalFormValorizacionVenta = ({
   );
 
   const modalHeaderRight = (
-    <Group gap="md" wrap="nowrap" align="center">
+    <Group gap="xs" wrap="nowrap" align="center">
       <Select
         placeholder={loadingPlantas ? "Cargando..." : "[Seleccione Planta]"}
         disabled={loadingPlantas || isEdit}
@@ -158,7 +186,28 @@ export const ModalFormValorizacionVenta = ({
         searchable
         size="xs"
         radius="lg"
-        w={280}
+        w={240}
+        classNames={{
+          ...fieldClasses,
+          label: "text-zinc-400 mb-1 font-medium text-[10px] ml-1",
+          input: "h-8 text-xs",
+        }}
+        comboboxProps={{ withinPortal: true }}
+      />
+      <Select
+        placeholder={loadingEmpresas ? "Cargando..." : "[Seleccione Empresa]"}
+        disabled={loadingEmpresas || isEdit}
+        rightSection={loadingEmpresas ? <Loader size={16} /> : undefined}
+        data={empresas.map((e) => ({
+          value: String(e.id_empresa),
+          label: e.razon_social || e.ruc || `Empresa #${e.id_empresa}`,
+        }))}
+        value={idEmpresa ? String(idEmpresa) : null}
+        onChange={(val) => setIdEmpresa(val ? Number(val) : null)}
+        searchable
+        size="xs"
+        radius="lg"
+        w={240}
         classNames={{
           ...fieldClasses,
           label: "text-zinc-400 mb-1 font-medium text-[10px] ml-1",
@@ -183,7 +232,7 @@ export const ModalFormValorizacionVenta = ({
             setFechaHoraValorizacion(iso);
           }}
           placeholder="DD/MM/YYYY"
-          style={{ width: 150 }}
+          style={{ width: 140 }}
         />
       </Group>
     </Group>
@@ -216,12 +265,28 @@ export const ModalFormValorizacionVenta = ({
               <Paper p="sm" radius="md" bg="#18181b" className="border border-zinc-800 h-full flex flex-col justify-between">
                 <Stack gap="xs">
                   <Text fw={700} fz="xs" c="amber.4" className="flex items-center gap-1.5">
-                    <IconBuildingFactory size={15} /> Información de Planta
+                    <IconBuildingFactory size={15} /> Información de Planta y Empresa
                   </Text>
+                  {empresaSeleccionada && (
+                    <Box p="xs" bg="#27272a" className="rounded-lg border border-zinc-800 space-y-1.5">
+                      <Group justify="space-between">
+                        <Text fz={10} c="zinc.4" tt="uppercase" fw={600}>Empresa:</Text>
+                        <Badge color="violet" variant="outline" size="xs">
+                          {empresaSeleccionada.ruc || "-"}
+                        </Badge>
+                      </Group>
+                      <Group justify="space-between" wrap="nowrap">
+                        <Text fz={10} c="zinc.4" tt="uppercase" fw={600}>Razón Social:</Text>
+                        <Text fz={11} c="white" fw={600} className="truncate max-w-50 text-right">
+                          {empresaSeleccionada.razon_social}
+                        </Text>
+                      </Group>
+                    </Box>
+                  )}
                   {plantaSeleccionada ? (
                     <Box p="xs" bg="#27272a" className="rounded-lg border border-zinc-800 space-y-1.5">
                       <Group justify="space-between">
-                        <Text fz={10} c="zinc.4" tt="uppercase" fw={600}>RUC:</Text>
+                        <Text fz={10} c="zinc.4" tt="uppercase" fw={600}>Planta Destino:</Text>
                         <Badge color="cyan" variant="outline" size="xs">
                           {plantaSeleccionada.ruc || "-"}
                         </Badge>

@@ -38,6 +38,9 @@ export interface RES_ValorizacionVenta {
   id_planta: number;
   planta_ruc: string | null;
   planta_nombre: string | null;
+  id_empresa?: number | null;
+  empresa_ruc?: string | null;
+  empresa_nombre?: string | null;
   codigo: string | null;
   estado: EstadoValorizacionVenta;
   created_at: string;

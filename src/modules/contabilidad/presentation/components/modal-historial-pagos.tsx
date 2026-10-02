@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   ActionIcon,
   Badge,
@@ -15,17 +15,19 @@ import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
 import { ArchivoCard } from "../../../../presentation/utils/archivo/archivo-card";
 import { EstadoComprobanteCompra } from "../../../../shared/enums/contabilidad-compra/estado-comprobante-compra";
 import type { RES_ComprobanteCompra, RES_PagoComprobante } from "../../service/contabilidad-compra.responses";
+import type { RES_ComprobanteVenta, RES_PagoComprobanteVenta } from "../../service/contabilidad-venta.responses";
 import type { IArchivo } from "../../../../shared/interfaces/archivo";
-import { usePagosComprobante } from "../../hooks/usePagosComprobante";
+import { ContabilidadCompraService } from "../../service/contabilidad-compra.service";
+import { ContabilidadVentaService } from "../../service/contabilidad-venta.service";
 import { ModalAnularPago } from "./modal-anular-pago";
 
 interface ModalHistorialPagosProps {
   opened: boolean;
   onClose: () => void;
-  comprobante: RES_ComprobanteCompra | null;
-  onAnularPago: (idPago: number, motivo: string, evidenciasAnulacion?: File[]) => void;
+  comprobante: RES_ComprobanteCompra | RES_ComprobanteVenta | null;
+  onAnularPago: (idPago: number, motivo: string, evidenciasAnulacion?: File[]) => Promise<void> | void;
   onRegistrarPago: () => void;
-  approving: boolean;
+  approving?: boolean;
 }
 
 const formatDateTime = (s: string): string => {
@@ -50,30 +52,56 @@ export const ModalHistorialPagos = ({
   comprobante,
   onAnularPago,
   onRegistrarPago,
-  approving,
+  approving = false,
 }: ModalHistorialPagosProps) => {
-  const { pagos, loading, anulandoId, cargarPagos } = usePagosComprobante();
-  const [pagoAAnular, setPagoAAnular] = useState<RES_PagoComprobante | null>(null);
+  const isVenta = comprobante ? "id_planta_destino" in comprobante : false;
+
+  const [pagos, setPagos] = useState<Array<RES_PagoComprobante | RES_PagoComprobanteVenta>>([]);
+  const [loading, setLoading] = useState(false);
+  const [anulandoId, setAnulandoId] = useState<number | null>(null);
+
+  const [pagoAAnular, setPagoAAnular] = useState<RES_PagoComprobante | RES_PagoComprobanteVenta | null>(null);
   const [evidenciasModalConfig, setEvidenciasModalConfig] = useState<{
     archivos: IArchivo[];
     titulo: string;
   } | null>(null);
 
+  const cargarPagos = useCallback(async () => {
+    if (!comprobante) return;
+    setLoading(true);
+    try {
+      if (isVenta) {
+        const res = await ContabilidadVentaService.listarPagos(comprobante.id);
+        setPagos(res.success && res.data ? res.data : []);
+      } else {
+        const res = await ContabilidadCompraService.listarPagos(comprobante.id);
+        setPagos(res.success && res.data ? res.data : []);
+      }
+    } catch (e: unknown) {
+      console.error("Error al cargar historial de pagos:", e);
+      setPagos([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [comprobante, isVenta]);
+
   useEffect(() => {
     if (opened && comprobante) {
-      void cargarPagos(comprobante.id);
+      void cargarPagos();
     }
   }, [opened, comprobante, cargarPagos]);
 
   if (!comprobante) return null;
 
-  const isAnulado = comprobante.estado === EstadoComprobanteCompra.Anulado;
+  const isAnulado = comprobante.estado === EstadoComprobanteCompra.Anulado || comprobante.estado === "Anulado";
 
   const totalPagadoUsd = isAnulado
     ? 0
     : comprobante.monto_pagado_anticipos +
       comprobante.avance_pago_neto +
-      (comprobante.avance_pago_detraccion / comprobante.tipo_cambio_venta);
+      (comprobante.tipo_cambio_venta > 0
+        ? comprobante.avance_pago_detraccion / comprobante.tipo_cambio_venta
+        : 0);
 
   const saldoPendienteNeto = isAnulado
     ? 0
@@ -83,8 +111,12 @@ export const ModalHistorialPagos = ({
     ? 0
     : Math.max(comprobante.monto_detraccion_soles - comprobante.avance_pago_detraccion, 0);
 
-  const todasAprobadas = comprobante.aprobaciones.every((a) => a.esta_aprobado);
+  const todasAprobadas = !isVenta
+    ? (comprobante as RES_ComprobanteCompra).aprobaciones.every((a) => a.esta_aprobado)
+    : true;
+
   const todoPagado =
+    comprobante.estado === "Pagado" ||
     comprobante.estado === EstadoComprobanteCompra.Pagado ||
     (saldoPendienteNeto <= 0.01 && saldoPendienteDetraccion <= 0.01);
 
@@ -96,7 +128,7 @@ export const ModalHistorialPagos = ({
       ? "Complete las 3 aprobaciones"
       : todoPagado
         ? "Comprobante Totalmente Pagado"
-        : "Registrar Pago";
+        : `Registrar Pago de ${isVenta ? "Venta" : "Compra"}`;
 
   return (
     <>
@@ -107,7 +139,7 @@ export const ModalHistorialPagos = ({
           <Group gap={6}>
             <IconReceipt size={20} className="text-emerald-400" />
             <Text fw={700} fz="sm" c="white">
-              Historial de Pagos — {comprobante.codigo_completo}
+              Historial de Pagos — {comprobante.codigo_completo} ({isVenta ? "Venta" : "Compra"})
             </Text>
           </Group>
         }
@@ -148,7 +180,6 @@ export const ModalHistorialPagos = ({
         size="6xl"
       >
         <Stack gap="md">
-
           {loading ? (
             <Group justify="center" py="md">
               <Loader size="sm" />
@@ -158,9 +189,10 @@ export const ModalHistorialPagos = ({
           ) : (
             <Stack gap="xs" className="max-h-95 overflow-y-auto pr-1">
               {pagos.map((p) => (
-                <PagoCard
+                <PagoCardItem
                   key={p.id}
                   pago={p}
+                  isVenta={isVenta}
                   anulando={anulandoId === p.id}
                   disabled={approving || isAnulado}
                   onSolicitarAnular={setPagoAAnular}
@@ -185,10 +217,16 @@ export const ModalHistorialPagos = ({
           onClose={() => setPagoAAnular(null)}
           pago={pagoAAnular}
           loading={pagoAAnular !== null && anulandoId === pagoAAnular.id}
-          onConfirm={(motivo, evidenciasAnulacion) => {
+          onConfirm={async (motivo, evidenciasAnulacion) => {
             if (pagoAAnular) {
-              onAnularPago(pagoAAnular.id, motivo, evidenciasAnulacion);
-              setPagoAAnular(null);
+              setAnulandoId(pagoAAnular.id);
+              try {
+                await onAnularPago(pagoAAnular.id, motivo, evidenciasAnulacion);
+                setPagoAAnular(null);
+                void cargarPagos();
+              } finally {
+                setAnulandoId(null);
+              }
             }
           }}
         />
@@ -211,15 +249,16 @@ export const ModalHistorialPagos = ({
   );
 };
 
-interface PagoCardProps {
-  pago: RES_PagoComprobante;
+interface PagoCardItemProps {
+  pago: RES_PagoComprobante | RES_PagoComprobanteVenta;
+  isVenta: boolean;
   anulando: boolean;
   disabled: boolean;
-  onSolicitarAnular: (pago: RES_PagoComprobante) => void;
+  onSolicitarAnular: (pago: RES_PagoComprobante | RES_PagoComprobanteVenta) => void;
   onVerEvidencias: (evidencias: IArchivo[], titulo: string) => void;
 }
 
-const PagoCard = ({ pago, anulando, disabled, onSolicitarAnular, onVerEvidencias }: PagoCardProps) => {
+const PagoCardItem = ({ pago, isVenta, anulando, disabled, onSolicitarAnular, onVerEvidencias }: PagoCardItemProps) => {
   const evidencias: IArchivo[] = Array.isArray(pago.evidencias)
     ? (pago.evidencias as unknown as IArchivo[])
     : [];
@@ -230,6 +269,16 @@ const PagoCard = ({ pago, anulando, disabled, onSolicitarAnular, onVerEvidencias
 
   const monedaSimbolo = pago.es_para_detraccion ? "S/" : "$";
   const colorMonto = pago.es_anulado ? "red.4" : pago.es_para_detraccion ? "yellow.4" : "emerald.4";
+
+  // Origen y Destino según si es Venta o Compra
+  const pagoVenta = isVenta ? (pago as RES_PagoComprobanteVenta) : null;
+  const pagoCompra = !isVenta ? (pago as RES_PagoComprobante) : null;
+
+  const origenBanco = isVenta ? (pagoVenta?.banco_planta_nombre ?? "—") : (pagoCompra?.banco_empresa_nombre ?? "—");
+  const origenCuenta = isVenta ? (pagoVenta?.cuenta_planta_numero ?? "—") : (pagoCompra?.empresa_numero_cuenta ?? "—");
+
+  const destinoBanco = isVenta ? (pagoVenta?.banco_empresa_nombre ?? "—") : (pagoCompra?.banco_proveedor_nombre ?? "—");
+  const destinoCuenta = isVenta ? (pagoVenta?.cuenta_empresa_numero ?? "—") : (pagoCompra?.proveedor_numero_cuenta ?? "—");
 
   return (
     <Paper
@@ -314,16 +363,20 @@ const PagoCard = ({ pago, anulando, disabled, onSolicitarAnular, onVerEvidencias
           <Text fz="xs" fw={600}>{formatDateTime(pago.fecha_hora_pago)}</Text>
         </div>
         <div>
-          <Text fz={10} c="dimmed" tt="uppercase" fw={700}>Origen (Planta)</Text>
+          <Text fz={10} c="dimmed" tt="uppercase" fw={700}>
+            {isVenta ? "Origen (Planta)" : "Origen (Empresa)"}
+          </Text>
           <Text fz="xs" fw={600}>
-            {pago.banco_empresa_nombre ?? "—"} · {pago.empresa_numero_cuenta ?? "—"}
+            {origenBanco} · {origenCuenta}
           </Text>
         </div>
         <IconArrowRight size={14} className="text-zinc-500 self-end mb-1" />
         <div>
-          <Text fz={10} c="dimmed" tt="uppercase" fw={700}>Destino (Proveedor)</Text>
+          <Text fz={10} c="dimmed" tt="uppercase" fw={700}>
+            {isVenta ? "Destino (Empresa)" : "Destino (Proveedor)"}
+          </Text>
           <Text fz="xs" fw={600}>
-            {pago.banco_proveedor_nombre ?? "—"} · {pago.proveedor_numero_cuenta ?? "—"}
+            {destinoBanco} · {destinoCuenta}
           </Text>
         </div>
       </Group>

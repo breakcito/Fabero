@@ -116,6 +116,11 @@ export const ValorizacionVentaService = {
     const formData = new FormData();
     formData.append("motivo_anulacion", payload.motivo_anulacion);
     formData.append("tipo_eliminacion", payload.tipo_eliminacion);
+    if (payload.evidencias_anulacion && payload.evidencias_anulacion.length > 0) {
+      payload.evidencias_anulacion.forEach((file) => {
+        formData.append("evidencias_anulacion[]", file);
+      });
+    }
     const { data } = await api.post<IRespuesta<RES_ValorizacionVenta>>(
       `${basePath}/${id}/anular`,
       formData,

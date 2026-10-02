@@ -11,12 +11,14 @@ import {
   Box,
   Loader,
   Tooltip,
+  Alert,
 } from "@mantine/core";
 import {
   IconPlus,
   IconEdit,
   IconCheck,
   IconBan,
+  IconTrash,
   IconFileText,
   IconFiles,
   IconHistory,
@@ -268,6 +270,21 @@ export const ValorizacionVentaPage = () => {
       ),
     },
     {
+      accessor: "empresa_nombre",
+      title: "Empresa",
+      textAlign: "center" as const,
+      render: (r: RES_ValorizacionVenta) => (
+        <Stack gap={2} align="center">
+          <Text fw={600} fz="xs">{r.empresa_nombre || "—"}</Text>
+          {r.empresa_ruc && (
+            <Text fz={11} c="dimmed">
+              RUC: {r.empresa_ruc}
+            </Text>
+          )}
+        </Stack>
+      ),
+    },
+    {
       accessor: "codigo",
       title: "Código",
       textAlign: "center" as const,
@@ -363,7 +380,20 @@ export const ValorizacionVentaPage = () => {
               </Tooltip>
             )}
 
-            {!isAnulado && (
+            {isAnulado ? (
+              <Tooltip label="Eliminar Definitivamente (Física)">
+                <ActionIcon
+                  color="red"
+                  variant="subtle"
+                  size="sm"
+                  loading={isBusy}
+                  disabled={isBusy}
+                  onClick={() => handleAbrirAnular(r)}
+                >
+                  <IconTrash size={14} />
+                </ActionIcon>
+              </Tooltip>
+            ) : (
               <Tooltip label="Anular / Eliminar Valorización">
                 <ActionIcon
                   color="red"
@@ -398,6 +428,26 @@ export const ValorizacionVentaPage = () => {
               </Tooltip>
             )}
 
+            {r.evidencias_anulacion && r.evidencias_anulacion.length > 0 && (
+              <Tooltip label="Evidencias de Anulación">
+                <ActionIcon
+                  variant="filled"
+                  color="red"
+                  size="sm"
+                  onClick={() =>
+                    setModalEvidenciasInfo({
+                      title: r.codigo
+                        ? `Evidencias de Anulación (${r.codigo})`
+                        : `Evidencias de Anulación (VV-${r.id})`,
+                      files: r.evidencias_anulacion || [],
+                    })
+                  }
+                >
+                  <IconFiles size={14} />
+                </ActionIcon>
+              </Tooltip>
+            )}
+
             <Tooltip label="Historial de Cambios">
               <ActionIcon
                 color="blue"
@@ -419,6 +469,29 @@ export const ValorizacionVentaPage = () => {
 
     return (
       <Box p="md" bg="#18181b">
+        {record.estado === EstadoValorizacionVenta.Anulado && (
+          <Alert
+            color="red"
+            variant="light"
+            radius="md"
+            mb="xs"
+            title="Valorización Anulada"
+            icon={<IconBan size={16} />}
+          >
+            <Group justify="space-between" wrap="wrap" gap="xs">
+              <Text fz="xs">
+                <strong>Motivo:</strong> {record.motivo_anulacion || "Sin motivo registrado"}
+              </Text>
+              {record.empleado_anulacion && (
+                <Text fz={11} c="dimmed">
+                  Anulado por: {record.empleado_anulacion}{" "}
+                  {record.fecha_hora_anulacion ? `el ${record.fecha_hora_anulacion}` : ""}
+                </Text>
+              )}
+            </Group>
+          </Alert>
+        )}
+
         <Text fw={700} fz="xs" c="amber.4" mb="xs" className="flex items-center gap-1.5">
           <IconFileText size={15} /> Items de Despacho ({detallesList.length})
         </Text>

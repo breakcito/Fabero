@@ -104,9 +104,16 @@ export const useValorizacionesVenta = () => {
         notifyError(res.message || "Error al procesar la anulación");
       }
     } catch (err) {
-      notifyError(
-        err instanceof Error ? err.message : "Error al procesar la anulación",
-      );
+      let rawMsg = "Error al procesar la anulación";
+      if (typeof err === "object" && err !== null && "response" in err) {
+        const axiosErr = err as { response?: { data?: { message?: string } } };
+        if (axiosErr.response?.data?.message) {
+          rawMsg = axiosErr.response.data.message;
+        }
+      } else if (err instanceof Error) {
+        rawMsg = err.message;
+      }
+      notifyError(rawMsg);
     } finally {
       setTogglingIds((prev) => ({ ...prev, [id]: false }));
     }
