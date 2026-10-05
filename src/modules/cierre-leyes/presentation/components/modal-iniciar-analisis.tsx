@@ -100,14 +100,14 @@ export const ModalIniciarAnalisis = ({ opened, onClose, onIniciarExito, ctrl }: 
     (esMuestraExterna && ctrl.iniciandoMuestraExterna) ||
     (!esMuestraExterna && ctrl.iniciandoLoteSugeridoId !== null);
 
-  const title = esMuestraExterna ? "Agregar muestra externa" : "Iniciar análisis";
+  const title = esMuestraExterna ? "Agregar muestra" : "Iniciar análisis";
 
   return (
     <ModalEstandar
       opened={opened}
       close={onClose}
       title={title}
-      size="sm"
+      size="md"
       rightSection={
         <Checkbox
           label="Muestra externa"

@@ -886,13 +886,13 @@ export const TablaCierreLeyes = ({
               >
                 <div className="flex flex-col">
                   <span className="font-mono text-indigo-300 font-semibold text-sm">{m.correlativo}</span>
-                  <span className="text-xs text-zinc-400">
+                  <span className="text-xs text-zinc-300">
                     {m.proveedor_razon_social ?? `Prov #${m.id_proveedor_minero}`}
                   </span>
                 </div>
                 <div className="flex flex-col items-end">
-                  <span className="text-[10px] text-zinc-500 uppercase tracking-wide">Asociada</span>
-                  <span className="text-[11px] text-zinc-300">
+                  {/* <span className="text-[10px] text-gray-300 uppercase tracking-wide">Asociada</span> */}
+                  <span className="text-xs text-zinc-300 font-bold">
                     {new Date(m.created_at).toLocaleString("es-ES", {
                       day: "2-digit",
                       month: "2-digit",
@@ -902,7 +902,7 @@ export const TablaCierreLeyes = ({
                     })}
                   </span>
                   {m.empleado_registro_nombre && (
-                    <span className="text-[10px] text-zinc-500">por {m.empleado_registro_nombre}</span>
+                    <span className="text-xs text-zinc-300">por {m.empleado_registro_nombre}</span>
                   )}
                 </div>
               </div>
