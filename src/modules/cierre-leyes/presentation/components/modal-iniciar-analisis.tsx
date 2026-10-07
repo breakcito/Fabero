@@ -159,7 +159,7 @@ export const ModalIniciarAnalisis = ({ opened, onClose, onIniciarExito, ctrl }: 
                 size="xs"
                 className="bg-emerald-950/40 border border-emerald-900/50 hover:bg-emerald-900/40 hover:border-emerald-700/60 text-emerald-400 font-semibold h-10 px-5 rounded-xl transition-all disabled:opacity-50"
               >
-                Iniciar
+                Agregar
               </Button>
             </div>
           </>

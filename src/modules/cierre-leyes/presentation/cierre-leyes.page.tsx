@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Button, TextInput, Loader, Center, Text, Select } from "@mantine/core";
 import {
   MagnifyingGlassIcon,
@@ -8,9 +8,11 @@ import {
 
 import { useTitlePage } from "../../../hooks/useTitlePage";
 import { useCierreLeyes, puedeAsociarMuestra } from "../hooks/useCierreLeyes";
+import { useReporteCierreLeyes } from "../hooks/useReporteCierreLeyes.tsx";
 import { TablaCierreLeyes } from "./components/tabla-cierre-leyes";
 import { TablaMuestrasExternas } from "./components/tabla-muestras-externas";
 import { ModalIniciarAnalisis } from "./components/modal-iniciar-analisis";
+import { ModalAsociarMultiples } from "./components/modal-asociar-multiples";
 import type { FiltrosLotesSugeridos } from "../service/cierre-leyes.service";
 import type { LoteCierreResponse } from "../service/cierre-leyes.responses";
 import { EstadoLeyes } from "../../../shared/enums/_generic/estado-leyes";
@@ -38,11 +40,15 @@ const fieldLabelClass = "text-zinc-300 mb-1 font-medium text-xs";
 
 const MIME_MUESTRA = "application/x-fabero-muestra";
 
+const AUTOSCROLL_EDGE_PX = 60;
+const AUTOSCROLL_MIN_SPEED = 4;
+const AUTOSCROLL_MAX_SPEED = 18;
+
 export const CierreLeyesPage = () => {
   useTitlePage("Cierre de Leyes");
 
   const ctrl = useCierreLeyes();
-  const { notifyError } = useNotify();
+  const { notifyError, notifyWarning } = useNotify();
 
   const [modalIniciarAbierto, setModalIniciarAbierto] = useState(false);
 
@@ -54,11 +60,86 @@ export const CierreLeyesPage = () => {
 
   // Estado drag & drop (HTML5 nativo)
   const [muestraArrastradaId, setMuestraArrastradaId] = useState<number | null>(null);
+  const isMuestraDragRef = useRef(false);
 
   // Leyes manuales por lote y detalle: Record<idLote, Record<idGrupoAnalisisDetalle, string>>
   const [leyManualPorLoteYDetalle, setLeyManualPorLoteYDetalle] = useState<
     Record<number, Record<number, string>>
   >({});
+
+  // Selección múltiple de muestras externas (para asociar en bloque)
+  const [muestrasSeleccionadasIds, setMuestrasSeleccionadasIds] = useState<number[]>([]);
+
+  // Modal "Asociar N seleccionadas a lote"
+  const [modalMultiAsociarOpen, setModalMultiAsociarOpen] = useState(false);
+  const [loteDestinoIdMulti, setLoteDestinoIdMulti] = useState<string | null>(null);
+  const [asociandoMulti, setAsociandoMulti] = useState(false);
+
+  // Selección múltiple de lotes para el reporte PDF (solo Confirmados)
+  const [lotesSeleccionadosIds, setLotesSeleccionadosIds] = useState<number[]>([]);
+
+  // Hook de impresión del reporte
+  const { printReporte } = useReporteCierreLeyes();
+
+  const handleToggleSeleccionMuestra = (idMuestraExterna: number) => {
+    setMuestrasSeleccionadasIds((prev) =>
+      prev.includes(idMuestraExterna) ? prev.filter((x) => x !== idMuestraExterna) : [...prev, idMuestraExterna],
+    );
+  };
+
+  const handleToggleSeleccionLote = (idLote: number) => {
+    setLotesSeleccionadosIds((prev) =>
+      prev.includes(idLote) ? prev.filter((x) => x !== idLote) : [...prev, idLote],
+    );
+  };
+
+  const handleLimpiarSeleccionLotes = () => setLotesSeleccionadosIds([]);
+
+  const handleImprimirSeleccion = () => {
+    const candidatos = lotes.filter(
+      (l) => lotesSeleccionadosIds.includes(l.id) && l.estado_leyes === EstadoLeyes.Confirmado,
+    );
+    if (candidatos.length === 0) {
+      notifyWarning("No hay lotes Confirmados seleccionados");
+      return;
+    }
+    printReporte(candidatos);
+  };
+
+  const handleAbrirModalMultiAsociar = () => {
+    if (muestrasSeleccionadasIds.length === 0) {
+      notifyWarning("No hay muestras seleccionadas");
+      return;
+    }
+    setLoteDestinoIdMulti(null);
+    setModalMultiAsociarOpen(true);
+  };
+
+  const handleCerrarModalMulti = () => {
+    setModalMultiAsociarOpen(false);
+    setLoteDestinoIdMulti(null);
+  };
+
+  const handleConfirmarMultiAsociacion = async () => {
+    if (!loteDestinoIdMulti) {
+      notifyWarning("Selecciona un lote destino");
+      return;
+    }
+    if (muestrasSeleccionadasIds.length === 0) {
+      handleCerrarModalMulti();
+      return;
+    }
+    setAsociandoMulti(true);
+    const ok = await ctrl.asociarMultiplesMuestrasALote(
+      [...muestrasSeleccionadasIds],
+      Number(loteDestinoIdMulti),
+    );
+    setAsociandoMulti(false);
+    if (ok) {
+      handleCerrarModalMulti();
+      setMuestrasSeleccionadasIds([]);
+    }
+  };
 
   const filtrosActuales: FiltrosLotesSugeridos = useMemo(
     () => ({
@@ -137,6 +218,10 @@ export const CierreLeyesPage = () => {
             empleado_inicio_nombre: null,
             fecha_hora_confirmacion_analisis: null,
             empleado_confirmacion_nombre: null,
+            ley_oro: null,
+            ley_plata: null,
+            ley_humedad: null,
+            ley_recuperacion: null,
             analisis: [],
           });
         }
@@ -157,42 +242,142 @@ export const CierreLeyesPage = () => {
 
   const handleDragStart = (idMuestraExterna: number, e: React.DragEvent<HTMLTableRowElement>) => {
     setMuestraArrastradaId(idMuestraExterna);
+    isMuestraDragRef.current = true;
     e.dataTransfer.setData(MIME_MUESTRA, String(idMuestraExterna));
     e.dataTransfer.effectAllowed = "link";
   };
 
   const handleDragEnd = () => {
     setMuestraArrastradaId(null);
+    isMuestraDragRef.current = false;
   };
+
+  useEffect(() => {
+    let rafId: number | null = null;
+    let lastClientY: number | null = null;
+
+    const tick = () => {
+      rafId = null;
+      if (lastClientY === null) return;
+      const y = lastClientY;
+      const h = window.innerHeight;
+
+      let delta = 0;
+      if (y < AUTOSCROLL_EDGE_PX) {
+        const ratio = 1 - y / AUTOSCROLL_EDGE_PX;
+        delta = -Math.round(AUTOSCROLL_MIN_SPEED + (AUTOSCROLL_MAX_SPEED - AUTOSCROLL_MIN_SPEED) * ratio);
+      } else if (y > h - AUTOSCROLL_EDGE_PX) {
+        const ratio = 1 - (h - y) / AUTOSCROLL_EDGE_PX;
+        delta = Math.round(AUTOSCROLL_MIN_SPEED + (AUTOSCROLL_MAX_SPEED - AUTOSCROLL_MIN_SPEED) * ratio);
+      }
+
+      if (delta !== 0) {
+        window.scrollBy({ top: delta, behavior: "auto" });
+        rafId = requestAnimationFrame(tick);
+      }
+    };
+
+    const onDragOver = (e: DragEvent) => {
+      if (!isMuestraDragRef.current) return;
+      e.preventDefault();
+      lastClientY = e.clientY;
+      if (rafId === null) rafId = requestAnimationFrame(tick);
+    };
+
+    const onDragEndWindow = () => {
+      isMuestraDragRef.current = false;
+    };
+
+    window.addEventListener("dragover", onDragOver);
+    window.addEventListener("dragend", onDragEndWindow);
+    return () => {
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      window.removeEventListener("dragover", onDragOver);
+      window.removeEventListener("dragend", onDragEndWindow);
+    };
+  }, []);
 
   const handleDropMuestra = async (idLoteMineral: number, idMuestraExterna: number): Promise<void> => {
     setMuestraArrastradaId(null);
-    // Buscar el lote destino: primero en lotes cargados (EnProceso/Confirmado),
-    // luego en lotes sugeridos (Pendiente) para soportar drop también sobre lotes no iniciados.
+
     const loteEnTabla = ctrl.lotes.find((l) => l.id === idLoteMineral);
     const loteSugerido = ctrl.lotesSugeridos.find((l) => l.id === idLoteMineral);
     if (!loteEnTabla && !loteSugerido) {
       notifyError("Lote destino no encontrado");
       return;
     }
+    const loteDestino = loteEnTabla ?? loteSugerido;
+    if (!loteDestino) {
+      notifyError("Lote destino no encontrado");
+      return;
+    }
+    const loteCorrelativo = loteDestino.correlativo ?? `#${idLoteMineral}`;
 
-    const muestra = ctrl.muestras.find((m) => m.id === idMuestraExterna);
-    if (!muestra) {
+    // Determinar si el drop es multi (la muestra arrastrada está en la selección)
+    const esDropMulti = muestrasSeleccionadasIds.includes(idMuestraExterna);
+    const idsParaAsociar = esDropMulti ? [...muestrasSeleccionadasIds] : [idMuestraExterna];
+    const muestrasParaAsociar = idsParaAsociar
+      .map((id) => ctrl.muestras.find((m) => m.id === id))
+      .filter((m): m is NonNullable<typeof m> => m != null);
+
+    if (muestrasParaAsociar.length === 0) {
       notifyError("Muestra externa no encontrada");
       return;
     }
 
-    const loteCorrelativo = (loteEnTabla ?? loteSugerido)?.correlativo ?? `#${loteSugerido?.id ?? idLoteMineral}`;
-    const muestraCorrelativo = muestra.correlativo;
-    const totalAnalisis = muestra.analisis?.length ?? 0;
-
-    // Validar que la muestra esté completa antes de pedir confirmación.
-    const validacion = puedeAsociarMuestra(muestra);
-    if (!validacion.ok) {
-      notifyError(validacion.motivo ?? "La muestra no se puede asociar");
+    // Validar mismo proveedor entre lote y TODAS las muestras a asociar
+    const lotesProveedor = loteDestino.id_proveedor_minero;
+    const distintasDeProveedor = muestrasParaAsociar.filter(
+      (m) => m.id_proveedor_minero !== lotesProveedor,
+    );
+    if (distintasDeProveedor.length > 0) {
+      notifyError(
+        `${distintasDeProveedor.length === 1 ? "Una muestra pertenece" : `${distintasDeProveedor.length} muestras pertenecen`} a un proveedor distinto al lote ${loteCorrelativo}. Solo se pueden asociar muestras y lotes del mismo proveedor.`,
+      );
       return;
     }
 
+    // Si el drop es single (no estaba en la selección), aplicar validación clásica
+    if (!esDropMulti) {
+      const muestra = muestrasParaAsociar[0];
+      if (loteDestino && muestra.id_proveedor_minero !== loteDestino.id_proveedor_minero) {
+        notifyError(
+          `La muestra pertenece a "${muestra.proveedor_razon_social ?? "—"}" pero el lote ${loteCorrelativo} es de "${loteDestino.proveedor_razon_social ?? "—"}". Solo se pueden asociar muestras y lotes del mismo proveedor.`,
+        );
+        return;
+      }
+    }
+
+    const totalAnalisis = muestrasParaAsociar.reduce((acc, m) => acc + (m.analisis?.length ?? 0), 0);
+    const resumenMuestras = muestrasParaAsociar.map((m) => m.correlativo).join(", ");
+
+    if (esDropMulti) {
+      mostrarConfirmacion({
+        title: `Asociar ${muestrasParaAsociar.length} muestra${muestrasParaAsociar.length === 1 ? "" : "s"} externa${muestrasParaAsociar.length === 1 ? "" : "s"} a lote`,
+        tipo: "info",
+        confirmLabel: `Asociar ${muestrasParaAsociar.length}`,
+        cancelLabel: "Cancelar",
+        message: (
+          <div className="space-y-1.5">
+            <p>
+              Vas a asociar <span className="font-semibold text-indigo-300">{muestrasParaAsociar.length} muestra{muestrasParaAsociar.length === 1 ? "" : "s"}</span>
+              {' '}(<span className="font-mono text-zinc-300">{resumenMuestras}</span>)
+              {' '}a <span className="font-mono text-indigo-300 font-semibold">{loteCorrelativo}</span>.
+            </p>
+            <p className="text-zinc-400">
+              Se migrarán <span className="font-semibold">{totalAnalisis}</span> análisis al lote y las muestras desaparecerán de la tabla inferior.
+            </p>
+          </div>
+        ),
+        onConfirm: async () => {
+          await ctrl.asociarMultiplesMuestrasALote(idsParaAsociar, idLoteMineral);
+          setMuestrasSeleccionadasIds([]);
+        },
+      });
+      return;
+    }
+
+    const muestra = muestrasParaAsociar[0];
     mostrarConfirmacion({
       title: "Asociar muestra externa a lote",
       tipo: "info",
@@ -201,7 +386,7 @@ export const CierreLeyesPage = () => {
       message: (
         <div className="space-y-1.5">
           <p>
-            Vas a asociar <span className="font-mono text-indigo-300 font-semibold">{muestraCorrelativo}</span>
+            Vas a asociar <span className="font-mono text-indigo-300 font-semibold">{muestra.correlativo}</span>
             {' '}a <span className="font-mono text-indigo-300 font-semibold">{loteCorrelativo}</span>.
           </p>
           <p className="text-zinc-400">
@@ -336,7 +521,16 @@ export const CierreLeyesPage = () => {
               onGuardarValor={ctrl.guardarValor}
               onAgregarAnalisis={ctrl.agregarAnalisis}
               onEliminarFila={ctrl.eliminarFila}
-              onConfirmarLote={ctrl.confirmarLote}
+              onConfirmarLote={async (idLote, conValor, leyesManuales) => {
+                const ok = await ctrl.confirmarLote(idLote, conValor, leyesManuales);
+                if (ok) {
+                  const loteActualizado = ctrl.lotes.find((l) => l.id === idLote);
+                  if (loteActualizado && loteActualizado.estado_leyes === EstadoLeyes.Confirmado) {
+                    printReporte([loteActualizado]);
+                  }
+                }
+                return ok;
+              }}
               onActualizarOrigenFila={ctrl.actualizarOrigenFila}
               onCheckAll={ctrl.confirmarTodoElLote}
               isChequeandoLote={ctrl.isChequeandoLote}
@@ -351,25 +545,36 @@ export const CierreLeyesPage = () => {
               onDropMuestra={handleDropMuestra}
               leyManualPorLoteYDetalle={leyManualPorLoteYDetalle}
               onChangeLeyManual={handleLeyManualChange}
+              seleccionadasIds={lotesSeleccionadosIds}
+              onToggleSeleccion={handleToggleSeleccionLote}
+              onLimpiarSeleccion={handleLimpiarSeleccionLotes}
+              onImprimirSeleccion={handleImprimirSeleccion}
             />
           )}
 
-          <TablaMuestrasExternas
-            muestras={ctrl.muestras}
-            grupos={ctrl.grupos}
-            lotesDisponibles={lotesDisponiblesParaAsociar}
-            onGuardarValor={ctrl.guardarValorMuestra}
-            onAgregarAnalisis={ctrl.agregarAnalisisMuestra}
-            onEliminarFila={ctrl.eliminarFilaMuestra}
-            onActualizarOrigenFila={ctrl.actualizarOrigenFilaMuestra}
-            onAsociar={ctrl.asociarMuestraALote}
-            isAsociando={ctrl.isAsociandoMuestra}
-            isAgregandoAnalisis={ctrl.isAgregandoAnalisisMuestra}
-            isGuardandoCelda={ctrl.isGuardandoCelda}
-            puedeAsociar={puedeAsociarMuestra}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-          />
+          <div className="flex flex-col xl:flex-row gap-4 items-start">
+            <div className="flex-1 min-w-0 w-full">
+              <TablaMuestrasExternas
+                muestras={ctrl.muestras}
+                grupos={ctrl.grupos}
+                lotesDisponibles={lotesDisponiblesParaAsociar}
+                onGuardarValor={ctrl.guardarValorMuestra}
+                onAgregarAnalisis={ctrl.agregarAnalisisMuestra}
+                onEliminarFila={ctrl.eliminarFilaMuestra}
+                onActualizarOrigenFila={ctrl.actualizarOrigenFilaMuestra}
+                onAsociar={ctrl.asociarMuestraALote}
+                isAsociando={ctrl.isAsociandoMuestra}
+                isAgregandoAnalisis={ctrl.isAgregandoAnalisisMuestra}
+                isGuardandoCelda={ctrl.isGuardandoCelda}
+                puedeAsociar={puedeAsociarMuestra}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+                seleccionadasIds={muestrasSeleccionadasIds}
+                onToggleSeleccion={handleToggleSeleccionMuestra}
+                onAsociarMultiplesClick={handleAbrirModalMultiAsociar}
+              />
+            </div>
+          </div>
         </>
       )}
 
@@ -382,6 +587,19 @@ export const CierreLeyesPage = () => {
           void ctrl.cargarMuestrasExternas();
         }}
         ctrl={ctrl}
+      />
+
+      <ModalAsociarMultiples
+        opened={modalMultiAsociarOpen}
+        onClose={handleCerrarModalMulti}
+        muestras={ctrl.muestras}
+        seleccionadasIds={muestrasSeleccionadasIds}
+        lotesDisponibles={lotesDisponiblesParaAsociar}
+        loteDestinoId={loteDestinoIdMulti}
+        onChangeLoteDestino={setLoteDestinoIdMulti}
+        onConfirm={handleConfirmarMultiAsociacion}
+        loading={asociandoMulti}
+        onQuitar={handleToggleSeleccionMuestra}
       />
     </div>
   );

@@ -10,6 +10,8 @@ export interface LoteSugeridoResponse {
   peso_neto: number | null;
   tipo_mineral: string | null;
   estado_leyes: EstadoLeyes | null;
+  id_proveedor_minero: number | null;
+  proveedor_razon_social: string | null;
   created_at: string;
 }
 
@@ -39,6 +41,13 @@ export interface LoteCierreResponse {
   empleado_inicio_nombre: string | null;
   fecha_hora_confirmacion_analisis: string | null;
   empleado_confirmacion_nombre: string | null;
+  ley_oro: number | null;
+  ley_plata: number | null;
+  ley_humedad: number | null;
+  ley_recuperacion: number | null;
+  id_proveedor_minero: number | null;
+  proveedor_razon_social: string | null;
+  created_at?: string | null;
   analisis: AnalisisMineralResponse[];
 }
 

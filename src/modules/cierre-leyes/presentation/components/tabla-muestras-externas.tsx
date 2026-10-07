@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Loader, Select, Tooltip, Button } from "@mantine/core";
+import { Loader, Select, Tooltip, Button, Checkbox } from "@mantine/core";
 import { IconHistory, IconLink, IconPlus, IconTrashX } from "@tabler/icons-react";
 import { TipoOrigen } from "../../../../shared/enums/_generic/tipo-origen";
 import type { MuestraExternaResponse, LoteCierreResponse } from "../../service/cierre-leyes.responses";
@@ -25,11 +25,17 @@ interface TablaMuestrasExternasProps {
   isAgregandoAnalisis?: (idMuestraExterna: number) => boolean;
   isGuardandoCelda?: (key: string) => boolean;
   cellKeyFn?: (p: Pick<GuardarValorMuestraPayload, "id_muestra_externa" | "id_grupo_analisis_detalle" | "uuid_fila" | "tipo_origen"> & { id?: number | null }) => string;
-  /** Determina si la muestra puede asociarse a un lote (todos los análisis con dato > 0). */
-  puedeAsociar?: (m: MuestraExternaResponse) => { ok: boolean; motivo?: string };
+  /** Determina si la muestra puede asociarse a un lote (existe al menos un lote disponible con el mismo proveedor). */
+  puedeAsociar?: (m: MuestraExternaResponse, lotesDisponibles: LoteCierreResponse[]) => { ok: boolean; motivo?: string };
   /** Permitir arrastrar las filas para soltarlas sobre un lote (HTML5 nativo). */
   onDragStart?: (idMuestraExterna: number, e: React.DragEvent<HTMLTableRowElement>) => void;
   onDragEnd?: () => void;
+  /** IDs de muestras marcadas con el checkbox. */
+  seleccionadasIds?: number[];
+  /** Alterna el checkbox de una muestra. */
+  onToggleSeleccion?: (idMuestraExterna: number) => void;
+  /** Abre el modal "Asociar N seleccionadas" desde el botón "Asociar" de una fila seleccionada. */
+  onAsociarMultiplesClick?: () => void;
 }
 
 export const TablaMuestrasExternas = ({
@@ -48,6 +54,9 @@ export const TablaMuestrasExternas = ({
   puedeAsociar,
   onDragStart,
   onDragEnd,
+  seleccionadasIds,
+  onToggleSeleccion,
+  onAsociarMultiplesClick,
 }: TablaMuestrasExternasProps) => {
   const { notifyWarning } = useNotify();
 
@@ -69,24 +78,152 @@ export const TablaMuestrasExternas = ({
   };
 
   /**
-   * Crea un nodo DOM off-screen que contiene solo el badge "RC-XX" para usar como preview
-   * del drag — así el navegador no muestra toda la fila durante el arrastre.
+   * Helpers para el header "select all" context-aware: cuando hay al menos 1 muestra
+   * seleccionada, el checkbox marca/desmarca TODAS las muestras del mismo proveedor
+   * (no de la tabla completa). Sin selección, el checkbox queda deshabilitado.
+   */
+  const getProveedorContexto = (): number | null => {
+    if (!seleccionadasIds || seleccionadasIds.length === 0) return null;
+    const primera = muestras.find((x) => x.id === seleccionadasIds[0]);
+    return primera ? primera.id_proveedor_minero : null;
+  };
+
+  const idsDelProveedorContexto = (): number[] => {
+    const prov = getProveedorContexto();
+    if (prov == null) return [];
+    return muestras.filter((m) => m.id_proveedor_minero === prov).map((m) => m.id);
+  };
+
+  const seleccionadasDelProveedorContexto = (): number[] => {
+    const prov = getProveedorContexto();
+    if (prov == null || !seleccionadasIds) return [];
+    return seleccionadasIds.filter((id) => {
+      const m = muestras.find((x) => x.id === id);
+      return m != null && m.id_proveedor_minero === prov;
+    });
+  };
+
+  const headerChecked: boolean = (() => {
+    const total = idsDelProveedorContexto();
+    if (total.length === 0) return false;
+    const sel = seleccionadasDelProveedorContexto();
+    return sel.length === total.length;
+  })();
+
+  const headerIndeterminate: boolean = (() => {
+    const total = idsDelProveedorContexto();
+    const sel = seleccionadasDelProveedorContexto();
+    return sel.length > 0 && sel.length < total.length;
+  })();
+
+  const handleHeaderToggle = () => {
+    if (!onToggleSeleccion) return;
+    if (!seleccionadasIds || seleccionadasIds.length === 0) return; // deshabilitado sin selección
+    const total = idsDelProveedorContexto();
+    const yaSeleccionadas = new Set(seleccionadasDelProveedorContexto());
+    if (headerChecked) {
+      // Desmarcar todas las del proveedor
+      for (const id of yaSeleccionadas) {
+        onToggleSeleccion(id);
+      }
+    } else {
+      // Marcar las que faltan
+      for (const id of total) {
+        if (!yaSeleccionadas.has(id)) {
+          onToggleSeleccion(id);
+        }
+      }
+    }
+  };
+
+  const esFilaSeleccionada = (id: number): boolean =>
+    !!seleccionadasIds && seleccionadasIds.includes(id);
+
+  const totalSeleccionadasParaBoton = (id: number): number => {
+    if (!esFilaSeleccionada(id)) return 0;
+    return seleccionadasIds?.length ?? 0;
+  };
+
+  /**
+   * Construye el drag image como una columna de cards (una por muestra del grupo
+   * a asociar). Si la fila arrastrada está en la selección y hay >1 seleccionadas,
+   * muestra todas las seleccionadas; si no, muestra solo la arrastrada. Incluye
+   * un badge "N muestras" en la esquina cuando hay más de una.
    */
   const handleDragStart = (m: MuestraExternaResponse, e: React.DragEvent<HTMLTableRowElement>) => {
+    const enSeleccion = !!seleccionadasIds && seleccionadasIds.includes(m.id);
+    const idsParaGhost =
+      enSeleccion && seleccionadasIds && seleccionadasIds.length > 0
+        ? seleccionadasIds
+        : [m.id];
+    const cards = idsParaGhost
+      .map((id) => muestras.find((x) => x.id === id))
+      .filter((x): x is MuestraExternaResponse => x != null);
+
     const ghost = document.createElement("div");
-    ghost.textContent = m.correlativo;
     ghost.style.position = "absolute";
     ghost.style.top = "-1000px";
-    ghost.style.padding = "4px 10px";
-    ghost.style.background = "rgba(99, 102, 241, 0.85)";
-    ghost.style.color = "#fff";
-    ghost.style.borderRadius = "9999px";
-    ghost.style.fontFamily = "monospace";
-    ghost.style.fontSize = "11px";
-    ghost.style.fontWeight = "700";
-    ghost.style.border = "1px solid rgba(165, 180, 252, 0.6)";
-    ghost.style.boxShadow = "0 4px 18px rgba(99, 102, 241, 0.45)";
-    ghost.style.letterSpacing = "0.5px";
+    ghost.style.left = "-1000px";
+    ghost.style.display = "flex";
+    ghost.style.flexDirection = "column";
+    ghost.style.gap = "4px";
+    ghost.style.padding = "8px";
+    ghost.style.background = "rgba(9, 9, 11, 0.92)";
+    ghost.style.border = "1px solid rgba(99, 102, 241, 0.5)";
+    ghost.style.borderRadius = "12px";
+    ghost.style.boxShadow = "0 4px 24px rgba(99, 102, 241, 0.4)";
+    ghost.style.fontFamily = "inherit";
+    ghost.style.minWidth = "150px";
+
+    for (const c of cards) {
+      const card = document.createElement("div");
+      card.style.padding = "4px 8px";
+      card.style.background = "rgba(99, 102, 241, 0.15)";
+      card.style.border = "1px solid rgba(99, 102, 241, 0.4)";
+      card.style.borderRadius = "8px";
+      card.style.display = "flex";
+      card.style.flexDirection = "column";
+      card.style.gap = "1px";
+
+      const corr = document.createElement("span");
+      corr.textContent = c.correlativo;
+      corr.style.fontFamily = "monospace";
+      corr.style.fontWeight = "700";
+      corr.style.color = "rgb(165, 180, 252)";
+      corr.style.fontSize = "11px";
+      card.appendChild(corr);
+
+      if (c.proveedor_razon_social) {
+        const prov = document.createElement("span");
+        prov.textContent = c.proveedor_razon_social;
+        prov.style.fontSize = "9px";
+        prov.style.color = "rgb(212, 212, 216)";
+        prov.style.maxWidth = "130px";
+        prov.style.overflow = "hidden";
+        prov.style.textOverflow = "ellipsis";
+        prov.style.whiteSpace = "nowrap";
+        card.appendChild(prov);
+      }
+
+      ghost.appendChild(card);
+    }
+
+    if (cards.length > 1) {
+      const badge = document.createElement("div");
+      badge.textContent = `${cards.length} muestras`;
+      badge.style.position = "absolute";
+      badge.style.top = "-10px";
+      badge.style.right = "-10px";
+      badge.style.background = "rgb(99, 102, 241)";
+      badge.style.color = "#fff";
+      badge.style.borderRadius = "9999px";
+      badge.style.padding = "2px 8px";
+      badge.style.fontSize = "10px";
+      badge.style.fontWeight = "700";
+      badge.style.boxShadow = "0 2px 8px rgba(99, 102, 241, 0.6)";
+      ghost.appendChild(badge);
+    }
+
     document.body.appendChild(ghost);
     e.dataTransfer.setDragImage(ghost, 30, 8);
     setTimeout(() => document.body.removeChild(ghost), 0);
@@ -151,10 +288,27 @@ export const TablaMuestrasExternas = ({
       ? cellKeyFn(p)
       : `m${p.id_muestra_externa}|${p.id_grupo_analisis_detalle}|${p.uuid_fila}|${p.tipo_origen ?? "_"}|${p.id ?? "new"}`;
 
-  const opcionesLotes = lotesDisponibles.map((l) => ({
-    value: String(l.id),
-    label: `${l.correlativo} (${l.estado_leyes})`,
-  }));
+  const opcionesLotes = (() => {
+    const filtrados = muestraSeleccionada
+      ? lotesDisponibles.filter(
+          (l) =>
+            l.id_proveedor_minero !== null &&
+            l.id_proveedor_minero === muestraSeleccionada.id_proveedor_minero,
+        )
+      : lotesDisponibles;
+    return filtrados.map((l) => ({
+      value: String(l.id),
+      label: `${l.correlativo} (${l.estado_leyes})`,
+    }));
+  })();
+
+  const lotesVisiblesCount = muestraSeleccionada
+    ? lotesDisponibles.filter(
+        (l) =>
+          l.id_proveedor_minero !== null &&
+          l.id_proveedor_minero === muestraSeleccionada.id_proveedor_minero,
+      ).length
+    : lotesDisponibles.length;
 
   if (muestras.length === 0) {
     return null;
@@ -167,12 +321,35 @@ export const TablaMuestrasExternas = ({
           <IconLink size={12} stroke={2.5} />
           <span>Muestras externas en proceso</span>
           <span className="ml-auto text-zinc-500 normal-case font-medium">
-            {muestras.length} activa{muestras.length === 1 ? "" : "s"} — arrastra una fila sobre un lote para asociarla
+            {muestras.length} activa{muestras.length === 1 ? "" : "s"} — marca varias con el check y presiona "Asociar" en una fila seleccionada, o arrastra sobre un lote
           </span>
         </div>
         <table className="w-full text-left border-collapse table-auto">
           <thead>
             <tr className="bg-zinc-900/80 border-b border-zinc-800 text-[10px] font-bold tracking-wider text-zinc-400 uppercase">
+              <th rowSpan={2} className="p-2.5 border-r border-zinc-800 text-center align-middle min-w-10 w-10">
+                <Tooltip
+                  label={
+                    !seleccionadasIds || seleccionadasIds.length === 0
+                      ? "Marca una muestra primero para habilitar"
+                      : headerChecked
+                      ? "Desmarcar todas del proveedor"
+                      : "Marcar todas del proveedor"
+                  }
+                  withArrow
+                  position="top"
+                >
+                  <Checkbox
+                    aria-label="Seleccionar todas las muestras del mismo proveedor"
+                    checked={headerChecked}
+                    indeterminate={headerIndeterminate}
+                    disabled={!seleccionadasIds || seleccionadasIds.length === 0}
+                    onChange={handleHeaderToggle}
+                    size="xs"
+                    color="indigo"
+                  />
+                </Tooltip>
+              </th>
               <th rowSpan={2} className="p-2.5 border-r border-zinc-800 text-center align-middle min-w-60">
                 Muestra externa
               </th>
@@ -252,9 +429,23 @@ export const TablaMuestrasExternas = ({
                     {runIdx === 0 && (
                       <td
                         rowSpan={totalRowsForMuestra}
-                        className="p-2.5 border-r border-zinc-800 align-middle"
+                        className="p-2.5 border-r border-zinc-800 align-middle text-center"
                       >
-                        <div className="flex flex-col gap-2">
+                        <Checkbox
+                          aria-label={`Seleccionar muestra ${m.correlativo}`}
+                          checked={!!seleccionadasIds && seleccionadasIds.includes(m.id)}
+                          onChange={() => onToggleSeleccion?.(m.id)}
+                          size="xs"
+                          color="indigo"
+                        />
+                      </td>
+                    )}
+                    {runIdx === 0 && (
+                      <td
+                        rowSpan={totalRowsForMuestra}
+                        className="p-2.5 border-r border-zinc-800 align-middle text-center"
+                      >
+                        <div className="flex flex-col gap-2 items-center">
                           {/* Fila 1: acciones primarias */}
                           <div className="flex items-center gap-1.5">
                             <span className="px-2 py-0.5 bg-indigo-500/15 border border-indigo-500/30 text-indigo-200 rounded-full font-mono text-xs font-semibold whitespace-nowrap">
@@ -272,33 +463,60 @@ export const TablaMuestrasExternas = ({
                               </button>
                             </Tooltip>
                             {(() => {
-                              const val = puedeAsociar ? puedeAsociar(m) : { ok: true };
-                              const deshabilitado = !val.ok || asociandoMuestraActual || agregandoActual;
+                              const val = puedeAsociar ? puedeAsociar(m, lotesDisponibles) : { ok: true };
+                              const deshabilitado = asociandoMuestraActual || agregandoActual;
+                              const totalSel = totalSeleccionadasParaBoton(m.id);
+                              const enModoMulti = totalSel > 0;
+                              const handleClick = () => {
+                                if (!val.ok) {
+                                  notifyWarning(val.motivo ?? "No se puede asociar la muestra");
+                                  return;
+                                }
+                                if (enModoMulti && onAsociarMultiplesClick) {
+                                  onAsociarMultiplesClick();
+                                  return;
+                                }
+                                handleAbrirAsociar(m);
+                              };
+                              const tooltipLabel = !val.ok
+                                ? (val.motivo ?? "No se puede asociar")
+                                : enModoMulti
+                                ? `Asociar las ${totalSel} muestra${totalSel === 1 ? "" : "s"} seleccionada${totalSel === 1 ? "" : "s"} a un lote`
+                                : "Asociar esta muestra a un lote";
                               return (
                                 <Tooltip
-                                  label={val.ok ? "Asociar esta muestra a un lote" : (val.motivo ?? "No se puede asociar")}
+                                  label={tooltipLabel}
                                   withArrow
                                   position="top"
                                 >
                                   <button
                                     type="button"
-                                    onClick={() => handleAbrirAsociar(m)}
+                                    onClick={handleClick}
                                     disabled={deshabilitado}
-                                    className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-300 bg-indigo-500/15 border border-indigo-500/30 rounded-lg hover:bg-indigo-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className={`relative flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-semibold border rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                                      enModoMulti
+                                        ? "text-emerald-300 bg-emerald-500/15 border-emerald-500/40 hover:bg-emerald-500/25"
+                                        : "text-indigo-300 bg-indigo-500/15 border-indigo-500/30 hover:bg-indigo-500/30"
+                                    }`}
                                   >
                                     {asociandoMuestraActual ? <Loader size={9} color="currentColor" /> : <IconLink size={10} />}
                                     Asociar
+                                    {enModoMulti && totalSel > 1 && (
+                                      <span className="ml-1 min-w-4 h-4 px-1 rounded-full bg-emerald-500 text-white text-[9px] font-bold flex items-center justify-center">
+                                        {totalSel}
+                                      </span>
+                                    )}
                                   </button>
                                 </Tooltip>
                               );
                             })()}
                           </div>
                           {/* Fila 2: metadatos compactos (proveedor + fecha + empleado) */}
-                          <div className="flex flex-col gap-0.5 text-[10px] leading-tight">
-                            <span className="text-zinc-300 font-medium truncate max-w-55">
+                          <div className="flex flex-col gap-0.5 text-[10px] leading-tight items-center">
+                            <span className="text-zinc-300 font-medium truncate max-w-55 text-center">
                               {m.proveedor_razon_social ?? `Guest #${m.id_proveedor_minero}`}
                             </span>
-                            <span className="text-[9px] text-zinc-600">
+                            <span className="text-[9px] text-zinc-600 text-center">
                               {new Date(m.created_at).toLocaleString("es-ES", {
                                 day: "2-digit",
                                 month: "2-digit",
@@ -310,15 +528,6 @@ export const TablaMuestrasExternas = ({
                                 <span className="text-zinc-600"> · {m.empleado_registro_nombre}</span>
                               )}
                             </span>
-                            {(() => {
-                              const val = puedeAsociar ? puedeAsociar(m) : { ok: true };
-                              if (val.ok) return null;
-                                return (
-                                  <span className="text-[9px] text-amber-400 font-medium leading-tight mt-0.5">
-                                    {val.motivo}
-                                  </span>
-                                );
-                              })()}
                           </div>
                         </div>
                       </td>
@@ -398,7 +607,8 @@ export const TablaMuestrasExternas = ({
                                   saving={cellSaving}
                                   logCambios={mainRecord?.log_cambios}
                                   onViewLog={() => handleOpenLogModal(a.nombre, mainRecord?.log_cambios)}
-                                  onSave={(val, checked) =>
+                                  hideCheckbox
+                                  onSave={(val) =>
                                     onGuardarValor({
                                       id: mainRecord?.id || null,
                                       id_muestra_externa: m.id,
@@ -406,7 +616,7 @@ export const TablaMuestrasExternas = ({
                                       tipo_origen: currentTipoOrigen,
                                       uuid_fila: uuidFila,
                                       ley: val,
-                                      esta_confirmada: checked,
+                                      esta_confirmada: false,
                                     })
                                   }
                                 />
@@ -441,20 +651,27 @@ export const TablaMuestrasExternas = ({
         <div className="space-y-4">
           {muestraSeleccionada && (
             <div className="text-xs text-zinc-400">
-              Vas a asociar <span className="font-mono text-indigo-300 font-semibold">{muestraSeleccionada.correlativo}</span> a un lote en estado Pendiente o En Proceso. Los análisis de la muestra se migrarán al lote y la muestra desaparecerá de esta tabla.
+              Vas a asociar <span className="font-mono text-indigo-300 font-semibold">{muestraSeleccionada.correlativo}</span> al lote del mismo proveedor ({muestraSeleccionada.proveedor_razon_social ?? "—"}) en estado Pendiente o En Proceso. Los análisis de la muestra se migrarán al lote y la muestra desaparecerá de esta tabla.
+            </div>
+          )}
+
+          {muestraSeleccionada && lotesVisiblesCount === 0 && (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+              No hay lotes disponibles del proveedor de esta muestra. Crea o inicia un lote del mismo proveedor antes de asociar.
             </div>
           )}
 
           <div className="flex items-center gap-3 pt-1">
             <div className="flex-1">
               <Select
-                placeholder="Seleccione un lote..."
+                placeholder={lotesVisiblesCount === 0 ? "No hay lotes compatibles" : "Seleccione un lote..."}
                 data={opcionesLotes}
                 value={loteDestinoId}
                 onChange={setLoteDestinoId}
                 searchable
                 size="xs"
                 radius="lg"
+                disabled={lotesVisiblesCount === 0}
                 comboboxProps={{ withinPortal: true }}
                 classNames={{
                   input: "bg-zinc-950 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 transition-all rounded-xl h-[40px] font-semibold text-sm",
@@ -464,7 +681,7 @@ export const TablaMuestrasExternas = ({
             </div>
             <Button
               onClick={handleConfirmarAsociacion}
-              disabled={!loteDestinoId || (muestraSeleccionada ? isAsociando?.(muestraSeleccionada.id) : false)}
+              disabled={!loteDestinoId || lotesVisiblesCount === 0 || (muestraSeleccionada ? isAsociando?.(muestraSeleccionada.id) : false)}
               loading={muestraSeleccionada ? isAsociando?.(muestraSeleccionada.id) : false}
               leftSection={<IconLink className="w-4 h-4 text-emerald-400" />}
               radius="lg"

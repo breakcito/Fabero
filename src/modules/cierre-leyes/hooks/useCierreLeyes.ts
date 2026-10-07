@@ -18,19 +18,24 @@ const cellKey = (p: Pick<GuardarValorPayload, "id_lote_mineral" | "id_grupo_anal
   `${p.id_lote_mineral}|${p.id_grupo_analisis_detalle}|${p.uuid_fila}|${p.tipo_origen ?? "_"}|${p.id ?? "new"}`;
 
 /**
- * Determina si una muestra externa está lista para asociarse a un lote:
- * requiere que CADA análisis de CADA corrida tenga ley > 0 (dato cargado).
- * Si falta cualquier valor, retorna false y motivo explicativo.
+ * Determina si una muestra externa puede asociarse a un lote disponible:
+ * valida que exista al menos un lote cuyo proveedor coincida con el de la muestra
+ * y que esté en estado Pendiente o En Proceso. No se exige que la muestra tenga
+ * todos los análisis con dato cargado (esa validación quedó obsoleta).
  */
-export const puedeAsociarMuestra = (m: MuestraExternaResponse): { ok: boolean; motivo?: string } => {
-  if (!m.analisis || m.analisis.length === 0) {
-    return { ok: false, motivo: "La muestra no tiene análisis cargados." };
-  }
-  const sinDatos = m.analisis.filter((a) => !(a.ley > 0));
-  if (sinDatos.length > 0) {
+export const puedeAsociarMuestra = (
+  m: MuestraExternaResponse,
+  lotesDisponibles: LoteCierreResponse[],
+): { ok: boolean; motivo?: string } => {
+  const compatible = lotesDisponibles.find(
+    (l) => l.id_proveedor_minero !== null && l.id_proveedor_minero === m.id_proveedor_minero,
+  );
+  if (!compatible) {
     return {
       ok: false,
-      motivo: `Faltan ${sinDatos.length} análisis con datos. Todas deben tener un valor > 0.`,
+      motivo: m.proveedor_razon_social
+        ? `No hay lotes disponibles del proveedor "${m.proveedor_razon_social}" para asociar.`
+        : "No hay lotes disponibles del mismo proveedor para asociar.",
     };
   }
   return { ok: true };
@@ -571,12 +576,24 @@ const eliminarFilaMuestra = async (idMuestraExterna: number, uuidFila: string): 
    *  - Reemplaza/actualiza el lote con la respuesta del servidor.
    *  - Limpia cache de muestrasAsociadasPorLote para que se refresque al abrir.
    */
-  const asociarMuestraALote = async (idMuestraExterna: number, idLoteMineral: number): Promise<boolean> => {
+  /**
+   * Asocia una muestra externa a un lote. Tras el éxito:
+   *  - Remueve la muestra de la lista de activas.
+   *  - Reemplaza/actualiza el lote con la respuesta del servidor.
+   *  - Limpia cache de muestrasAsociadasPorLote para que se refresque al abrir.
+   *  - `opts.notify` (default true) silencia los notify de éxito/error. Usado por el wrapper multi.
+   */
+  const asociarMuestraALote = async (
+    idMuestraExterna: number,
+    idLoteMineral: number,
+    opts?: { notify?: boolean },
+  ): Promise<boolean> => {
+    const shouldNotify = opts?.notify !== false;
     setAsociandoMuestra((prev) => ({ ...prev, [idMuestraExterna]: true }));
     try {
       const respuesta = await CierreLeyesService.asociarMuestraALote(idMuestraExterna, idLoteMineral);
       if (!respuesta || !respuesta.lote) {
-        notifyError("La respuesta del servidor es inválida.");
+        if (shouldNotify) notifyError("La respuesta del servidor es inválida.");
         return false;
       }
       setMuestras((prev) => prev.filter((m) => m.id !== idMuestraExterna));
@@ -589,19 +606,17 @@ const eliminarFilaMuestra = async (idMuestraExterna: number, uuidFila: string): 
       });
       setLotesSugeridos((prev) => prev.filter((l) => l.id !== idLoteMineral));
       void cargarLotesSugeridos();
-      // Recargar muestras asociadas inmediatamente
       void cargarMuestrasAsociadas(idLoteMineral);
 
-
-
-
-      notifySuccess(
-        `Muestra asociada al lote ${respuesta.lote.correlativo} (${respuesta.analisis_migrados} análisis migrados).`,
-      );
+      if (shouldNotify) {
+        notifySuccess(
+          `Muestra asociada al lote ${respuesta.lote.correlativo} (${respuesta.analisis_migrados} análisis migrados).`,
+        );
+      }
       return true;
     } catch (err: unknown) {
       console.error(err);
-      notifyError("Error al asociar la muestra externa al lote");
+      if (shouldNotify) notifyError("Error al asociar la muestra externa al lote");
       return false;
     } finally {
       setAsociandoMuestra((prev) => {
@@ -610,6 +625,41 @@ const eliminarFilaMuestra = async (idMuestraExterna: number, uuidFila: string): 
         return copy;
       });
     }
+  };
+
+  /**
+   * Asocia varias muestras externas a un mismo lote, en orden y secuencialmente.
+   * Cada llamada reutiliza `asociarMuestraALote` con notify silenciado y emite una sola
+   * notificación resumen al final (éxito total / parcial / total).
+   * Secuencial para evitar race conditions: el backend reescribe el `lote` en cada llamada
+   * y las llamadas paralelas perderían los cambios de las otras.
+   */
+  const asociarMultiplesMuestrasALote = async (
+    idsMuestraExterna: number[],
+    idLoteMineral: number,
+  ): Promise<boolean> => {
+    if (idsMuestraExterna.length === 0) return false;
+    let successCount = 0;
+    let failureCount = 0;
+    for (const idMuestra of idsMuestraExterna) {
+      const ok = await asociarMuestraALote(idMuestra, idLoteMineral, { notify: false });
+      if (ok) successCount++;
+      else failureCount++;
+    }
+    if (failureCount === 0) {
+      notifySuccess(
+        `${successCount} muestra${successCount === 1 ? "" : "s"} asociada${successCount === 1 ? "" : "s"} correctamente al lote.`,
+      );
+      return true;
+    }
+    if (successCount === 0) {
+      notifyError(`No se pudo asociar ninguna muestra (${failureCount} fallaron).`);
+      return false;
+    }
+    notifyError(
+      `${successCount} asociada${successCount === 1 ? "" : "s"}, ${failureCount} fallaron.`,
+    );
+    return false;
   };
 
   const isAsociandoMuestra = useCallback(
@@ -750,6 +800,7 @@ const eliminarFilaMuestra = async (idMuestraExterna: number, uuidFila: string): 
     confirmarTodoElLote,
     isChequeandoLote,
     asociarMuestraALote,
+    asociarMultiplesMuestrasALote,
     agregarAnalisisMuestra,
     isAgregandoAnalisisMuestra,
   };

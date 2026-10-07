@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { IconChecks, IconPlus, IconTrashX, IconHistory, IconClipboardList } from "@tabler/icons-react";
-import { Loader, Badge, Select, Tooltip, Group } from "@mantine/core";
+import { IconChecks, IconPlus, IconTrashX, IconHistory, IconClipboardList, IconEye, IconPrinter } from "@tabler/icons-react";
+import { Loader, Badge, Select, Tooltip, Group, Checkbox } from "@mantine/core";
 import { EstadoLeyes } from "../../../../shared/enums/_generic/estado-leyes";
 import { TipoOrigen } from "../../../../shared/enums/_generic/tipo-origen";
 import type { LoteCierreResponse, AnalisisMineralResponse, MuestraAsociadaResponse } from "../../service/cierre-leyes.responses";
@@ -44,6 +44,14 @@ interface TablaCierreLeyesProps {
   /** Leyes manuales por lote y detalle: Record<idLote, Record<idGrupoAnalisisDetalle, string>> */
   leyManualPorLoteYDetalle?: Record<number, Record<number, string>>;
   onChangeLeyManual?: (idLoteMineral: number, idGrupoAnalisisDetalle: number, val: string) => void;
+  /** IDs de lotes seleccionados para el reporte PDF (solo Confirmados). */
+  seleccionadasIds?: number[];
+  /** Alterna el checkbox de selección de un lote. */
+  onToggleSeleccion?: (idLoteMineral: number) => void;
+  /** Limpia toda la selección. */
+  onLimpiarSeleccion?: () => void;
+  /** Abre el PDF con los lotes Confirmados seleccionados. */
+  onImprimirSeleccion?: () => void;
 }
 
 export const TablaCierreLeyes = ({
@@ -67,6 +75,10 @@ export const TablaCierreLeyes = ({
   onDropMuestra,
   leyManualPorLoteYDetalle,
   onChangeLeyManual,
+  seleccionadasIds,
+  onToggleSeleccion,
+  onLimpiarSeleccion,
+  onImprimirSeleccion,
 }: TablaCierreLeyesProps) => {
   const { notifyWarning } = useNotify();
 
@@ -132,12 +144,21 @@ export const TablaCierreLeyes = ({
     });
   };
 
-  // Helper function to calculate averages on the fly
-  const getPromedioAnalito = (lote: LoteCierreResponse, detalleId: number): number => {
+  // Helper function to calculate averages on the fly.
+  // - Para humedad/recuperación: considera TODAS las filas del detalle, sin filtrar por
+  //   `esta_confirmada` ni por `ley > 0`. El backend sincroniza cada fila al promedio
+  //   tras la asociación, por lo que las filas en 0 se reemplazan; mientras tanto,
+  //   el promedio las incluye para que el valor visible sea estable.
+  // - Para los demás analitos: solo filas confirmadas (comportamiento original).
+  const getPromedioAnalito = (
+    lote: LoteCierreResponse,
+    detalleId: number,
+    esHumedadORecuperacion: boolean,
+  ): number => {
     const records = lote.analisis.filter(
       (a: AnalisisMineralResponse) =>
         a.id_grupo_analisis_detalle === detalleId &&
-        a.esta_confirmada
+        (esHumedadORecuperacion ? true : a.esta_confirmada)
     );
     if (records.length === 0) return 0;
     const sum = records.reduce((acc: number, curr: AnalisisMineralResponse) => acc + curr.ley, 0);
@@ -152,14 +173,45 @@ export const TablaCierreLeyes = ({
       : `${p.id_lote_mineral}|${p.id_grupo_analisis_detalle}|${p.uuid_fila}|${p.tipo_origen ?? "_"}|${p.id ?? "new"}`;
 
   /**
+   * Resuelve la ley final persistida en el lote según el flag de valorización del analito.
+   * Retorna null si el analito no participa en oro/plata/humedad/recuperacion.
+   */
+  const getLeyCerradaDelLote = (
+    lote: LoteCierreResponse,
+    detalle: GrupoAnalisisDetalleResponse,
+  ): number | null => {
+    if (detalle.para_valorizacion_oro) return lote.ley_oro ?? null;
+    if (detalle.para_valorizacion_plata) return lote.ley_plata ?? null;
+    if (detalle.para_valorizacion_humedad) return lote.ley_humedad ?? null;
+    if (detalle.para_valorizacion_recuperacion) return lote.ley_recuperacion ?? null;
+    return null;
+  };
+
+  /**
    * Obtiene el valor para la ley consolidada del analito en el lote:
    *  - Si el usuario escribió un valor manual en ese input, se usa ese valor.
-   *  - Por defecto, toma el valor del promedio calculado (formateado a 3 decimales si es > 0).
+   *  - Humedad y recuperación se muestran también durante En Proceso porque el backend
+   *    recalcula el promedio tras cada asociación (filas migradas de muestras incluidas,
+   *    sin filtrar por `esta_confirmada`). Oro y plata siguen requiriendo Confirmado
+   *    porque su consolidación se hace solo al cierre formal del lote.
+   *  - En cualquier otro caso, el input queda vacío.
    */
-  const getValorLeyConsolidada = (loteId: number, detalleId: number, promedio: number): string => {
-    const manual = leyManualPorLoteYDetalle?.[loteId]?.[detalleId];
+  const getValorLeyConsolidada = (
+    lote: LoteCierreResponse,
+    detalle: GrupoAnalisisDetalleResponse,
+  ): string => {
+    const manual = leyManualPorLoteYDetalle?.[lote.id]?.[detalle.detalle_id];
     if (manual !== undefined) return manual;
-    return promedio > 0 ? promedio.toFixed(3) : "";
+    const esHumedadORecuperacion =
+      detalle.para_valorizacion_humedad || detalle.para_valorizacion_recuperacion;
+    if (esHumedadORecuperacion) {
+      const ley = getLeyCerradaDelLote(lote, detalle);
+      if (ley !== null && ley > 0) return ley.toFixed(3);
+    } else if (lote.estado_leyes === EstadoLeyes.Confirmado) {
+      const leyCerrada = getLeyCerradaDelLote(lote, detalle);
+      if (leyCerrada !== null && leyCerrada > 0) return leyCerrada.toFixed(3);
+    }
+    return "";
   };
 
   /**
@@ -178,8 +230,7 @@ export const TablaCierreLeyes = ({
           (it) => it.id_grupo_analisis_detalle === a.detalle_id && it.esta_confirmada,
         );
         if (records.length === 0) continue;
-        const promedio = getPromedioAnalito(lote, a.detalle_id);
-        const valStr = getValorLeyConsolidada(lote.id, a.detalle_id, promedio);
+        const valStr = getValorLeyConsolidada(lote, a);
         const parsed = parseFloat(valStr.trim());
         if (valStr.trim() === "" || Number.isNaN(parsed) || parsed <= 0) {
           return {
@@ -207,8 +258,7 @@ export const TablaCierreLeyes = ({
           (it) => it.id_grupo_analisis_detalle === a.detalle_id && it.esta_confirmada,
         );
         if (records.length === 0) continue;
-        const promedio = getPromedioAnalito(lote, a.detalle_id);
-        const valStr = getValorLeyConsolidada(lote.id, a.detalle_id, promedio);
+        const valStr = getValorLeyConsolidada(lote, a);
         const parsed = parseFloat(valStr);
         if (!Number.isNaN(parsed) && parsed > 0) {
           out.push({ id_grupo_analisis_detalle: a.detalle_id, ley: parsed });
@@ -230,11 +280,42 @@ export const TablaCierreLeyes = ({
       return;
     }
     const leyesManuales = buildLeyesManuales(lote, grupos);
-    void onConfirmarLote(lote.id, conValor, leyesManuales.length > 0 ? leyesManuales : undefined);
+    mostrarConfirmacion({
+      title: "Cerrar análisis de leyes",
+      tipo: conValor ? "info" : "peligro",
+      confirmLabel: conValor ? "Con Valor Comercial" : "Sin Valor Comercial",
+      cancelLabel: "Cancelar",
+      message: (
+        <div className="space-y-1.5">
+          <p>
+            Vas a cerrar el lote{" "}
+            <span className="font-mono text-indigo-300 font-semibold">{lote.correlativo}</span>{" "}
+            {conValor ? (
+              <span className="text-emerald-400 font-semibold">con valor comercial</span>
+            ) : (
+              <span className="text-rose-400 font-semibold">sin valor comercial</span>
+            )}
+            .
+          </p>
+          <p className="text-zinc-400">
+            Esta acción no se puede deshacer. Al confirmar se generará el reporte PDF
+            correspondiente al cierre.
+          </p>
+        </div>
+      ),
+      onConfirm: () => {
+        void onConfirmarLote(
+          lote.id,
+          conValor,
+          leyesManuales.length > 0 ? leyesManuales : undefined,
+        );
+      },
+    });
   };
 
-  const handleDragOverRow = (e: React.DragEvent<HTMLTableRowElement>) => {
+  const handleDragOverRow = (lote: LoteCierreResponse, e: React.DragEvent<HTMLTableRowElement>) => {
     if (!muestraArrastradaId) return;
+    if (lote.estado_leyes === EstadoLeyes.Confirmado) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = "link";
   };
@@ -243,6 +324,8 @@ export const TablaCierreLeyes = ({
     e.preventDefault();
     const idMuestra = muestraArrastradaId;
     if (!idMuestra || !onDropMuestra) return;
+    const loteDestino = lotes.find((l) => l.id === idLoteMineral);
+    if (loteDestino && loteDestino.estado_leyes === EstadoLeyes.Confirmado) return;
     await onDropMuestra(idLoteMineral, idMuestra);
   };
 
@@ -255,8 +338,74 @@ export const TablaCierreLeyes = ({
           <thead>
             {/* First Header Row */}
             <tr className="bg-zinc-900/80 border-b border-zinc-800 text-[10px] font-bold tracking-wider text-zinc-400 uppercase">
+              <th rowSpan={2} className="p-2.5 border-r border-zinc-800 text-center align-middle min-w-10 w-10">
+                <Tooltip
+                  label={
+                    lotes.filter((l) => l.estado_leyes === EstadoLeyes.Confirmado).length === 0
+                      ? "No hay lotes Confirmados para seleccionar"
+                      : seleccionadasIds && seleccionadasIds.length > 0
+                      ? "Desmarcar todos los Confirmados"
+                      : "Marcar todos los Confirmados"
+                  }
+                  withArrow
+                  position="top"
+                >
+                  <Checkbox
+                    aria-label="Seleccionar todos los lotes Confirmados"
+                    checked={
+                      !!seleccionadasIds &&
+                      lotes.filter((l) => l.estado_leyes === EstadoLeyes.Confirmado).length > 0 &&
+                      lotes
+                        .filter((l) => l.estado_leyes === EstadoLeyes.Confirmado)
+                        .every((l) => seleccionadasIds.includes(l.id))
+                    }
+                    indeterminate={
+                      !!seleccionadasIds &&
+                      lotes.some((l) => l.estado_leyes === EstadoLeyes.Confirmado && seleccionadasIds.includes(l.id)) &&
+                      !lotes
+                        .filter((l) => l.estado_leyes === EstadoLeyes.Confirmado)
+                        .every((l) => seleccionadasIds.includes(l.id))
+                    }
+                    onChange={() => {
+                      if (!onToggleSeleccion) return;
+                      const confirmados = lotes.filter((l) => l.estado_leyes === EstadoLeyes.Confirmado);
+                      const todosMarcados = confirmados.every((l) => seleccionadasIds?.includes(l.id));
+                      if (todosMarcados) {
+                        onLimpiarSeleccion?.();
+                      } else {
+                        for (const l of confirmados) {
+                          if (!seleccionadasIds?.includes(l.id)) onToggleSeleccion(l.id);
+                        }
+                      }
+                    }}
+                    size="xs"
+                    color="indigo"
+                  />
+                </Tooltip>
+              </th>
               <th colSpan={2} rowSpan={2} className="p-2.5 border-r border-zinc-800 text-center align-middle min-w-45">
-                Lote
+                <div className="flex items-center justify-center gap-3">
+                  <span>Lote</span>
+                  {!!seleccionadasIds && seleccionadasIds.length > 0 && (
+                    <Tooltip
+                      label={`Imprimir ${seleccionadasIds.length} lote${seleccionadasIds.length === 1 ? "" : "s"} seleccionado${seleccionadasIds.length === 1 ? "" : "s"}`}
+                      withArrow
+                      position="top"
+                    >
+                      <button
+                        type="button"
+                        onClick={onImprimirSeleccion}
+                        className="relative p-1 rounded-lg border transition-all flex items-center justify-center text-amber-300 bg-amber-500/15 border-amber-500/30 hover:bg-amber-500/25"
+                        aria-label="Imprimir reporte de lotes seleccionados"
+                      >
+                        <IconPrinter size={12} stroke={2.5} />
+                        <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center">
+                          {seleccionadasIds.length}
+                        </span>
+                      </button>
+                    </Tooltip>
+                  )}
+                </div>
               </th>
               {grupos.map((g: GrupoAnalisisResponse) => {
                 // Calculate colSpan dynamically
@@ -353,13 +502,33 @@ export const TablaCierreLeyes = ({
                 return (
                   <tr
                     key={`${l.id}-${uuidFila}`}
-                    onDragOver={handleDragOverRow}
+                    onDragOver={(e) => handleDragOverRow(l, e)}
                     onDrop={(e) => void handleDropRow(l.id, e)}
                     className={`hover:bg-zinc-800/10 transition-colors border-b border-zinc-800 ${puedeRecibirDrop ? "bg-indigo-500/5 ring-1 ring-indigo-500/40" : ""}`}
                   >
                     {/* Lote Code & Date - render only on first row of run */}
                     {runIdx === 0 && (
                       <>
+                        <td
+                          rowSpan={totalRowsForLote}
+                          className="p-2.5 border-r border-zinc-800 align-middle text-center"
+                        >
+                          {l.estado_leyes === EstadoLeyes.Confirmado ? (
+                            <Checkbox
+                              aria-label={`Seleccionar lote ${l.correlativo} para reporte`}
+                              checked={!!seleccionadasIds && seleccionadasIds.includes(l.id)}
+                              onChange={() => onToggleSeleccion?.(l.id)}
+                              size="xs"
+                              color="indigo"
+                            />
+                          ) : (
+                            <Tooltip label="Solo se imprimen lotes Confirmados" withArrow position="top">
+                              <span className="inline-block w-4 h-4 opacity-30">
+                                <Checkbox disabled size="xs" color="gray" />
+                              </span>
+                            </Tooltip>
+                          )}
+                        </td>
                         <td
                           rowSpan={totalRowsForLote}
                           className="p-2.5 border-r border-zinc-800 font-semibold text-xs text-zinc-100 align-middle text-center"
@@ -387,7 +556,31 @@ export const TablaCierreLeyes = ({
                                   )}
                                 </button>
                               </Tooltip>
+                              <Tooltip
+                                label={muestrasDeEsteLote.length > 0 ? `Ver ${muestrasDeEsteLote.length} muestra(s) externa(s) asociada(s)` : "Ver muestras externas asociadas"}
+                                withArrow
+                                position="top"
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => void handleAbrirModalMuestras(l.id)}
+                                  className={`relative p-1 rounded-lg border transition-all flex items-center justify-center ${muestrasDeEsteLote.length > 0 ? "text-indigo-300 bg-indigo-500/15 border-indigo-500/30 hover:bg-indigo-500/25" : "text-zinc-400 bg-zinc-800/40 border-zinc-700/50 hover:bg-zinc-800 hover:text-zinc-200"}`}
+                                  aria-label="Ver muestras externas asociadas"
+                                >
+                                  <IconEye size={12} stroke={2.5} />
+                                  {muestrasDeEsteLote.length > 0 && (
+                                    <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-indigo-500 text-white text-[9px] font-bold flex items-center justify-center">
+                                      {muestrasDeEsteLote.length}
+                                    </span>
+                                  )}
+                                </button>
+                              </Tooltip>
                             </div>
+                            {l.proveedor_razon_social && (
+                              <span className="text-[11px] text-zinc-400 font-normal truncate max-w-45 text-center">
+                                {l.proveedor_razon_social}
+                              </span>
+                            )}
                             {(() => {
                               const agregando = !!agregandoAnalisisPorLote?.[l.id];
                               const disabled = l.estado_leyes === EstadoLeyes.Confirmado || agregando;
@@ -403,17 +596,6 @@ export const TablaCierreLeyes = ({
                                 </button>
                               );
                             })()}
-                            {/* Botón ver muestras asociadas al lote */}
-                              <button
-                                type="button"
-                                onClick={() => void handleAbrirModalMuestras(l.id)}
-                                className={`flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded-lg border transition-all ${muestrasDeEsteLote.length > 0 ? "text-indigo-300 bg-indigo-500/15 border-indigo-500/30 hover:bg-indigo-500/25" : "text-zinc-400 bg-zinc-800/40 border-zinc-700/50 hover:bg-zinc-800 hover:text-zinc-200"}`}
-                                title={muestrasDeEsteLote.length > 0 ? `${muestrasDeEsteLote.length} muestra(s) externa(s) asociada(s) — clic para ver` : "Ver muestras externas asociadas"}
-                              >
-                                <IconClipboardList size={10} />
-                                {muestrasDeEsteLote.length > 0 ? `${muestrasDeEsteLote.length} muestra${muestrasDeEsteLote.length === 1 ? "" : "s"}` : "Ver muestras"}
-                              </button>
-
                           </div>
                         </td>
                         <td
@@ -507,7 +689,7 @@ export const TablaCierreLeyes = ({
                                   }),
                                 );
 
-                                const promedio = getPromedioAnalito(l, a.detalle_id);
+                                const promedio = getPromedioAnalito(l, a.detalle_id, a.para_valorizacion_humedad || a.para_valorizacion_recuperacion);
 
                                 return (
                                   <React.Fragment key={`${l.id}-${uuidFila}-orig-frag-${a.detalle_id}`}>
@@ -515,7 +697,11 @@ export const TablaCierreLeyes = ({
                                       <div className="flex flex-col gap-1 items-center">
                                         <CellInput
                                           key={mainRecord?.id || "new"}
-                                          initialValue={mainRecord?.ley || 0}
+                                          initialValue={
+                                            a.para_valorizacion_humedad || a.para_valorizacion_recuperacion
+                                              ? getLeyCerradaDelLote(l, a) ?? 0
+                                              : mainRecord?.ley || 0
+                                          }
                                           initialChecked={mainRecord ? mainRecord.esta_confirmada : false}
                                           disabled={l.estado_leyes === EstadoLeyes.Confirmado}
                                           saving={cellSaving}
@@ -536,7 +722,7 @@ export const TablaCierreLeyes = ({
                                       </div>
                                     </td>
                                     {runIdx === 0 && (() => {
-                                      const valActual = getValorLeyConsolidada(l.id, a.detalle_id, promedio);
+                                      const valActual = getValorLeyConsolidada(l, a);
                                       const estaInvalido = valActual.trim() === "" || Number(valActual) <= 0;
                                       return (
                                         <td
@@ -551,8 +737,8 @@ export const TablaCierreLeyes = ({
                                               type="number"
                                               step="any"
                                               min="0"
-                                              disabled={l.estado_leyes === EstadoLeyes.Confirmado || promedio <= 0}
-                                              placeholder={promedio > 0 ? promedio.toFixed(3) : "0.000"}
+                                              disabled={l.estado_leyes === EstadoLeyes.Confirmado}
+                                              placeholder=""
                                               value={valActual}
                                               onChange={(e) => onChangeLeyManual?.(l.id, a.detalle_id, e.currentTarget.value)}
                                               className={`w-16 h-5 text-center text-[10px] leading-none px-1 bg-zinc-950 border ${
@@ -560,7 +746,7 @@ export const TablaCierreLeyes = ({
                                                   ? "border-amber-500/80 text-amber-300 focus:border-amber-400 ring-1 ring-amber-500/20"
                                                   : "border-indigo-700/50 text-indigo-200 focus:border-indigo-400"
                                               } rounded-md focus:outline-none transition-all placeholder:text-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
-                                              title={`Ley consolidada para ${a.nombre} (por defecto es el promedio, editable manualmente)`}
+                                              title={`Ley consolidada para ${a.nombre} (vacía hasta el cierre; muestra la ley registrada del lote al confirmar)`}
                                             />
                                           </div>
                                         </td>
@@ -590,7 +776,11 @@ export const TablaCierreLeyes = ({
                                   >
                                     <div className="flex flex-col gap-1 items-center">
                                       <CellInput
-                                        initialValue={allRecordsOfDetalle[0]?.ley || 0}
+                                        initialValue={
+                                          a.para_valorizacion_humedad || a.para_valorizacion_recuperacion
+                                            ? getLeyCerradaDelLote(l, a) ?? 0
+                                            : allRecordsOfDetalle[0]?.ley || 0
+                                        }
                                         initialChecked={allRecordsOfDetalle[0] ? allRecordsOfDetalle[0].esta_confirmada : false}
                                         disabled={l.estado_leyes === EstadoLeyes.Confirmado}
                                         saving={cellSaving}
@@ -638,7 +828,7 @@ export const TablaCierreLeyes = ({
                               }),
                             );
 
-                            const promedio = getPromedioAnalito(l, a.detalle_id);
+                            const promedio = getPromedioAnalito(l, a.detalle_id, a.para_valorizacion_humedad || a.para_valorizacion_recuperacion);
 
                             return (
                               <React.Fragment key={`${l.id}-${uuidFila}-noorig-${a.detalle_id}`}>
@@ -667,7 +857,7 @@ export const TablaCierreLeyes = ({
                                   </div>
                                 </td>
                                 {runIdx === 0 && (() => {
-                                  const valActual = getValorLeyConsolidada(l.id, a.detalle_id, promedio);
+                                  const valActual = getValorLeyConsolidada(l, a);
                                   const estaInvalido = valActual.trim() === "" || Number(valActual) <= 0;
                                   return (
                                     <td
@@ -682,8 +872,8 @@ export const TablaCierreLeyes = ({
                                           type="number"
                                           step="any"
                                           min="0"
-                                          disabled={l.estado_leyes === EstadoLeyes.Confirmado || promedio <= 0}
-                                          placeholder={promedio > 0 ? promedio.toFixed(3) : "0.000"}
+                                          disabled={l.estado_leyes === EstadoLeyes.Confirmado}
+                                          placeholder=""
                                           value={valActual}
                                           onChange={(e) => onChangeLeyManual?.(l.id, a.detalle_id, e.currentTarget.value)}
                                           className={`w-16 h-5 text-center text-[10px] leading-none px-1 bg-zinc-950 border ${
@@ -691,7 +881,7 @@ export const TablaCierreLeyes = ({
                                               ? "border-amber-500/80 text-amber-300 focus:border-amber-400 ring-1 ring-amber-500/20"
                                               : "border-indigo-700/50 text-indigo-200 focus:border-indigo-400"
                                           } rounded-md focus:outline-none transition-all placeholder:text-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
-                                          title={`Ley consolidada para ${a.nombre} (por defecto es el promedio, editable manualmente)`}
+                                          title={`Ley consolidada para ${a.nombre} (vacía hasta el cierre; muestra la ley registrada del lote al confirmar)`}
                                         />
                                       </div>
                                     </td>

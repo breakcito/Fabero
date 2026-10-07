@@ -13,6 +13,9 @@ interface CellInputProps {
   saving?: boolean;
   logCambios?: RES_CambiosLog[] | null;
   onViewLog?: () => void;
+  /** Oculta el botón de confirmar. Usado en la tabla de muestras externas donde la confirmación
+   * es implícita y no existe flag `esta_confirmada` a nivel de la muestra. */
+  hideCheckbox?: boolean;
 }
 
 export const CellInput = ({
@@ -24,6 +27,7 @@ export const CellInput = ({
   saving,
   logCambios,
   onViewLog,
+  hideCheckbox,
 }: CellInputProps) => {
   const { notifyWarning } = useNotify();
   const [val, setVal] = useState<string>(initialValue > 0 ? initialValue.toString() : "");
@@ -44,9 +48,8 @@ export const CellInput = ({
     const numericVal = parseFloat(val);
     if (!isNaN(numericVal)) {
       if (numericVal !== initialValue) {
-        let newChecked = checked;
-        if (numericVal <= 0 && checked) {
-          newChecked = false;
+        const newChecked = hideCheckbox ? false : checked;
+        if (!hideCheckbox && numericVal <= 0 && checked) {
           setChecked(false);
           notifyWarning("El análisis se desmarcó como confirmado porque el valor no es mayor a cero.");
         }
@@ -54,9 +57,8 @@ export const CellInput = ({
       }
     } else if (val === "") {
       if (initialValue !== 0) {
-        let newChecked = checked;
-        if (checked) {
-          newChecked = false;
+        const newChecked = hideCheckbox ? false : checked;
+        if (!hideCheckbox && checked) {
           setChecked(false);
           notifyWarning("El análisis se desmarcó como confirmado porque el valor está vacío.");
         }
@@ -73,6 +75,7 @@ export const CellInput = ({
 
   const handleCheckboxToggle = () => {
     if (saving) return;
+    if (hideCheckbox) return;
     const numericVal = parseFloat(val) || 0;
     if (!checked && numericVal <= 0) {
       notifyWarning("No se puede confirmar un análisis sin un valor mayor a cero.");
@@ -85,18 +88,20 @@ export const CellInput = ({
 
   return (
     <div className="flex items-center gap-0.5 min-w-22 justify-center py-0.5">
-      <button
-        type="button"
-        disabled={disabled || saving}
-        onClick={handleCheckboxToggle}
-        className={`w-3.5 h-3.5 rounded-md border flex items-center justify-center transition-all ${
-          checked
-            ? "bg-emerald-600 border-emerald-500 text-white shadow-sm shadow-emerald-900/30"
-            : "border-zinc-700 bg-zinc-900/50 text-transparent hover:border-zinc-500"
-        }`}
-      >
-        <IconCheck size={9} stroke={3} />
-      </button>
+      {!hideCheckbox && (
+        <button
+          type="button"
+          disabled={disabled || saving}
+          onClick={handleCheckboxToggle}
+          className={`w-3.5 h-3.5 rounded-md border flex items-center justify-center transition-all ${
+            checked
+              ? "bg-emerald-600 border-emerald-500 text-white shadow-sm shadow-emerald-900/30"
+              : "border-zinc-700 bg-zinc-900/50 text-transparent hover:border-zinc-500"
+          }`}
+        >
+          <IconCheck size={9} stroke={3} />
+        </button>
+      )}
       <input
         type="number"
         step="any"
