@@ -107,12 +107,6 @@ export interface RES_ItemMineralDisponible {
   peso_inicial: number | null;
   peso_final: number | null;
   peso_neto: number | null;
-  // Pesos oficiales del lote (definidos al registrar/editar una guia).
-  // Solo aplican a LOTE sin particiones. Si existen, el modal los usa como
-  // valor inicial de los inputs editables.
-  peso_inicial_oficial?: number | null;
-  peso_final_oficial?: number | null;
-  peso_neto_oficial?: number | null;
   created_at: string;
   proveedor_nombre: string | null;
   vehiculo_placa?: string | null;

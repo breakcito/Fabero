@@ -56,7 +56,6 @@ import type {
   DTO_CrearGuiaPrimerTramo,
   DTO_ActualizarGuiaPrimerTramo,
   DTO_ItemGuiaInput,
-  DTO_PesosOficialesLote,
 } from "../../service/guias-primer-tramo.requests";
 import type { RES_GuiaPrimerTramo } from "../../service/guias-primer-tramo.responses";
 import { useValidarDuplicadoGuiaEnVivo } from "../../hooks/useValidarDuplicadoGuiaEnVivo";
@@ -169,73 +168,52 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
   // Mapa itemKey -> id_recepcion_unidad para agrupar items por recepción
   // y permitir autocompletar las guias cuando todos comparten una sola.
   const [recepcionesPorItem, setRecepcionesPorItem] = useState<Map<string, number>>(new Map());
-  // Pesos oficiales editados para LOTEs sin particiones. Se inicializa al
-  // agregar items con valores oficiales si existen, sino con los originales
-  // del lote. Solo se envia al backend si el operador los modifico.
-  const [pesosOficialesPorLote, setPesosOficialesPorLote] = useState<Record<number, DTO_PesosOficialesLote>>({});
-
   const round2 = (n: number): number => Math.round(n * 100) / 100;
 
   /**
-   * Resolver el valor inicial de los pesos oficiales para un item LOTE.
-   * - esEdicion=true:  prioriza `peso_*_oficial` (los guardados en una guia
-   *                    previa). Si no existen, cae a los originales del lote.
-   * - esEdicion=false: usa SOLO `peso_*` originales del lote. No toma los
-   *                    oficiales aunque existan, porque la creacion parte
-   *                    del peso actual del lote.
+   * Actualiza el peso documentario de un item (lote o partición) en la guía,
+   * manteniendo la regla invariante:
+   * - Editar peso_inicial -> peso_final = peso_inicial - peso_neto
+   * - Editar peso_final -> peso_inicial = peso_final + peso_neto
+   * - Editar peso_neto -> peso_final = peso_inicial - peso_neto
    */
-  const obtenerPesosInicialesParaLote = (
-    idLote: number,
-    esEdicion: boolean,
-  ): DTO_PesosOficialesLote | null => {
-    const original = itemsDisponibles.find(
-      (i) => i.id_lote_mineral === idLote,
-    );
-    if (!original) {
-      return null;
-    }
-
-    const inicial = esEdicion
-      ? (original.peso_inicial_oficial ?? original.peso_inicial ?? null)
-      : (original.peso_inicial ?? null);
-    const finalPeso = esEdicion
-      ? (original.peso_final_oficial ?? original.peso_final ?? null)
-      : (original.peso_final ?? null);
-    const neto = esEdicion
-      ? (original.peso_neto_oficial ?? original.peso_neto ?? null)
-      : (original.peso_neto ?? null);
-
-    if (inicial === null || finalPeso === null || neto === null) {
-      return null;
-    }
-    return {
-      id_lote_mineral: idLote,
-      peso_inicial_oficial: round2(inicial),
-      peso_final_oficial: round2(finalPeso),
-      peso_neto_oficial: round2(neto),
-    };
-  };
-
-  /**
-   * Aplica la regla invariante a los pesos oficiales del lote:
-   * - Editar peso_inicial_oficial -> peso_final_oficial = peso_inicial_oficial - peso_neto_oficial
-   * - Editar peso_final_oficial -> peso_inicial_oficial = peso_final_oficial + peso_neto_oficial
-   * - Editar peso_neto_oficial -> peso_final_oficial = peso_inicial_oficial - peso_neto_oficial
-   */
-  const aplicarReglaPesoOficial = (
-    current: DTO_PesosOficialesLote,
-    field: "peso_inicial_oficial" | "peso_final_oficial" | "peso_neto_oficial",
+  const handleUpdatePesoItem = (
+    tempId: string,
+    field: "peso_inicial" | "peso_final" | "peso_neto",
     value: number,
-  ): DTO_PesosOficialesLote => {
-    const updates: Partial<DTO_PesosOficialesLote> = { [field]: round2(value) };
-    if (field === "peso_inicial_oficial") {
-      updates.peso_final_oficial = round2(value - current.peso_neto_oficial);
-    } else if (field === "peso_final_oficial") {
-      updates.peso_inicial_oficial = round2(value + current.peso_neto_oficial);
-    } else if (field === "peso_neto_oficial") {
-      updates.peso_final_oficial = round2(current.peso_inicial_oficial - value);
-    }
-    return { ...current, ...updates };
+  ) => {
+    setItems((prev) =>
+      prev.map((it) => {
+        if (it.tempId !== tempId) return it;
+
+        const val = round2(value);
+        const currentIni = it.peso_inicial ?? 0;
+        const currentFin = it.peso_final ?? 0;
+        const currentNet = it.peso_neto ?? 0;
+
+        let nuevoIni = currentIni;
+        let nuevoFin = currentFin;
+        let nuevoNet = currentNet;
+
+        if (field === "peso_inicial") {
+          nuevoIni = val;
+          nuevoFin = round2(val - currentNet);
+        } else if (field === "peso_final") {
+          nuevoFin = val;
+          nuevoIni = round2(val + currentNet);
+        } else if (field === "peso_neto") {
+          nuevoNet = val;
+          nuevoFin = round2(currentIni - val);
+        }
+
+        return {
+          ...it,
+          peso_inicial: nuevoIni,
+          peso_final: nuevoFin,
+          peso_neto: nuevoNet,
+        };
+      }),
+    );
   };
 
   const [submitting, setSubmitting] = useState(false);
@@ -343,7 +321,6 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
       onConfirm: () => {
         setItems([]);
         setRecepcionesPorItem(new Map());
-        setPesosOficialesPorLote({});
         setIdProveedor(newVal);
         void sincronizarGuiasPorRecepciones([]);
       },
@@ -468,35 +445,6 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
           tipo_mineral: l.tipo_mineral,
         }));
         setItems(mappedItems);
-
-        // Inicializar pesos oficiales para LOTEs desde la guia en edicion.
-        // En edicion, los pesos del response (peso_inicial/final/neto) ya son
-        // los oficiales via COALESCE en backend (GuiasPrimerTramoData).
-        setPesosOficialesPorLote((prev) => {
-          const next = { ...prev };
-          for (const l of guia.lotes ?? []) {
-            if (l.tipo_item !== "LOTE" || l.id_lote_mineral === null) continue;
-            const idLote = l.id_lote_mineral;
-            if (next[idLote]) continue;
-            if (
-              l.peso_inicial === null ||
-              l.peso_inicial === undefined ||
-              l.peso_final === null ||
-              l.peso_final === undefined ||
-              l.peso_neto === null ||
-              l.peso_neto === undefined
-            ) {
-              continue;
-            }
-            next[idLote] = {
-              id_lote_mineral: idLote,
-              peso_inicial_oficial: round2(Number(l.peso_inicial)),
-              peso_final_oficial: round2(Number(l.peso_final)),
-              peso_neto_oficial: round2(Number(l.peso_neto)),
-            };
-          }
-          return next;
-        });
       } else {
         resetForm();
       }
@@ -723,19 +671,6 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
       if (idRecep) tempRecepciones.set(itemKey(i), idRecep);
     }
     setRecepcionesPorItem(tempRecepciones);
-    // Inicializar pesos oficiales para LOTEs sin particiones.
-    setPesosOficialesPorLote((prev) => {
-      const next = { ...prev };
-      for (const i of seleccionados) {
-        if (i.tipo_item !== "LOTE" || i.id_lote_mineral === null) continue;
-        const idLote = i.id_lote_mineral;
-        if (next[idLote]) continue; // ya existe
-        // Creacion: priorizar peso_* originales del lote, no los oficiales.
-        const iniciales = obtenerPesosInicialesParaLote(idLote, false);
-        if (iniciales) next[idLote] = iniciales;
-      }
-      return next;
-    });
     setOpenItemModal(false);
 
     // Sincronizar los inputs de guias (autocompletar o limpiar) segun
@@ -744,24 +679,8 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
   };
 
   const handleEliminarItem = (tempId: string) => {
-    const itemEliminado = items.find((i) => i.tempId === tempId);
     const itemsRestantes = items.filter((i) => i.tempId !== tempId);
     setItems((prev) => prev.filter((i) => i.tempId !== tempId));
-    // Si el item eliminado era un LOTE y NO quedan mas LOTEs del mismo id,
-    // limpiar el state de pesos oficiales para no acumular.
-    if (itemEliminado?.tipo_item === "LOTE" && itemEliminado.id_lote_mineral !== null) {
-      const idLote = itemEliminado.id_lote_mineral;
-      setPesosOficialesPorLote((prev) => {
-        if (!prev[idLote]) return prev;
-        const quedan = items.some(
-          (i) => i.tipo_item === "LOTE" && i.id_lote_mineral === idLote && i.tempId !== tempId,
-        );
-        if (quedan) return prev;
-        const next = { ...prev };
-        delete next[idLote];
-        return next;
-      });
-    }
     // Sincronizar los inputs de guias (autocompletar o limpiar) segun
     // si los items resultantes siguen perteneciendo a una sola recepcion.
     void sincronizarGuiasPorRecepciones(itemsRestantes);
@@ -1100,7 +1019,6 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
     setDocumentoGuiaTransportista(null);
     setItems([]);
     setRecepcionesPorItem(new Map());
-    setPesosOficialesPorLote({});
   };
 
   const handleClose = () => {
@@ -1175,24 +1093,10 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
     const itemsDto: DTO_ItemGuiaInput[] = items.map((i) => ({
       id_lote_mineral: i.id_lote_mineral,
       id_particion_lote_mineral: i.id_particion_lote_mineral,
+      peso_inicial: i.peso_inicial !== null && i.peso_inicial !== undefined ? round2(Number(i.peso_inicial)) : 0,
+      peso_final: i.peso_final !== null && i.peso_final !== undefined ? round2(Number(i.peso_final)) : 0,
+      peso_neto: i.peso_neto !== null && i.peso_neto !== undefined ? round2(Number(i.peso_neto)) : 0,
     }));
-
-    // Armar payload de pesos oficiales para TODOS los LOTEs sin particiones.
-    // Al registrar la guia, los pesos del lote pasan a ser los oficiales —
-    // los cambie el operador o no. Los *_oficial solo aplican al LOTE
-    // (las particiones mantienen sus propios pesos originales).
-    const pesosOficialesLotes: DTO_PesosOficialesLote[] = [];
-    for (const it of items) {
-      if (it.tipo_item !== "LOTE" || it.id_lote_mineral === null) continue;
-      const editados = pesosOficialesPorLote[it.id_lote_mineral];
-      if (!editados) continue;
-      pesosOficialesLotes.push({
-        id_lote_mineral: it.id_lote_mineral,
-        peso_inicial_oficial: round2(editados.peso_inicial_oficial),
-        peso_final_oficial: round2(editados.peso_final_oficial),
-        peso_neto_oficial: round2(editados.peso_neto_oficial),
-      });
-    }
 
     setSubmitting(true);
     try {
@@ -1221,7 +1125,6 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
           documento_guia_remitente: documentoGuiaRemitente,
           documento_guia_transportista: sinGuiaTransportista ? null : documentoGuiaTransportista,
           motivo: null,
-          pesos_oficiales_lotes: pesosOficialesLotes.length > 0 ? pesosOficialesLotes : null,
         };
         await onUpdate(guia.id, dto);
       } else {
@@ -1247,7 +1150,6 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
           lotes: itemsDto,
           documento_guia_remitente: documentoGuiaRemitente,
           documento_guia_transportista: sinGuiaTransportista ? null : documentoGuiaTransportista,
-          pesos_oficiales_lotes: pesosOficialesLotes.length > 0 ? pesosOficialesLotes : null,
         };
         await onSubmit(dto);
       }
@@ -1270,7 +1172,7 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
         opened={opened}
         close={handleClose}
         title={guia ? "Editar Guía de Primer Tramo" : "Registrar Guía de Primer Tramo"}
-        size="lg"
+        size="xl"
       >
         <Stack gap="md" className="max-h-[85vh] overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
           {/* ========== 1. Fechas ========== */}
@@ -1730,12 +1632,12 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
             <Table verticalSpacing="sm" horizontalSpacing="md" className="w-full">
               <thead>
                 <tr className="border-b border-zinc-800/80 bg-zinc-900/40 text-zinc-300 text-xs font-semibold">
-                  <th className="text-center py-3">Tipo</th>
-                  <th className="text-center py-3">Correlativo</th>
-                  <th className="text-center py-3">P. Bruto</th>
-                  <th className="text-center py-3">Tara</th>
-                  <th className="text-center py-3">P. Neto</th>
-                  <th className="text-center py-3" style={{ width: 60 }}></th>
+                  <th className="text-center py-3 w-28 whitespace-nowrap">Tipo</th>
+                  <th className="text-center py-3 min-w-[160px] whitespace-nowrap">Correlativo</th>
+                  <th className="text-center py-3 w-32 whitespace-nowrap">P. Bruto</th>
+                  <th className="text-center py-3 w-32 whitespace-nowrap">Tara</th>
+                  <th className="text-center py-3 w-32 whitespace-nowrap">P. Neto</th>
+                  <th className="text-center py-3 w-12" style={{ width: 48 }}></th>
                 </tr>
               </thead>
               <tbody>
@@ -1751,7 +1653,7 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
                       key={it.tempId}
                       className="border-b border-zinc-900/60 hover:bg-zinc-900/20 transition-colors"
                     >
-                      <td className="py-2.5 text-center">
+                      <td className="py-2.5 text-center whitespace-nowrap">
                         <Badge
                           variant="light"
                           color={it.tipo_item === "PARTICION" ? "violet" : "teal"}
@@ -1762,135 +1664,39 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
                           {it.tipo_item}
                         </Badge>
                       </td>
-                      <td className="py-2.5 text-center">
-                        <div className="flex items-center justify-center gap-2 w-full">
-                          <div className="p-1 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      <td className="py-2.5 text-center whitespace-nowrap">
+                        <div className="flex items-center justify-center gap-2">
+                          <div className="p-1 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
                             <IconFileText size={14} />
                           </div>
-                          <Text size="xs" fw={600} className="text-zinc-200 font-mono tracking-wider">
+                          <Text size="xs" fw={600} className="text-zinc-200 font-mono tracking-wider whitespace-nowrap">
                             {it.correlativo}
                           </Text>
                         </div>
                       </td>
                       
-                      {it.tipo_item === "LOTE" && it.id_lote_mineral !== null ? (
-                        <>
-                          <td className="py-2 text-center align-middle w-1/4">
-                            <PesosOficialesInput
-                              idLote={it.id_lote_mineral}
-                              field="peso_inicial_oficial"
-                              value={
-                                pesosOficialesPorLote[it.id_lote_mineral]?.peso_inicial_oficial
-                                  ?? it.peso_inicial
-                                  ?? 0
-                              }
-                              onChange={(v) => {
-                                setPesosOficialesPorLote((prev) => {
-                                  const current =
-                                    prev[it.id_lote_mineral!] ?? {
-                                      id_lote_mineral: it.id_lote_mineral!,
-                                      peso_inicial_oficial: round2(
-                                        it.peso_inicial ?? 0,
-                                      ),
-                                      peso_final_oficial: round2(
-                                        it.peso_final ?? 0,
-                                      ),
-                                      peso_neto_oficial: round2(it.peso_neto ?? 0),
-                                    };
-                                  return {
-                                    ...prev,
-                                    [it.id_lote_mineral!]: aplicarReglaPesoOficial(
-                                      current,
-                                      "peso_inicial_oficial",
-                                      v,
-                                    ),
-                                  };
-                                });
-                              }}
-                            />
-                          </td>
-                          <td className="py-2 text-center align-middle w-1/4">
-                            <PesosOficialesInput
-                              idLote={it.id_lote_mineral}
-                              field="peso_final_oficial"
-                              value={
-                                pesosOficialesPorLote[it.id_lote_mineral]?.peso_final_oficial
-                                  ?? it.peso_final
-                                  ?? 0
-                              }
-                              onChange={(v) => {
-                                setPesosOficialesPorLote((prev) => {
-                                  const current =
-                                    prev[it.id_lote_mineral!] ?? {
-                                      id_lote_mineral: it.id_lote_mineral!,
-                                      peso_inicial_oficial: round2(
-                                        it.peso_inicial ?? 0,
-                                      ),
-                                      peso_final_oficial: round2(
-                                        it.peso_final ?? 0,
-                                      ),
-                                      peso_neto_oficial: round2(it.peso_neto ?? 0),
-                                    };
-                                  return {
-                                    ...prev,
-                                    [it.id_lote_mineral!]: aplicarReglaPesoOficial(
-                                      current,
-                                      "peso_final_oficial",
-                                      v,
-                                    ),
-                                  };
-                                });
-                              }}
-                            />
-                          </td>
-                          <td className="py-2 text-center align-middle w-1/4">
-                            <PesosOficialesInput
-                              idLote={it.id_lote_mineral}
-                              field="peso_neto_oficial"
-                              value={
-                                pesosOficialesPorLote[it.id_lote_mineral]?.peso_neto_oficial
-                                  ?? it.peso_neto
-                                  ?? 0
-                              }
-                              onChange={(v) => {
-                                setPesosOficialesPorLote((prev) => {
-                                  const current =
-                                    prev[it.id_lote_mineral!] ?? {
-                                      id_lote_mineral: it.id_lote_mineral!,
-                                      peso_inicial_oficial: round2(
-                                        it.peso_inicial ?? 0,
-                                      ),
-                                      peso_final_oficial: round2(
-                                        it.peso_final ?? 0,
-                                      ),
-                                      peso_neto_oficial: round2(it.peso_neto ?? 0),
-                                    };
-                                  return {
-                                    ...prev,
-                                    [it.id_lote_mineral!]: aplicarReglaPesoOficial(
-                                      current,
-                                      "peso_neto_oficial",
-                                      v,
-                                    ),
-                                  };
-                                });
-                              }}
-                            />
-                          </td>
-                        </>
-                      ) : (
-                        <>
-                          <td className="py-2.5 text-center font-mono text-zinc-200 text-xs">
-                            {it.peso_inicial?.toFixed(2) ?? "—"}
-                          </td>
-                          <td className="py-2.5 text-center font-mono text-zinc-200 text-xs">
-                            {it.peso_final?.toFixed(2) ?? "—"}
-                          </td>
-                          <td className="py-2.5 text-center font-mono text-emerald-400 text-xs fw-semibold">
-                            {it.peso_neto?.toFixed(2) ?? "—"}
-                          </td>
-                        </>
-                      )}
+                      <td className="py-2 text-center align-middle whitespace-nowrap">
+                        <PesoGuiaInput
+                          label={`Peso inicial ${it.correlativo}`}
+                          value={it.peso_inicial ?? 0}
+                          onChange={(v) => handleUpdatePesoItem(it.tempId, "peso_inicial", v)}
+                        />
+                      </td>
+                      <td className="py-2 text-center align-middle whitespace-nowrap">
+                        <PesoGuiaInput
+                          label={`Peso final ${it.correlativo}`}
+                          value={it.peso_final ?? 0}
+                          onChange={(v) => handleUpdatePesoItem(it.tempId, "peso_final", v)}
+                        />
+                      </td>
+                      <td className="py-2 text-center align-middle whitespace-nowrap">
+                        <PesoGuiaInput
+                          label={`Peso neto ${it.correlativo}`}
+                          value={it.peso_neto ?? 0}
+                          color="text-emerald-400 font-semibold"
+                          onChange={(v) => handleUpdatePesoItem(it.tempId, "peso_neto", v)}
+                        />
+                      </td>
                       <td className="py-2.5 text-center">
                         <Tooltip label="Eliminar" withArrow position="top">
                           <ActionIcon
@@ -2100,17 +1906,17 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
 };
 
 // ============================================================
-// Input editable para pesos oficiales del LOTE
+// Input editable para pesos documentarios del item en la guía
 // ============================================================
 
-interface PesosOficialesInputProps {
-  idLote: number;
-  field: "peso_inicial_oficial" | "peso_final_oficial" | "peso_neto_oficial";
+interface PesoGuiaInputProps {
+  label: string;
   value: number;
+  color?: string;
   onChange: (value: number) => void;
 }
 
-const PesosOficialesInput = ({ idLote, field, value, onChange }: PesosOficialesInputProps) => {
+const PesoGuiaInput = ({ label, value, color, onChange }: PesoGuiaInputProps) => {
   return (
     <NumberInput
       value={value}
@@ -2125,10 +1931,9 @@ const PesosOficialesInput = ({ idLote, field, value, onChange }: PesosOficialesI
       hideControls
       radius="lg"
       size="xs"
-      aria-label={`${field} lote ${idLote}`}
+      aria-label={label}
       classNames={{
-        input:
-          "text-[11px] h-7 px-2 font-mono text-center bg-zinc-900/60 border-zinc-800 focus:border-indigo-500",
+        input: `text-[11px] h-7 px-2 font-mono text-center bg-zinc-900/60 border-zinc-800 focus:border-indigo-500 ${color ? color : "text-zinc-200"}`,
       }}
       className="mx-auto"
       style={{ width: 100 }}

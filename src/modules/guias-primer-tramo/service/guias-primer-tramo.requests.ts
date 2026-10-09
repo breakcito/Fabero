@@ -4,6 +4,9 @@ import type { CondicionIngreso } from "../../../shared/enums/_generic/condicion-
 export interface DTO_ItemGuiaInput {
   id_lote_mineral?: number | null;
   id_particion_lote_mineral?: number | null;
+  peso_inicial?: number | null;
+  peso_final?: number | null;
+  peso_neto?: number | null;
 }
 
 /**
