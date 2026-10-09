@@ -33,6 +33,8 @@ export interface IniciarLotePayload {
 
 export interface IniciarMuestraPayload {
   id_proveedor_minero: number;
+  codigo_cliente?: string | null;
+  fecha_hora_ingreso?: string | null;
 }
 
 export interface ConfirmarLotePayload {

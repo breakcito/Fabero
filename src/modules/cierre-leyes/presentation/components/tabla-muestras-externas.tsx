@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Loader, Select, Tooltip, Button, Checkbox } from "@mantine/core";
-import { IconHistory, IconLink, IconPlus, IconTrashX } from "@tabler/icons-react";
+import { IconHistory, IconLink, IconPlus, IconPrinter, IconTrashX } from "@tabler/icons-react";
 import { TipoOrigen } from "../../../../shared/enums/_generic/tipo-origen";
 import type { MuestraExternaResponse, LoteCierreResponse } from "../../service/cierre-leyes.responses";
 import type { GrupoAnalisisResponse, GrupoAnalisisDetalleResponse } from "../../../../modules/gestion-leyes/service/gestion-leyes.responses";
@@ -30,12 +30,20 @@ interface TablaMuestrasExternasProps {
   /** Permitir arrastrar las filas para soltarlas sobre un lote (HTML5 nativo). */
   onDragStart?: (idMuestraExterna: number, e: React.DragEvent<HTMLTableRowElement>) => void;
   onDragEnd?: () => void;
-  /** IDs de muestras marcadas con el checkbox. */
+  /** IDs de muestras marcadas con el checkbox para asociar. */
   seleccionadasIds?: number[];
-  /** Alterna el checkbox de una muestra. */
+  /** Alterna el checkbox de asociar una muestra. */
   onToggleSeleccion?: (idMuestraExterna: number) => void;
   /** Abre el modal "Asociar N seleccionadas" desde el botón "Asociar" de una fila seleccionada. */
   onAsociarMultiplesClick?: () => void;
+  /** IDs de muestras marcadas para imprimir reporte. */
+  seleccionadasImprimirIds?: number[];
+  /** Alterna el checkbox de imprimir reporte de una muestra. */
+  onToggleSeleccionImprimir?: (idMuestraExterna: number) => void;
+  /** Alterna seleccionar todas / deseleccionar todas para imprimir. */
+  onToggleSelectAllImprimir?: () => void;
+  /** Dispara la impresión del reporte con las seleccionadas. */
+  onImprimirReporte?: () => void;
 }
 
 export const TablaMuestrasExternas = ({
@@ -57,6 +65,10 @@ export const TablaMuestrasExternas = ({
   seleccionadasIds,
   onToggleSeleccion,
   onAsociarMultiplesClick,
+  seleccionadasImprimirIds,
+  onToggleSeleccionImprimir,
+  onToggleSelectAllImprimir,
+  onImprimirReporte,
 }: TablaMuestrasExternasProps) => {
   const { notifyWarning } = useNotify();
 
@@ -77,63 +89,13 @@ export const TablaMuestrasExternas = ({
     setModalLogOpened(true);
   };
 
-  /**
-   * Helpers para el header "select all" context-aware: cuando hay al menos 1 muestra
-   * seleccionada, el checkbox marca/desmarca TODAS las muestras del mismo proveedor
-   * (no de la tabla completa). Sin selección, el checkbox queda deshabilitado.
-   */
-  const getProveedorContexto = (): number | null => {
-    if (!seleccionadasIds || seleccionadasIds.length === 0) return null;
-    const primera = muestras.find((x) => x.id === seleccionadasIds[0]);
-    return primera ? primera.id_proveedor_minero : null;
-  };
+  const totalMuestras = muestras.length;
+  const totalImprimir = seleccionadasImprimirIds?.length ?? 0;
+  const headerImprimirChecked = totalMuestras > 0 && totalImprimir === totalMuestras;
+  const headerImprimirIndeterminate = totalImprimir > 0 && totalImprimir < totalMuestras;
 
-  const idsDelProveedorContexto = (): number[] => {
-    const prov = getProveedorContexto();
-    if (prov == null) return [];
-    return muestras.filter((m) => m.id_proveedor_minero === prov).map((m) => m.id);
-  };
-
-  const seleccionadasDelProveedorContexto = (): number[] => {
-    const prov = getProveedorContexto();
-    if (prov == null || !seleccionadasIds) return [];
-    return seleccionadasIds.filter((id) => {
-      const m = muestras.find((x) => x.id === id);
-      return m != null && m.id_proveedor_minero === prov;
-    });
-  };
-
-  const headerChecked: boolean = (() => {
-    const total = idsDelProveedorContexto();
-    if (total.length === 0) return false;
-    const sel = seleccionadasDelProveedorContexto();
-    return sel.length === total.length;
-  })();
-
-  const headerIndeterminate: boolean = (() => {
-    const total = idsDelProveedorContexto();
-    const sel = seleccionadasDelProveedorContexto();
-    return sel.length > 0 && sel.length < total.length;
-  })();
-
-  const handleHeaderToggle = () => {
-    if (!onToggleSeleccion) return;
-    if (!seleccionadasIds || seleccionadasIds.length === 0) return; // deshabilitado sin selección
-    const total = idsDelProveedorContexto();
-    const yaSeleccionadas = new Set(seleccionadasDelProveedorContexto());
-    if (headerChecked) {
-      // Desmarcar todas las del proveedor
-      for (const id of yaSeleccionadas) {
-        onToggleSeleccion(id);
-      }
-    } else {
-      // Marcar las que faltan
-      for (const id of total) {
-        if (!yaSeleccionadas.has(id)) {
-          onToggleSeleccion(id);
-        }
-      }
-    }
+  const handleHeaderImprimirToggle = () => {
+    onToggleSelectAllImprimir?.();
   };
 
   const esFilaSeleccionada = (id: number): boolean =>
@@ -321,7 +283,7 @@ export const TablaMuestrasExternas = ({
           <IconLink size={12} stroke={2.5} />
           <span>Muestras externas en proceso</span>
           <span className="ml-auto text-zinc-500 normal-case font-medium">
-            {muestras.length} activa{muestras.length === 1 ? "" : "s"} — marca varias con el check y presiona "Asociar" en una fila seleccionada, o arrastra sobre un lote
+            {muestras.length} activa{muestras.length === 1 ? "" : "s"} — check izquierdo: imprimir reporte · check junto a correlativo: asociar
           </span>
         </div>
         <table className="w-full text-left border-collapse table-auto">
@@ -330,28 +292,46 @@ export const TablaMuestrasExternas = ({
               <th rowSpan={2} className="p-2.5 border-r border-zinc-800 text-center align-middle min-w-10 w-10">
                 <Tooltip
                   label={
-                    !seleccionadasIds || seleccionadasIds.length === 0
-                      ? "Marca una muestra primero para habilitar"
-                      : headerChecked
-                      ? "Desmarcar todas del proveedor"
-                      : "Marcar todas del proveedor"
+                    headerImprimirChecked
+                      ? "Desmarcar todas"
+                      : "Seleccionar todas para imprimir reporte"
                   }
                   withArrow
                   position="top"
                 >
                   <Checkbox
-                    aria-label="Seleccionar todas las muestras del mismo proveedor"
-                    checked={headerChecked}
-                    indeterminate={headerIndeterminate}
-                    disabled={!seleccionadasIds || seleccionadasIds.length === 0}
-                    onChange={handleHeaderToggle}
+                    aria-label="Seleccionar todas las muestras para imprimir reporte"
+                    checked={headerImprimirChecked}
+                    indeterminate={headerImprimirIndeterminate}
+                    onChange={handleHeaderImprimirToggle}
                     size="xs"
                     color="indigo"
                   />
                 </Tooltip>
               </th>
               <th rowSpan={2} className="p-2.5 border-r border-zinc-800 text-center align-middle min-w-60">
-                Muestra externa
+                <div className="flex items-center justify-center gap-3">
+                  <span>Muestra externa</span>
+                  {!!seleccionadasImprimirIds && seleccionadasImprimirIds.length > 0 && (
+                    <Tooltip
+                      label={`Imprimir ${seleccionadasImprimirIds.length} muestra${seleccionadasImprimirIds.length === 1 ? "" : "s"} seleccionada${seleccionadasImprimirIds.length === 1 ? "" : "s"}`}
+                      withArrow
+                      position="top"
+                    >
+                      <button
+                        type="button"
+                        onClick={onImprimirReporte}
+                        className="relative p-1 rounded-lg border transition-all flex items-center justify-center text-amber-300 bg-amber-500/15 border-amber-500/30 hover:bg-amber-500/25"
+                        aria-label="Imprimir reporte de muestras seleccionadas"
+                      >
+                        <IconPrinter size={12} stroke={2.5} />
+                        <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center">
+                          {seleccionadasImprimirIds.length}
+                        </span>
+                      </button>
+                    </Tooltip>
+                  )}
+                </div>
               </th>
               {grupos.map((g: GrupoAnalisisResponse) => {
                 // Para grupos con indicar_origen=true, se añade 1 columna extra (Tipo Origen) por cada corrida
@@ -431,13 +411,15 @@ export const TablaMuestrasExternas = ({
                         rowSpan={totalRowsForMuestra}
                         className="p-2.5 border-r border-zinc-800 align-middle text-center"
                       >
-                        <Checkbox
-                          aria-label={`Seleccionar muestra ${m.correlativo}`}
-                          checked={!!seleccionadasIds && seleccionadasIds.includes(m.id)}
-                          onChange={() => onToggleSeleccion?.(m.id)}
-                          size="xs"
-                          color="indigo"
-                        />
+                        <Tooltip label={`Seleccionar ${m.correlativo} para imprimir`} withArrow position="top">
+                          <Checkbox
+                            aria-label={`Seleccionar muestra ${m.correlativo} para imprimir`}
+                            checked={!!seleccionadasImprimirIds && seleccionadasImprimirIds.includes(m.id)}
+                            onChange={() => onToggleSeleccionImprimir?.(m.id)}
+                            size="xs"
+                            color="indigo"
+                          />
+                        </Tooltip>
                       </td>
                     )}
                     {runIdx === 0 && (
@@ -448,6 +430,15 @@ export const TablaMuestrasExternas = ({
                         <div className="flex flex-col gap-2 items-center">
                           {/* Fila 1: acciones primarias */}
                           <div className="flex items-center gap-1.5">
+                            <Tooltip label="Marcar para asociar a lote" withArrow position="top">
+                              <Checkbox
+                                aria-label={`Seleccionar muestra ${m.correlativo} para asociar`}
+                                checked={!!seleccionadasIds && seleccionadasIds.includes(m.id)}
+                                onChange={() => onToggleSeleccion?.(m.id)}
+                                size="xs"
+                                color="indigo"
+                              />
+                            </Tooltip>
                             <span className="px-2 py-0.5 bg-indigo-500/15 border border-indigo-500/30 text-indigo-200 rounded-full font-mono text-xs font-semibold whitespace-nowrap">
                               {m.correlativo}
                             </span>
@@ -511,13 +502,20 @@ export const TablaMuestrasExternas = ({
                               );
                             })()}
                           </div>
-                          {/* Fila 2: metadatos compactos (proveedor + fecha + empleado) */}
+                          {/* Fila 2: metadatos compactos (proveedor + fecha + empleado + codigo cliente opcional) */}
                           <div className="flex flex-col gap-0.5 text-[10px] leading-tight items-center">
-                            <span className="text-zinc-300 font-medium truncate max-w-55 text-center">
-                              {m.proveedor_razon_social ?? `Guest #${m.id_proveedor_minero}`}
-                            </span>
+                            <div className="flex items-center gap-1.5 flex-wrap justify-center">
+                              <span className="text-zinc-300 font-medium truncate max-w-55 text-center">
+                                {m.proveedor_razon_social ?? `Guest #${m.id_proveedor_minero}`}
+                              </span>
+                              {m.codigo_cliente && (
+                                <span className="px-1.5 py-0.2 bg-indigo-950/60 text-indigo-300 rounded border border-indigo-800/60 font-mono text-[9px] font-semibold">
+                                  {m.codigo_cliente}
+                                </span>
+                              )}
+                            </div>
                             <span className="text-[9px] text-zinc-600 text-center">
-                              {new Date(m.created_at).toLocaleString("es-ES", {
+                              {new Date(m.fecha_hora_ingreso || m.created_at).toLocaleString("es-ES", {
                                 day: "2-digit",
                                 month: "2-digit",
                                 year: "2-digit",
@@ -575,31 +573,93 @@ export const TablaMuestrasExternas = ({
                           </td>
                         )}
                         {g.analitos.map((a: GrupoAnalisisDetalleResponse) => {
-                          const runRecords = m.analisis.filter(
-                            (item) => item.id_grupo_analisis_detalle === a.detalle_id && item.uuid_fila === uuidFila && item.tipo_origen === currentTipoOrigen,
-                          );
-                          const mainRecord = runRecords[0];
-                          const cellSaving = !!isGuardandoCelda?.(
-                            buildCellKey({
-                              id_muestra_externa: m.id,
-                              id_grupo_analisis_detalle: a.detalle_id,
-                              uuid_fila: uuidFila,
-                              tipo_origen: currentTipoOrigen,
-                              id: mainRecord?.id ?? null,
-                            }),
-                          );
+                          if (a.es_desplegable) {
+                            const runRecords = m.analisis.filter(
+                              (item) => item.id_grupo_analisis_detalle === a.detalle_id && item.uuid_fila === uuidFila && item.tipo_origen === currentTipoOrigen,
+                            );
+                            const mainRecord = runRecords[0];
+                            const cellSaving = !!isGuardandoCelda?.(
+                              buildCellKey({
+                                id_muestra_externa: m.id,
+                                id_grupo_analisis_detalle: a.detalle_id,
+                                uuid_fila: uuidFila,
+                                tipo_origen: currentTipoOrigen,
+                                id: mainRecord?.id ?? null,
+                              }),
+                            );
 
-                          const recordsConfirmados = m.analisis.filter(
-                            (it) => it.id_grupo_analisis_detalle === a.detalle_id && it.esta_confirmada,
-                          );
-                          const promedioGlobal =
-                            a.es_desplegable && recordsConfirmados.length > 0
-                              ? recordsConfirmados.reduce((acc, cur) => acc + cur.ley, 0) / recordsConfirmados.length
-                              : null;
+                            const recordsConValor = m.analisis.filter(
+                              (it) => it.id_grupo_analisis_detalle === a.detalle_id && (it.esta_confirmada || it.ley > 0),
+                            );
+                            const todosRecords = m.analisis.filter(
+                              (it) => it.id_grupo_analisis_detalle === a.detalle_id,
+                            );
+                            const promedioGlobal =
+                              recordsConValor.length > 0
+                                ? recordsConValor.reduce((acc, cur) => acc + cur.ley, 0) / recordsConValor.length
+                                : todosRecords.length > 0
+                                ? todosRecords.reduce((acc, cur) => acc + cur.ley, 0) / todosRecords.length
+                                : 0;
 
-                          return (
-                            <React.Fragment key={`${m.id}-${uuidFila}-${a.detalle_id}`}>
-                              <td className="p-1.5 border-r border-zinc-800 text-center align-middle">
+                            return (
+                              <React.Fragment key={`${m.id}-${uuidFila}-${a.detalle_id}`}>
+                                <td className="p-1.5 border-r border-zinc-800 text-center align-middle">
+                                  <CellInput
+                                    key={mainRecord?.id || "new"}
+                                    initialValue={mainRecord?.ley || 0}
+                                    initialChecked={mainRecord ? mainRecord.esta_confirmada : false}
+                                    saving={cellSaving}
+                                    logCambios={mainRecord?.log_cambios}
+                                    onViewLog={() => handleOpenLogModal(a.nombre, mainRecord?.log_cambios)}
+                                    hideCheckbox
+                                    onSave={(val) =>
+                                      onGuardarValor({
+                                        id: mainRecord?.id || null,
+                                        id_muestra_externa: m.id,
+                                        id_grupo_analisis_detalle: a.detalle_id,
+                                        tipo_origen: currentTipoOrigen,
+                                        uuid_fila: uuidFila,
+                                        ley: val,
+                                        esta_confirmada: false,
+                                      })
+                                    }
+                                  />
+                                </td>
+                                {runIdx === 0 && (
+                                  <td
+                                    rowSpan={totalRowsForMuestra}
+                                    className="p-1.5 border-r border-zinc-800 text-center font-bold text-[11px] text-indigo-400 bg-zinc-900/20 align-middle"
+                                  >
+                                    {promedioGlobal !== null ? promedioGlobal.toFixed(3) : "0.000"}
+                                  </td>
+                                )}
+                              </React.Fragment>
+                            );
+                          } else {
+                            // No desplegable (Humedad, Recuperación): solo se renderiza un input en runIdx === 0 con rowSpan
+                            if (runIdx !== 0) return null;
+
+                            const allRecordsOfDetalle = m.analisis.filter(
+                              (item) => item.id_grupo_analisis_detalle === a.detalle_id,
+                            );
+                            const mainRecord = allRecordsOfDetalle[0];
+                            const targetUuid = mainRecord?.uuid_fila || runs[0] || `default-run-${m.id}`;
+                            const cellSaving = !!isGuardandoCelda?.(
+                              buildCellKey({
+                                id_muestra_externa: m.id,
+                                id_grupo_analisis_detalle: a.detalle_id,
+                                uuid_fila: targetUuid,
+                                tipo_origen: null,
+                                id: mainRecord?.id ?? null,
+                              }),
+                            );
+
+                            return (
+                              <td
+                                key={`${m.id}-single-${a.detalle_id}`}
+                                rowSpan={totalRowsForMuestra}
+                                className="p-1.5 border-r border-zinc-800 text-center align-middle"
+                              >
                                 <CellInput
                                   key={mainRecord?.id || "new"}
                                   initialValue={mainRecord?.ley || 0}
@@ -613,24 +673,16 @@ export const TablaMuestrasExternas = ({
                                       id: mainRecord?.id || null,
                                       id_muestra_externa: m.id,
                                       id_grupo_analisis_detalle: a.detalle_id,
-                                      tipo_origen: currentTipoOrigen,
-                                      uuid_fila: uuidFila,
+                                      tipo_origen: null,
+                                      uuid_fila: targetUuid,
                                       ley: val,
                                       esta_confirmada: false,
                                     })
                                   }
                                 />
                               </td>
-                              {a.es_desplegable && runIdx === 0 && (
-                                <td
-                                  rowSpan={totalRowsForMuestra}
-                                  className="p-1.5 border-r border-zinc-800 text-center font-bold text-[11px] text-indigo-400 bg-zinc-900/20 align-middle"
-                                >
-                                  {promedioGlobal !== null ? promedioGlobal.toFixed(3) : "0.000"}
-                                </td>
-                              )}
-                            </React.Fragment>
-                          );
+                            );
+                          }
                         })}
                       </React.Fragment>
                     ))}

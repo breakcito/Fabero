@@ -9,6 +9,7 @@ import {
 import { useTitlePage } from "../../../hooks/useTitlePage";
 import { useCierreLeyes, puedeAsociarMuestra } from "../hooks/useCierreLeyes";
 import { useReporteCierreLeyes } from "../hooks/useReporteCierreLeyes.tsx";
+import { useReporteMuestrasExternas } from "../hooks/useReporteMuestrasExternas";
 import { TablaCierreLeyes } from "./components/tabla-cierre-leyes";
 import { TablaMuestrasExternas } from "./components/tabla-muestras-externas";
 import { ModalIniciarAnalisis } from "./components/modal-iniciar-analisis";
@@ -78,8 +79,41 @@ export const CierreLeyesPage = () => {
   // Selección múltiple de lotes para el reporte PDF (solo Confirmados)
   const [lotesSeleccionadosIds, setLotesSeleccionadosIds] = useState<number[]>([]);
 
-  // Hook de impresión del reporte
+  // Hook de impresión del reporte de lotes
   const { printReporte } = useReporteCierreLeyes();
+
+  // Hook de impresión del reporte de muestras externas
+  const { printReporteMuestras } = useReporteMuestrasExternas();
+
+  // Selección múltiple de muestras externas para imprimir reporte
+  const [muestrasParaImprimirIds, setMuestrasParaImprimirIds] = useState<number[]>([]);
+
+  const handleToggleSeleccionMuestraImprimir = (idMuestraExterna: number) => {
+    setMuestrasParaImprimirIds((prev) =>
+      prev.includes(idMuestraExterna)
+        ? prev.filter((x) => x !== idMuestraExterna)
+        : [...prev, idMuestraExterna],
+    );
+  };
+
+  const handleToggleSelectAllMuestraImprimir = () => {
+    if (muestrasParaImprimirIds.length === ctrl.muestras.length) {
+      setMuestrasParaImprimirIds([]);
+    } else {
+      setMuestrasParaImprimirIds(ctrl.muestras.map((m) => m.id));
+    }
+  };
+
+  const handleImprimirMuestras = () => {
+    const candidatas = ctrl.muestras.filter((m) =>
+      muestrasParaImprimirIds.includes(m.id),
+    );
+    if (candidatas.length === 0) {
+      notifyWarning("No hay muestras seleccionadas para imprimir");
+      return;
+    }
+    printReporteMuestras(candidatas, ctrl.grupos);
+  };
 
   const handleToggleSeleccionMuestra = (idMuestraExterna: number) => {
     setMuestrasSeleccionadasIds((prev) =>
@@ -572,6 +606,10 @@ export const CierreLeyesPage = () => {
                 seleccionadasIds={muestrasSeleccionadasIds}
                 onToggleSeleccion={handleToggleSeleccionMuestra}
                 onAsociarMultiplesClick={handleAbrirModalMultiAsociar}
+                seleccionadasImprimirIds={muestrasParaImprimirIds}
+                onToggleSeleccionImprimir={handleToggleSeleccionMuestraImprimir}
+                onToggleSelectAllImprimir={handleToggleSelectAllMuestraImprimir}
+                onImprimirReporte={handleImprimirMuestras}
               />
             </div>
           </div>

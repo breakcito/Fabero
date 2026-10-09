@@ -57,6 +57,8 @@ export interface MuestraExternaResponse {
   id_proveedor_minero: number;
   correlativo: string;
   numero_correlativo: number;
+  codigo_cliente?: string | null;
+  fecha_hora_ingreso?: string | null;
   created_at: string;
   proveedor_razon_social: string | null;
   empleado_registro_nombre: string | null;
@@ -69,6 +71,8 @@ export interface MuestraAsociadaResponse {
   id_proveedor_minero: number;
   correlativo: string;
   numero_correlativo: number;
+  codigo_cliente?: string | null;
+  fecha_hora_ingreso?: string | null;
   created_at: string;
   proveedor_razon_social: string | null;
   empleado_registro_nombre: string | null;

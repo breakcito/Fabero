@@ -1,6 +1,6 @@
 import { api } from "../../../service/_api";
 import type { LoteSugeridoResponse, LoteCierreResponse, MuestraExternaResponse, MuestraAsociadaResponse, AsociarMuestraResponse } from "./cierre-leyes.responses";
-import type { GuardarValorPayload, GuardarValorMuestraPayload, FiltrosLotesSugeridos } from "./cierre-leyes.requests";
+import type { GuardarValorPayload, GuardarValorMuestraPayload, FiltrosLotesSugeridos, IniciarMuestraPayload } from "./cierre-leyes.requests";
 import { TipoOrigen } from "../../../shared/enums/_generic/tipo-origen";
 
 export type { GuardarValorPayload, GuardarValorMuestraPayload, FiltrosLotesSugeridos };
@@ -94,10 +94,8 @@ export const CierreLeyesService = {
 
   // ===== Muestras externas =====
 
-  iniciarMuestraExterna: async (idProveedorMinero: number): Promise<MuestraExternaResponse> => {
-    const { data } = await api.post("/cierre-leyes/muestras-externas/iniciar", {
-      id_proveedor_minero: idProveedorMinero,
-    });
+  iniciarMuestraExterna: async (payload: IniciarMuestraPayload): Promise<MuestraExternaResponse> => {
+    const { data } = await api.post("/cierre-leyes/muestras-externas/iniciar", payload);
     return data.data;
   },
 

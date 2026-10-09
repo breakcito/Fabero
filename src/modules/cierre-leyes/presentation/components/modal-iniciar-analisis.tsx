@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { Loader, Text, Center, Select, Button, Checkbox } from "@mantine/core";
+import { Loader, Text, Center, Select, Button, Checkbox, TextInput } from "@mantine/core";
+import { DateTimePicker } from "@mantine/dates";
+import dayjs from "dayjs";
 import { PlayIcon } from "@heroicons/react/24/outline";
 import { useNotify } from "../../../../hooks/useNotify";
 import type { useCierreLeyes } from "../../hooks/useCierreLeyes";
@@ -19,6 +21,8 @@ export const ModalIniciarAnalisis = ({ opened, onClose, onIniciarExito, ctrl }: 
   const [esMuestraExterna, setEsMuestraExterna] = useState(false);
   const [loteSeleccionadoId, setLoteSeleccionadoId] = useState<string | null>(null);
   const [proveedorSeleccionadoId, setProveedorSeleccionadoId] = useState<string | null>(null);
+  const [codigoCliente, setCodigoCliente] = useState("");
+  const [fechaHoraIngreso, setFechaHoraIngreso] = useState<Date | null>(new Date());
 
   // Bloqueo local INMEDIATO contra doble/triple-click: useState es async hasta el siguiente render,
   // useRef se actualiza al instante, evitando N llamadas paralelas al backend.
@@ -30,6 +34,8 @@ export const ModalIniciarAnalisis = ({ opened, onClose, onIniciarExito, ctrl }: 
       setEsMuestraExterna(false);
       setLoteSeleccionadoId(null);
       setProveedorSeleccionadoId(null);
+      setCodigoCliente("");
+      setFechaHoraIngreso(new Date());
       enProgresoRef.current = false;
       void ctrl.cargarLotesSugeridos();
       void ctrl.cargarProveedores();
@@ -56,7 +62,14 @@ export const ModalIniciarAnalisis = ({ opened, onClose, onIniciarExito, ctrl }: 
           notifyError("Selecciona un proveedor minero para iniciar la muestra externa.");
           return;
         }
-        const ok = await ctrl.iniciarMuestraExterna(Number(proveedorSeleccionadoId));
+        const formattedFecha = fechaHoraIngreso
+          ? dayjs(fechaHoraIngreso).format("YYYY-MM-DD HH:mm:ss")
+          : null;
+        const ok = await ctrl.iniciarMuestraExterna(
+          Number(proveedorSeleccionadoId),
+          codigoCliente.trim() || null,
+          formattedFecha,
+        );
         if (ok) {
           onIniciarExito?.();
           onClose();
@@ -131,8 +144,11 @@ export const ModalIniciarAnalisis = ({ opened, onClose, onIniciarExito, ctrl }: 
               reinicio de tiempo.
             </Text>
 
-            <div className="flex items-center gap-3 pt-1">
-              <div className="flex-1">
+            <div className="space-y-3 pt-1">
+              <div>
+                <Text size="xs" className="text-zinc-400 font-medium mb-1">
+                  Proveedor Minero
+                </Text>
                 <Select
                   placeholder={ctrl.loadingProveedores ? "Cargando proveedores..." : "Seleccione un proveedor..."}
                   data={opcionesProveedor}
@@ -150,17 +166,50 @@ export const ModalIniciarAnalisis = ({ opened, onClose, onIniciarExito, ctrl }: 
                   }}
                 />
               </div>
-              <Button
-                onClick={handleIniciar}
-                disabled={!proveedorSeleccionadoId || iniciando}
-                loading={iniciando}
-                leftSection={<PlayIcon className="w-4 h-4 text-emerald-400" />}
-                radius="lg"
-                size="xs"
-                className="bg-emerald-950/40 border border-emerald-900/50 hover:bg-emerald-900/40 hover:border-emerald-700/60 text-emerald-400 font-semibold h-10 px-5 rounded-xl transition-all disabled:opacity-50"
-              >
-                Agregar
-              </Button>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <TextInput
+                  label="Código Cliente (opcional)"
+                  placeholder="Ej: CLI-1234"
+                  value={codigoCliente}
+                  onChange={(e) => setCodigoCliente(e.currentTarget.value)}
+                  maxLength={20}
+                  radius="lg"
+                  size="xs"
+                  classNames={{
+                    label: "text-zinc-400 font-medium text-xs mb-1",
+                    input: "bg-zinc-950 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 transition-all rounded-xl h-[40px] font-semibold text-sm",
+                  }}
+                />
+
+                <DateTimePicker
+                  label="Fecha y Hora de Ingreso"
+                  placeholder="Selecciona fecha y hora"
+                  value={fechaHoraIngreso}
+                  onChange={(v) => setFechaHoraIngreso(v ? new Date(v) : null)}
+                  valueFormat="DD/MM/YYYY HH:mm"
+                  radius="lg"
+                  size="xs"
+                  classNames={{
+                    label: "text-zinc-400 font-medium text-xs mb-1",
+                    input: "bg-zinc-950 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 transition-all rounded-xl h-[40px] font-semibold text-sm",
+                  }}
+                />
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <Button
+                  onClick={handleIniciar}
+                  disabled={!proveedorSeleccionadoId || iniciando}
+                  loading={iniciando}
+                  leftSection={<PlayIcon className="w-4 h-4 text-emerald-400" />}
+                  radius="lg"
+                  size="xs"
+                  className="bg-emerald-950/40 border border-emerald-900/50 hover:bg-emerald-900/40 hover:border-emerald-700/60 text-emerald-400 font-semibold h-10 px-5 rounded-xl transition-all disabled:opacity-50"
+                >
+                  Agregar
+                </Button>
+              </div>
             </div>
           </>
         ) : (

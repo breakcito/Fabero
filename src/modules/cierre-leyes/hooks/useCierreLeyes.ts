@@ -190,10 +190,18 @@ export const useCierreLeyes = () => {
     }
   };
 
-  const iniciarMuestraExterna = async (idProveedorMinero: number): Promise<boolean> => {
+  const iniciarMuestraExterna = async (
+    idProveedorMinero: number,
+    codigoCliente?: string | null,
+    fechaHoraIngreso?: string | null,
+  ): Promise<boolean> => {
     setIniciandoMuestraExterna(true);
     try {
-      const nuevaMuestra = await CierreLeyesService.iniciarMuestraExterna(idProveedorMinero);
+      const nuevaMuestra = await CierreLeyesService.iniciarMuestraExterna({
+        id_proveedor_minero: idProveedorMinero,
+        codigo_cliente: codigoCliente?.trim() || null,
+        fecha_hora_ingreso: fechaHoraIngreso || null,
+      });
       if (!nuevaMuestra || nuevaMuestra.id == null) {
         notifyError("La respuesta del servidor no contiene la muestra iniciada.");
         return false;
