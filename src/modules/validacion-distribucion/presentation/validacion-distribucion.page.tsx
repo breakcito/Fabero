@@ -614,7 +614,7 @@ export const ValidacionDistribucionPage = () => {
                 r.vehiculo_placa ? (
                   <span className="font-mono text-sm">{r.vehiculo_placa}</span>
                 ) : (
-                  <span className="text-xs text-zinc-600 italic">Lote padre</span>
+                  <span className="text-xs text-zinc-600 italic">—</span>
                 ),
             },
             {

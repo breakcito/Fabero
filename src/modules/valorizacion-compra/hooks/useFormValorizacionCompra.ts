@@ -41,7 +41,7 @@ interface AnticipoDisponibleItem {
 interface Props {
   opened?: boolean;
   valorizacionEditar?: RES_ValorizacionCompra | null;
-  onSuccess: () => void;
+  onSuccess: (idGuardado?: number) => void;
 }
 
 const nowIsoDateTime = (): string => {
@@ -382,18 +382,18 @@ export const useFormValorizacionCompra = ({
     return concesiones.find((c) => c.id === idConcesion) || null;
   }, [idConcesion, concesiones]);
 
-  const handleSubmit = async (motivoCustom?: string) => {
+  const validarFormulario = (): boolean => {
     if (!idProveedor) {
       notifyError("Debe seleccionar un proveedor");
-      return;
+      return false;
     }
     if (!idConcesion) {
       notifyError("Debe seleccionar una concesión");
-      return;
+      return false;
     }
     if (detalles.length === 0) {
       notifyError("Debe agregar al menos un lote a la valorización");
-      return;
+      return false;
     }
 
     const excedeSaldo = anticipos.some((a) => {
@@ -403,15 +403,25 @@ export const useFormValorizacionCompra = ({
     });
     if (excedeSaldo) {
       notifyError("Algún anticipo excede su saldo disponible");
-      return;
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleSubmit = async (motivoCustom?: string): Promise<boolean> => {
+    if (!validarFormulario()) {
+      return false;
     }
 
     setLoadingSubmit(true);
 
     try {
+      let idGuardado: number | undefined;
+
       if (valorizacionEditar) {
         await ValorizacionCompraService.editarValorizacion(valorizacionEditar.id, {
-          id_concesion: idConcesion,
+          id_concesion: idConcesion!,
           id_cuenta_bancaria: idCuentaBancaria,
           id_cuenta_detraccion: idCuentaDetraccion,
           tipo_pago: tipoPago,
@@ -424,11 +434,12 @@ export const useFormValorizacionCompra = ({
           monto_penalidad: montoPenalidad,
           monto_flete: montoFlete,
         });
+        idGuardado = valorizacionEditar.id;
         notifySuccess("Valorización actualizada correctamente");
       } else {
-        await ValorizacionCompraService.crearValorizacion({
-          id_proveedor_minero: idProveedor,
-          id_concesion: idConcesion,
+        const res = await ValorizacionCompraService.crearValorizacion({
+          id_proveedor_minero: idProveedor!,
+          id_concesion: idConcesion!,
           id_cuenta_bancaria: idCuentaBancaria,
           id_cuenta_detraccion: idCuentaDetraccion,
           tipo_pago: tipoPago,
@@ -439,16 +450,25 @@ export const useFormValorizacionCompra = ({
           monto_penalidad: montoPenalidad,
           monto_flete: montoFlete,
         });
+        const dataResp = res.data as (Record<string, unknown> | undefined);
+        idGuardado =
+          typeof dataResp?.id === "number"
+            ? dataResp.id
+            : typeof dataResp?.id_valorizacion === "number"
+              ? dataResp.id_valorizacion
+              : undefined;
         notifySuccess("Valorización creada correctamente en estado Pendiente");
       }
 
-      onSuccess();
+      setLoadingSubmit(false);
+      onSuccess(idGuardado);
+      return true;
     } catch (err) {
       notifyError(
         err instanceof Error ? err.message : "Error al guardar la valorización",
       );
-    } finally {
       setLoadingSubmit(false);
+      return false;
     }
   };
 
@@ -497,6 +517,7 @@ export const useFormValorizacionCompra = ({
     handleEliminarDetalle,
     handleConfirmarAnticipos,
     handleLimpiarAnticipos,
+    validarFormulario,
     handleSubmit,
   };
 };

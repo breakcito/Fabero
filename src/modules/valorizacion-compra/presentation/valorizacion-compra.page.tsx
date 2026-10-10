@@ -21,11 +21,13 @@ import {
   IconHistory,
   IconX,
   IconFiles,
+  IconPrinter,
 } from "@tabler/icons-react";
 import { useTitlePage } from "../../../hooks/useTitlePage";
 import { DataTableEstandar } from "../../../presentation/utils/datatable-estandar";
 import { AuxService } from "../../../service/auxiliar.service";
 import { useValorizacionesCompra } from "../hooks/useValorizacionesCompra";
+import { useTicketLiquidacionCompra } from "../hooks/useTicketLiquidacionCompra";
 import {
   DateRangeFilter,
   defaultFechaInicio,
@@ -86,6 +88,8 @@ const fieldClasses = {
 
 export const ValorizacionCompraPage = () => {
   useTitlePage("Valorizaciones de Compra", true);
+
+  const { printTicketLiquidacion, loadingTicket } = useTicketLiquidacionCompra();
 
   const [loadingProveedores, setLoadingProveedores] = useState(false);
   const [proveedores, setProveedores] = useState<RES_Proveedor[]>([]);
@@ -347,7 +351,21 @@ export const ValorizacionCompraPage = () => {
         const isBusy = togglingIds[r.id];
 
         return (
-          <Group gap={6} justify="center">
+          <Group gap={6} justify="center" wrap="nowrap">
+            <Tooltip label="Imprimir Liquidación" withArrow>
+              <ActionIcon
+                variant="light"
+                color="yellow"
+                radius="xl"
+                size="sm"
+                loading={loadingTicket}
+                onClick={() => printTicketLiquidacion(r)}
+                className="bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 border border-yellow-500/20"
+              >
+                <IconPrinter size={14} />
+              </ActionIcon>
+            </Tooltip>
+
             {isPendiente && (
               <Tooltip label="Editar Valorización">
                 <ActionIcon
@@ -713,7 +731,12 @@ export const ValorizacionCompraPage = () => {
         opened={modalFormOpened}
         onClose={() => setModalFormOpened(false)}
         valorizacionEditar={valorizacionEditar}
-        onSuccess={cargarValorizaciones}
+        onSuccess={(idGuardado?: number) => {
+          cargarValorizaciones();
+          if (idGuardado) {
+            printTicketLiquidacion(idGuardado);
+          }
+        }}
       />
 
       {/* Modal Historial de Cambios */}

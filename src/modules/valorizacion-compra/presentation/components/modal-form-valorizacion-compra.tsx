@@ -33,7 +33,7 @@ interface Props {
   opened: boolean;
   onClose: () => void;
   valorizacionEditar?: RES_ValorizacionCompra | null;
-  onSuccess: () => void;
+  onSuccess: (idGuardado?: number) => void;
 }
 
 const fieldClasses = {
@@ -48,16 +48,18 @@ export const ModalFormValorizacionCompra = ({
   valorizacionEditar,
   onSuccess,
 }: Props) => {
+  const isEdit = Boolean(valorizacionEditar);
   const [modalMotivoOpened, setModalMotivoOpened] = useState(false);
   const [motivoEdicion, setMotivoEdicion] = useState("");
   const [loadingProveedores, setLoadingProveedores] = useState(false);
 
   const handlePresionarGuardar = () => {
+    if (!validarFormulario()) return;
     if (isEdit) {
       setMotivoEdicion("");
       setModalMotivoOpened(true);
     } else {
-      handleSubmit();
+      void handleSubmit();
     }
   };
 
@@ -114,12 +116,13 @@ export const ModalFormValorizacionCompra = ({
     handleEliminarDetalle,
     handleConfirmarAnticipos,
     handleLimpiarAnticipos,
+    validarFormulario,
     handleSubmit,
   } = useFormValorizacionCompra({
     opened,
     valorizacionEditar,
-    onSuccess: () => {
-      onSuccess();
+    onSuccess: (idGuardado?: number) => {
+      onSuccess(idGuardado);
       onClose();
     },
   });
@@ -149,7 +152,6 @@ export const ModalFormValorizacionCompra = ({
     cargarProv();
   }, [opened, valorizacionEditar]);
 
-  const isEdit = !!valorizacionEditar;
 
   const tipoPagoMostrar = useMemo(() => {
     if (totalSubtotal <= 0) return null;
@@ -177,7 +179,7 @@ export const ModalFormValorizacionCompra = ({
   const modalTitle = (
     <Group gap="xs">
       <Text fw={700} fz="sm" c="white">
-        {isEdit
+        {isEdit && valorizacionEditar
           ? `Editar Valorización: N° ${valorizacionEditar.numero_correlativo} | ${valorizacionEditar.proveedor_nombre}`
           : "Nueva Valorización de Compra"}
       </Text>

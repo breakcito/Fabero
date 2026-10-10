@@ -556,14 +556,12 @@ export const CierreLeyesPage = () => {
               onAgregarAnalisis={ctrl.agregarAnalisis}
               onEliminarFila={ctrl.eliminarFila}
               onConfirmarLote={async (idLote, conValor, leyesManuales) => {
-                const ok = await ctrl.confirmarLote(idLote, conValor, leyesManuales);
-                if (ok) {
-                  const loteActualizado = ctrl.lotes.find((l) => l.id === idLote);
-                  if (loteActualizado && loteActualizado.estado_leyes === EstadoLeyes.Confirmado) {
-                    printReporte([loteActualizado]);
-                  }
+                const loteActualizado = await ctrl.confirmarLote(idLote, conValor, leyesManuales);
+                if (loteActualizado) {
+                  printReporte([loteActualizado]);
+                  return true;
                 }
-                return ok;
+                return false;
               }}
               onActualizarOrigenFila={ctrl.actualizarOrigenFila}
               onCheckAll={ctrl.confirmarTodoElLote}

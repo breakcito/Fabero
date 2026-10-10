@@ -109,6 +109,34 @@ export interface RES_ResumenBalanzaItem {
   // ── Observaciones (Bloque A) ──
   observacion_peso_inicial?: string | null;
   observacion_peso_final?: string | null;
+
+  // ── Particiones (Lotes particionados desde balanza) ──
+  particionado_desde_balanza?: boolean;
+  particion_finalizada?: boolean;
+  particiones?: RES_ParticionResumenItem[];
+}
+
+export interface RES_ParticionResumenItem {
+  id: number;
+  id_lote_mineral: number;
+  id_ticket_balanza: number | null;
+  ticket_correlativo: string | null;
+  id_recepcion_unidad: number | null;
+  recepcion_estado_pesaje: string | null;
+  vehiculo_placa: string | null;
+  vehiculo_carreta_placa: string | null;
+  empresa_transporte_razon_social: string | null;
+  conductor_nombre_completo: string | null;
+  conductor_dni: string | null;
+  conductor_licencia: string | null;
+  correlativo: string;
+  particion: number;
+  peso_inicial: number | null;
+  fecha_hora_peso_inicial: string | null;
+  peso_final: number | null;
+  fecha_hora_peso_final: string | null;
+  peso_neto: number | null;
+  evidencias?: IArchivo[] | null;
 }
 
 export interface RES_ResumenBalanzaFiltrosMetadata {

@@ -548,7 +548,7 @@ const eliminarFilaMuestra = async (idMuestraExterna: number, uuidFila: string): 
     idLoteMineral: number,
     conValorComercial: boolean,
     leyesManuales?: Array<{ id_grupo_analisis_detalle: number; ley: number }>,
-  ): Promise<boolean> => {
+  ): Promise<LoteCierreResponse | null> => {
     setConfirmandoLote((prev) => ({ ...prev, [idLoteMineral]: true }));
     try {
       const loteActualizado = await CierreLeyesService.confirmarLoteLeyes(
@@ -558,17 +558,17 @@ const eliminarFilaMuestra = async (idMuestraExterna: number, uuidFila: string): 
       );
       if (!loteActualizado || loteActualizado.id == null) {
         notifyError("La respuesta del servidor es inválida.");
-        return false;
+        return null;
       }
       setLotes((prev) => prev.map((l) => (l && l.id === idLoteMineral ? loteActualizado : l)));
       notifySuccess(
         `Lote confirmado ${conValorComercial ? "Con Valor Comercial" : "Sin Valor Comercial"} correctamente`,
       );
-      return true;
+      return loteActualizado;
     } catch (err: unknown) {
       console.error(err);
       notifyError("Error al confirmar el cierre del lote");
-      return false;
+      return null;
     } finally {
       setConfirmandoLote((prev) => {
         const copy = { ...prev };
