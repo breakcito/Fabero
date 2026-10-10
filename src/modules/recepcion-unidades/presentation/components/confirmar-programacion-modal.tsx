@@ -30,6 +30,7 @@ import {
 } from "@tabler/icons-react";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
 import { useConfirmarProgramacion } from "../../hooks/useConfirmarProgramacion";
+import { useTicketIngresoVehiculo } from "../../hooks/useTicketIngresoVehiculo";
 import { useNotify } from "../../../../hooks/useNotify";
 import type { RecepcionUnidadResponse } from "../../service/recepcion-unidades.responses";
 import { AgregarAcompananteModal, type DatosAcompananteForm } from "./agregar-acompanante-modal";
@@ -64,6 +65,7 @@ export const ConfirmarProgramacionModal = ({
   onConfirmada,
 }: Props) => {
   const ctrl = useConfirmarProgramacion({ programacion, opened });
+  const { printTicketIngreso } = useTicketIngresoVehiculo();
   const { notifyError } = useNotify();
 
   const [openModalAcompanante, setOpenModalAcompanante] = useState(false);
@@ -146,17 +148,21 @@ const esDespacho =
     if (!res) return;
 
     const { visita, updatedRecepcion } = res;
+    const finalRecepcion = programacion
+      ? {
+          ...programacion,
+          ...updatedRecepcion,
+          estado: "En Planta",
+          visita,
+        }
+      : updatedRecepcion;
 
-    onConfirmada(
-      programacion
-        ? {
-            ...programacion,
-            ...updatedRecepcion,
-            estado: "En Planta",
-            visita,
-          }
-        : updatedRecepcion,
-    );
+    const targetId = finalRecepcion?.id || programacion?.id;
+    if (targetId) {
+      void printTicketIngreso(targetId);
+    }
+
+    onConfirmada(finalRecepcion);
     onClose();
   };
 

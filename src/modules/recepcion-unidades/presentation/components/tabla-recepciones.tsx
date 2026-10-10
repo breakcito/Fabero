@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Text, Button, Select, Textarea, Badge, Group, ActionIcon, Tooltip, type MantineColor } from "@mantine/core";
 import { DataTableEstandar } from "../../../../presentation/utils/datatable-estandar";
-import { IconPaperclip, IconClipboardCheck, IconPencil, IconHistory, IconTruck } from "@tabler/icons-react";
+import { IconPaperclip, IconClipboardCheck, IconPencil, IconHistory, IconTruck, IconPrinter } from "@tabler/icons-react";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
 import { ArchivoCard } from "../../../../presentation/utils/archivo/archivo-card";
 import { MultiFilePicker } from "../../../../presentation/utils/archivo/multifile-picker";
@@ -9,6 +9,7 @@ import type { RecepcionUnidadResponse } from "../../service/recepcion-unidades.r
 import type { IArchivo } from "../../../../shared/interfaces/archivo";
 import { RecepcionUnidadesService } from "../../service/recepcion-unidades.service";
 import { useNotify } from "../../../../hooks/useNotify";
+import { useTicketIngresoVehiculo } from "../../hooks/useTicketIngresoVehiculo";
 import { EstadoSalida } from "../../../../shared/enums/_generic/estado-salida";
 import { EstadoUnidad } from "../../../../shared/enums/_generic/estado-unidad";
 
@@ -38,6 +39,7 @@ export const TablaRecepciones = ({
   const [evidenciasSalida, setEvidenciasSalida] = useState<File[]>([]);
   const [savingExit, setSavingExit] = useState(false);
   const { notifySuccess, notifyError } = useNotify();
+  const { printTicketIngreso, loadingTicket } = useTicketIngresoVehiculo();
 
   const handleOpenEvidencias = (evidencias: IArchivo[]) => {
     setSelectedEvidencias(evidencias);
@@ -155,7 +157,7 @@ export const TablaRecepciones = ({
             accessor: "acciones",
             title: "Acciones",
             textAlign: "center",
-            width: 140,
+            width: 175,
             render: (r: RecepcionUnidadResponse) => {
               const tieneObservacionoEvidencias =
                 (r.observacion !== null && r.observacion.trim().length > 0) ||
@@ -169,6 +171,27 @@ export const TablaRecepciones = ({
 
               return (
                 <Group gap={6} wrap="nowrap" justify="center">
+                  <Tooltip
+                    label={
+                      noConfirmada
+                        ? disabledReason
+                        : "Imprimir Ticket de Ingreso"
+                    }
+                    withArrow
+                  >
+                    <ActionIcon
+                      variant="light"
+                      color="yellow"
+                      radius="xl"
+                      size="md"
+                      disabled={noConfirmada || loadingTicket}
+                      onClick={() => printTicketIngreso(r.id)}
+                      className="bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 disabled:opacity-40"
+                    >
+                      <IconPrinter size={16} />
+                    </ActionIcon>
+                  </Tooltip>
+
                   <Tooltip
                     label={
                       Array.isArray(r.evidencias) && r.evidencias.length > 0
@@ -260,7 +283,7 @@ export const TablaRecepciones = ({
           {
             accessor: "tipo",
             title: "Tipo",
-            width: 170,
+            width: 140,
             textAlign: "center",
             render: (r: RecepcionUnidadResponse) => {
               const esProgramacionSinConfirmar =
