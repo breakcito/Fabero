@@ -300,6 +300,23 @@ export const useFormValorizacionCompra = ({
     return detalles.reduce((acc, curr) => acc + curr.display.subtotal, 0);
   }, [detalles]);
 
+  const todosSinValorComercial = useMemo(() => {
+    return (
+      detalles.length > 0 &&
+      detalles.every(
+        (d) => d.display.subtotal === 0 && d.display.precio_por_tonelada === 0,
+      )
+    );
+  }, [detalles]);
+
+  useEffect(() => {
+    if (todosSinValorComercial) {
+      if (anticipos.length > 0) setAnticipos([]);
+      if (montoPenalidad !== 0) setMontoPenalidad(0);
+      if (montoFlete !== 0) setMontoFlete(0);
+    }
+  }, [todosSinValorComercial, anticipos.length, montoPenalidad, montoFlete]);
+
   const totalPenalidad = montoPenalidad;
   const totalFlete = montoFlete;
 
@@ -493,6 +510,7 @@ export const useFormValorizacionCompra = ({
     anticipoSaldoTransaccionMap,
     concesionSeleccionada,
     totalSubtotal,
+    todosSinValorComercial,
     totalPenalidad,
     totalFlete,
     totalAnticipos,

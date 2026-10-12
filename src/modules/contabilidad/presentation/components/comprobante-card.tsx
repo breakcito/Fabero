@@ -209,6 +209,11 @@ export const ComprobanteCard = ({
               {comprobante.codigo_completo}
             </Text>
             {badgeEstado(comprobante.estado)}
+            {isCompra && Number(comprobante.total_dolares || 0) <= 0 && (
+              <Badge variant="light" color="red" size="sm" radius="md" fw={700}>
+                Sin Valor Comercial
+              </Badge>
+            )}
             {!isCompra &&
               "tipo_pago" in comprobante &&
               badgeTipoPago((comprobante as RES_ComprobanteVenta).tipo_pago)}
@@ -410,10 +415,20 @@ export const ComprobanteCard = ({
                       <Text fz="xs" fw={700} className="font-mono">
                         {l.lote_correlativo ?? "—"}
                       </Text>
+                      {Number(l.subtotal || 0) === 0 && (
+                        <Badge variant="light" color="red" size="xs" fw={700}>
+                          Sin Valor Comercial
+                        </Badge>
+                      )}
                     </Group>
                     <Group gap={4}>
                       <Text fz={9} c="dimmed" tt="uppercase" fw={700}>Subtotal</Text>
-                      <Text fz="xs" fw={800} c="emerald.4" className="font-mono">
+                      <Text
+                        fz="xs"
+                        fw={800}
+                        c={Number(l.subtotal || 0) === 0 ? "dimmed" : "emerald.4"}
+                        className="font-mono"
+                      >
                         $ {l.subtotal.toFixed(2)}
                       </Text>
                     </Group>

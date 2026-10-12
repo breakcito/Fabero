@@ -94,6 +94,7 @@ export const ModalFormValorizacionCompra = ({
     anticipoSaldoEfectivoMap,
     concesionSeleccionada,
     totalSubtotal,
+    todosSinValorComercial,
     totalAnticipos,
     montoTransferencia,
     tipoPago,
@@ -386,9 +387,11 @@ export const ModalFormValorizacionCompra = ({
                           ? "Seleccione un proveedor primero"
                           : detalles.length === 0
                           ? "Debe agregar al menos un lote para aplicar anticipos"
+                          : todosSinValorComercial
+                          ? "Los lotes sin valor comercial no permiten aplicar anticipos"
                           : ""
                       }
-                      disabled={!!idProveedor && detalles.length > 0}
+                      disabled={!!idProveedor && detalles.length > 0 && !todosSinValorComercial}
                       withArrow
                     >
                       <Button
@@ -396,7 +399,7 @@ export const ModalFormValorizacionCompra = ({
                         color="blue"
                         size="xs"
                         radius="lg"
-                        disabled={!idProveedor || detalles.length === 0}
+                        disabled={!idProveedor || detalles.length === 0 || todosSinValorComercial}
                         onClick={() => setModalAnticiposOpened(true)}
                         className="h-7 text-[11px] px-2.5 font-bold"
                       >
@@ -606,6 +609,11 @@ export const ModalFormValorizacionCompra = ({
                         <Text fw={700} fz="xs" c="white" className="font-mono truncate">
                           Lote: {d.display.lote_correlativo || "-"}
                         </Text>
+                        {d.display.subtotal === 0 && d.display.precio_por_tonelada === 0 && (
+                          <Badge variant="light" color="red" size="xs" fw={700}>
+                            Sin Valor Comercial
+                          </Badge>
+                        )}
                         {d.display.grr && (
                           <Badge variant="outline" color="cyan" size="xs">
                             G.R.R: {d.display.grr}
@@ -759,7 +767,7 @@ export const ModalFormValorizacionCompra = ({
                   size="xs"
                   radius="md"
                   w={130}
-                  disabled={loadingSubmit}
+                  disabled={loadingSubmit || todosSinValorComercial}
                   classNames={{
                     input:
                       "bg-zinc-950 border-zinc-800 focus:border-amber-500 text-amber-400 font-mono font-semibold text-xs h-7 text-right",
@@ -785,7 +793,7 @@ export const ModalFormValorizacionCompra = ({
                   size="xs"
                   radius="md"
                   w={130}
-                  disabled={loadingSubmit}
+                  disabled={loadingSubmit || todosSinValorComercial}
                   classNames={{
                     input:
                       "bg-zinc-950 border-zinc-800 focus:border-cyan-500 text-cyan-400 font-mono font-semibold text-xs h-7 text-right",

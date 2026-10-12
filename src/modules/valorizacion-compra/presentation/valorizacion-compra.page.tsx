@@ -321,11 +321,21 @@ export const ValorizacionCompraPage = () => {
       accessor: "total_subtotal",
       title: "Total Valorización",
       textAlign: "center" as const,
-      render: (r: RES_ValorizacionCompra) => (
-        <Text fw={700} c="emerald.4" fz="xs">
-          $ {r.total_subtotal.toFixed(2)}
-        </Text>
-      ),
+      render: (r: RES_ValorizacionCompra) => {
+        const esSinValor = Number(r.total_subtotal || 0) <= 0;
+        return (
+          <Stack gap={2} align="center">
+            <Text fw={700} c={esSinValor ? "dimmed" : "emerald.4"} fz="xs">
+              $ {r.total_subtotal.toFixed(2)}
+            </Text>
+            {esSinValor && (
+              <Badge variant="light" color="red" size="xs">
+                Sin Valor Comercial
+              </Badge>
+            )}
+          </Stack>
+        );
+      },
     },
     {
       accessor: "created_at",
@@ -530,6 +540,11 @@ export const ValorizacionCompraPage = () => {
                       <Text fw={700} fz="xs" c="white" className="font-mono truncate">
                         Lote: {d.lote_correlativo || "-"}
                       </Text>
+                      {Number(d.subtotal || 0) === 0 && Number(d.precio_por_tonelada || 0) === 0 && (
+                        <Badge variant="light" color="red" size="xs" fw={700}>
+                          Sin Valor Comercial
+                        </Badge>
+                      )}
                       {d.grr && (
                         <Badge variant="outline" color="cyan" size="xs">
                           G.R.R: {d.grr}
@@ -543,10 +558,20 @@ export const ValorizacionCompraPage = () => {
                     </Group>
 
                     <Group gap={6} wrap="nowrap" className="shrink-0">
-                      <Text fz={9} c="emerald.4" tt="uppercase" fw={700}>
+                      <Text
+                        fz={9}
+                        c={Number(d.subtotal || 0) === 0 ? "dimmed" : "emerald.4"}
+                        tt="uppercase"
+                        fw={700}
+                      >
                         Subtotal
                       </Text>
-                      <Text fz="sm" fw={800} c="emerald.3" className="font-mono">
+                      <Text
+                        fz="sm"
+                        fw={800}
+                        c={Number(d.subtotal || 0) === 0 ? "dimmed" : "emerald.3"}
+                        className="font-mono"
+                      >
                         $ {d.subtotal.toFixed(2)}
                       </Text>
                     </Group>

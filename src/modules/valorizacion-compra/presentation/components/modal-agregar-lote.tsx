@@ -43,6 +43,7 @@ interface LoteDisponible {
   ley_plata: number;
   es_valorizado_oro?: boolean;
   es_valorizado_plata?: boolean;
+  con_valor_comercial?: boolean;
   condicion_oro: {
     id_condicion_comercial: number;
     recuperacion: number;
@@ -395,6 +396,8 @@ export const ModalAgregarLote = ({
     }
   }, [loteSeleccionado, elemento, detalleEditar]);
 
+  const esSinValorComercial = loteSeleccionado?.con_valor_comercial === false;
+
   const ley = useMemo(() => {
     if (!loteSeleccionado || !elemento) return 0;
     return elemento === ElementoQuimicoValorizacion.Oro
@@ -403,6 +406,8 @@ export const ModalAgregarLote = ({
   }, [loteSeleccionado, elemento]);
 
   const ptn = useMemo(() => {
+    if (esSinValorComercial) return 0;
+
     const numInter = typeof inter === "number" ? inter : parseFloat(String(inter)) || 0;
     const numDes = typeof desInter === "number" ? desInter : parseFloat(String(desInter)) || 0;
     const numRec = typeof recuperacion === "number" ? recuperacion : parseFloat(String(recuperacion)) || 0;
@@ -412,13 +417,13 @@ export const ModalAgregarLote = ({
 
     const res = ((numInter - numDes) * ley * (numRec / 100) - numMaq - numRea) * numFac;
     return res;
-  }, [inter, desInter, ley, recuperacion, maquila, consumo, factor]);
+  }, [esSinValorComercial, inter, desInter, ley, recuperacion, maquila, consumo, factor]);
 
   const totalItem = useMemo(() => {
-    if (!loteSeleccionado) return 0;
+    if (!loteSeleccionado || esSinValorComercial) return 0;
     const tms = loteSeleccionado.tms;
     return (ptn * tms) / 1000;
-  }, [ptn, loteSeleccionado]);
+  }, [esSinValorComercial, ptn, loteSeleccionado]);
 
   const handleAgregar = () => {
     if (!loteSeleccionado) {
@@ -429,7 +434,7 @@ export const ModalAgregarLote = ({
       notifyWarning("Debe seleccionar un elemento químico");
       return;
     }
-    if (!precioEncontrado) {
+    if (!esSinValorComercial && !precioEncontrado) {
       notifyWarning(
         `Debe registrar el precio INTER para ${elemento} en la fecha seleccionada antes de valorizar. Use el botón "+" al lado de INTER.`,
       );
@@ -451,22 +456,22 @@ export const ModalAgregarLote = ({
     const reqItem: REQ_ValorizacionDetalleItem = {
       id_lote_guia: loteSeleccionado.id_lote_guia,
       elemento_quimico: elemento,
-      id_condicion_comercial: cond ? cond.id_condicion_comercial : null,
-      id_valor_elemento_quimico: precioEncontrado.id,
-      inter: numInter,
-      des_inter: numDes,
-      recuperacion: numRec,
-      maquila: numMaq,
-      consumo: numRea,
-      factor: numFac,
+      id_condicion_comercial: esSinValorComercial ? null : (cond ? cond.id_condicion_comercial : null),
+      id_valor_elemento_quimico: esSinValorComercial ? null : (precioEncontrado?.id ?? null),
+      inter: esSinValorComercial ? 0 : numInter,
+      des_inter: esSinValorComercial ? 0 : numDes,
+      recuperacion: esSinValorComercial ? 0 : numRec,
+      maquila: esSinValorComercial ? 0 : numMaq,
+      consumo: esSinValorComercial ? 0 : numRea,
+      factor: esSinValorComercial ? 1 : numFac,
     };
 
     const displayItem: RES_ValorizacionCompraDetalle = {
       id: detalleEditar ? detalleEditar.display.id : 0,
       id_valorizacion_compra: detalleEditar ? detalleEditar.display.id_valorizacion_compra : 0,
       id_lote_guia: loteSeleccionado.id_lote_guia,
-      id_condicion_comercial: cond ? cond.id_condicion_comercial : null,
-      id_valor_elemento_quimico: precioEncontrado.id,
+      id_condicion_comercial: esSinValorComercial ? null : (cond ? cond.id_condicion_comercial : null),
+      id_valor_elemento_quimico: esSinValorComercial ? null : (precioEncontrado?.id ?? null),
       elemento_quimico: elemento,
       numero_correlativo: loteSeleccionado.numero_correlativo,
       lote_correlativo: loteSeleccionado.correlativo_lote,
@@ -477,14 +482,14 @@ export const ModalAgregarLote = ({
       ley_humedad: loteSeleccionado.ley_humedad,
       tms: loteSeleccionado.tms,
       ley,
-      inter: numInter,
-      des_inter: numDes,
-      recuperacion: numRec,
-      maquila: numMaq,
-      consumo: numRea,
-      factor: numFac,
-      precio_por_tonelada: Number(ptn.toFixed(2)),
-      subtotal: Number(totalItem.toFixed(2)),
+      inter: esSinValorComercial ? 0 : numInter,
+      des_inter: esSinValorComercial ? 0 : numDes,
+      recuperacion: esSinValorComercial ? 0 : numRec,
+      maquila: esSinValorComercial ? 0 : numMaq,
+      consumo: esSinValorComercial ? 0 : numRea,
+      factor: esSinValorComercial ? 1 : numFac,
+      precio_por_tonelada: esSinValorComercial ? 0 : Number(ptn.toFixed(2)),
+      subtotal: esSinValorComercial ? 0 : Number(totalItem.toFixed(2)),
     };
 
     if (detalleEditar) {
@@ -540,7 +545,10 @@ export const ModalAgregarLote = ({
                     ]
                   : lotes.map((l) => ({
                       value: String(l.id_lote_guia),
-                      label: l.correlativo_lote,
+                      label:
+                        l.con_valor_comercial === false
+                          ? `${l.correlativo_lote} (Sin Valor Comercial)`
+                          : l.correlativo_lote,
                     }))
               }
               value={selectedLoteGuiaId}
@@ -575,6 +583,11 @@ export const ModalAgregarLote = ({
                 <Text fw={700} fz="xs" c="white">
                   Lote: {loteSeleccionado.correlativo_lote}
                 </Text>
+                {esSinValorComercial && (
+                  <Badge variant="filled" color="red" size="xs">
+                    SIN VALOR COMERCIAL
+                  </Badge>
+                )}
               </Group>
               <Group gap={6}>
                 <Badge variant="outline" color="blue" size="xs">
@@ -704,6 +717,7 @@ export const ModalAgregarLote = ({
                 size="xs"
                 radius="lg"
                 classNames={fieldClasses}
+                disabled={esSinValorComercial}
               />
             </Grid.Col>
             <Grid.Col span={{ base: 6, sm: 4 }}>
@@ -717,6 +731,7 @@ export const ModalAgregarLote = ({
                 size="xs"
                 radius="lg"
                 classNames={fieldClasses}
+                disabled={esSinValorComercial}
               />
             </Grid.Col>
             <Grid.Col span={{ base: 6, sm: 4 }}>
@@ -729,6 +744,7 @@ export const ModalAgregarLote = ({
                 size="xs"
                 radius="lg"
                 classNames={fieldClasses}
+                disabled={esSinValorComercial}
               />
             </Grid.Col>
             <Grid.Col span={{ base: 6, sm: 4 }}>
@@ -741,6 +757,7 @@ export const ModalAgregarLote = ({
                 size="xs"
                 radius="lg"
                 classNames={fieldClasses}
+                disabled={esSinValorComercial}
               />
             </Grid.Col>
             <Grid.Col span={{ base: 6, sm: 4 }}>
@@ -754,6 +771,7 @@ export const ModalAgregarLote = ({
                 size="xs"
                 radius="lg"
                 classNames={fieldClasses}
+                disabled={esSinValorComercial}
               />
             </Grid.Col>
           </Grid>
@@ -793,7 +811,7 @@ export const ModalAgregarLote = ({
             radius="lg"
             size="xs"
             leftSection={<IconCheck size={16} />}
-            disabled={!loteSeleccionado || (!detalleEditar && !precioEncontrado)}
+            disabled={!loteSeleccionado || (!esSinValorComercial && !detalleEditar && !precioEncontrado)}
             className="bg-indigo-600 hover:bg-indigo-700 text-white"
           >
             {detalleEditar ? "Guardar Cambios" : "Agregar Lote"}
