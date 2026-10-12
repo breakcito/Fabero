@@ -17,6 +17,11 @@ export interface RES_ValorizacionCompraDetalle {
   grt: string | null;
   fecha_ingreso: string | null;
   tmh: number;
+  peso_neto_lote?: number;
+  peso_neto_guia?: number;
+  peso_contabilizado?: number;
+  id_lote_mineral?: number | null;
+  id_particion_lote_mineral?: number | null;
   ley_humedad: number;
   tms: number;
   ley: number;

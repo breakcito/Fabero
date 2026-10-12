@@ -1,4 +1,4 @@
-import { Group, Text, Badge, Tooltip, ActionIcon, Progress, Stack, Paper, Box, Accordion } from "@mantine/core";
+import { Group, Text, Badge, Tooltip, ActionIcon, Progress, Stack, Paper, Box, Accordion, Button } from "@mantine/core";
 import {
   IconCheck,
   IconCircleDashed,
@@ -8,12 +8,16 @@ import {
   IconReceipt,
   IconCalendar,
   IconPaperclip,
+  IconFileText,
+  IconFileDescription,
+  IconShoppingCart,
 } from "@tabler/icons-react";
 import { EstadoComprobanteCompra } from "../../../../shared/enums/contabilidad-compra/estado-comprobante-compra";
 import { TipoAprobacionComprobante } from "../../../../shared/enums/contabilidad-compra/tipo-aprobacion-comprobante";
 import type { RES_AprobacionComprobante } from "../../service/contabilidad-compra.responses";
 import type { RES_ComprobanteCompra } from "../../service/contabilidad-compra.responses";
 import type { RES_ComprobanteVenta } from "../../service/contabilidad-venta.responses";
+import { useDocumentosCompraPdf } from "../../hooks/useDocumentosCompraPdf";
 
 interface ComprobanteCardProps {
   comprobante: RES_ComprobanteCompra | RES_ComprobanteVenta;
@@ -122,6 +126,7 @@ export const ComprobanteCard = ({
   onVerPagos,
   onVerEvidencias,
 }: ComprobanteCardProps) => {
+  const { imprimirDocumento, loadingDoc } = useDocumentosCompraPdf();
   const isCompra = "aprobaciones" in comprobante;
   const isAnulado = comprobante.estado === EstadoComprobanteCompra.Anulado || comprobante.estado === "Anulado";
   const numEvidencias = Array.isArray(comprobante.evidencias) ? comprobante.evidencias.length : 0;
@@ -199,7 +204,7 @@ export const ComprobanteCard = ({
     >
       <Group justify="space-between" align="flex-start" mb="sm">
         <Stack gap={2}>
-          <Group gap={6} wrap="nowrap">
+          <Group gap={6} wrap="wrap" align="center">
             <Text fw={800} c="cyan.4" fz="md" className="font-mono">
               {comprobante.codigo_completo}
             </Text>
@@ -207,6 +212,60 @@ export const ComprobanteCard = ({
             {!isCompra &&
               "tipo_pago" in comprobante &&
               badgeTipoPago((comprobante as RES_ComprobanteVenta).tipo_pago)}
+            {isCompra && !isAnulado && (
+              <Group gap={4} ml={4} wrap="nowrap">
+                <Tooltip label="Declaración Jurada de Procedencia" withArrow position="top">
+                  <Button
+                    size="compact-xs"
+                    variant="light"
+                    color="gray"
+                    radius="md"
+                    leftSection={<IconFileText size={12} />}
+                    loading={loadingDoc[`${comprobante.id}-dj`]}
+                    disabled={loadingDoc[`${comprobante.id}-dj`]}
+                    onClick={() =>
+                      imprimirDocumento(comprobante as RES_ComprobanteCompra, "dj")
+                    }
+                  >
+                    DJ
+                  </Button>
+                </Tooltip>
+
+                <Tooltip label="Nota de Ingreso al Almacén" withArrow position="top">
+                  <Button
+                    size="compact-xs"
+                    variant="light"
+                    color="yellow"
+                    radius="md"
+                    leftSection={<IconFileDescription size={12} />}
+                    loading={loadingDoc[`${comprobante.id}-nia`]}
+                    disabled={loadingDoc[`${comprobante.id}-nia`]}
+                    onClick={() =>
+                      imprimirDocumento(comprobante as RES_ComprobanteCompra, "nia")
+                    }
+                  >
+                    NIA
+                  </Button>
+                </Tooltip>
+
+                <Tooltip label="Orden de Compra" withArrow position="top">
+                  <Button
+                    size="compact-xs"
+                    variant="light"
+                    color="indigo"
+                    radius="md"
+                    leftSection={<IconShoppingCart size={12} />}
+                    loading={loadingDoc[`${comprobante.id}-oc`]}
+                    disabled={loadingDoc[`${comprobante.id}-oc`]}
+                    onClick={() =>
+                      imprimirDocumento(comprobante as RES_ComprobanteCompra, "oc")
+                    }
+                  >
+                    OC
+                  </Button>
+                </Tooltip>
+              </Group>
+            )}
           </Group>
           <Group gap={4}>
             <IconCalendar size={12} className="text-zinc-500" />
