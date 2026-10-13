@@ -495,10 +495,10 @@ export const NotaIngresoAlmacenPdf = ({ comprobante, valorizacion }: Props) => {
                     TONELADAS
                   </Text>
                   <Text style={[styles.tableCell, { width: "10%" }]}>
-                    {fila.cantidad.toFixed(3)}
+                    {fila.contabilizada.toFixed(3)}
                   </Text>
                   <Text style={[styles.tableCell, { width: "10%" }]}>
-                    {fila.contabilizada.toFixed(3)}
+                    {fila.cantidad.toFixed(3)}
                   </Text>
                   <Text
                     style={[
