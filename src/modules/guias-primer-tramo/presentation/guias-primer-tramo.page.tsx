@@ -467,7 +467,7 @@ export const GuiasPrimerTramoPage = () => {
         ]}
         rowExpansion={{
           content: ({ record: g }: { record: RES_GuiaPrimerTramo }) => (
-            <div className="p-4 border border-zinc-800/80 rounded-xl bg-transparent m-3">
+            <div className=" border border-zinc-800/80 rounded-xl bg-transparent p-2">
               <Text
                 size="xs"
                 fw={700}

@@ -110,6 +110,7 @@ export interface RES_ItemMineralDisponible {
   created_at: string;
   proveedor_nombre: string | null;
   vehiculo_placa?: string | null;
+  fecha_hora_ingreso_vehiculo?: string | null;
   en_guia: boolean;
   // Datos de la recepcion que el modal de guia-primer-tramo usa para
   // autocompletar inputs de guias (texto + archivos) cuando los items

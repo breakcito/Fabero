@@ -43,7 +43,10 @@ import {
   ItemsMineralService,
 } from "../../service/guias-primer-tramo.service";
 import type { RES_ConcesionPorProveedor } from "../../service/guias-primer-tramo.responses";
-import type { RES_ArchivosGuiasRecepcion, RES_ItemMineralDisponible } from "../../service/guias-primer-tramo.responses";
+import type {
+  RES_ArchivosGuiasRecepcion,
+  RES_ItemMineralDisponible,
+} from "../../service/guias-primer-tramo.responses";
 import type { RES_Proveedor } from "../../../../service/responses/proveedor";
 import type { ProveedorResponse } from "../../../proveedores-mineros/service/proveedores.responses";
 import type { RES_Vehiculo } from "../../../../service/responses/vehiculo";
@@ -107,41 +110,97 @@ const itemKey = (i: {
   return `LOTE:${i.id_lote_mineral ?? ""}`;
 };
 
+/**
+ * Identifica la recepción de unidad real a la que pertenece un item.
+ *
+ * Una PARTICION cuelga de una recepción "ficticia" propia, pero los datos de
+ * la guía (remitente, transportista, documentos) viven en la recepción del lote
+ * padre. Para agrupar hay que usar la MISMA recepción que consume el
+ * autocompletado en `handleAgregarItems`; si no, un lote y sus particiones
+ * caerían en dos grupos distintos pese a ser la misma descarga.
+ */
+const recepcionKey = (i: {
+  id_recepcion_unidad: number;
+  id_recepcion_unidad_padre?: number | null;
+}): number => i.id_recepcion_unidad_padre ?? i.id_recepcion_unidad;
+
+/** Timestamp de creación del item. Valores no parseables caen en 0. */
+const tsCreacion = (createdAt: string): number => {
+  const t = Date.parse(createdAt);
+  return Number.isFinite(t) ? t : 0;
+};
+
+/**
+ * Parte el datetime del backend ("2026-10-13 14:38:20") en fecha y hora.
+ *
+ * No se usa `new Date(string)` a propósito: el formato SQLite con espacio no
+ * es ISO y no está garantizado en todos los motores. El string viene ya
+ * formateado, así que separar por espacios es más seguro que reinterpretarlo.
+ */
+const splitFechaHora = (
+  valor: string | null,
+): { fecha: string; hora: string } | null => {
+  if (!valor) return null;
+  const [fecha = "", resto = ""] = valor.trim().split(" ");
+  if (!fecha) return null;
+  return { fecha, hora: resto.slice(0, 5) };
+};
+
 const todayIso = (): string => {
   const d = new Date();
   const pad = (n: number) => n.toString().padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
 
-export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubmit, onUpdate }: Props) => {
+export const ModalGuiaPrimerTramo = ({
+  opened,
+  idSucursal,
+  guia,
+  onClose,
+  onSubmit,
+  onUpdate,
+}: Props) => {
   const { notifyError, notifyInfo } = useNotify();
 
   const [proveedores, setProveedores] = useState<RES_Proveedor[]>([]);
   const [vehiculos, setVehiculos] = useState<RES_Vehiculo[]>([]);
   const [carretas, setCarretas] = useState<RES_Vehiculo[]>([]);
-  const [empresasTransporte, setEmpresasTransporte] = useState<RES_EmpresaTransporte[]>([]);
+  const [empresasTransporte, setEmpresasTransporte] = useState<
+    RES_EmpresaTransporte[]
+  >([]);
   const [conductores, setConductores] = useState<RES_Conductor[]>([]);
 
   const [loadingProveedores, setLoadingProveedores] = useState(false);
   const [loadingVehiculos, setLoadingVehiculos] = useState(false);
-  const [loadingEmpresasTransporte, setLoadingEmpresasTransporte] = useState(false);
+  const [loadingEmpresasTransporte, setLoadingEmpresasTransporte] =
+    useState(false);
   const [loadingConductores, setLoadingConductores] = useState(false);
 
   const [idProveedor, setIdProveedor] = useState<string | null>(null);
-  const [concesiones, setConcesiones] = useState<RES_ConcesionPorProveedor[]>([]);
+  const [concesiones, setConcesiones] = useState<RES_ConcesionPorProveedor[]>(
+    [],
+  );
   const [loadingConcesiones, setLoadingConcesiones] = useState(false);
   const [idConcesion, setIdConcesion] = useState<string | null>(null);
 
   const [idConductor, setIdConductor] = useState<string | null>(null);
   const [idVehiculo, setIdVehiculo] = useState<string | null>(null);
-  const [idEmpresaTransporte, setIdEmpresaTransporte] = useState<string | null>(null);
+  const [idEmpresaTransporte, setIdEmpresaTransporte] = useState<string | null>(
+    null,
+  );
 
-  const [idVehiculoCarreta, setIdVehiculoCarreta] = useState<string | null>(null);
-  const [idEmpresaTransporteCarreta, setIdEmpresaTransporteCarreta] = useState<string | null>(null);
+  const [idVehiculoCarreta, setIdVehiculoCarreta] = useState<string | null>(
+    null,
+  );
+  const [idEmpresaTransporteCarreta, setIdEmpresaTransporteCarreta] = useState<
+    string | null
+  >(null);
 
   const [motivoTraslado, setMotivoTraslado] = useState<string | null>(null);
   const [condicionIngreso, setCondicionIngreso] = useState<string | null>(null);
-  const [fechaInicioTraslado, setFechaInicioTraslado] = useState<string | null>(todayIso());
+  const [fechaInicioTraslado, setFechaInicioTraslado] = useState<string | null>(
+    todayIso(),
+  );
   const [fechaEmision, setFechaEmision] = useState<string | null>(todayIso());
   const [fechaEnPlanta, setFechaEnPlanta] = useState<string | null>(todayIso());
 
@@ -149,25 +208,32 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
   const [guiaTransportista, setGuiaTransportista] = useState("");
   const [sinGuiaTransportista, setSinGuiaTransportista] = useState(false);
 
-  const [documentoGuiaRemitente, setDocumentoGuiaRemitente] = useState<File | null>(null);
-  const [documentoGuiaTransportista, setDocumentoGuiaTransportista] = useState<File | null>(null);
+  const [documentoGuiaRemitente, setDocumentoGuiaRemitente] =
+    useState<File | null>(null);
+  const [documentoGuiaTransportista, setDocumentoGuiaTransportista] =
+    useState<File | null>(null);
 
   // Confirmacion pendiente de reemplazo de documento. Mientras no sea null,
   // el modal de confirmacion esta visible. El file NO se asigna al state del
   // documento hasta que el usuario confirma.
-  const [pendingReplacement, setPendingReplacement] = useState<
-    { field: "remitente" | "transportista"; file: File } | null
-  >(null);
+  const [pendingReplacement, setPendingReplacement] = useState<{
+    field: "remitente" | "transportista";
+    file: File;
+  } | null>(null);
 
   const [items, setItems] = useState<ItemFormItem[]>([]);
   const [openItemModal, setOpenItemModal] = useState(false);
-  const [itemsDisponibles, setItemsDisponibles] = useState<RES_ItemMineralDisponible[]>([]);
+  const [itemsDisponibles, setItemsDisponibles] = useState<
+    RES_ItemMineralDisponible[]
+  >([]);
   const [loadingItems, setLoadingItems] = useState(false);
   const [itemsFechaInicio, setItemsFechaInicio] = useState<string>(todayIso());
   const [itemsFechaFin, setItemsFechaFin] = useState<string>(todayIso());
   // Mapa itemKey -> id_recepcion_unidad para agrupar items por recepción
   // y permitir autocompletar las guias cuando todos comparten una sola.
-  const [recepcionesPorItem, setRecepcionesPorItem] = useState<Map<string, number>>(new Map());
+  const [recepcionesPorItem, setRecepcionesPorItem] = useState<
+    Map<string, number>
+  >(new Map());
   const round2 = (n: number): number => Math.round(n * 100) / 100;
 
   /**
@@ -239,21 +305,29 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
   });
 
   const hayDuplicadoEnVivo =
-    existeCombinacionEnVivo || existeRemitenteEnVivo || existeTransportistaEnVivo;
+    existeCombinacionEnVivo ||
+    existeRemitenteEnVivo ||
+    existeTransportistaEnVivo;
 
   const [openedModalProveedor, setOpenedModalProveedor] = useState(false);
   const [openedModalConcesion, setOpenedModalConcesion] = useState(false);
 
   // Para distinguir tractor/carreta cuando se registra un vehículo o empresa
-  const [openedModalVehiculo, setOpenedModalVehiculo] = useState<null | "tractor" | "carreta">(null);
-  const [openedModalEmpresa, setOpenedModalEmpresa] = useState<null | "tractor" | "carreta">(null);
+  const [openedModalVehiculo, setOpenedModalVehiculo] = useState<
+    null | "tractor" | "carreta"
+  >(null);
+  const [openedModalEmpresa, setOpenedModalEmpresa] = useState<
+    null | "tractor" | "carreta"
+  >(null);
   const [openedModalConductor, setOpenedModalConductor] = useState(false);
 
   // Resolución perezosa del TipoVehiculo con es_carreta=1. Se carga la primera
   // vez que se abre el submodal "Registrar Vehículo Carreta" para auto-asignar
   // el tipo correcto al crear el vehículo (de lo contrario el nuevo vehículo
   // quedaba con id_tipo_vehiculo=NULL y no aparecía en el dropdown filtrado).
-  const [idTipoVehiculoCarreta, setIdTipoVehiculoCarreta] = useState<number | null>(null);
+  const [idTipoVehiculoCarreta, setIdTipoVehiculoCarreta] = useState<
+    number | null
+  >(null);
   const [loadingTipoCarreta, setLoadingTipoCarreta] = useState(false);
   const [tipoCarretaChecked, setTipoCarretaChecked] = useState(false);
 
@@ -272,7 +346,10 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
   const reloadConcesiones = async (provId: number) => {
     setLoadingConcesiones(true);
     try {
-      const data = await ConcesionesPorProveedorService.get_concesiones_by_proveedor(provId);
+      const data =
+        await ConcesionesPorProveedorService.get_concesiones_by_proveedor(
+          provId,
+        );
       setConcesiones(data);
     } catch (e) {
       console.error("Error al recargar concesiones del proveedor", e);
@@ -315,7 +392,10 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
       cancelLabel: "Cancelar",
       message: (
         <>
-          Cambiar el proveedor eliminará los <strong className="text-rose-400">{items.length}</strong> item(s) actualmente seleccionados y las guías/autocompletados asociados. ¿Desea continuar?
+          Cambiar el proveedor eliminará los{" "}
+          <strong className="text-rose-400">{items.length}</strong> item(s)
+          actualmente seleccionados y las guías/autocompletados asociados.
+          ¿Desea continuar?
         </>
       ),
       onConfirm: () => {
@@ -337,14 +417,20 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
       AuxService.get_vehiculos(),
       AuxService.get_vehiculos(),
     ]);
-    setVehiculos(tractorRes.filter((v) => !v.es_carreta || Number(v.es_carreta) === 0));
-    setCarretas(carretaRes.filter((v) => !!v.es_carreta && Number(v.es_carreta) === 1));
+    setVehiculos(
+      tractorRes.filter((v) => !v.es_carreta || Number(v.es_carreta) === 0),
+    );
+    setCarretas(
+      carretaRes.filter((v) => !!v.es_carreta && Number(v.es_carreta) === 1),
+    );
     const idStr = String(vehiculo.id_vehiculo);
     if (destino === "tractor") {
       setIdVehiculo(idStr);
       // Auto-completar empresa si aún no hay
       if (!idEmpresaTransporte) {
-        const v = tractorRes.find((x) => x.id_vehiculo === vehiculo.id_vehiculo);
+        const v = tractorRes.find(
+          (x) => x.id_vehiculo === vehiculo.id_vehiculo,
+        );
         if (v && v.id_empresa_transporte) {
           setIdEmpresaTransporte(String(v.id_empresa_transporte));
         }
@@ -414,16 +500,32 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
         setIdConcesion(guia.id_concesion ? String(guia.id_concesion) : null);
         setIdConductor(guia.id_conductor ? String(guia.id_conductor) : null);
         setIdVehiculo(guia.id_vehiculo ? String(guia.id_vehiculo) : null);
-        setIdEmpresaTransporte(guia.id_empresa_transporte ? String(guia.id_empresa_transporte) : null);
-        setIdVehiculoCarreta(guia.id_vehiculo_carreta ? String(guia.id_vehiculo_carreta) : null);
+        setIdEmpresaTransporte(
+          guia.id_empresa_transporte
+            ? String(guia.id_empresa_transporte)
+            : null,
+        );
+        setIdVehiculoCarreta(
+          guia.id_vehiculo_carreta ? String(guia.id_vehiculo_carreta) : null,
+        );
         setIdEmpresaTransporteCarreta(
-          guia.id_empresa_transporte_carreta ? String(guia.id_empresa_transporte_carreta) : null,
+          guia.id_empresa_transporte_carreta
+            ? String(guia.id_empresa_transporte_carreta)
+            : null,
         );
         setMotivoTraslado(guia.motivo_traslado || null);
         setCondicionIngreso(guia.condicion_ingreso || null);
-        setFechaInicioTraslado(guia.fecha_inicio_traslado ? guia.fecha_inicio_traslado.slice(0, 10) : null);
-        setFechaEmision(guia.fecha_emision ? guia.fecha_emision.slice(0, 10) : null);
-        setFechaEnPlanta(guia.fecha_en_planta ? guia.fecha_en_planta.slice(0, 10) : null);
+        setFechaInicioTraslado(
+          guia.fecha_inicio_traslado
+            ? guia.fecha_inicio_traslado.slice(0, 10)
+            : null,
+        );
+        setFechaEmision(
+          guia.fecha_emision ? guia.fecha_emision.slice(0, 10) : null,
+        );
+        setFechaEnPlanta(
+          guia.fecha_en_planta ? guia.fecha_en_planta.slice(0, 10) : null,
+        );
 
         // guia_remitente y guia_transportista son strings únicos almacenados en la BD.
         setGuiaRemitente(guia.guia_remitente ?? "");
@@ -476,8 +578,16 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
           AuxService.get_vehiculos(),
         ]);
         if (isMounted) {
-          setVehiculos(tractorRes.filter((v) => !v.es_carreta || Number(v.es_carreta) === 0));
-          setCarretas(carretaRes.filter((v) => !!v.es_carreta && Number(v.es_carreta) === 1));
+          setVehiculos(
+            tractorRes.filter(
+              (v) => !v.es_carreta || Number(v.es_carreta) === 0,
+            ),
+          );
+          setCarretas(
+            carretaRes.filter(
+              (v) => !!v.es_carreta && Number(v.es_carreta) === 1,
+            ),
+          );
         }
       } catch (e) {
         console.error("Error al cargar vehículos", e);
@@ -519,7 +629,9 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
           // Usar `Number(...) === 1` para ser consistente con el filtro
           // existente de carretas (línea `Number(v.es_carreta) === 1`).
           const tipoCarreta = tipos.find((t) => Number(t.es_carreta) === 1);
-          setIdTipoVehiculoCarreta(tipoCarreta ? tipoCarreta.id_tipo_vehiculo : null);
+          setIdTipoVehiculoCarreta(
+            tipoCarreta ? tipoCarreta.id_tipo_vehiculo : null,
+          );
         }
       } catch (e) {
         console.error("Error al cargar tipos de vehículo", e);
@@ -553,11 +665,17 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
       }
       setLoadingConcesiones(true);
       try {
-        const data = await ConcesionesPorProveedorService.get_concesiones_by_proveedor(Number(idProveedor));
+        const data =
+          await ConcesionesPorProveedorService.get_concesiones_by_proveedor(
+            Number(idProveedor),
+          );
         if (isMounted) {
           setConcesiones(data);
           setIdConcesion((current) => {
-            if (current && data.find((c) => String(c.id_concesion) === current)) {
+            if (
+              current &&
+              data.find((c) => String(c.id_concesion) === current)
+            ) {
               return current;
             }
             return null;
@@ -581,7 +699,9 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
       setIdEmpresaTransporte(null);
       return;
     }
-    const vehiculo = vehiculos.find((v) => v.id_vehiculo === Number(idVehiculo));
+    const vehiculo = vehiculos.find(
+      (v) => v.id_vehiculo === Number(idVehiculo),
+    );
     if (vehiculo && vehiculo.id_empresa_transporte) {
       setIdEmpresaTransporte(String(vehiculo.id_empresa_transporte));
     }
@@ -592,7 +712,9 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
       setIdEmpresaTransporteCarreta(null);
       return;
     }
-    const vehiculo = carretas.find((v) => v.id_vehiculo === Number(idVehiculoCarreta));
+    const vehiculo = carretas.find(
+      (v) => v.id_vehiculo === Number(idVehiculoCarreta),
+    );
     if (vehiculo && vehiculo.id_empresa_transporte) {
       setIdEmpresaTransporteCarreta(String(vehiculo.id_empresa_transporte));
     }
@@ -647,7 +769,8 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
     const nuevos: ItemFormItem[] = seleccionados.map((i) => ({
       tempId: `${itemKey(i)}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       id_lote_mineral: i.tipo_item === "PARTICION" ? null : i.id_lote_mineral,
-      id_particion_lote_mineral: i.tipo_item === "LOTE" ? null : i.id_particion_lote_mineral,
+      id_particion_lote_mineral:
+        i.tipo_item === "LOTE" ? null : i.id_particion_lote_mineral,
       tipo_item: i.tipo_item,
       correlativo: i.correlativo,
       peso_inicial: i.peso_inicial,
@@ -760,9 +883,10 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
     // recepciones si el operador selecciono items por separado.
     let dataRecepcion: RES_ArchivosGuiasRecepcion;
     try {
-      dataRecepcion = await ItemsMineralService.get_archivos_guias_by_recepcion(
-        unicaRecepcion,
-      );
+      dataRecepcion =
+        await ItemsMineralService.get_archivos_guias_by_recepcion(
+          unicaRecepcion,
+        );
       // console.log("[autocompletar] respuesta del endpoint:", dataRecepcion);
     } catch {
       return;
@@ -914,9 +1038,7 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
     }
     const base = archivo.nombre_original || "archivo";
     let ext =
-      archivo.extension && archivo.extension !== "bin"
-        ? archivo.extension
-        : "";
+      archivo.extension && archivo.extension !== "bin" ? archivo.extension : "";
     let nombreCompleto =
       ext && !base.toLowerCase().endsWith(`.${ext.toLowerCase()}`)
         ? `${base}.${ext}`
@@ -1032,8 +1154,10 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
     if (!idConcesion) return notifyError("Seleccione una concesión.");
     if (!idConductor) return notifyError("Seleccione un conductor.");
     if (!idVehiculo) return notifyError("Seleccione un vehículo.");
-    if (!motivoTraslado) return notifyError("Seleccione el motivo de traslado.");
-    if (items.length === 0) return notifyError("Debe agregar al menos un item a la guía.");
+    if (!motivoTraslado)
+      return notifyError("Seleccione el motivo de traslado.");
+    if (items.length === 0)
+      return notifyError("Debe agregar al menos un item a la guía.");
 
     const guiaRemitenteTrim = guiaRemitente.trim();
     if (!guiaRemitenteTrim) {
@@ -1051,19 +1175,22 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
     // `id_excluir` con el id de la guía actual para no chocar consigo misma.
     try {
       setValidatingDuplicado(true);
-      const resultadoValidacion = await GuiasPrimerTramoService.validar_duplicado({
-        id_sucursal: idSucursal,
-        guia_remitente: guiaRemitenteTrim,
-        guia_transportista: numeroGuiaTransportista,
-        sin_guia_transportista: sinGuiaTransportista,
-        id_excluir: guia?.id ?? null,
-      });
+      const resultadoValidacion =
+        await GuiasPrimerTramoService.validar_duplicado({
+          id_sucursal: idSucursal,
+          guia_remitente: guiaRemitenteTrim,
+          guia_transportista: numeroGuiaTransportista,
+          sin_guia_transportista: sinGuiaTransportista,
+          id_excluir: guia?.id ?? null,
+        });
 
       if (resultadoValidacion.existe) {
         const msgs = resultadoValidacion.messages ?? {};
         const msgPrincipal =
-          msgs.combinacion ?? msgs.remitente ?? msgs.transportista
-          ?? "Ya existe una guía activa con esos datos.";
+          msgs.combinacion ??
+          msgs.remitente ??
+          msgs.transportista ??
+          "Ya existe una guía activa con esos datos.";
         notifyError(msgPrincipal);
         return;
       }
@@ -1093,9 +1220,18 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
     const itemsDto: DTO_ItemGuiaInput[] = items.map((i) => ({
       id_lote_mineral: i.id_lote_mineral,
       id_particion_lote_mineral: i.id_particion_lote_mineral,
-      peso_inicial: i.peso_inicial !== null && i.peso_inicial !== undefined ? round2(Number(i.peso_inicial)) : 0,
-      peso_final: i.peso_final !== null && i.peso_final !== undefined ? round2(Number(i.peso_final)) : 0,
-      peso_neto: i.peso_neto !== null && i.peso_neto !== undefined ? round2(Number(i.peso_neto)) : 0,
+      peso_inicial:
+        i.peso_inicial !== null && i.peso_inicial !== undefined
+          ? round2(Number(i.peso_inicial))
+          : 0,
+      peso_final:
+        i.peso_final !== null && i.peso_final !== undefined
+          ? round2(Number(i.peso_final))
+          : 0,
+      peso_neto:
+        i.peso_neto !== null && i.peso_neto !== undefined
+          ? round2(Number(i.peso_neto))
+          : 0,
     }));
 
     setSubmitting(true);
@@ -1108,22 +1244,34 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
           id_concesion: Number(idConcesion),
           id_conductor: Number(idConductor),
           id_vehiculo: Number(idVehiculo),
-          id_empresa_transporte: idEmpresaTransporte ? Number(idEmpresaTransporte) : null,
-          id_vehiculo_carreta: idVehiculoCarreta ? Number(idVehiculoCarreta) : null,
+          id_empresa_transporte: idEmpresaTransporte
+            ? Number(idEmpresaTransporte)
+            : null,
+          id_vehiculo_carreta: idVehiculoCarreta
+            ? Number(idVehiculoCarreta)
+            : null,
           id_empresa_transporte_carreta: idEmpresaTransporteCarreta
             ? Number(idEmpresaTransporteCarreta)
             : null,
           motivo_traslado: motivoTraslado,
           condicion_ingreso: condicionIngreso,
-          fecha_inicio_traslado: getFinalDateTime(fechaInicioTraslado, guia.fecha_inicio_traslado),
+          fecha_inicio_traslado: getFinalDateTime(
+            fechaInicioTraslado,
+            guia.fecha_inicio_traslado,
+          ),
           fecha_emision: getFinalDateTime(fechaEmision, guia.fecha_emision),
-          fecha_en_planta: getFinalDateTime(fechaEnPlanta, guia.fecha_en_planta),
+          fecha_en_planta: getFinalDateTime(
+            fechaEnPlanta,
+            guia.fecha_en_planta,
+          ),
           guia_remitente: guiaRemitenteTrim,
           guia_transportista: numeroGuiaTransportista,
           sin_guia_transportista: sinGuiaTransportista,
           lotes: itemsDto,
           documento_guia_remitente: documentoGuiaRemitente,
-          documento_guia_transportista: sinGuiaTransportista ? null : documentoGuiaTransportista,
+          documento_guia_transportista: sinGuiaTransportista
+            ? null
+            : documentoGuiaTransportista,
           motivo: null,
         };
         await onUpdate(guia.id, dto);
@@ -1134,8 +1282,12 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
           id_concesion: Number(idConcesion),
           id_conductor: Number(idConductor),
           id_vehiculo: Number(idVehiculo),
-          id_empresa_transporte: idEmpresaTransporte ? Number(idEmpresaTransporte) : null,
-          id_vehiculo_carreta: idVehiculoCarreta ? Number(idVehiculoCarreta) : null,
+          id_empresa_transporte: idEmpresaTransporte
+            ? Number(idEmpresaTransporte)
+            : null,
+          id_vehiculo_carreta: idVehiculoCarreta
+            ? Number(idVehiculoCarreta)
+            : null,
           id_empresa_transporte_carreta: idEmpresaTransporteCarreta
             ? Number(idEmpresaTransporteCarreta)
             : null,
@@ -1149,7 +1301,9 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
           sin_guia_transportista: sinGuiaTransportista,
           lotes: itemsDto,
           documento_guia_remitente: documentoGuiaRemitente,
-          documento_guia_transportista: sinGuiaTransportista ? null : documentoGuiaTransportista,
+          documento_guia_transportista: sinGuiaTransportista
+            ? null
+            : documentoGuiaTransportista,
         };
         await onSubmit(dto);
       }
@@ -1171,10 +1325,18 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
       <ModalEstandar
         opened={opened}
         close={handleClose}
-        title={guia ? "Editar Guía de Primer Tramo" : "Registrar Guía de Primer Tramo"}
+        title={
+          guia
+            ? "Editar Guía de Primer Tramo"
+            : "Registrar Guía de Primer Tramo"
+        }
         size="xl"
       >
-        <Stack gap="md" className="max-h-[85vh] overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+        <Stack
+          gap="md"
+          className="max-h-[85vh] overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+        >
           {/* ========== 1. Fechas ========== */}
           <Grid gutter="sm">
             <Grid.Col span={{ base: 12, sm: 4 }}>
@@ -1207,7 +1369,9 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
                 type="date"
                 label="Fecha En Planta:"
                 value={fechaEnPlanta ?? ""}
-                onChange={(e) => setFechaEnPlanta(e.currentTarget.value || null)}
+                onChange={(e) =>
+                  setFechaEnPlanta(e.currentTarget.value || null)
+                }
                 classNames={fieldClasses}
                 radius="lg"
                 size="xs"
@@ -1222,12 +1386,15 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
               <Group gap="xs" align="flex-end" wrap="nowrap">
                 <Select
                   label="Proveedor:"
-                  placeholder={loadingProveedores ? "Cargando..." : "Seleccione"}
+                  placeholder={
+                    loadingProveedores ? "Cargando..." : "Seleccione"
+                  }
                   searchable
                   clearable
                   data={proveedores.map((p) => ({
                     value: String(p.id_proveedor),
-                    label: p.razon_social + (p.documento ? ` (${p.documento})` : ""),
+                    label:
+                      p.razon_social + (p.documento ? ` (${p.documento})` : ""),
                   }))}
                   value={idProveedor}
                   onChange={handleProveedorChange}
@@ -1235,11 +1402,17 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
                   radius="lg"
                   size="xs"
                   disabled={loadingProveedores}
-                  rightSection={loadingProveedores ? <Loader size={16} /> : undefined}
+                  rightSection={
+                    loadingProveedores ? <Loader size={16} /> : undefined
+                  }
                   required
                   className="flex-1"
                 />
-                <Tooltip label="Registrar Nuevo Proveedor Minero" withArrow radius="md">
+                <Tooltip
+                  label="Registrar Nuevo Proveedor Minero"
+                  withArrow
+                  radius="md"
+                >
                   <ActionIcon
                     size="30px"
                     radius="lg"
@@ -1257,10 +1430,15 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
               <Group gap="xs" align="flex-end" wrap="nowrap">
                 <Select
                   label={labelConcesion}
-                  placeholder={loadingConcesiones ? "Cargando..." : "Seleccione"}
+                  placeholder={
+                    loadingConcesiones ? "Cargando..." : "Seleccione"
+                  }
                   searchable
                   clearable
-                  data={concesiones.map((c) => ({ value: String(c.id_concesion), label: c.nombre }))}
+                  data={concesiones.map((c) => ({
+                    value: String(c.id_concesion),
+                    label: c.nombre,
+                  }))}
                   value={idConcesion}
                   onChange={setIdConcesion}
                   classNames={fieldClasses}
@@ -1268,11 +1446,17 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
                   size="xs"
                   required
                   disabled={!idProveedor || loadingConcesiones}
-                  rightSection={loadingConcesiones ? <Loader size={16} /> : undefined}
+                  rightSection={
+                    loadingConcesiones ? <Loader size={16} /> : undefined
+                  }
                   className="flex-1"
                 />
                 <Tooltip
-                  label={idProveedor ? "Asociar o Crear Concesión" : "Seleccione primero un proveedor"}
+                  label={
+                    idProveedor
+                      ? "Asociar o Crear Concesión"
+                      : "Seleccione primero un proveedor"
+                  }
                   withArrow
                   radius="md"
                 >
@@ -1299,7 +1483,9 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
                 label="N° Guía Remitente:"
                 placeholder="Ej. 001-12345"
                 value={guiaRemitente}
-                onChange={(e) => setGuiaRemitente(e.currentTarget.value.toUpperCase())}
+                onChange={(e) =>
+                  setGuiaRemitente(e.currentTarget.value.toUpperCase())
+                }
                 classNames={fieldClasses}
                 radius="lg"
                 size="xs"
@@ -1307,7 +1493,8 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
                 required
                 error={
                   existeRemitenteEnVivo
-                    ? mensajesDuplicado.remitente ?? "Ya existe otra guía activa con este número de guía remitente."
+                    ? (mensajesDuplicado.remitente ??
+                      "Ya existe otra guía activa con este número de guía remitente.")
                     : undefined
                 }
               />
@@ -1317,7 +1504,9 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
                 label="N° Guía Transportista:"
                 placeholder="Ej. 001-12345"
                 value={guiaTransportista}
-                onChange={(e) => setGuiaTransportista(e.currentTarget.value.toUpperCase())}
+                onChange={(e) =>
+                  setGuiaTransportista(e.currentTarget.value.toUpperCase())
+                }
                 classNames={fieldClasses}
                 radius="lg"
                 size="xs"
@@ -1325,20 +1514,26 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
                 disabled={sinGuiaTransportista}
                 error={
                   existeTransportistaEnVivo
-                    ? mensajesDuplicado.transportista ?? "Ya existe otra guía activa con este número de guía transportista."
+                    ? (mensajesDuplicado.transportista ??
+                      "Ya existe otra guía activa con este número de guía transportista.")
                     : undefined
                 }
               />
             </Grid.Col>
             <Grid.Col span={{ base: 12, sm: 2 }}>
               <div className="flex flex-col">
-                <span className="text-zinc-400 font-medium text-xs mb-1 whitespace-nowrap overflow-hidden text-ellipsis" title="Sin Guía Transportista">
+                <span
+                  className="text-zinc-400 font-medium text-xs mb-1 whitespace-nowrap overflow-hidden text-ellipsis"
+                  title="Sin Guía Transportista"
+                >
                   Sin Guía Transp.:
                 </span>
                 <div className="flex items-center h-8">
                   <Switch
                     checked={sinGuiaTransportista}
-                    onChange={(e) => setSinGuiaTransportista(e.currentTarget.checked)}
+                    onChange={(e) =>
+                      setSinGuiaTransportista(e.currentTarget.checked)
+                    }
                     color="amber"
                     size="sm"
                   />
@@ -1376,7 +1571,9 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
                   radius="lg"
                   size="xs"
                   disabled={loadingVehiculos}
-                  rightSection={loadingVehiculos ? <Loader size={16} /> : undefined}
+                  rightSection={
+                    loadingVehiculos ? <Loader size={16} /> : undefined
+                  }
                   required
                   className="flex-1"
                 />
@@ -1398,20 +1595,31 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
               <Group gap="xs" align="flex-end" wrap="nowrap">
                 <Select
                   label="Empresa de Transporte:"
-                  placeholder={loadingEmpresasTransporte ? "Cargando..." : "Seleccione"}
+                  placeholder={
+                    loadingEmpresasTransporte ? "Cargando..." : "Seleccione"
+                  }
                   searchable
                   clearable
-                  data={empresasTransporte.map((e) => ({ value: String(e.id_empresa_transporte), label: e.razon_social }))}
+                  data={empresasTransporte.map((e) => ({
+                    value: String(e.id_empresa_transporte),
+                    label: e.razon_social,
+                  }))}
                   value={idEmpresaTransporte}
                   onChange={setIdEmpresaTransporte}
                   classNames={fieldClasses}
                   radius="lg"
                   size="xs"
                   disabled={loadingEmpresasTransporte}
-                  rightSection={loadingEmpresasTransporte ? <Loader size={16} /> : undefined}
+                  rightSection={
+                    loadingEmpresasTransporte ? <Loader size={16} /> : undefined
+                  }
                   className="flex-1"
                 />
-                <Tooltip label="Registrar nueva Empresa de Transporte" withArrow radius="md">
+                <Tooltip
+                  label="Registrar nueva Empresa de Transporte"
+                  withArrow
+                  radius="md"
+                >
                   <ActionIcon
                     size="30px"
                     radius="lg"
@@ -1429,7 +1637,9 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
               <Group gap="xs" align="flex-end" wrap="nowrap">
                 <Select
                   label="Vehículo Carreta:"
-                  placeholder={loadingVehiculos ? "Cargando..." : "Seleccione (opcional)"}
+                  placeholder={
+                    loadingVehiculos ? "Cargando..." : "Seleccione (opcional)"
+                  }
                   searchable
                   clearable
                   data={carretas.map((v) => ({
@@ -1442,10 +1652,16 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
                   radius="lg"
                   size="xs"
                   disabled={loadingVehiculos}
-                  rightSection={loadingVehiculos ? <Loader size={16} /> : undefined}
+                  rightSection={
+                    loadingVehiculos ? <Loader size={16} /> : undefined
+                  }
                   className="flex-1"
                 />
-                <Tooltip label="Registrar nuevo Vehículo Carreta" withArrow radius="md">
+                <Tooltip
+                  label="Registrar nuevo Vehículo Carreta"
+                  withArrow
+                  radius="md"
+                >
                   <ActionIcon
                     size="30px"
                     radius="lg"
@@ -1465,20 +1681,33 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
               <Group gap="xs" align="flex-end" wrap="nowrap">
                 <Select
                   label="Empresa de Transporte Carreta:"
-                  placeholder={loadingEmpresasTransporte ? "Cargando..." : "Seleccione (opcional)"}
+                  placeholder={
+                    loadingEmpresasTransporte
+                      ? "Cargando..."
+                      : "Seleccione (opcional)"
+                  }
                   searchable
                   clearable
-                  data={empresasTransporte.map((e) => ({ value: String(e.id_empresa_transporte), label: e.razon_social }))}
+                  data={empresasTransporte.map((e) => ({
+                    value: String(e.id_empresa_transporte),
+                    label: e.razon_social,
+                  }))}
                   value={idEmpresaTransporteCarreta}
                   onChange={setIdEmpresaTransporteCarreta}
                   classNames={fieldClasses}
                   radius="lg"
                   size="xs"
                   disabled={loadingEmpresasTransporte}
-                  rightSection={loadingEmpresasTransporte ? <Loader size={16} /> : undefined}
+                  rightSection={
+                    loadingEmpresasTransporte ? <Loader size={16} /> : undefined
+                  }
                   className="flex-1"
                 />
-                <Tooltip label="Registrar nueva Empresa de Transporte Carreta" withArrow radius="md">
+                <Tooltip
+                  label="Registrar nueva Empresa de Transporte Carreta"
+                  withArrow
+                  radius="md"
+                >
                   <ActionIcon
                     size="30px"
                     radius="lg"
@@ -1500,7 +1729,9 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
               <Group gap="xs" align="flex-end" wrap="nowrap">
                 <Select
                   label="Conductor:"
-                  placeholder={loadingConductores ? "Cargando..." : "Seleccione"}
+                  placeholder={
+                    loadingConductores ? "Cargando..." : "Seleccione"
+                  }
                   searchable
                   clearable
                   data={conductores.map((c) => ({
@@ -1513,11 +1744,17 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
                   radius="lg"
                   size="xs"
                   disabled={loadingConductores}
-                  rightSection={loadingConductores ? <Loader size={16} /> : undefined}
+                  rightSection={
+                    loadingConductores ? <Loader size={16} /> : undefined
+                  }
                   required
                   className="flex-1"
                 />
-                <Tooltip label="Registrar nuevo Conductor" withArrow radius="md">
+                <Tooltip
+                  label="Registrar nuevo Conductor"
+                  withArrow
+                  radius="md"
+                >
                   <ActionIcon
                     size="30px"
                     radius="lg"
@@ -1592,7 +1829,9 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
                     ? [documentoGuiaTransportista]
                     : []
                 }
-                onFilesChange={(files) => handleFilesChange("transportista", files)}
+                onFilesChange={(files) =>
+                  handleFilesChange("transportista", files)
+                }
                 existingFiles={
                   !sinGuiaTransportista &&
                   !documentoGuiaTransportista &&
@@ -1629,22 +1868,43 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
           </div>
 
           <div className="overflow-x-auto rounded-xl border border-zinc-800/80 bg-zinc-950/20 shrink-0 min-h-37.5">
-            <Table verticalSpacing="sm" horizontalSpacing="md" className="w-full">
+            <Table
+              verticalSpacing="sm"
+              horizontalSpacing="md"
+              className="w-full"
+            >
               <thead>
                 <tr className="border-b border-zinc-800/80 bg-zinc-900/40 text-zinc-300 text-xs font-semibold">
-                  <th className="text-center py-3 w-28 whitespace-nowrap">Tipo</th>
-                  <th className="text-center py-3 min-w-[160px] whitespace-nowrap">Correlativo</th>
-                  <th className="text-center py-3 w-32 whitespace-nowrap">P. Bruto</th>
-                  <th className="text-center py-3 w-32 whitespace-nowrap">Tara</th>
-                  <th className="text-center py-3 w-32 whitespace-nowrap">P. Neto</th>
-                  <th className="text-center py-3 w-12" style={{ width: 48 }}></th>
+                  <th className="text-center py-3 w-28 whitespace-nowrap">
+                    Tipo
+                  </th>
+                  <th className="text-center py-3 min-w-[160px] whitespace-nowrap">
+                    Correlativo
+                  </th>
+                  <th className="text-center py-3 w-32 whitespace-nowrap">
+                    P. Bruto
+                  </th>
+                  <th className="text-center py-3 w-32 whitespace-nowrap">
+                    Tara
+                  </th>
+                  <th className="text-center py-3 w-32 whitespace-nowrap">
+                    P. Neto
+                  </th>
+                  <th
+                    className="text-center py-3 w-12"
+                    style={{ width: 48 }}
+                  ></th>
                 </tr>
               </thead>
               <tbody>
                 {items.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-6 text-zinc-500 text-xs">
-                      No hay items agregados. Haga clic en "+ Agregar Item" para seleccionar.
+                    <td
+                      colSpan={6}
+                      className="text-center py-6 text-zinc-500 text-xs"
+                    >
+                      No hay items agregados. Haga clic en "+ Agregar Item" para
+                      seleccionar.
                     </td>
                   </tr>
                 ) : (
@@ -1656,7 +1916,9 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
                       <td className="py-2.5 text-center whitespace-nowrap">
                         <Badge
                           variant="light"
-                          color={it.tipo_item === "PARTICION" ? "violet" : "teal"}
+                          color={
+                            it.tipo_item === "PARTICION" ? "violet" : "teal"
+                          }
                           size="sm"
                           radius="md"
                           className="font-bold uppercase"
@@ -1669,24 +1931,32 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
                           <div className="p-1 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
                             <IconFileText size={14} />
                           </div>
-                          <Text size="xs" fw={600} className="text-zinc-200 font-mono tracking-wider whitespace-nowrap">
+                          <Text
+                            size="xs"
+                            fw={600}
+                            className="text-zinc-200 font-mono tracking-wider whitespace-nowrap"
+                          >
                             {it.correlativo}
                           </Text>
                         </div>
                       </td>
-                      
+
                       <td className="py-2 text-center align-middle whitespace-nowrap">
                         <PesoGuiaInput
                           label={`Peso inicial ${it.correlativo}`}
                           value={it.peso_inicial ?? 0}
-                          onChange={(v) => handleUpdatePesoItem(it.tempId, "peso_inicial", v)}
+                          onChange={(v) =>
+                            handleUpdatePesoItem(it.tempId, "peso_inicial", v)
+                          }
                         />
                       </td>
                       <td className="py-2 text-center align-middle whitespace-nowrap">
                         <PesoGuiaInput
                           label={`Peso final ${it.correlativo}`}
                           value={it.peso_final ?? 0}
-                          onChange={(v) => handleUpdatePesoItem(it.tempId, "peso_final", v)}
+                          onChange={(v) =>
+                            handleUpdatePesoItem(it.tempId, "peso_final", v)
+                          }
                         />
                       </td>
                       <td className="py-2 text-center align-middle whitespace-nowrap">
@@ -1694,7 +1964,9 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
                           label={`Peso neto ${it.correlativo}`}
                           value={it.peso_neto ?? 0}
                           color="text-emerald-400 font-semibold"
-                          onChange={(v) => handleUpdatePesoItem(it.tempId, "peso_neto", v)}
+                          onChange={(v) =>
+                            handleUpdatePesoItem(it.tempId, "peso_neto", v)
+                          }
                         />
                       </td>
                       <td className="py-2.5 text-center">
@@ -1801,7 +2073,10 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
         <ModalConcesionesProveedor
           opened={openedModalConcesion}
           idProveedor={Number(idProveedor)}
-          nombreProveedor={proveedores.find((p) => String(p.id_proveedor) === idProveedor)?.razon_social}
+          nombreProveedor={
+            proveedores.find((p) => String(p.id_proveedor) === idProveedor)
+              ?.razon_social
+          }
           onClose={() => setOpenedModalConcesion(false)}
           onSuccess={handleConcesionCreada}
         />
@@ -1811,14 +2086,24 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
       <ModalEstandar
         opened={openedModalVehiculo !== null}
         close={() => setOpenedModalVehiculo(null)}
-        title={openedModalVehiculo === "carreta" ? "Registrar Vehículo Carreta" : "Registrar Vehículo Tractor"}
+        title={
+          openedModalVehiculo === "carreta"
+            ? "Registrar Vehículo Carreta"
+            : "Registrar Vehículo Tractor"
+        }
         size="md"
       >
         <RegistroVehiculoSimple
-          idEmpresaTransporte={idEmpresaTransporte ? Number(idEmpresaTransporte) : null}
-          idTipoVehiculo={openedModalVehiculo === "carreta" ? idTipoVehiculoCarreta : null}
+          idEmpresaTransporte={
+            idEmpresaTransporte ? Number(idEmpresaTransporte) : null
+          }
+          idTipoVehiculo={
+            openedModalVehiculo === "carreta" ? idTipoVehiculoCarreta : null
+          }
           onCancel={() => setOpenedModalVehiculo(null)}
-          onSuccess={(vehiculo) => handleVehiculoCreado(vehiculo, openedModalVehiculo ?? "tractor")}
+          onSuccess={(vehiculo) =>
+            handleVehiculoCreado(vehiculo, openedModalVehiculo ?? "tractor")
+          }
         />
       </ModalEstandar>
 
@@ -1826,12 +2111,18 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
       <ModalEstandar
         opened={openedModalEmpresa !== null}
         close={() => setOpenedModalEmpresa(null)}
-        title={openedModalEmpresa === "carreta" ? "Registrar Empresa de Transporte (Carreta)" : "Registrar Empresa de Transporte"}
+        title={
+          openedModalEmpresa === "carreta"
+            ? "Registrar Empresa de Transporte (Carreta)"
+            : "Registrar Empresa de Transporte"
+        }
         size="lg"
       >
         <RegistroEmpresaTransporte
           onCancel={() => setOpenedModalEmpresa(null)}
-          onSuccess={(e) => handleEmpresaCreada(e, openedModalEmpresa ?? "tractor")}
+          onSuccess={(e) =>
+            handleEmpresaCreada(e, openedModalEmpresa ?? "tractor")
+          }
         />
       </ModalEstandar>
 
@@ -1870,11 +2161,15 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
             );
             const yaSeleccionados = new Set(items.map(itemKey));
             setItemsDisponibles(
-              data.filter((i) => !yaSeleccionados.has(itemKey(i)) && !i.en_guia),
+              data.filter(
+                (i) => !yaSeleccionados.has(itemKey(i)) && !i.en_guia,
+              ),
             );
           } catch (e) {
             console.error("Error al cargar items disponibles", e);
-            notifyError("No se pudieron cargar los items de mineral disponibles.");
+            notifyError(
+              "No se pudieron cargar los items de mineral disponibles.",
+            );
           } finally {
             setLoadingItems(false);
           }
@@ -1891,11 +2186,15 @@ export const ModalGuiaPrimerTramo = ({ opened, idSucursal, guia, onClose, onSubm
             );
             const yaSeleccionados = new Set(items.map(itemKey));
             setItemsDisponibles(
-              data.filter((i) => !yaSeleccionados.has(itemKey(i)) && !i.en_guia),
+              data.filter(
+                (i) => !yaSeleccionados.has(itemKey(i)) && !i.en_guia,
+              ),
             );
           } catch (e) {
             console.error("Error al cargar items disponibles", e);
-            notifyError("No se pudieron cargar los items de mineral disponibles.");
+            notifyError(
+              "No se pudieron cargar los items de mineral disponibles.",
+            );
           } finally {
             setLoadingItems(false);
           }
@@ -1916,7 +2215,12 @@ interface PesoGuiaInputProps {
   onChange: (value: number) => void;
 }
 
-const PesoGuiaInput = ({ label, value, color, onChange }: PesoGuiaInputProps) => {
+const PesoGuiaInput = ({
+  label,
+  value,
+  color,
+  onChange,
+}: PesoGuiaInputProps) => {
   return (
     <NumberInput
       value={value}
@@ -1944,6 +2248,27 @@ const PesoGuiaInput = ({ label, value, color, onChange }: PesoGuiaInputProps) =>
 // ============================================================
 // Sub-modal para seleccionar items (lotes o particiones)
 // ============================================================
+
+/** Nivel 2 de la jerarquía: un proveedor dentro de una recepción de unidad. */
+interface GrupoProveedor {
+  key: string;
+  items: RES_ItemMineralDisponible[];
+}
+
+/**
+ * Nivel 1 de la jerarquía: una recepción de unidad, identificada por la placa
+ * del vehículo que descendió. `totalItems` alimenta el rowspan de la celda que
+ * spans todo el grupo; `createdAtMin` ordena las recepciones.
+ */
+interface GrupoRecepcion {
+  key: number;
+  placa: string | null;
+  /** Datetime del ingreso del vehículo a planta. Null si el item no lo trae. */
+  fecha_hora_ingreso_vehiculo: string | null;
+  proveedores: GrupoProveedor[];
+  totalItems: number;
+  createdAtMin: number;
+}
 
 interface ModalSeleccionarItemProps {
   opened: boolean;
@@ -1978,7 +2303,9 @@ const ModalSeleccionarItem = ({
 }: ModalSeleccionarItemProps) => {
   const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set());
   const [busqueda, setBusqueda] = useState("");
-  const [fechaInicio, setFechaInicio] = useState<string>(fechaInicioFiltroIngreso);
+  const [fechaInicio, setFechaInicio] = useState<string>(
+    fechaInicioFiltroIngreso,
+  );
   const [fechaFin, setFechaFin] = useState<string>(fechaFinFiltroIngreso);
 
   useEffect(() => {
@@ -1997,7 +2324,10 @@ const ModalSeleccionarItem = ({
 
   const isItemDisabled = (i: RES_ItemMineralDisponible): boolean => {
     if (idProveedorFijo !== null) {
-      return i.id_proveedor_minero !== null && i.id_proveedor_minero !== idProveedorFijo;
+      return (
+        i.id_proveedor_minero !== null &&
+        i.id_proveedor_minero !== idProveedorFijo
+      );
     }
     // Sin proveedor fijo: si ya hay un proveedor ancla (primer seleccionado),
     // cualquier item de otro proveedor queda disabled.
@@ -2012,7 +2342,8 @@ const ModalSeleccionarItem = ({
   // no se deseleccione completamente). Si no hay seleccion, queda null.
   const proveedorAncla = useMemo<string | null>(() => {
     for (const i of items) {
-      if (seleccionados.has(itemKey(i)) && i.proveedor_nombre) return i.proveedor_nombre;
+      if (seleccionados.has(itemKey(i)) && i.proveedor_nombre)
+        return i.proveedor_nombre;
     }
     return null;
   }, [items, seleccionados]);
@@ -2059,38 +2390,80 @@ const ModalSeleccionarItem = ({
     if (busqueda.trim() === "") return true;
     const query = busqueda.toLowerCase();
     const matchesCorrelativo = i.correlativo.toLowerCase().includes(query);
-    const matchesProveedor = i.proveedor_nombre?.toLowerCase().includes(query) ?? false;
-    const matchesPlaca = i.vehiculo_placa?.toLowerCase().includes(query) ?? false;
+    const matchesProveedor =
+      i.proveedor_nombre?.toLowerCase().includes(query) ?? false;
+    const matchesPlaca =
+      i.vehiculo_placa?.toLowerCase().includes(query) ?? false;
     return matchesCorrelativo || matchesProveedor || matchesPlaca;
   });
 
-  // Orden estable: por proveedor (alfabetico), luego por correlativo.
+  // Orden estable dentro de la jerarquía: por correlativo. El orden de las
+  // recepciones se resuelve DESPUÉS, comparando la fecha de registro más
+  // antigua de cada grupo (ver `gruposPorRecepcion`).
   // `slice()` evita mutar el array filtrado.
-  const ordenados = filtrados.slice().sort((a, b) => {
-    const provA = a.proveedor_nombre ?? "";
-    const provB = b.proveedor_nombre ?? "";
-    if (provA < provB) return -1;
-    if (provA > provB) return 1;
-    return a.correlativo.localeCompare(b.correlativo);
+  const ordenados = filtrados
+    .slice()
+    .sort((a, b) => a.correlativo.localeCompare(b.correlativo));
+
+  /**
+   * Agrupación en dos niveles para las celdas con rowspan.
+   *
+   * Jerarquía de izquierda a derecha: Recepción de unidad (rótulo: placa) >
+   * Proveedor dentro de esa recepción > lote/partición. Antes solo se agrupaba
+   * por proveedor, lo que mezclaba en un mismo bloque los items de descargas
+   * distintas.
+   */
+  const porRecepcion = new Map<
+    number,
+    Map<string, RES_ItemMineralDisponible[]>
+  >();
+  for (const it of ordenados) {
+    const rk = recepcionKey(it);
+    let porProveedor = porRecepcion.get(rk);
+    if (!porProveedor) {
+      porProveedor = new Map<string, RES_ItemMineralDisponible[]>();
+      porRecepcion.set(rk, porProveedor);
+    }
+    const pk = it.proveedor_nombre ?? "(Sin proveedor)";
+    const bucket = porProveedor.get(pk);
+    if (bucket) bucket.push(it);
+    else porProveedor.set(pk, [it]);
+  }
+
+  // Las recepciones se apilan por fecha de registro más antigua primero (orden
+  // real de llegada a planta); el id desempata cuando dos descargas comparten
+  // timestamp. Proveedores alfabéticos dentro de cada recepción (igual que
+  // antes) e items por correlativo.
+  const gruposPorRecepcion: GrupoRecepcion[] = Array.from(
+    porRecepcion.entries(),
+  ).map(([rk, porProveedor]) => {
+    const proveedores: GrupoProveedor[] = Array.from(porProveedor.entries())
+      .map(([key, items]) => ({ key, items }))
+      .sort((a, b) => a.key.localeCompare(b.key));
+    const todos = proveedores.flatMap((p) => p.items);
+    return {
+      key: rk,
+      // La placa identifica la recepción (el vehículo que descendió). Se
+      // toma la primera disponible porque dentro de una misma recepción la
+      // placa puede variar entre tractor y carreta.
+      placa: todos.find((i) => i.vehiculo_placa)?.vehiculo_placa ?? null,
+      fecha_hora_ingreso_vehiculo:
+        todos.find((i) => i.fecha_hora_ingreso_vehiculo)
+          ?.fecha_hora_ingreso_vehiculo ?? null,
+      proveedores,
+      totalItems: todos.length,
+      createdAtMin: todos.reduce(
+        (min, i) => Math.min(min, tsCreacion(i.created_at)),
+        Infinity,
+      ),
+    };
   });
 
-  // Agrupacion visual por proveedor: cada grupo renderiza una celda con
-  // rowspan sobre todos sus items. Items sin `proveedor_nombre` caen en
-  // "(Sin proveedor)". `ordenados` ya viene agrupado por el sort previo,
-  // asi que basta con cortar al cambiar de proveedor.
-  const gruposPorProveedor: Array<{
-    key: string;
-    items: RES_ItemMineralDisponible[];
-  }> = [];
-  for (const it of ordenados) {
-    const key = it.proveedor_nombre ?? "(Sin proveedor)";
-    const last = gruposPorProveedor[gruposPorProveedor.length - 1];
-    if (last && last.key === key) {
-      last.items.push(it);
-    } else {
-      gruposPorProveedor.push({ key, items: [it] });
-    }
-  }
+  gruposPorRecepcion.sort((a, b) =>
+    a.createdAtMin !== b.createdAtMin
+      ? a.createdAtMin - b.createdAtMin
+      : a.key - b.key,
+  );
 
   const filtrosHeader = (
     <div className="flex items-center gap-3">
@@ -2166,14 +2539,20 @@ const ModalSeleccionarItem = ({
     >
       <Stack gap="md">
         <div className="max-h-[55vh] overflow-x-auto overflow-y-auto rounded-xl border border-zinc-800/80 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <Table verticalSpacing="xs" horizontalSpacing="sm" className="w-full min-w-180">
+          <Table
+            verticalSpacing="xs"
+            horizontalSpacing="sm"
+            className="w-full min-w-180"
+          >
             <thead className="sticky top-0 bg-zinc-900/95 backdrop-blur z-10">
               <tr className="text-zinc-300 text-xs">
+                <th className="text-center">Recepción</th>
                 <th className="text-center">Proveedor</th>
-                <th style={{ width: 40 }} className="text-center">#</th>
+                <th style={{ width: 40 }} className="text-center">
+                  #
+                </th>
                 <th className="text-center">Tipo</th>
                 <th className="text-center">Correlativo</th>
-                <th className="text-center">Placa</th>
                 <th className="text-center">P. Bruto</th>
                 <th className="text-center">Tara</th>
                 <th className="text-center">P. Neto</th>
@@ -2182,71 +2561,141 @@ const ModalSeleccionarItem = ({
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-4 text-zinc-400 text-xs">Cargando items...</td>
+                  <td
+                    colSpan={8}
+                    className="text-center py-4 text-zinc-400 text-xs"
+                  >
+                    Cargando items...
+                  </td>
                 </tr>
               ) : ordenados.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-4 text-zinc-500 text-xs">
+                  <td
+                    colSpan={8}
+                    className="text-center py-4 text-zinc-500 text-xs"
+                  >
                     No hay items disponibles para los filtros aplicados.
                   </td>
                 </tr>
               ) : (
-                gruposPorProveedor.map((g) => (
-                  <Fragment key={g.key}>
-                    {g.items.map((i, idx) => {
-                      const key = itemKey(i);
-                      const disabled = isItemDisabled(i);
-                      const tooltipLabel = disabled
-                        ? idProveedorFijo !== null
-                          ? `Este item pertenece al proveedor "${i.proveedor_nombre ?? "sin nombre"}". Cambie el proveedor o limpie los items seleccionados para poder elegir este.`
-                          : `Este item pertenece al proveedor "${i.proveedor_nombre ?? "sin nombre"}". Solo puedes seleccionar items de un mismo proveedor ("${proveedorAncla ?? g.key}").`
-                        : "";
-                      return (
-                        <tr
-                          key={key}
-                          className={`border-b border-zinc-900/40 ${disabled ? "opacity-40 cursor-not-allowed" : "cursor-pointer hover:bg-zinc-900/30"} ${seleccionados.has(key) ? "bg-emerald-950/20" : ""}`}
-                          onClick={() => !disabled && toggle(key)}
-                        >
-                          {idx === 0 && (
+                gruposPorRecepcion.map((r, rIdx) => (
+                  <Fragment key={r.key}>
+                    {r.proveedores.map((g) =>
+                      g.items.map((i, idx) => {
+                        const key = itemKey(i);
+                        const disabled = isItemDisabled(i);
+                        // Solo la primera fila de la recepción pinta la celda
+                        // con rowspan, así que solo ahí hace falta partir el
+                        // datetime.
+                        const fhIngreso =
+                          rIdx === 0 && idx === 0
+                            ? splitFechaHora(r.fecha_hora_ingreso_vehiculo)
+                            : null;
+                        const tooltipLabel = disabled
+                          ? idProveedorFijo !== null
+                            ? `Este item pertenece al proveedor "${i.proveedor_nombre ?? "sin nombre"}". Cambie el proveedor o limpie los items seleccionados para poder elegir este.`
+                            : `Este item pertenece al proveedor "${i.proveedor_nombre ?? "sin nombre"}". Solo puedes seleccionar items de un mismo proveedor ("${proveedorAncla ?? g.key}").`
+                          : "";
+                        return (
+                          <tr
+                            key={key}
+                            className={`border-b border-zinc-900/40 ${disabled ? "opacity-40 cursor-not-allowed" : "cursor-pointer hover:bg-zinc-900/30"} ${seleccionados.has(key) ? "bg-emerald-950/20" : ""}`}
+                            onClick={() => !disabled && toggle(key)}
+                          >
+                            {rIdx === 0 && idx === 0 && (
+                              // Ojo: NO aplicar `flex` al <td>. Un td es
+                              // display:table-cell; pasarlo a flex lo saca del
+                              // algoritmo de tabla y rowSpan deja de funcionar
+                              // (las celdas se descuadran y las columnas se
+                              // colapsan). El layout vertical va en un <div>
+                              // interno.
+                              <td
+                                rowSpan={r.totalItems}
+                                className="align-middle bg-zinc-800/50 border-y border-r border-l border-zinc-700/60 px-3 py-2"
+                              >
+                                <div className="flex flex-col items-center gap-1.5 p-1">
+                                  <Badge
+                                    color="teal"
+                                    size="sm"
+                                    radius="md"
+                                    className="font-mono font-bold uppercase tracking-wide"
+                                  >
+                                    {r.placa ? r.placa.toUpperCase() : "—"}
+                                  </Badge>
+                                  {fhIngreso ? (
+                                    <span className="flex flex-col items-center leading-tight whitespace-nowrap">
+                                      <span className="font-mono text-[10px] tabular-nums text-zinc-200">
+                                        {fhIngreso.fecha}
+                                      </span>
+                                      <span className="font-mono text-[11px] font-semibold tabular-nums text-zinc-200">
+                                        {fhIngreso.hora}
+                                      </span>
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] text-zinc-600">
+                                      sin fecha
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                            )}
+                            {idx === 0 && (
+                              <td
+                                rowSpan={g.items.length}
+                                className="text-center align-middle font-semibold text-zinc-200 text-xs bg-zinc-800/25 border-r border-zinc-800/80 px-3"
+                              >
+                                {g.key}
+                              </td>
+                            )}
                             <td
-                              rowSpan={g.items.length}
-                              className="text-center align-middle font-semibold text-zinc-100 text-xs bg-zinc-800/30 border-r border-l border-zinc-800/80 px-3"
+                              className="text-center"
+                              onClick={(e) => e.stopPropagation()}
                             >
-                              {g.key}
+                              <Tooltip
+                                label={tooltipLabel}
+                                withArrow
+                                disabled={!disabled}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={seleccionados.has(key)}
+                                  onChange={() => toggle(key)}
+                                  disabled={disabled}
+                                  className="accent-emerald-500 disabled:cursor-not-allowed"
+                                />
+                              </Tooltip>
                             </td>
-                          )}
-                          <td className="text-center" onClick={(e) => e.stopPropagation()}>
-                            <Tooltip label={tooltipLabel} withArrow disabled={!disabled}>
-                              <input
-                                type="checkbox"
-                                checked={seleccionados.has(key)}
-                                onChange={() => toggle(key)}
-                                disabled={disabled}
-                                className="accent-emerald-500 disabled:cursor-not-allowed"
-                              />
-                            </Tooltip>
-                          </td>
-                          <td className="text-center">
-                            <Badge
-                              variant="light"
-                              color={i.tipo_item === "PARTICION" ? "violet" : "teal"}
-                              size="sm"
-                              radius="md"
-                              className="font-bold uppercase"
-                            >
-                              {i.tipo_item}
-                            </Badge>
-                          </td>
-                          <td className="text-center font-mono text-zinc-100 text-xs">{i.correlativo}</td>
-                          <td className="text-center text-zinc-300 text-xs">
-                            {i.vehiculo_placa ? i.vehiculo_placa.toUpperCase() : "—"}
-                          </td>
-                          <td className="text-center font-mono text-zinc-200 text-xs">{i.peso_inicial?.toFixed(2) ?? "—"}</td>
-                          <td className="text-center font-mono text-zinc-200 text-xs">{i.peso_final?.toFixed(2) ?? "—"}</td>
-                          <td className="text-center font-mono text-emerald-300 text-xs">{i.peso_neto?.toFixed(2) ?? "—"}</td>
-                        </tr>
-                      );
-                    })}
+                            <td className="text-center">
+                              <Badge
+                                variant="light"
+                                color={
+                                  i.tipo_item === "PARTICION"
+                                    ? "violet"
+                                    : "teal"
+                                }
+                                size="sm"
+                                radius="md"
+                                className="font-bold uppercase"
+                              >
+                                {i.tipo_item}
+                              </Badge>
+                            </td>
+                            <td className="text-center font-mono text-zinc-100 text-xs">
+                              {i.correlativo}
+                            </td>
+                            <td className="text-center font-mono text-zinc-200 text-xs">
+                              {i.peso_inicial?.toFixed(2) ?? "—"}
+                            </td>
+                            <td className="text-center font-mono text-zinc-200 text-xs">
+                              {i.peso_final?.toFixed(2) ?? "—"}
+                            </td>
+                            <td className="text-center font-mono text-emerald-300 text-xs">
+                              {i.peso_neto?.toFixed(2) ?? "—"}
+                            </td>
+                          </tr>
+                        );
+                      }),
+                    )}
                   </Fragment>
                 ))
               )}
@@ -2261,12 +2710,20 @@ const ModalSeleccionarItem = ({
             </Text>
             {idProveedorFijo === null && mezclaProveedores.count > 1 && (
               <Text size="xs" c="red.4">
-                Mezcla de proveedores detectada ({mezclaProveedores.nombres.join(", ")}). Selecciona items de un solo proveedor o asigna uno en el formulario.
+                Mezcla de proveedores detectada (
+                {mezclaProveedores.nombres.join(", ")}). Selecciona items de un
+                solo proveedor o asigna uno en el formulario.
               </Text>
             )}
           </div>
           <div className="flex justify-center gap-2">
-            <Button variant="subtle" color="gray" radius="md" size="sm" onClick={handleClose}>
+            <Button
+              variant="subtle"
+              color="gray"
+              radius="md"
+              size="sm"
+              onClick={handleClose}
+            >
               Cancelar
             </Button>
             <Tooltip
@@ -2279,8 +2736,10 @@ const ModalSeleccionarItem = ({
               }
               withArrow
               disabled={
-                !(seleccionados.size === 0 ||
-                  (idProveedorFijo === null && mezclaProveedores.count > 1))
+                !(
+                  seleccionados.size === 0 ||
+                  (idProveedorFijo === null && mezclaProveedores.count > 1)
+                )
               }
             >
               <Button
@@ -2293,7 +2752,8 @@ const ModalSeleccionarItem = ({
                 }
                 className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
               >
-                Agregar {seleccionados.size > 0 ? `(${seleccionados.size})` : ""}
+                Agregar{" "}
+                {seleccionados.size > 0 ? `(${seleccionados.size})` : ""}
               </Button>
             </Tooltip>
           </div>
