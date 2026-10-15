@@ -280,7 +280,7 @@ export interface TicketBalanzaPdfProps {
 }
 
 export const TicketBalanzaPdf = ({ data }: TicketBalanzaPdfProps) => {
-  const observacionText = data.observacion_peso_final || data.observacion_peso_inicial || "";
+  const observacionText = (data.observaciones || data.observacion_peso_final || data.observacion_peso_inicial || "").trim();
 
   return (
     <Document title={`Ticket Balanza ${data.correlativo || data.id_lote}`}>
@@ -393,12 +393,18 @@ export const TicketBalanzaPdf = ({ data }: TicketBalanzaPdfProps) => {
         </View>
 
         <View style={styles.fieldRow}>
-          <Text style={styles.fieldLabel}>LOTE.........:</Text>
+          <Text style={styles.fieldLabel}>LOTE......:</Text>
           <Text style={styles.fieldValue}>
             {data.correlativo || data.id_lote}
-            {observacionText ? ` (${observacionText})` : ""}
           </Text>
         </View>
+
+        {observacionText ? (
+          <View style={styles.fieldRow}>
+            <Text style={styles.fieldLabel}>OBS.......:</Text>
+            <Text style={styles.fieldValue}>{observacionText}</Text>
+          </View>
+        ) : null}
 
         <View style={styles.dashedLine} />
 

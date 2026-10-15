@@ -376,6 +376,7 @@ export const CardProcesoBalanza = ({
     id_empleado_fin_particion: null,
     fecha_hora_fin_particion: null,
     tiene_particiones: true,
+    observaciones: p.observaciones ?? null,
   });
 
   /**
@@ -506,7 +507,11 @@ export const CardProcesoBalanza = ({
 
     const lotePadreVirtual = buildLotePadreVirtual(
       idLotePadre,
-      particion,
+      {
+        ...particion,
+        observaciones:
+          particion.observaciones ?? lotePadreReal?.observaciones ?? null,
+      },
       proveedorUnidad,
     );
     return (
@@ -931,7 +936,7 @@ export const CardProcesoBalanza = ({
             </Group>
 
             {itemsAMostrar.length === 0 ? (
-              <div className="flex flex-col items-center justify-center flex-1 min-h-[180px] my-1 text-center gap-2 border border-dashed border-blue-500/40 rounded-md bg-blue-500/5">
+              <div className="flex flex-col items-center justify-center flex-1 min-h-45 my-1 text-center gap-2 border border-dashed border-blue-500/40 rounded-md bg-blue-500/5">
                 <IconCalendarTime size={26} className="text-blue-400" />
                 <Text size="sm" c="blue.3" fw={700}>
                   No hay lotes.

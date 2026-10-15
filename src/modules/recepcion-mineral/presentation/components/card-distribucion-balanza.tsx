@@ -5,6 +5,7 @@ import {
   Group,
   Button,
   NumberInput,
+  Textarea,
   ActionIcon,
   Badge,
   Tooltip,
@@ -22,6 +23,7 @@ import {
   IconSun,
   IconAlertTriangle,
   IconPlus,
+  IconNote,
 } from "@tabler/icons-react";
 import type {
   RecepcionMineralResponse,
@@ -33,6 +35,7 @@ import { usePesarDistribucionDetalle } from "../../hooks/usePesarDistribucionDet
 import { useTicketBalanza } from "../../hooks/useTicketBalanza";
 import { useNotify } from "../../../../hooks/useNotify";
 import { ProgramacionDespachosService } from "../../../programacion-despachos/service/programacion-despachos.service";
+import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
 import { ModalAsignarCarga } from "./modal-asignar-carga";
 
 interface CardDistribucionBalanzaProps {
@@ -83,6 +86,7 @@ interface DetallePesajeItemProps {
 }
 
 const DetallePesajeItem = ({ detalle, onSaved }: DetallePesajeItemProps) => {
+  const { notifySuccess, notifyError } = useNotify();
   const { printTicketBalanzaByDistribucionDetalle, loadingTicket } =
     useTicketBalanza();
   const ctrl = usePesarDistribucionDetalle({
@@ -93,6 +97,34 @@ const DetallePesajeItem = ({ detalle, onSaved }: DetallePesajeItemProps) => {
       printTicketBalanzaByDistribucionDetalle(detalle.id);
     },
   });
+
+  const [openObservaciones, setOpenObservaciones] = useState(false);
+  const [observacionesTexto, setObservacionesTexto] = useState(detalle.observaciones ?? "");
+  const [savingObservaciones, setSavingObservaciones] = useState(false);
+
+  useEffect(() => {
+    setObservacionesTexto(detalle.observaciones ?? "");
+  }, [detalle.observaciones]);
+
+  const handleGuardarObservaciones = async () => {
+    setSavingObservaciones(true);
+    try {
+      const res = await ProgramacionDespachosService.actualizarObservacionesDetalle(
+        detalle.id_distribucion,
+        detalle.id,
+        observacionesTexto.trim() || null
+      );
+      notifySuccess("Observaciones actualizadas");
+      ctrl.setObservaciones(res.detalle.observaciones ?? "");
+      onSaved(res.detalle);
+      setOpenObservaciones(false);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Error al actualizar observaciones";
+      notifyError(msg);
+    } finally {
+      setSavingObservaciones(false);
+    }
+  };
 
   const pesado = detalle.peso_neto !== null && detalle.peso_neto > 0;
   const taraMenorBruto =
@@ -107,75 +139,105 @@ const DetallePesajeItem = ({ detalle, onSaved }: DetallePesajeItemProps) => {
   const pesoSeco = pesoHumedo * (1 - humedad / 100);
 
   return (
-    <Paper
-      radius="md"
-      p="xs"
-      className="bg-zinc-950/30 border border-zinc-800/80"
-    >
-      <Group justify="space-between" align="center" mb={4} wrap="nowrap">
-        <Group gap={3} wrap="nowrap">
-          <Badge
-            variant="light"
-            color="indigo"
-            size="sm"
-            radius="sm"
-            className="font-mono font-bold text-[9px]"
-          >
-            {detalle.lote_correlativo ?? detalle.blending_correlativo ?? `Detalle #${detalle.id}`}
-          </Badge>
-          {detalle.numero_particion !== null && (
+    <>
+      <Paper
+        radius="md"
+        p="xs"
+        className="bg-zinc-950/30 border border-zinc-800/80"
+      >
+        <Group justify="space-between" align="center" mb={4} wrap="nowrap">
+          <Group gap={3} wrap="nowrap">
             <Badge
               variant="light"
-              color="zinc"
+              color="indigo"
               size="sm"
               radius="sm"
+              className="font-mono font-bold text-[9px]"
+            >
+              {detalle.lote_correlativo ?? detalle.blending_correlativo ?? `Detalle #${detalle.id}`}
+            </Badge>
+            {detalle.numero_particion !== null && (
+              <Badge
+                variant="light"
+                color="zinc"
+                size="sm"
+                radius="sm"
+                className="font-mono text-[9px]"
+              >
+                P-{detalle.numero_particion}
+              </Badge>
+            )}
+            <Badge
+              variant="light"
+              color="cyan"
+              size="sm"
+              radius="sm"
+              leftSection={<IconDroplet size={10} />}
               className="font-mono text-[9px]"
             >
-              P-{detalle.numero_particion}
+              {formatPeso(pesoHumedo)} Kg
             </Badge>
-          )}
-          <Badge
-            variant="light"
-            color="cyan"
-            size="sm"
-            radius="sm"
-            leftSection={<IconDroplet size={10} />}
-            className="font-mono text-[9px]"
-          >
-            {formatPeso(pesoHumedo)} Kg
-          </Badge>
-          <Badge
-            variant="light"
-            color="orange"
-            size="sm"
-            radius="sm"
-            leftSection={<IconSun size={10} />}
-            className="font-mono text-[9px]"
-          >
-            {formatPeso(pesoSeco)} Kg
-          </Badge>
-        </Group>
-        <Group gap={3} wrap="nowrap">
-          {pesado && (
-            <Tooltip label="Reimprimir ticket" withArrow>
+            <Badge
+              variant="light"
+              color="orange"
+              size="sm"
+              radius="sm"
+              leftSection={<IconSun size={10} />}
+              className="font-mono text-[9px]"
+            >
+              {formatPeso(pesoSeco)} Kg
+            </Badge>
+          </Group>
+          <Group gap={3} wrap="nowrap">
+            <Tooltip
+              label={
+                detalle.observaciones
+                  ? `Observación: ${detalle.observaciones}`
+                  : "Agregar observación"
+              }
+              withArrow
+            >
               <ActionIcon
                 type="button"
-                variant="light"
-                color="indigo"
+                variant={detalle.observaciones ? "light" : "subtle"}
+                color={detalle.observaciones ? "indigo" : "zinc"}
                 radius="sm"
                 size="sm"
-                onClick={() => printTicketBalanzaByDistribucionDetalle(detalle.id)}
-                loading={loadingTicket}
-                disabled={!detalle.id}
-                className="bg-indigo-500/10! hover:bg-indigo-500/20! text-indigo-400! border-indigo-500/20!"
-                aria-label="Imprimir ticket"
+                onClick={() => {
+                  setObservacionesTexto(detalle.observaciones ?? "");
+                  setOpenObservaciones(true);
+                }}
+                className={
+                  detalle.observaciones
+                    ? "bg-indigo-500/10! hover:bg-indigo-500/20! text-indigo-400! border-indigo-500/20!"
+                    : "text-zinc-400! hover:text-zinc-200! hover:bg-zinc-800/50!"
+                }
+                aria-label="Observaciones"
               >
-                <IconBarcode size={12} />
+                <IconNote size={12} />
               </ActionIcon>
             </Tooltip>
-          )}
+
+            {pesado && (
+              <Tooltip label="Reimprimir ticket" withArrow>
+                <ActionIcon
+                  type="button"
+                  variant="light"
+                  color="indigo"
+                  radius="sm"
+                  size="sm"
+                  onClick={() => printTicketBalanzaByDistribucionDetalle(detalle.id)}
+                  loading={loadingTicket}
+                  disabled={!detalle.id}
+                  className="bg-indigo-500/10! hover:bg-indigo-500/20! text-indigo-400! border-indigo-500/20!"
+                  aria-label="Imprimir ticket"
+                >
+                  <IconBarcode size={12} />
+                </ActionIcon>
+              </Tooltip>
+            )}
+          </Group>
         </Group>
-      </Group>
 
       <Grid gutter={4}>
         <Grid.Col span={{ base: 6, sm: 4 }}>
@@ -356,6 +418,57 @@ const DetallePesajeItem = ({ detalle, onSaved }: DetallePesajeItemProps) => {
         </Alert>
       )}
     </Paper>
+
+    <ModalEstandar
+      opened={openObservaciones}
+      close={() => setOpenObservaciones(false)}
+      title={`Observaciones - ${detalle.lote_correlativo ?? detalle.blending_correlativo ?? `Detalle #${detalle.id}`}`}
+      size="sm"
+    >
+      <Stack gap="md">
+        <Textarea
+          label="Observaciones:"
+          placeholder="Ingrese observaciones para este despacho (opcional)..."
+          value={observacionesTexto}
+          onChange={(e) => setObservacionesTexto(e.currentTarget.value)}
+          minRows={3}
+          maxRows={6}
+          autosize
+          radius="lg"
+          size="xs"
+          classNames={{
+            input:
+              "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 transition-all",
+            label: "text-zinc-400 font-medium text-xs mb-1",
+          }}
+          autoFocus
+        />
+
+        <Group justify="flex-end" gap="xs">
+          <Button
+            variant="subtle"
+            color="gray"
+            radius="lg"
+            size="xs"
+            onClick={() => setOpenObservaciones(false)}
+            disabled={savingObservaciones}
+            classNames={{ root: "text-zinc-400 hover:bg-zinc-800" }}
+          >
+            Cancelar
+          </Button>
+          <Button
+            radius="lg"
+            size="xs"
+            loading={savingObservaciones}
+            onClick={handleGuardarObservaciones}
+            className="bg-amber-500 hover:bg-amber-600 text-zinc-950 font-bold shadow-lg shadow-amber-900/20"
+          >
+            Guardar
+          </Button>
+        </Group>
+      </Stack>
+    </ModalEstandar>
+    </>
   );
 };
 

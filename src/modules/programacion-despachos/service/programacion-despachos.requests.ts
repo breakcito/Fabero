@@ -65,6 +65,7 @@ export interface PesarDistribucionDetalleRequest {
   confirmar_tara?: boolean | null;
   /** true = bloquear bruto, false = desbloquear (sin cascade) */
   confirmar_bruto?: boolean | null;
+  observaciones?: string | null;
 }
 
 export interface DespachoFiltros {

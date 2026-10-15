@@ -145,6 +145,9 @@ export const RecepcionMineralService = {
     if (dto.tipo_mineral !== null && dto.tipo_mineral !== undefined) {
       formData.append("tipo_mineral", dto.tipo_mineral);
     }
+    if (dto.observaciones !== null && dto.observaciones !== undefined) {
+      formData.append("observaciones", dto.observaciones);
+    }
     formData.append("peso_inicial", String(dto.peso_inicial));
 
     if (dto.evidencias && dto.evidencias.length > 0) {
@@ -185,6 +188,9 @@ export const RecepcionMineralService = {
     }
     if (dto.tipo_mineral !== null && dto.tipo_mineral !== undefined) {
       formData.append("tipo_mineral", dto.tipo_mineral);
+    }
+    if (dto.observaciones !== null && dto.observaciones !== undefined) {
+      formData.append("observaciones", dto.observaciones);
     }
     if (dto.peso_inicial !== undefined) {
       formData.append("peso_inicial", String(dto.peso_inicial));
@@ -404,6 +410,7 @@ export const RecepcionMineralService = {
     appendIfPresent(formData, "numero_contacto", dto.numero_contacto);
     appendIfPresent(formData, "tipo_producto", dto.tipo_producto);
     appendIfPresent(formData, "tipo_mineral", dto.tipo_mineral);
+    appendIfPresent(formData, "observaciones", dto.observaciones);
     const response = await api.post(
       `${PATH}/particiones/${idParticion}/peso-inicial`,
       formData,
@@ -438,6 +445,7 @@ export const RecepcionMineralService = {
     appendIfPresent(formData, "numero_contacto", dto.numero_contacto);
     appendIfPresent(formData, "tipo_producto", dto.tipo_producto);
     appendIfPresent(formData, "tipo_mineral", dto.tipo_mineral);
+    appendIfPresent(formData, "observaciones", dto.observaciones);
     const response = await api.post(
       `${PATH}/particiones/${idParticion}/peso-final`,
       formData,

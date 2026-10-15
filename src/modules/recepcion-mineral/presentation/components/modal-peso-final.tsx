@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import {
   TextInput,
+  Textarea,
   Button,
   Stack,
   Group,
@@ -71,6 +72,7 @@ export const ModalPesoFinal = ({ lote, onCancel, onSubmit, targetIdOverride }: P
 
   // Estados Formulario - Peso Final (Derecha)
   const [pesoFinal, setPesoFinal] = useState<string>(lote.peso_final ? String(lote.peso_final) : "");
+  const [observaciones, setObservaciones] = useState<string>(lote.observaciones ?? "");
   const [evidencias, setEvidencias] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
@@ -96,6 +98,10 @@ export const ModalPesoFinal = ({ lote, onCancel, onSubmit, targetIdOverride }: P
   useEffect(() => {
     fetchCatalogos();
   }, []);
+
+  useEffect(() => {
+    setObservaciones(lote.observaciones ?? "");
+  }, [lote.observaciones]);
 
   const handleProveedorChange = (val: string | null) => {
     setIdProveedor(val);
@@ -140,6 +146,7 @@ export const ModalPesoFinal = ({ lote, onCancel, onSubmit, targetIdOverride }: P
         tipo_producto: producto,
         tipo_mineral: material,
         peso_inicial: pesoBruto,
+        observaciones: observaciones.trim() ? observaciones.trim() : null,
       };
 
       await onSubmit(targetIdOverride ?? lote.id, dto);
@@ -411,6 +418,20 @@ export const ModalPesoFinal = ({ lote, onCancel, onSubmit, targetIdOverride }: P
             </Grid.Col>
           </Grid>
         </Paper>
+
+        {/* Observaciones */}
+        <Textarea
+          label="Observaciones:"
+          placeholder="Observaciones adicionales del lote / pesaje (opcional)"
+          value={observaciones}
+          onChange={(e) => setObservaciones(e.currentTarget.value)}
+          minRows={2}
+          maxRows={4}
+          autosize
+          radius="lg"
+          size="xs"
+          classNames={fieldClasses}
+        />
 
         {/* Evidencias - Fila inferior de ancho completo */}
         <div className="bg-zinc-900/30 border border-zinc-800/80 p-3 rounded-2xl">

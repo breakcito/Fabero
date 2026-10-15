@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Select, TextInput, Button, ActionIcon, Tooltip, Stack, Text, Grid, Loader, Group } from "@mantine/core";
+import { Select, TextInput, Textarea, Button, ActionIcon, Tooltip, Stack, Text, Grid, Loader, Group } from "@mantine/core";
 import { IconPlus, IconWeight, IconUserPlus } from "@tabler/icons-react";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
 import { FormZonaOrigen } from "../../../../presentation/utils/form-zona-origen";
@@ -51,6 +51,7 @@ export const ModalPesoInicial = ({ lote, onCancel, onSubmit, targetIdOverride }:
     lote.tipo_mineral ?? null,
   );
   const [pesoInicial, setPesoInicial] = useState<string>("");
+  const [observaciones, setObservaciones] = useState<string>(lote.observaciones ?? "");
   const [evidencias, setEvidencias] = useState<File[]>([]);
 
   // Catálogos
@@ -85,6 +86,10 @@ export const ModalPesoInicial = ({ lote, onCancel, onSubmit, targetIdOverride }:
     fetchCatalogos();
   }, []);
 
+  useEffect(() => {
+    setObservaciones(lote.observaciones ?? "");
+  }, [lote.observaciones]);
+
   const handleProveedorChange = (val: string | null) => {
     setIdProveedor(val);
     if (val) {
@@ -114,6 +119,7 @@ export const ModalPesoInicial = ({ lote, onCancel, onSubmit, targetIdOverride }:
         tipo_producto: producto,
         tipo_mineral: material,
         peso_inicial: Number(pesoInicial),
+        observaciones: observaciones.trim() ? observaciones.trim() : null,
         evidencias: evidencias,
       };
 
@@ -300,6 +306,19 @@ export const ModalPesoInicial = ({ lote, onCancel, onSubmit, targetIdOverride }:
                   required
                 />
               </div>
+
+              {/* Observaciones */}
+              <Textarea
+                label="Observaciones:"
+                placeholder="Observaciones adicionales del lote / pesaje (opcional)"
+                value={observaciones}
+                onChange={(e) => setObservaciones(e.currentTarget.value)}
+                minRows={2}
+                maxRows={4}
+                autosize
+                radius="lg"
+                classNames={fieldClasses}
+              />
 
               {/* Evidencias */}
               <div className="bg-zinc-900/30 border border-zinc-800/80 p-4 rounded-2xl">

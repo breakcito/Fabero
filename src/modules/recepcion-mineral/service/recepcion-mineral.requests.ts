@@ -16,11 +16,13 @@ export interface DTO_PesoInicial {
   tipo_producto: string | null;
   tipo_mineral: string | null;
   peso_inicial: number;
+  observaciones?: string | null;
   evidencias?: File[];
 }
 
 export interface DTO_PesoFinal {
   peso_final: number;
+  observaciones?: string | null;
   evidencias?: File[];
   evidencias_existentes?: IArchivo[];
   id_proveedor_minero?: number | null;
@@ -49,10 +51,12 @@ export interface DTO_UpdateCamposNoPeso {
   numero_contacto?: string | null;
   tipo_producto?: string | null;
   tipo_mineral?: string | null;
+  observaciones?: string | null;
 }
 
 export interface DTO_PesoInicialParticion {
   peso_inicial: number;
+  observaciones?: string | null;
   observacion_peso_inicial?: string | null;
   evidencias?: File[];
   evidencias_existentes?: IArchivo[];
@@ -68,6 +72,7 @@ export interface DTO_PesoInicialParticion {
 
 export interface DTO_PesoFinalParticion {
   peso_final: number;
+  observaciones?: string | null;
   observacion_peso_final?: string | null;
   evidencias?: File[];
   evidencias_existentes?: IArchivo[];

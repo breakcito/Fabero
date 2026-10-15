@@ -25,6 +25,7 @@ export interface RES_TicketBalanzaData {
   provincia_concesion: string | null;
   distrito_concesion: string | null;
   zona_origen_nombre?: string | null;
+  observaciones?: string | null;
   observacion_peso_inicial: string | null;
   observacion_peso_final: string | null;
   /** Timestamp del pesaje BRUTO. Para LOTE (Recepción) suele ser la 1ra pesada; para DESPACHO suele ser la 2da. */

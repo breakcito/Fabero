@@ -18,8 +18,10 @@ export const usePesarDistribucionDetalle = ({
 
   const [pesoTara, setPesoTara] = useState<string | number>("");
   const [pesoBruto, setPesoBruto] = useState<string | number>("");
+  const [observaciones, setObservaciones] = useState<string>("");
   const [loadingTara, setLoadingTara] = useState(false);
   const [loadingBruto, setLoadingBruto] = useState(false);
+  const [savingObservaciones, setSavingObservaciones] = useState(false);
   const [ultimasAdvertencias, setUltimasAdvertencias] = useState<string[]>([]);
 
   // Flags de confirmación sincronizados con el backend.
@@ -34,6 +36,7 @@ export const usePesarDistribucionDetalle = ({
       setPesoBruto(detalle.peso_bruto ?? "");
       setTaraConfirmada(!!detalle.peso_tara_confirmado);
       setBrutoConfirmado(!!detalle.peso_bruto_confirmado);
+      setObservaciones(detalle.observaciones ?? "");
       setUltimasAdvertencias([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -43,6 +46,7 @@ export const usePesarDistribucionDetalle = ({
     detalle?.peso_bruto,
     detalle?.peso_tara_confirmado,
     detalle?.peso_bruto_confirmado,
+    detalle?.observaciones,
   ]);
 
   const reset = useCallback(() => {
@@ -115,7 +119,10 @@ export const usePesarDistribucionDetalle = ({
           peso_bruto?: number | null;
           confirmar_tara?: boolean | null;
           confirmar_bruto?: boolean | null;
-        } = {};
+          observaciones?: string | null;
+        } = {
+          observaciones: observaciones.trim() || null,
+        };
         payload[campo] = valor;
         if (campo === "peso_tara") {
           payload.confirmar_tara = confirmar;
@@ -138,6 +145,9 @@ export const usePesarDistribucionDetalle = ({
           }
           if (result.detalle.peso_bruto !== null && result.detalle.peso_bruto !== undefined) {
             setPesoBruto(result.detalle.peso_bruto);
+          }
+          if (result.detalle.observaciones !== undefined) {
+            setObservaciones(result.detalle.observaciones ?? "");
           }
         }
 
@@ -164,7 +174,7 @@ export const usePesarDistribucionDetalle = ({
         setLoadingFlag(false);
       }
     },
-    [detalle, notifyError, notifySuccess, notifyWarning, onSaved, onPrintTicket],
+    [detalle, notifyError, notifySuccess, notifyWarning, onSaved, onPrintTicket, observaciones],
   );
 
   /**
@@ -245,11 +255,43 @@ export const usePesarDistribucionDetalle = ({
     }
   }, [detalle, notifyError, notifySuccess, onSaved]);
 
+  const guardarObservaciones = useCallback(
+    async (nuevaObs?: string): Promise<boolean> => {
+      if (!detalle) return false;
+      const texto = nuevaObs !== undefined ? nuevaObs : observaciones;
+      setSavingObservaciones(true);
+      try {
+        const res = await ProgramacionDespachosService.actualizarObservacionesDetalle(
+          detalle.id_distribucion,
+          detalle.id,
+          texto.trim() || null
+        );
+        notifySuccess("Observaciones actualizadas");
+        if (res.detalle) {
+          setObservaciones(res.detalle.observaciones ?? "");
+          onSaved?.(res.detalle, []);
+        }
+        return true;
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : "Error al actualizar observaciones";
+        notifyError(msg);
+        return false;
+      } finally {
+        setSavingObservaciones(false);
+      }
+    },
+    [detalle, observaciones, notifySuccess, notifyError, onSaved]
+  );
+
   return {
     pesoTara,
     setPesoTara,
     pesoBruto,
     setPesoBruto,
+    observaciones,
+    setObservaciones,
+    guardarObservaciones,
+    savingObservaciones,
     taraNum,
     brutoNum,
     netoNum,

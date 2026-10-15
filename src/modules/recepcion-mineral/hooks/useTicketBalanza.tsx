@@ -39,7 +39,7 @@ async function fetchTicketByDistribucionDetalle(
  */
 export const useTicketBalanza = () => {
   const { print, prepare } = usePrint();
-  const { notifyError, notifySuccess } = useNotify();
+  const { notifyError } = useNotify();
   const [loadingTicket, setLoadingTicket] = useState(false);
 
   /**
@@ -63,7 +63,6 @@ export const useTicketBalanza = () => {
           documentTitle: `Ticket ${ticketData.correlativo}`,
           target,
         });
-        notifySuccess("Ticket generado. Revisa la nueva ventana del navegador.");
       } catch (err) {
         const message = err instanceof Error ? err.message : "Error desconocido";
         notifyError(`Error al imprimir el ticket: ${message}`);
@@ -72,7 +71,7 @@ export const useTicketBalanza = () => {
         setLoadingTicket(false);
       }
     },
-    [print, prepare, notifyError, notifySuccess],
+    [print, prepare, notifyError],
   );
 
 /**

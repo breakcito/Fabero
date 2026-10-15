@@ -112,6 +112,20 @@ export const ProgramacionDespachosService = {
     return data.data;
   },
 
+  actualizarObservacionesDetalle: async (
+    idDistribucion: number,
+    idDetalle: number,
+    observaciones: string | null,
+  ): Promise<{ detalle: DistribucionDetalleItem }> => {
+    const { data } = await api.patch<
+      IRespuesta<{ detalle: DistribucionDetalleItem }>
+    >(
+      `/programacion-despachos/distribuciones/${idDistribucion}/detalles/${idDetalle}/observaciones`,
+      { observaciones },
+    );
+    return data.data;
+  },
+
   getLotesDisponiblesParaDistribucion: async (
     idDistribucion: number,
   ): Promise<ItemDisponibleDespacho[]> => {

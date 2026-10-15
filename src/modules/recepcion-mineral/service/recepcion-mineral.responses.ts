@@ -30,6 +30,7 @@ export interface RES_LoteMineral {
   evidencias: IArchivo[] | null;
   peso_inicial: number | null;
   fecha_hora_peso_inicial: string | null;
+  observaciones?: string | null;
   observacion_peso_inicial: string | null;
   peso_final: number | null;
   fecha_hora_peso_final: string | null;
@@ -91,6 +92,7 @@ export interface RES_ParticionBalanza {
   tipo_producto?: string | null;
   tipo_mineral?: string | null;
   lote_correlativo?: string | null;
+  observaciones?: string | null;
 }
 
 /**

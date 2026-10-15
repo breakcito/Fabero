@@ -69,6 +69,7 @@ export interface DistribucionDetalleItem {
   peso_neto: number | null;
   peso_tara_confirmado: boolean | null;
   peso_bruto_confirmado: boolean | null;
+  observaciones?: string | null;
   detalle_id_lote_mineral: number | null;
   detalle_id_blending: number | null;
   lote_correlativo: string | null;
