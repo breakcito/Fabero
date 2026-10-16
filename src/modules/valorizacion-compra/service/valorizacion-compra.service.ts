@@ -53,12 +53,6 @@ export const ValorizacionCompraService = {
     if (payload.fecha_hora_valorizacion) {
       formData.append("fecha_hora_valorizacion", payload.fecha_hora_valorizacion);
     }
-    if (payload.monto_penalidad != null) {
-      formData.append("monto_penalidad", String(payload.monto_penalidad));
-    }
-    if (payload.monto_flete != null) {
-      formData.append("monto_flete", String(payload.monto_flete));
-    }
     const { data } = await api.post(`${basePath}`, formData, {
       headers: { "Content-Type": "multipart/form-data" },
     });
@@ -96,12 +90,6 @@ export const ValorizacionCompraService = {
     if (payload.fecha_hora_valorizacion) {
       formData.append("fecha_hora_valorizacion", payload.fecha_hora_valorizacion);
     }
-    if (payload.monto_penalidad != null) {
-      formData.append("monto_penalidad", String(payload.monto_penalidad));
-    }
-    if (payload.monto_flete != null) {
-      formData.append("monto_flete", String(payload.monto_flete));
-    }
     const { data } = await api.post(`${basePath}/${id}`, formData, {
       headers: { "Content-Type": "multipart/form-data" },
     });
@@ -110,6 +98,11 @@ export const ValorizacionCompraService = {
 
   aprobarValorizacion: async (id: number): Promise<IRespuesta<void>> => {
     const { data } = await api.post(`${basePath}/${id}/aprobar`);
+    return data;
+  },
+
+  solicitarOc: async (id: number): Promise<IRespuesta<RES_ValorizacionCompra>> => {
+    const { data } = await api.post(`${basePath}/${id}/solicitar-oc`);
     return data;
   },
 

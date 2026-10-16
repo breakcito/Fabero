@@ -3,7 +3,7 @@ import type { RES_ComprobanteCompra } from "../../service/contabilidad-compra.re
 import type { RES_ValorizacionCompra } from "../../../valorizacion-compra/service/valorizacion-compra.responses";
 
 interface Props {
-  comprobante: RES_ComprobanteCompra;
+  comprobante?: Partial<RES_ComprobanteCompra> | null;
   valorizacion?: RES_ValorizacionCompra | null;
 }
 
@@ -164,14 +164,19 @@ const formatFechaCorta = (fechaIso?: string): string => {
 
 export const DeclaracionJuradaPdf = ({ comprobante, valorizacion }: Props) => {
   const proveedorNombre =
-    comprobante.proveedor_nombre || valorizacion?.proveedor_nombre || "—";
+    comprobante?.proveedor_nombre || valorizacion?.proveedor_nombre || "—";
   const proveedorRuc =
-    comprobante.proveedor_ruc || valorizacion?.proveedor_ruc || "—";
+    comprobante?.proveedor_ruc || valorizacion?.proveedor_ruc || "—";
   const proveedorDireccion = valorizacion?.proveedor_direccion || "—";
 
   const concesionNombre =
-    comprobante.concesion_nombre || valorizacion?.concesion_nombre || "—";
+    comprobante?.concesion_nombre || valorizacion?.concesion_nombre || "—";
   const concesionCodigo = valorizacion?.concesion_codigo_reinfo || "—";
+
+  const codigoCompleto =
+    comprobante?.codigo_completo || valorizacion?.factura_asociada || valorizacion?.correlativo || "—";
+  const fechaEmision =
+    comprobante?.fecha_emision || valorizacion?.fecha_hora_valorizacion || valorizacion?.created_at;
 
   // Ubicación: distrito, provincia, departamento
   let distrito = "—";
@@ -208,11 +213,11 @@ export const DeclaracionJuradaPdf = ({ comprobante, valorizacion }: Props) => {
         : "—";
 
   return (
-    <Document title={`Declaración Jurada - ${comprobante.codigo_completo}`}>
+    <Document title={`Declaración Jurada - ${codigoCompleto}`}>
       <Page size="A4" orientation="portrait" style={styles.page}>
         {/* FECHA SUPERIOR */}
         <Text style={styles.headerDate}>
-          {formatFechaLarga(comprobante.fecha_emision)}
+          {formatFechaLarga(fechaEmision)}
         </Text>
 
         {/* TÍTULO PRINCIPAL */}
@@ -242,12 +247,12 @@ export const DeclaracionJuradaPdf = ({ comprobante, valorizacion }: Props) => {
           <Text style={styles.tableHeader}>DATOS DE LA FACTURA</Text>
           <View style={styles.tableRow}>
             <Text style={styles.labelCell}>N° DE FACTURA</Text>
-            <Text style={styles.valueCell}>{comprobante.codigo_completo || "—"}</Text>
+            <Text style={styles.valueCell}>{codigoCompleto}</Text>
           </View>
           <View style={styles.tableRow}>
             <Text style={styles.labelCell}>FECHA DE FACTURA</Text>
             <Text style={styles.valueCell}>
-              {formatFechaCorta(comprobante.fecha_emision)}
+              {formatFechaCorta(fechaEmision)}
             </Text>
           </View>
           <View style={styles.tableRowLast}>

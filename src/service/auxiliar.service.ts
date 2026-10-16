@@ -25,8 +25,14 @@ import type { RES_ZonaOrigen } from "./responses/zona-origen";
 import type { ElementoQuimicoValorizacion } from "../shared/enums/_generic/elemento-quimico-valorizacion";
 import type {
   RES_ValorElementoQuimico,
+  RES_PreciosInterVigentes,
   REQ_RegistrarPrecioInter,
 } from "./responses/valor-elemento-quimico";
+import type {
+  RES_TipoCambio,
+  RES_TipoCambioVigenteResponse,
+  REQ_CrearTipoCambio,
+} from "./responses/tipo-cambio";
 
 const path = "/aux";
 
@@ -541,45 +547,31 @@ export const AuxService = {
 
   get_tipo_cambio_por_fecha: async (
     fecha: string,
-  ): Promise<IRespuesta<{
-    id: number;
-    valor_compra: number;
-    valor_venta: number;
-    fecha: string;
-    estado: string;
-    empleado_registro_nombre?: string;
-  } | null>> => {
-    const { data } = await api.get<IRespuesta<{
-      id: number;
-      valor_compra: number;
-      valor_venta: number;
-      fecha: string;
-      estado: string;
-      empleado_registro_nombre?: string;
-    } | null>>(`${path}/tipo-cambio`, { params: { fecha } });
+  ): Promise<IRespuesta<RES_TipoCambio | null>> => {
+    const { data } = await api.get<IRespuesta<RES_TipoCambio | null>>(`${path}/tipo-cambio`, { params: { fecha } });
     return data;
   },
 
-  crear_tipo_cambio: async (payload: {
-    valor_compra: number;
-    valor_venta: number;
-    fecha: string;
-  }): Promise<IRespuesta<{
-    id: number;
-    valor_compra: number;
-    valor_venta: number;
-    fecha: string;
-    estado: string;
-    empleado_registro_nombre?: string;
-  }>> => {
-    const { data } = await api.post<IRespuesta<{
-      id: number;
-      valor_compra: number;
-      valor_venta: number;
-      fecha: string;
-      estado: string;
-      empleado_registro_nombre?: string;
-    }>>(`${path}/tipo-cambio`, payload);
+  get_tipo_cambio_vigente: async (
+    fecha?: string,
+  ): Promise<IRespuesta<RES_TipoCambioVigenteResponse>> => {
+    const { data } = await api.get<IRespuesta<RES_TipoCambioVigenteResponse>>(
+      `${path}/tipo-cambio/vigente`,
+      { params: { fecha } },
+    );
+    return data;
+  },
+
+  get_tipos_cambio: async (params?: {
+    fecha?: string;
+    estado?: string;
+  }): Promise<IRespuesta<RES_TipoCambio[]>> => {
+    const { data } = await api.get<IRespuesta<RES_TipoCambio[]>>(`${path}/tipos-cambio`, { params });
+    return data;
+  },
+
+  crear_tipo_cambio: async (payload: REQ_CrearTipoCambio): Promise<IRespuesta<RES_TipoCambio>> => {
+    const { data } = await api.post<IRespuesta<RES_TipoCambio>>(`${path}/tipo-cambio`, payload);
     return data;
   },
 
@@ -653,9 +645,29 @@ export const AuxService = {
     );
     return data;
   },
+
+  get_precios_inter_vigentes: async (
+    fecha?: string,
+  ): Promise<IRespuesta<RES_PreciosInterVigentes>> => {
+    const { data } = await api.get<IRespuesta<RES_PreciosInterVigentes>>(
+      "/valor-elemento-quimico/vigentes",
+      { params: { fecha } },
+    );
+    return data;
+  },
+
+  get_historial_inter: async (limit = 20): Promise<IRespuesta<RES_ValorElementoQuimico[]>> => {
+    const { data } = await api.get<IRespuesta<RES_ValorElementoQuimico[]>>(
+      "/valor-elemento-quimico/historial",
+      { params: { limit } },
+    );
+    return data;
+  },
 };
 
 export const ValorElementoQuimicoService = {
   buscarPrecio: AuxService.buscar_precio_elemento,
   registrarPrecio: AuxService.registrar_precio_elemento,
+  getPreciosVigentes: AuxService.get_precios_inter_vigentes,
+  getHistorial: AuxService.get_historial_inter,
 };

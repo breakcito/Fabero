@@ -331,6 +331,7 @@ export const TicketLiquidacionCompraPdf = ({ data }: TicketLiquidacionCompraPdfP
   let sumTotalUss = 0;
   let sumLeyX = 0;
   let sumRecupX = 0;
+  let sumPen = 0;
 
   detalles.forEach((d) => {
     const tmsVal = Number(d.tms) || 0;
@@ -339,6 +340,7 @@ export const TicketLiquidacionCompraPdf = ({ data }: TicketLiquidacionCompraPdfP
     sumTotalUss += Number(d.subtotal) || 0;
     sumLeyX += (Number(d.ley) || 0) * (tmsVal > 0 ? tmsVal : 1);
     sumRecupX += (Number(d.recuperacion) || 0) * (tmsVal > 0 ? tmsVal : 1);
+    sumPen += Number(d.monto_penalidad) || 0;
   });
 
   const basePond = sumTms > 0 ? sumTms : (detalles.length || 1);
@@ -351,6 +353,16 @@ export const TicketLiquidacionCompraPdf = ({ data }: TicketLiquidacionCompraPdfP
     const v = r > 1 ? r / 100 : r;
     return v.toFixed(2);
   };
+
+  // Anticipos agrupados por factura
+  const transaccionesAnticipos = data.transacciones_anticipo || [];
+  const facturasAgrupadas = Array.from(
+    new Set(transaccionesAnticipos.map((t) => t.factura).filter(Boolean)),
+  ).join(", ");
+  const totalAnticiposAplicados = transaccionesAnticipos.reduce(
+    (acc, t) => acc + (Number(t.monto_retirado) || 0),
+    0,
+  );
 
   // Cálculos económicos
   const subtotalUss = Number(data.total_subtotal) || sumTotalUss;
@@ -552,7 +564,9 @@ export const TicketLiquidacionCompraPdf = ({ data }: TicketLiquidacionCompraPdfP
                 <Text style={[styles.tableDataCellRight, { width: colWidths.inter }]}>{fmtNum(d.inter, 2)}</Text>
                 <Text style={[styles.tableDataCellRight, { width: colWidths.desInter }]}>{fmtNum(d.des_inter, 2)}</Text>
                 <Text style={[styles.tableDataCellRight, { width: colWidths.reac }]}>{fmtNum(d.consumo, 2)}</Text>
-                <Text style={[styles.tableDataCellRight, { width: colWidths.pen }]}>—</Text>
+                <Text style={[styles.tableDataCellRight, { width: colWidths.pen }]}>
+                  {d.monto_penalidad ? fmtNum(d.monto_penalidad, 2) : "—"}
+                </Text>
                 <Text style={[styles.tableDataCellRight, { width: colWidths.maquila }]}>{fmtNum(d.maquila, 2)}</Text>
                 <Text style={[styles.tableDataCellRight, { width: colWidths.factor }]}>{fmtNum(d.factor, 5)}</Text>
                 <Text style={[styles.tableDataCellRight, { width: colWidths.tmh }]}>{fmtNum(d.tmh, 3)}</Text>
@@ -585,14 +599,27 @@ export const TicketLiquidacionCompraPdf = ({ data }: TicketLiquidacionCompraPdfP
             <Text style={[styles.totalsYellowCell, { width: colWidths.recup }]}>
               {fmtRecup(recupPonderada)}
             </Text>
-            {/* Inter, Des. Inter, Reac, Pen, Maquila, Factor (vacíos con borde) */}
+            {/* Inter, Des. Inter, Reac (vacíos con borde) */}
             <View
               style={{
                 width: `${
                   parseFloat(colWidths.inter) +
                   parseFloat(colWidths.desInter) +
-                  parseFloat(colWidths.reac) +
-                  parseFloat(colWidths.pen) +
+                  parseFloat(colWidths.reac)
+                }%`,
+                borderRightWidth: 0.5,
+                borderRightColor: COLOR_BORDE,
+                paddingVertical: 2.5,
+              }}
+            />
+            {/* Celda amarilla PEN */}
+            <Text style={[styles.totalsYellowCell, { width: colWidths.pen }]}>
+              {sumPen > 0 ? fmtNum(sumPen, 2) : "—"}
+            </Text>
+            {/* Maquila, Factor (vacíos con borde) */}
+            <View
+              style={{
+                width: `${
                   parseFloat(colWidths.maquila) +
                   parseFloat(colWidths.factor)
                 }%`,
@@ -621,6 +648,17 @@ export const TicketLiquidacionCompraPdf = ({ data }: TicketLiquidacionCompraPdfP
         {/* ========== RESUMEN ECONÓMICO (TOTALES) ========== */}
         <View style={styles.bottomSection}>
           <View style={styles.resumenTable}>
+            {totalAnticiposAplicados > 0 && (
+              <View style={styles.resumenRow}>
+                <Text style={styles.resumenLabel}>
+                  {facturasAgrupadas || "ANTICIPOS"}
+                </Text>
+                <Text style={styles.resumenValue}>
+                  ${fmtNum(totalAnticiposAplicados, 2)}
+                </Text>
+              </View>
+            )}
+
             <View style={styles.resumenRow}>
               <Text style={styles.resumenLabel}>SUBTOTAL US$</Text>
               <Text style={styles.resumenValue}>{fmtNum(subtotalUss, 2)}</Text>

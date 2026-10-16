@@ -2,6 +2,8 @@ import { useEffect } from "react";
 import { Select } from "@mantine/core";
 import { Bars3Icon } from "@heroicons/react/24/outline";
 import { UserMenu } from "./user-menu";
+import { IndicadorTipoCambio } from "./header-indicadores/indicador-tipo-cambio";
+import { IndicadorPrecioInter } from "./header-indicadores/indicador-precio-inter";
 import { useTitlePage } from "../../../../hooks/useTitlePage";
 import { useUIStore } from "../../../../stores/ui.store";
 import logoSac from "../../../assets/svg/logo.svg";
@@ -101,9 +103,10 @@ export const Header = ({ onMenuToggle }: HeaderProps) => {
         </span>
       </div>
 
-      {/* Menu de usuario */}
+      {/* Indicadores y Menú de usuario */}
       <div className="relative z-10 flex items-center gap-2">
-        {/* aqui pueen ir cositas */}
+        <IndicadorTipoCambio />
+        <IndicadorPrecioInter />
         <UserMenu />
       </div>
 

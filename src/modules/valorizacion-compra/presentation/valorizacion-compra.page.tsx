@@ -22,10 +22,16 @@ import {
   IconX,
   IconFiles,
   IconPrinter,
+  IconFileDescription,
+  IconShoppingCart,
 } from "@tabler/icons-react";
 import { useTitlePage } from "../../../hooks/useTitlePage";
+import { usePrint } from "../../../hooks/usePrint";
+import { useNotify } from "../../../hooks/useNotify";
 import { DataTableEstandar } from "../../../presentation/utils/datatable-estandar";
 import { AuxService } from "../../../service/auxiliar.service";
+import { ValorizacionCompraService } from "../service/valorizacion-compra.service";
+import { DeclaracionJuradaPdf } from "../../contabilidad/presentation/components/declaracion-jurada-pdf";
 import { useValorizacionesCompra } from "../hooks/useValorizacionesCompra";
 import { useTicketLiquidacionCompra } from "../hooks/useTicketLiquidacionCompra";
 import {
@@ -90,9 +96,12 @@ export const ValorizacionCompraPage = () => {
   useTitlePage("Valorizaciones de Compra", true);
 
   const { printTicketLiquidacion, loadingTicket } = useTicketLiquidacionCompra();
+  const { print, prepare } = usePrint();
+  const { notifySuccess, notifyError } = useNotify();
 
   const [loadingProveedores, setLoadingProveedores] = useState(false);
   const [proveedores, setProveedores] = useState<RES_Proveedor[]>([]);
+  const [solicitandoOcId, setSolicitandoOcId] = useState<number | null>(null);
 
   // Filtros adicionales UI con default 7-dóas-atrÃ�s â hoy
   const [fechaInicio, setFechaInicio] = useState<string>(defaultFechaInicio());
@@ -193,6 +202,63 @@ export const ValorizacionCompraPage = () => {
     handleAbrirAnular,
     handleConfirmarAnular,
   } = useValorizacionesCompra();
+
+  const handleSolicitarOc = (r: RES_ValorizacionCompra) => {
+    const yaSolicitado = Boolean(r.id_empleado_solicita_oc);
+    mostrarConfirmacion({
+      title: yaSolicitado ? "Actualizar Solicitud de OC" : "Solicitar Orden de Compra",
+      message: (
+        <div className="space-y-2">
+          <p>
+            {yaSolicitado ? (
+              <>
+                Esta valorización ya fue solicitada por{" "}
+                <strong className="text-white">{r.empleado_solicita_oc || "Empleado"}</strong> el{" "}
+                <span className="text-zinc-300 font-mono">{r.fecha_hora_solicitud_oc}</span>.
+                <br />
+                ¿Desea volver a registrar la solicitud con su usuario actual?
+              </>
+            ) : (
+              <>
+                ¿Desea registrar la solicitud de Orden de Compra para la valorización{" "}
+                <strong className="text-white">
+                  {r.correlativo || (r.numero_correlativo ? `VAL-${r.numero_correlativo}` : `#${r.id}`)}
+                </strong>?
+              </>
+            )}
+          </p>
+          <p className="text-zinc-400 text-xs">
+            Su usuario y fecha/hora quedarán registrados como el solicitante de la Orden de Compra.
+          </p>
+        </div>
+      ),
+      confirmLabel: yaSolicitado ? "Sí, actualizar" : "Sí, solicitar OC",
+      cancelLabel: "Cancelar",
+      onConfirm: async () => {
+        setSolicitandoOcId(r.id);
+        try {
+          const res = await ValorizacionCompraService.solicitarOc(r.id);
+          notifySuccess(res.message || "Solicitud de Orden de Compra registrada exitosamente");
+          await cargarValorizaciones();
+        } catch (err) {
+          notifyError(err instanceof Error ? err.message : "Error al solicitar Orden de Compra");
+        } finally {
+          setSolicitandoOcId(null);
+        }
+      },
+    });
+  };
+
+  const handleImprimirDeclaracionJurada = (r: RES_ValorizacionCompra) => {
+    const target = `dj-val-${r.id}`;
+    prepare(target);
+    const docTitle = `Declaracion Jurada - ${r.correlativo || (r.numero_correlativo ? `VAL-${r.numero_correlativo}` : `#${r.id}`)}`;
+    print(<DeclaracionJuradaPdf valorizacion={r} />, {
+      documentTitle: docTitle,
+      target,
+    });
+    notifySuccess("Declaración Jurada generada exitosamente.");
+  };
 
   useEffect(() => {
     const cargar = async () => {
@@ -376,6 +442,45 @@ export const ValorizacionCompraPage = () => {
               </ActionIcon>
             </Tooltip>
 
+            <Tooltip label="Imprimir Declaración Jurada" withArrow>
+              <ActionIcon
+                variant="light"
+                color="cyan"
+                radius="xl"
+                size="sm"
+                onClick={() => handleImprimirDeclaracionJurada(r)}
+                className="bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/20"
+              >
+                <IconFileDescription size={14} />
+              </ActionIcon>
+            </Tooltip>
+
+            <Tooltip
+              label={
+                r.id_empleado_solicita_oc
+                  ? `OC Solicitada por: ${r.empleado_solicita_oc || "Empleado"} (${r.fecha_hora_solicitud_oc || ""})`
+                  : "Solicitar Orden de Compra"
+              }
+              withArrow
+            >
+              <ActionIcon
+                variant={r.id_empleado_solicita_oc ? "filled" : "light"}
+                color="indigo"
+                radius="xl"
+                size="sm"
+                loading={solicitandoOcId === r.id}
+                disabled={isAnulado || solicitandoOcId === r.id}
+                onClick={() => handleSolicitarOc(r)}
+                className={
+                  r.id_empleado_solicita_oc
+                    ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
+                    : "bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20"
+                }
+              >
+                <IconShoppingCart size={14} />
+              </ActionIcon>
+            </Tooltip>
+
             {isPendiente && (
               <Tooltip label="Editar Valorización">
                 <ActionIcon
@@ -501,6 +606,23 @@ export const ValorizacionCompraPage = () => {
 
     return (
       <Box p="md" bg="#18181b">
+        {record.id_empleado_solicita_oc && (
+          <Paper p="xs" radius="md" bg="#1e1b4b/40" className="border border-indigo-800/60 mb-2.5">
+            <Group justify="space-between" wrap="wrap">
+              <Group gap="xs">
+                <IconShoppingCart size={15} className="text-indigo-400" />
+                <Text fz="xs" c="indigo.2">
+                  <span className="font-semibold">OC Solicitada por:</span>{" "}
+                  {record.empleado_solicita_oc || "Empleado"}
+                </Text>
+              </Group>
+              <Text fz={11} c="zinc.4" className="font-mono">
+                {record.fecha_hora_solicitud_oc}
+              </Text>
+            </Group>
+          </Paper>
+        )}
+
         <Text fw={700} fz="xs" c="amber.4" mb="xs" className="flex items-center gap-1.5">
           <IconFileText size={15} /> Lotes Valorizados ({detallesList.length})
         </Text>
@@ -639,6 +761,20 @@ export const ValorizacionCompraPage = () => {
                         <Text fz={10} c="zinc.5" tt="uppercase" fw={600}>Precio/TN:</Text>
                         <Text fz={11} fw={700} c="white">${d.precio_por_tonelada.toFixed(2)}</Text>
                       </Group>
+                      {((d.monto_penalidad ?? 0) > 0 || (d.monto_flete ?? 0) > 0) && (
+                        <>
+                          <Text c="zinc.7">·</Text>
+                          <Group gap={4} wrap="nowrap">
+                            <Text fz={10} c="amber.5" tt="uppercase" fw={600}>Penalidad:</Text>
+                            <Text fz={11} fw={700} c="amber.4">-${(d.monto_penalidad ?? 0).toFixed(2)}</Text>
+                          </Group>
+                          <Text c="zinc.7">·</Text>
+                          <Group gap={4} wrap="nowrap">
+                            <Text fz={10} c="cyan.5" tt="uppercase" fw={600}>Flete:</Text>
+                            <Text fz={11} fw={700} c="cyan.4">-${(d.monto_flete ?? 0).toFixed(2)}</Text>
+                          </Group>
+                        </>
+                      )}
                     </Group>
                   </Box>
                 </Paper>

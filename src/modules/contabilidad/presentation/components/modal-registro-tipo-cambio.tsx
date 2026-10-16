@@ -5,6 +5,7 @@ import { z } from "zod";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
 import { AuxService } from "../../../../service/auxiliar.service";
 import { useNotify } from "../../../../hooks/useNotify";
+import { useTipoCambioStore } from "../../../../stores/tipo-cambio.store";
 
 const tipoCambioSchema = z.object({
   valor_compra: z.number({ message: "Ingrese valor de compra." }).positive("Debe ser > 0"),
@@ -57,6 +58,7 @@ export const ModalRegistroTipoCambio = ({
       });
       if (res.success) {
         notifySuccess("Tipo de cambio registrado correctamente");
+        useTipoCambioStore.getState().fetchTipoCambioVigente();
         onCreated();
         onClose();
       } else {

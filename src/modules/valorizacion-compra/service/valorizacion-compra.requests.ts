@@ -14,6 +14,8 @@ export const Schema_ValorizacionDetalleItem = z.object({
   maquila: z.number().min(0, "La maquila debe ser mayor o igual a 0"),
   consumo: z.number().min(0, "El consumo debe ser mayor o igual a 0"),
   factor: z.number().optional(),
+  monto_penalidad: z.number().min(0).optional(),
+  monto_flete: z.number().min(0).optional(),
 });
 
 export const Schema_ValorizacionAnticipoItem = z.object({
@@ -72,6 +74,8 @@ export interface REQ_ValorizacionDetalleItem {
   maquila: number;
   consumo: number;
   factor?: number;
+  monto_penalidad?: number;
+  monto_flete?: number;
 }
 
 export interface REQ_ValorizacionAnticipoItem {

@@ -94,6 +94,10 @@ export const ModalFormValorizacionCompra = ({
     anticipoSaldoEfectivoMap,
     concesionSeleccionada,
     totalSubtotal,
+    totalSubtotalSinDescuento,
+    totalPenalidad,
+    totalFlete,
+    totalDescuentos,
     todosSinValorComercial,
     totalAnticipos,
     montoTransferencia,
@@ -104,10 +108,6 @@ export const ModalFormValorizacionCompra = ({
     setEvidenciasExistentes,
     fechaHoraValorizacion,
     setFechaHoraValorizacion,
-    montoPenalidad,
-    setMontoPenalidad,
-    montoFlete,
-    setMontoFlete,
     modalLoteOpened,
     setModalLoteOpened,
     modalAnticiposOpened,
@@ -127,6 +127,11 @@ export const ModalFormValorizacionCompra = ({
       onClose();
     },
   });
+
+  const lotesUnicosCount = useMemo(
+    () => new Set(detalles.map((d) => d.req.id_lote_guia)).size,
+    [detalles],
+  );
 
   useEffect(() => {
     if (!opened) return;
@@ -560,7 +565,7 @@ export const ModalFormValorizacionCompra = ({
             <Group gap="xs">
               <IconFileText size={16} className="text-amber-400" />
               <Text fw={700} fz="xs" c="white">
-                Lotes Valorizados ({detalles.length})
+                Lotes Valorizados ({lotesUnicosCount}/10 lotes | {detalles.length} elementos)
               </Text>
             </Group>
             <Button
@@ -711,6 +716,12 @@ export const ModalFormValorizacionCompra = ({
                             <Text fz={9} c="zinc.5" tt="uppercase" fw={600}>Maquila / React:</Text>
                             <Text fz={11} fw={700} c="white">${d.display.maquila.toFixed(2)} / ${d.display.consumo.toFixed(2)}</Text>
                           </Group>
+                          {((d.display.monto_penalidad ?? 0) > 0 || (d.display.monto_flete ?? 0) > 0) && (
+                            <Group justify="space-between">
+                              <Text fz={9} c="rose.4" tt="uppercase" fw={600}>Penalidad / Flete:</Text>
+                              <Text fz={11} fw={700} c="rose.3">-${(d.display.monto_penalidad ?? 0).toFixed(2)} / -${(d.display.monto_flete ?? 0).toFixed(2)}</Text>
+                            </Group>
+                          )}
                         </Box>
                       </Grid.Col>
 
@@ -735,77 +746,56 @@ export const ModalFormValorizacionCompra = ({
           )}
 
           {/* Footer Total General */}
-          <Group justify="space-between" align="center" pt="xs" className="border-t border-zinc-800">
+          <Group justify="space-between" align="center" pt="xs" className="border-t border-zinc-800" wrap="wrap">
             <Text fz="xs" c="zinc.4">
-              Total Lotes: <span className="text-white font-semibold">{detalles.length}</span>
+              Lotes únicos: <span className="text-white font-semibold">{lotesUnicosCount} / 10</span>{" "}
+              <span className="text-zinc-600">({detalles.length} elementos)</span>
             </Text>
             <Group gap="md" align="center" wrap="wrap">
               <Group gap={6} align="center" wrap="nowrap">
                 <Text fz={10} c="zinc.5" tt="uppercase" fw={700}>
-                  Subtotal:
+                  Subtotal Sin Desc:
                 </Text>
                 <Text fz="xs" fw={700} c="white" className="font-mono">
-                  ${totalSubtotal.toFixed(2)}
+                  ${totalSubtotalSinDescuento.toFixed(2)}
                 </Text>
               </Group>
-              <Group gap={4} align="center" wrap="nowrap">
-                <Text fz={10} c="zinc.5" tt="uppercase" fw={700}>
-                  Penalidad:
-                </Text>
-                <NumberInput
-                  value={montoPenalidad}
-                  onChange={(val) =>
-                    setMontoPenalidad(
-                      typeof val === "number" ? val : parseFloat(String(val)) || 0,
-                    )
-                  }
-                  min={0}
-                  prefix="$ "
-                  decimalScale={2}
-                  fixedDecimalScale
-                  hideControls
-                  size="xs"
-                  radius="md"
-                  w={130}
-                  disabled={loadingSubmit || todosSinValorComercial}
-                  classNames={{
-                    input:
-                      "bg-zinc-950 border-zinc-800 focus:border-amber-500 text-amber-400 font-mono font-semibold text-xs h-7 text-right",
-                  }}
-                />
-              </Group>
-              <Group gap={4} align="center" wrap="nowrap">
-                <Text fz={10} c="zinc.5" tt="uppercase" fw={700}>
-                  Flete:
-                </Text>
-                <NumberInput
-                  value={montoFlete}
-                  onChange={(val) =>
-                    setMontoFlete(
-                      typeof val === "number" ? val : parseFloat(String(val)) || 0,
-                    )
-                  }
-                  min={0}
-                  prefix="$ "
-                  decimalScale={2}
-                  fixedDecimalScale
-                  hideControls
-                  size="xs"
-                  radius="md"
-                  w={130}
-                  disabled={loadingSubmit || todosSinValorComercial}
-                  classNames={{
-                    input:
-                      "bg-zinc-950 border-zinc-800 focus:border-cyan-500 text-cyan-400 font-mono font-semibold text-xs h-7 text-right",
-                  }}
-                />
-              </Group>
+              {totalPenalidad > 0 && (
+                <Group gap={4} align="center" wrap="nowrap">
+                  <Text fz={10} c="amber.5" tt="uppercase" fw={700}>
+                    Penalidad:
+                  </Text>
+                  <Text fz="xs" fw={700} c="amber.4" className="font-mono">
+                    -${totalPenalidad.toFixed(2)}
+                  </Text>
+                </Group>
+              )}
+              {totalFlete > 0 && (
+                <Group gap={4} align="center" wrap="nowrap">
+                  <Text fz={10} c="cyan.5" tt="uppercase" fw={700}>
+                    Flete:
+                  </Text>
+                  <Text fz="xs" fw={700} c="cyan.4" className="font-mono">
+                    -${totalFlete.toFixed(2)}
+                  </Text>
+                </Group>
+              )}
+              {totalDescuentos > 0 && (
+                <Group gap={4} align="center" wrap="nowrap">
+                  <Text fz={10} c="rose.5" tt="uppercase" fw={700}>
+                    Total Desc:
+                  </Text>
+                  <Text fz="xs" fw={700} c="rose.4" className="font-mono">
+                    -${totalDescuentos.toFixed(2)}
+                  </Text>
+                </Group>
+              )}
               <Group gap={6} align="center" wrap="nowrap">
                 <Text fz={10} c="zinc.5" tt="uppercase" fw={700}>
                   Total Valorización:
                 </Text>
                 <Text fz="sm" fw={800} c="emerald.4" className="font-mono">
-                  ${(totalSubtotal - montoPenalidad - montoFlete).toFixed(2)}
+                  ${totalSubtotal.toFixed(2)}
                 </Text>
               </Group>
             </Group>

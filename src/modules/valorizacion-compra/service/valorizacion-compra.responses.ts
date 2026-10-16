@@ -32,6 +32,10 @@ export interface RES_ValorizacionCompraDetalle {
   consumo: number;
   factor: number;
   precio_por_tonelada: number;
+  monto_penalidad?: number;
+  monto_flete?: number;
+  descuento?: number;
+  subtotal_sin_descuento?: number;
   subtotal: number;
   log_cambios?: Record<string, unknown>[];
 }
@@ -67,6 +71,9 @@ export interface RES_ValorizacionCompra {
   fecha_hora_aprobacion: string | null;
   fecha_hora_anulacion?: string | null;
   fecha_hora_valorizacion?: string | null;
+  id_empleado_solicita_oc?: number | null;
+  fecha_hora_solicitud_oc?: string | null;
+  empleado_solicita_oc?: string | null;
   monto_penalidad?: number;
   monto_flete?: number;
   id_empleado_anulacion?: number | null;

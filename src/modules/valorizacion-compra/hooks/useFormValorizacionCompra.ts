@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { TipoPagoValorizacionCompra } from "../../../shared/enums/valorizacion-compra/tipo-pago-valorizacion-compra";
 import { AuxService } from "../../../service/auxiliar.service";
 import { ValorizacionCompraService } from "../service/valorizacion-compra.service";
@@ -169,6 +169,48 @@ export const useFormValorizacionCompra = ({
   const [modalLoteOpened, setModalLoteOpened] = useState(false);
   const [modalAnticiposOpened, setModalAnticiposOpened] = useState(false);
 
+  const prevIdProveedorRef = useRef<number | null>(null);
+
+  const handleProveedorChange = (newId: number | null) => {
+    if (newId === idProveedor) return;
+    setIdProveedor(newId);
+    if (!valorizacionEditar) {
+      setDetalles([]);
+      setAnticipos([]);
+      setIdConcesion(null);
+      setIdCuentaBancaria(null);
+      setIdCuentaDetraccion(null);
+      setMontoPenalidad(0);
+      setMontoFlete(0);
+    }
+  };
+
+  useEffect(() => {
+    if (!opened) {
+      prevIdProveedorRef.current = null;
+      return;
+    }
+
+    if (valorizacionEditar) {
+      prevIdProveedorRef.current = valorizacionEditar.id_proveedor_minero;
+      return;
+    }
+
+    if (
+      prevIdProveedorRef.current !== null &&
+      prevIdProveedorRef.current !== idProveedor
+    ) {
+      setDetalles([]);
+      setAnticipos([]);
+      setIdConcesion(null);
+      setIdCuentaBancaria(null);
+      setIdCuentaDetraccion(null);
+      setMontoPenalidad(0);
+      setMontoFlete(0);
+    }
+    prevIdProveedorRef.current = idProveedor;
+  }, [idProveedor, opened, valorizacionEditar]);
+
   // Cargar datos de edición si existen o reiniciar al abrir en modo creación
   useEffect(() => {
     if (!opened) return;
@@ -192,6 +234,8 @@ export const useFormValorizacionCompra = ({
             maquila: d.maquila,
             consumo: d.consumo,
             factor: d.factor,
+            monto_penalidad: d.monto_penalidad ?? 0,
+            monto_flete: d.monto_flete ?? 0,
           },
           display: d,
         })),
@@ -317,8 +361,34 @@ export const useFormValorizacionCompra = ({
     }
   }, [todosSinValorComercial, anticipos.length, montoPenalidad, montoFlete]);
 
-  const totalPenalidad = montoPenalidad;
-  const totalFlete = montoFlete;
+  const totalPenalidad = useMemo(() => {
+    return detalles.reduce(
+      (acc, curr) => acc + (curr.display.monto_penalidad || curr.req.monto_penalidad || 0),
+      0,
+    );
+  }, [detalles]);
+
+  const totalFlete = useMemo(() => {
+    return detalles.reduce(
+      (acc, curr) => acc + (curr.display.monto_flete || curr.req.monto_flete || 0),
+      0,
+    );
+  }, [detalles]);
+
+  const totalDescuentos = useMemo(() => {
+    return totalPenalidad + totalFlete;
+  }, [totalPenalidad, totalFlete]);
+
+  const totalSubtotalSinDescuento = useMemo(() => {
+    return detalles.reduce(
+      (acc, curr) =>
+        acc +
+        (curr.display.subtotal_sin_descuento !== undefined
+          ? curr.display.subtotal_sin_descuento
+          : curr.display.subtotal + (curr.display.descuento || 0)),
+      0,
+    );
+  }, [detalles]);
 
 
   const totalAnticipos = useMemo(() => {
@@ -413,6 +483,12 @@ export const useFormValorizacionCompra = ({
       return false;
     }
 
+    const uniqueLots = new Set(detalles.map((d) => d.req.id_lote_guia));
+    if (uniqueLots.size > 10) {
+      notifyError("Solo se puede valorizar un máximo de 10 lotes por propuesta");
+      return false;
+    }
+
     const excedeSaldo = anticipos.some((a) => {
       const saldoEfectivo = anticipoSaldoEfectivoMap.get(a.id_anticipo_proveedor);
       if (saldoEfectivo === undefined) return false;
@@ -448,8 +524,6 @@ export const useFormValorizacionCompra = ({
           evidencias_existentes: evidenciasExistentes,
           motivo_edicion: motivoCustom && motivoCustom.trim() ? motivoCustom.trim() : undefined,
           fecha_hora_valorizacion: fechaHoraValorizacion,
-          monto_penalidad: montoPenalidad,
-          monto_flete: montoFlete,
         });
         idGuardado = valorizacionEditar.id;
         notifySuccess("Valorización actualizada correctamente");
@@ -464,8 +538,6 @@ export const useFormValorizacionCompra = ({
           anticipos: anticipos,
           evidencias,
           fecha_hora_valorizacion: fechaHoraValorizacion,
-          monto_penalidad: montoPenalidad,
-          monto_flete: montoFlete,
         });
         const dataResp = res.data as (Record<string, unknown> | undefined);
         idGuardado =
@@ -493,7 +565,7 @@ export const useFormValorizacionCompra = ({
     loadingSubmit,
     loadingCatalogo,
     idProveedor,
-    setIdProveedor,
+    setIdProveedor: handleProveedorChange,
     idConcesion,
     setIdConcesion,
     idCuentaBancaria,
@@ -510,9 +582,11 @@ export const useFormValorizacionCompra = ({
     anticipoSaldoTransaccionMap,
     concesionSeleccionada,
     totalSubtotal,
+    totalSubtotalSinDescuento,
     todosSinValorComercial,
     totalPenalidad,
     totalFlete,
+    totalDescuentos,
     totalAnticipos,
     evidencias,
     setEvidencias,

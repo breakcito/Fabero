@@ -13,6 +13,7 @@ import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
 import { CustomDatePicker } from "../../../../presentation/utils/date-picker-input";
 import { useNotify } from "../../../../hooks/useNotify";
 import { AuxService } from "../../../../service/auxiliar.service";
+import { usePrecioInterStore } from "../../../../stores/precio-inter.store";
 import type { ElementoQuimicoValorizacion } from "../../../../shared/enums/_generic/elemento-quimico-valorizacion";
 
 interface Props {
@@ -113,6 +114,7 @@ export const ModalRegistrarPrecioInter = ({
         notifySuccess(
           `Precio INTER (${elementoQuimico}) registrado correctamente.`,
         );
+        usePrecioInterStore.getState().fetchPreciosVigentes();
         onRegistrado(res.data.id, numInter);
         onClose();
       } else {

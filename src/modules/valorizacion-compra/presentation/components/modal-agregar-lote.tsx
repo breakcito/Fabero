@@ -11,20 +11,16 @@ import {
   Loader,
   Badge,
   Box,
-  ActionIcon,
-  Tooltip,
 } from "@mantine/core";
 import {
   IconFileText,
   IconCoins,
   IconCheck,
-  IconPlus,
 } from "@tabler/icons-react";
 import { ElementoQuimicoValorizacion } from "../../../../shared/enums/_generic/elemento-quimico-valorizacion";
 import { AuxService } from "../../../../service/auxiliar.service";
 import { useNotify } from "../../../../hooks/useNotify";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
-import { ModalRegistrarPrecioInter } from "./modal-registrar-precio-inter";
 import type { REQ_ValorizacionDetalleItem } from "../../service/valorizacion-compra.requests";
 import type { RES_ValorizacionCompraDetalle } from "../../service/valorizacion-compra.responses";
 
@@ -121,6 +117,8 @@ export const ModalAgregarLote = ({
   const [maquila, setMaquila] = useState<number | string>(0);
   const [consumo, setConsumo] = useState<number | string>(0);
   const [factor, setFactor] = useState<number | string>(1.1023);
+  const [montoPenalidad, setMontoPenalidad] = useState<number | string>(0);
+  const [montoFlete, setMontoFlete] = useState<number | string>(0);
 
   // Lookup INTER (precio_elemento_quimico) por (elemento, fecha de valorización).
   const [precioEncontrado, setPrecioEncontrado] = useState<{
@@ -128,7 +126,6 @@ export const ModalAgregarLote = ({
     inter: number;
     fecha: string;
   } | null>(null);
-  const [modalPrecioAbierto, setModalPrecioAbierto] = useState(false);
 
   // La fecha proviene del padre (formato "YYYY-MM-DD HH:MM:SS" o "YYYY-MM-DD").
   // Si por algún motivo llega null, el lookup del INTER queda deshabilitado.
@@ -160,8 +157,14 @@ export const ModalAgregarLote = ({
           idProveedor,
           idValorizacionEdicion,
         );
-        // Excluir lote solo si YA fue valorizado para AMBOS elementos (Oro y Plata)
+        // Excluir lotes sin leyes completas (Oro, Plata, Humedad) o ya valorizados para ambos elementos
         const disponibles = data.filter((l) => {
+          const tieneLeyes =
+            Number(l.ley_oro || 0) > 0 &&
+            Number(l.ley_plata || 0) > 0 &&
+            Number(l.ley_humedad || 0) > 0;
+          if (!tieneLeyes) return false;
+
           const tieneOro =
             l.es_valorizado_oro ||
             existingDetalles.some(
@@ -202,6 +205,8 @@ export const ModalAgregarLote = ({
     setMaquila(req.maquila);
     setConsumo(req.consumo);
     setFactor(req.factor ?? 1.1023);
+    setMontoPenalidad(display.monto_penalidad ?? 0);
+    setMontoFlete(display.monto_flete ?? 0);
     // Preserva el id_valor_elemento_quimico del detalle para no romper el envio
     setPrecioEncontrado(
       display.id_valor_elemento_quimico
@@ -419,11 +424,20 @@ export const ModalAgregarLote = ({
     return res;
   }, [esSinValorComercial, inter, desInter, ley, recuperacion, maquila, consumo, factor]);
 
-  const totalItem = useMemo(() => {
+  const numPen = typeof montoPenalidad === "number" ? montoPenalidad : parseFloat(String(montoPenalidad)) || 0;
+  const numFle = typeof montoFlete === "number" ? montoFlete : parseFloat(String(montoFlete)) || 0;
+  const descuentoTotal = numPen + numFle;
+
+  const subtotalSinDescuento = useMemo(() => {
     if (!loteSeleccionado || esSinValorComercial) return 0;
     const tms = loteSeleccionado.tms;
     return (ptn * tms) / 1000;
   }, [esSinValorComercial, ptn, loteSeleccionado]);
+
+  const totalItem = useMemo(() => {
+    if (esSinValorComercial) return 0;
+    return Math.max(0, subtotalSinDescuento - descuentoTotal);
+  }, [esSinValorComercial, subtotalSinDescuento, descuentoTotal]);
 
   const handleAgregar = () => {
     if (!loteSeleccionado) {
@@ -434,9 +448,23 @@ export const ModalAgregarLote = ({
       notifyWarning("Debe seleccionar un elemento químico");
       return;
     }
+
+    // Validación de máximo 10 lotes únicos por propuesta
+    const uniqueLotsCount = new Set(existingDetalles.map((d) => d.id_lote_guia)).size;
+    const isEditingThisDetail = Boolean(
+      detalleEditar && detalleEditar.display.id_lote_guia === loteSeleccionado.id_lote_guia,
+    );
+    const isLotAlreadyInDetalles = existingDetalles.some(
+      (d) => d.id_lote_guia === loteSeleccionado.id_lote_guia,
+    );
+    if (!isEditingThisDetail && !isLotAlreadyInDetalles && uniqueLotsCount >= 10) {
+      notifyWarning("Solo se puede valorizar un máximo de 10 lotes por propuesta");
+      return;
+    }
+
     if (!esSinValorComercial && !precioEncontrado) {
       notifyWarning(
-        `Debe registrar el precio INTER para ${elemento} en la fecha seleccionada antes de valorizar. Use el botón "+" al lado de INTER.`,
+        `No se encontró precio INTER para ${elemento} en la fecha de la valorización. Verifique el registro en el encabezado del sistema.`,
       );
       return;
     }
@@ -464,6 +492,8 @@ export const ModalAgregarLote = ({
       maquila: esSinValorComercial ? 0 : numMaq,
       consumo: esSinValorComercial ? 0 : numRea,
       factor: esSinValorComercial ? 1 : numFac,
+      monto_penalidad: numPen,
+      monto_flete: numFle,
     };
 
     const displayItem: RES_ValorizacionCompraDetalle = {
@@ -489,6 +519,10 @@ export const ModalAgregarLote = ({
       consumo: esSinValorComercial ? 0 : numRea,
       factor: esSinValorComercial ? 1 : numFac,
       precio_por_tonelada: esSinValorComercial ? 0 : Number(ptn.toFixed(2)),
+      monto_penalidad: numPen,
+      monto_flete: numFle,
+      descuento: Number(descuentoTotal.toFixed(2)),
+      subtotal_sin_descuento: esSinValorComercial ? 0 : Number(subtotalSinDescuento.toFixed(2)),
       subtotal: esSinValorComercial ? 0 : Number(totalItem.toFixed(2)),
     };
 
@@ -503,6 +537,8 @@ export const ModalAgregarLote = ({
     setInter(0);
     setDesInter(0);
     setFactor(1.1023);
+    setMontoPenalidad(0);
+    setMontoFlete(0);
     setPrecioEncontrado(null);
     onClose();
   };
@@ -661,51 +697,17 @@ export const ModalAgregarLote = ({
           
           <Grid gutter="xs">
             <Grid.Col span={{ base: 6, sm: 4 }}>
-              <div className="flex items-end gap-1.5">
-                <NumberInput
-                  label="INTER ($/oz):"
-                  value={inter}
-                  onChange={(val) => setInter(val ?? 0)}
-                  min={0}
-                  decimalScale={2}
-                  size="xs"
-                  radius="lg"
-                  classNames={fieldClasses}
-                  disabled={interBloqueado}
-                  style={{ flex: 1 }}
-                />
-                <Tooltip
-                  label={
-                    !fechaCorta
-                      ? "Primero seleccione una fecha de inter"
-                      : precioEncontrado
-                        ? "Ya existe un precio INTER registrado para esta fecha y elemento"
-                        : "Registrar precio INTER para esta fecha y elemento"
-                  }
-                  withArrow
-                >
-                  <ActionIcon
-                    size="lg"
-                    radius="md"
-                    color={precioEncontrado ? "gray" : "indigo"}
-                    variant={precioEncontrado ? "subtle" : "light"}
-                    onClick={() => {
-                      if (!elemento || !fechaCorta) {
-                        notifyWarning(
-                          "Seleccione elemento y fecha de inter antes de registrar el precio.",
-                        );
-                        return;
-                      }
-                      setModalPrecioAbierto(true);
-                    }}
-                    disabled={!!precioEncontrado || !fechaCorta || !elemento}
-                    className="mb-1"
-                    aria-label="Registrar precio INTER"
-                  >
-                    <IconPlus size={16} />
-                  </ActionIcon>
-                </Tooltip>
-              </div>
+              <NumberInput
+                label="INTER ($/oz):"
+                value={inter}
+                onChange={(val) => setInter(val ?? 0)}
+                min={0}
+                decimalScale={2}
+                size="xs"
+                radius="lg"
+                classNames={fieldClasses}
+                disabled={interBloqueado}
+              />
             </Grid.Col>
             <Grid.Col span={{ base: 6, sm: 4 }}>
               <NumberInput
@@ -774,12 +776,38 @@ export const ModalAgregarLote = ({
                 disabled={esSinValorComercial}
               />
             </Grid.Col>
+            <Grid.Col span={{ base: 6, sm: 4 }}>
+              <NumberInput
+                label="PENALIDAD ($):"
+                value={montoPenalidad}
+                onChange={(val) => setMontoPenalidad(val ?? 0)}
+                min={0}
+                decimalScale={2}
+                size="xs"
+                radius="lg"
+                classNames={fieldClasses}
+                disabled={esSinValorComercial}
+              />
+            </Grid.Col>
+            <Grid.Col span={{ base: 6, sm: 4 }}>
+              <NumberInput
+                label="FLETE ($):"
+                value={montoFlete}
+                onChange={(val) => setMontoFlete(val ?? 0)}
+                min={0}
+                decimalScale={2}
+                size="xs"
+                radius="lg"
+                classNames={fieldClasses}
+                disabled={esSinValorComercial}
+              />
+            </Grid.Col>
           </Grid>
         </Paper>
 
         {/* Resumen Final Resultante */}
         <Paper p="xs" radius="md" bg="#14532d/20" className="border border-emerald-800/60">
-          <Group justify="space-between" align="center">
+          <Group justify="space-between" align="center" wrap="wrap">
             <Stack gap={2}>
               <Text fz={11} c="emerald.4" fw={600} tt="uppercase">
                 Precio * Tonelada:
@@ -789,14 +817,36 @@ export const ModalAgregarLote = ({
               </Text>
             </Stack>
 
-            <Stack gap={2} align="end">
-              <Text fz={11} c="emerald.4" fw={600} tt="uppercase">
-                Subtotal Lote:
-              </Text>
-              <Text fz="md" fw={800} c="emerald.3">
-                $ {totalItem.toFixed(2)}
-              </Text>
-            </Stack>
+            <Group gap="lg">
+              <Stack gap={2} align="end">
+                <Text fz={11} c="zinc.4" fw={600} tt="uppercase">
+                  Subtotal Sin Descuento:
+                </Text>
+                <Text fz="sm" fw={700} c="zinc.2">
+                  $ {subtotalSinDescuento.toFixed(2)}
+                </Text>
+              </Stack>
+
+              {descuentoTotal > 0 && (
+                <Stack gap={2} align="end">
+                  <Text fz={11} c="rose.4" fw={600} tt="uppercase">
+                    Descuentos (Pen + Fle):
+                  </Text>
+                  <Text fz="sm" fw={700} c="rose.3">
+                    -$ {descuentoTotal.toFixed(2)}
+                  </Text>
+                </Stack>
+              )}
+
+              <Stack gap={2} align="end">
+                <Text fz={11} c="emerald.4" fw={600} tt="uppercase">
+                  Subtotal Lote:
+                </Text>
+                <Text fz="md" fw={800} c="emerald.3">
+                  $ {totalItem.toFixed(2)}
+                </Text>
+              </Stack>
+            </Group>
           </Group>
         </Paper>
 
@@ -818,26 +868,6 @@ export const ModalAgregarLote = ({
           </Button>
         </Group>
       </Stack>
-
-      {/* Sub-modal para registrar precio INTER */}
-      {elemento && fechaCorta && (
-        <ModalRegistrarPrecioInter
-          opened={modalPrecioAbierto}
-          onClose={() => setModalPrecioAbierto(false)}
-          elementoQuimico={elemento}
-          fecha={fechaCorta}
-          interInicial={typeof inter === "number" ? inter : parseFloat(String(inter)) || undefined}
-          onRegistrado={(id, interRegistrado) => {
-            // Refleja el precio recien registrado en INTER y bloquea el boton "+"
-            setInter(interRegistrado);
-            setPrecioEncontrado({
-              id,
-              inter: interRegistrado,
-              fecha: fechaCorta ?? "",
-            });
-          }}
-        />
-      )}
     </ModalEstandar>
   );
 };
