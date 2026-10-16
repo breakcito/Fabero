@@ -159,6 +159,41 @@ export const ValidacionDistribucionPage = () => {
     });
   }, [records, placa, soloExcedente, estadoParticion]);
 
+  // Lotes que actualmente están visibles y listos para validar
+  const lotesSeleccionables = useMemo(() => {
+    return recordsFiltrados.filter((r) => puedeSeleccionarLote(r));
+  }, [recordsFiltrados, puedeSeleccionarLote]);
+
+  const todosSeleccionados =
+    lotesSeleccionables.length > 0 &&
+    lotesSeleccionables.every((r) =>
+      selectedLotes.some((s) => s.id_lote_mineral === r.id_lote_mineral)
+    );
+
+  const algunosSeleccionados =
+    lotesSeleccionables.some((r) =>
+      selectedLotes.some((s) => s.id_lote_mineral === r.id_lote_mineral)
+    ) && !todosSeleccionados;
+
+  const handleToggleSeleccionarTodos = (marcar: boolean) => {
+    if (marcar) {
+      setSelectedLotes((prev) => {
+        const prevIds = new Set(prev.map((s) => s.id_lote_mineral));
+        const nuevos = lotesSeleccionables.filter(
+          (r) => !prevIds.has(r.id_lote_mineral)
+        );
+        return [...prev, ...nuevos];
+      });
+    } else {
+      const idsSeleccionables = new Set(
+        lotesSeleccionables.map((r) => r.id_lote_mineral)
+      );
+      setSelectedLotes((prev) =>
+        prev.filter((s) => !idsSeleccionables.has(s.id_lote_mineral))
+      );
+    }
+  };
+
   const hasActiveFilters =
     !!fechaInicio ||
     !!fechaFin ||
@@ -171,6 +206,7 @@ export const ValidacionDistribucionPage = () => {
     setPlaca("");
     setSoloExcedente(false);
     setEstadoParticion("TODOS");
+    setSelectedLotes([]);
   };
 
   const closeModalValidacion = () => {
@@ -536,36 +572,84 @@ export const ValidacionDistribucionPage = () => {
           columns={[
             {
               accessor: "seleccion",
-              title: "",
+              title: (
+                <div className="flex items-center justify-center">
+                  <Tooltip
+                    label={
+                      lotesSeleccionables.length === 0
+                        ? "No hay lotes listos para validar"
+                        : todosSeleccionados
+                        ? "Desmarcar todos"
+                        : "Marcar todos los lotes listos para validar"
+                    }
+                    position="top"
+                    withArrow
+                  >
+                    <Checkbox
+                      checked={todosSeleccionados}
+                      indeterminate={algunosSeleccionados}
+                      disabled={lotesSeleccionables.length === 0}
+                      onChange={(e) =>
+                        handleToggleSeleccionarTodos(e.currentTarget.checked)
+                      }
+                      styles={{
+                        input: {
+                          cursor:
+                            lotesSeleccionables.length === 0
+                              ? "not-allowed"
+                              : "pointer",
+                        },
+                      }}
+                    />
+                  </Tooltip>
+                </div>
+              ),
               width: 50,
               textAlign: "center",
+              titleClassName: "!text-center",
+              cellsClassName: "!text-center",
               render: (r: Row) => {
                 if (r.lote_esta_validado === true) {
                   return (
-                    <Tooltip label="Lote ya validado">
-                      <IconCircleCheckFilled
-                        size={22}
-                        className="text-emerald-400"
-                      />
-                    </Tooltip>
+                    <div className="flex items-center justify-center">
+                      <Tooltip label="Lote ya validado">
+                        <IconCircleCheckFilled
+                          size={22}
+                          className="text-emerald-400"
+                        />
+                      </Tooltip>
+                    </div>
                   );
                 }
+                const puede = puedeSeleccionarLote(r);
                 return (
-                  <Checkbox
-                    checked={selectedLotes.some(
-                      (s) => s.id_lote_mineral === r.id_lote_mineral
-                    )}
-                    onChange={(e) => {
-                      const checked = e.currentTarget.checked;
-                      setSelectedLotes((prev) =>
-                        checked
-                          ? [...prev, r]
-                          : prev.filter(
-                              (s) => s.id_lote_mineral !== r.id_lote_mineral
-                            )
-                      );
-                    }}
-                  />
+                  <div className="flex items-center justify-center">
+                    <Tooltip
+                      label={
+                        puede
+                          ? "Seleccionar para validar"
+                          : "El lote aún no cumple los requisitos para ser validado"
+                      }
+                      disabled={puede}
+                    >
+                      <Checkbox
+                        checked={selectedLotes.some(
+                          (s) => s.id_lote_mineral === r.id_lote_mineral
+                        )}
+                        disabled={!puede}
+                        onChange={(e) => {
+                          const checked = e.currentTarget.checked;
+                          setSelectedLotes((prev) =>
+                            checked
+                              ? [...prev, r]
+                              : prev.filter(
+                                  (s) => s.id_lote_mineral !== r.id_lote_mineral
+                                )
+                          );
+                        }}
+                      />
+                    </Tooltip>
+                  </div>
                 );
               },
             },

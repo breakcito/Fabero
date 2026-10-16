@@ -5,7 +5,7 @@ import { IconPaperclip, IconClipboardCheck, IconPencil, IconHistory, IconTruck, 
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
 import { ArchivoCard } from "../../../../presentation/utils/archivo/archivo-card";
 import { MultiFilePicker } from "../../../../presentation/utils/archivo/multifile-picker";
-import type { RecepcionUnidadResponse } from "../../service/recepcion-unidades.responses";
+import type { RecepcionUnidadResponse, GuiaRecepcionItem } from "../../service/recepcion-unidades.responses";
 import type { IArchivo } from "../../../../shared/interfaces/archivo";
 import { RecepcionUnidadesService } from "../../service/recepcion-unidades.service";
 import { useNotify } from "../../../../hooks/useNotify";
@@ -33,6 +33,11 @@ export const TablaRecepciones = ({
   const [selectedEvidencias, setSelectedEvidencias] = useState<IArchivo[] | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
 
+  const [modalSeleccionGuiaOpen, setModalSeleccionGuiaOpen] = useState(false);
+  const [guiasRecepcion, setGuiasRecepcion] = useState<GuiaRecepcionItem[]>([]);
+  const [recepcionSeleccionadaTicket, setRecepcionSeleccionadaTicket] = useState<RecepcionUnidadResponse | null>(null);
+  const [loadingGuiasRecepcion, setLoadingGuiasRecepcion] = useState(false);
+
   const [exitRecord, setExitRecord] = useState<RecepcionUnidadResponse | null>(null);
   const [estadoSalida, setEstadoSalida] = useState<EstadoSalida | null>(null);
   const [observacionSalida, setObservacionSalida] = useState("");
@@ -40,6 +45,27 @@ export const TablaRecepciones = ({
   const [savingExit, setSavingExit] = useState(false);
   const { notifySuccess, notifyError } = useNotify();
   const { printTicketIngreso, loadingTicket } = useTicketIngresoVehiculo();
+
+  const handlePrintTicket = async (r: RecepcionUnidadResponse) => {
+    try {
+      setLoadingGuiasRecepcion(true);
+      const guias = await RecepcionUnidadesService.getGuiasRecepcion(r.id);
+      if (guias && guias.length > 1) {
+        setRecepcionSeleccionadaTicket(r);
+        setGuiasRecepcion(guias);
+        setModalSeleccionGuiaOpen(true);
+      } else if (guias && guias.length === 1) {
+        void printTicketIngreso(r.id, guias[0].id);
+      } else {
+        void printTicketIngreso(r.id);
+      }
+    } catch (e) {
+      console.error("Error al obtener guías de la recepción para imprimir ticket", e);
+      void printTicketIngreso(r.id);
+    } finally {
+      setLoadingGuiasRecepcion(false);
+    }
+  };
 
   const handleOpenEvidencias = (evidencias: IArchivo[]) => {
     setSelectedEvidencias(evidencias);
@@ -184,8 +210,8 @@ export const TablaRecepciones = ({
                       color="yellow"
                       radius="xl"
                       size="md"
-                      disabled={noConfirmada || loadingTicket}
-                      onClick={() => printTicketIngreso(r.id)}
+                      disabled={noConfirmada || loadingTicket || loadingGuiasRecepcion}
+                      onClick={() => handlePrintTicket(r)}
                       className="bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 disabled:opacity-40"
                     >
                       <IconPrinter size={16} />
@@ -577,6 +603,90 @@ export const TablaRecepciones = ({
               className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-900/20"
             >
               Grabar
+            </Button>
+          </div>
+        </div>
+      </ModalEstandar>
+
+      {/* Modal para elegir guía cuando la recepción tiene múltiples guías */}
+      <ModalEstandar
+        opened={modalSeleccionGuiaOpen}
+        close={() => setModalSeleccionGuiaOpen(false)}
+        title="Seleccionar Guía para Ticket de Ingreso"
+        size="lg"
+      >
+        <div className="flex flex-col gap-4">
+          <Text size="sm" c="zinc.3">
+            Esta recepción vehicular tiene {guiasRecepcion.length} guías registradas. Seleccione la guía para generar e imprimir su ticket de ingreso:
+          </Text>
+          <div className="flex flex-col gap-2.5 max-h-96 overflow-y-auto pr-1">
+            {guiasRecepcion.map((g) => (
+              <div
+                key={g.id}
+                className="flex items-center justify-between p-3.5 rounded-xl border border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800/40 transition-colors"
+              >
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center gap-2">
+                    <Text size="xs" fw={700} c="white" className="font-mono">
+                      Guía Remitente: {g.guia_remitente || "—"}
+                    </Text>
+                    {g.con_no_conformidad && (
+                      <Badge color="orange" size="xs" variant="light">
+                        No Conformidad
+                      </Badge>
+                    )}
+                  </div>
+                  {g.guia_transportista && (
+                    <Text size="xs" c="zinc.4" className="font-mono">
+                      Guía Transp: {g.guia_transportista}
+                    </Text>
+                  )}
+                  <div className="flex items-center gap-3 text-[11px] text-zinc-400">
+                    <span>
+                      P. Guía:{" "}
+                      <strong className="text-zinc-200">
+                        {g.peso_guia_remision !== null && g.peso_guia_remision !== undefined
+                          ? `${Number(g.peso_guia_remision).toLocaleString("es-PE")} kg`
+                          : "—"}
+                      </strong>
+                    </span>
+                    <span>
+                      P. Balanza:{" "}
+                      <strong className="text-zinc-200">
+                        {g.peso_vehicular_total !== null && g.peso_vehicular_total !== undefined
+                          ? `${Number(g.peso_vehicular_total).toLocaleString("es-PE")} kg`
+                          : "—"}
+                      </strong>
+                    </span>
+                  </div>
+                </div>
+                <Button
+                  size="xs"
+                  color="indigo"
+                  radius="md"
+                  leftSection={<IconPrinter size={14} />}
+                  loading={loadingTicket}
+                  onClick={() => {
+                    if (recepcionSeleccionadaTicket) {
+                      void printTicketIngreso(recepcionSeleccionadaTicket.id, g.id);
+                      setModalSeleccionGuiaOpen(false);
+                    }
+                  }}
+                >
+                  Imprimir Ticket
+                </Button>
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-end pt-2 border-t border-zinc-800">
+            <Button
+              variant="subtle"
+              color="gray"
+              radius="md"
+              size="sm"
+              onClick={() => setModalSeleccionGuiaOpen(false)}
+            >
+              Cerrar
             </Button>
           </div>
         </div>

@@ -23,7 +23,7 @@ const appendIfPresent = (formData: FormData, key: string, value: string | number
 const appendDocumento = (
   formData: FormData,
   key: string,
-  file: File | null,
+  file?: File | null,
 ): void => {
   if (file) {
     formData.append(key, file);
@@ -91,6 +91,10 @@ export const GuiasPrimerTramoService = {
       formData.append("sin_guia_transportista", "0");
       appendIfPresent(formData, "guia_transportista", dto.guia_transportista);
     }
+    appendIfPresent(formData, "id_recepcion_unidad", dto.id_recepcion_unidad);
+    formData.append("con_no_conformidad", dto.con_no_conformidad ? "1" : "0");
+    appendIfPresent(formData, "peso_guia_remision", dto.peso_guia_remision);
+    appendIfPresent(formData, "peso_vehicular_total", dto.peso_vehicular_total);
 
     formData.append("lotes", JSON.stringify(dto.lotes));
 
@@ -102,6 +106,7 @@ export const GuiasPrimerTramoService = {
     if (!dto.sin_guia_transportista) {
       appendDocumento(formData, "documento_guia_transportista", dto.documento_guia_transportista);
     }
+    appendDocumento(formData, "documento_nota_no_conformidad", dto.documento_nota_no_conformidad);
 
     const { data } = await api.post(PATH, formData, {
       headers: { "Content-Type": "multipart/form-data" },
@@ -138,6 +143,10 @@ export const GuiasPrimerTramoService = {
       formData.append("sin_guia_transportista", "0");
       appendIfPresent(formData, "guia_transportista", dto.guia_transportista);
     }
+    appendIfPresent(formData, "id_recepcion_unidad", dto.id_recepcion_unidad);
+    formData.append("con_no_conformidad", dto.con_no_conformidad ? "1" : "0");
+    appendIfPresent(formData, "peso_guia_remision", dto.peso_guia_remision);
+    appendIfPresent(formData, "peso_vehicular_total", dto.peso_vehicular_total);
     appendIfPresent(formData, "motivo", dto.motivo);
 
     formData.append("lotes", JSON.stringify(dto.lotes));
@@ -150,6 +159,7 @@ export const GuiasPrimerTramoService = {
     if (!dto.sin_guia_transportista) {
       appendDocumento(formData, "documento_guia_transportista", dto.documento_guia_transportista);
     }
+    appendDocumento(formData, "documento_nota_no_conformidad", dto.documento_nota_no_conformidad);
 
     const { data } = await api.post(`${PATH}/${id}/update`, formData, {
       headers: { "Content-Type": "multipart/form-data" },

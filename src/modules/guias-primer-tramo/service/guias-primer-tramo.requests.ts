@@ -39,15 +39,21 @@ export interface DTO_CrearGuiaPrimerTramo {
   guia_remitente: string | null;
   guia_transportista: string | null;
   sin_guia_transportista: boolean;
+  id_recepcion_unidad?: number | null;
+  con_no_conformidad?: boolean;
+  peso_guia_remision?: number | null;
+  peso_vehicular_total?: number | null;
   lotes: DTO_ItemGuiaInput[];
   documento_guia_remitente: File | null;
   documento_guia_transportista: File | null;
+  documento_nota_no_conformidad?: File | null;
   pesos_oficiales_lotes?: DTO_PesosOficialesLote[] | null;
 }
 
-export interface DTO_ActualizarGuiaPrimerTramo extends Omit<DTO_CrearGuiaPrimerTramo, "documento_guia_remitente" | "documento_guia_transportista"> {
+export interface DTO_ActualizarGuiaPrimerTramo extends Omit<DTO_CrearGuiaPrimerTramo, "documento_guia_remitente" | "documento_guia_transportista" | "documento_nota_no_conformidad"> {
   documento_guia_remitente: File | null;
   documento_guia_transportista: File | null;
+  documento_nota_no_conformidad?: File | null;
   motivo: string | null;
   pesos_oficiales_lotes?: DTO_PesosOficialesLote[] | null;
 }

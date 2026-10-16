@@ -15,9 +15,9 @@ import {
   Loader,
   Badge,
   NumberInput,
+  Checkbox,
 } from "@mantine/core";
 import {
-  IconCalendar,
   IconPlus,
   IconTrash,
   IconFileText,
@@ -83,12 +83,15 @@ interface ItemFormItem {
   peso_neto: number | null;
   tipo_producto: string | null;
   tipo_mineral: string | null;
+  balanza_peso_inicial?: number | null;
+  balanza_peso_final?: number | null;
+  balanza_peso_neto?: number | null;
 }
 
 const fieldClasses = {
   input:
-    "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 transition-all",
-  label: "text-zinc-400 font-medium text-xs mb-1 whitespace-nowrap",
+    "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 transition-all text-xs",
+  label: "text-zinc-300 font-medium text-xs mb-1 whitespace-nowrap",
 };
 
 /**
@@ -110,19 +113,6 @@ const itemKey = (i: {
   return `LOTE:${i.id_lote_mineral ?? ""}`;
 };
 
-/**
- * Identifica la recepción de unidad real a la que pertenece un item.
- *
- * Una PARTICION cuelga de una recepción "ficticia" propia, pero los datos de
- * la guía (remitente, transportista, documentos) viven en la recepción del lote
- * padre. Para agrupar hay que usar la MISMA recepción que consume el
- * autocompletado en `handleAgregarItems`; si no, un lote y sus particiones
- * caerían en dos grupos distintos pese a ser la misma descarga.
- */
-const recepcionKey = (i: {
-  id_recepcion_unidad: number;
-  id_recepcion_unidad_padre?: number | null;
-}): number => i.id_recepcion_unidad_padre ?? i.id_recepcion_unidad;
 
 /** Timestamp de creación del item. Valores no parseables caen en 0. */
 const tsCreacion = (createdAt: string): number => {
@@ -144,6 +134,26 @@ const splitFechaHora = (
   const [fecha = "", resto = ""] = valor.trim().split(" ");
   if (!fecha) return null;
   return { fecha, hora: resto.slice(0, 5) };
+};
+
+const normalizarFechaHora = (fh: string | null | undefined): string => {
+  if (!fh) return "";
+  return fh.trim().replace("T", " ").slice(0, 16);
+};
+
+const recepcionGroupKey = (i: {
+  vehiculo_placa?: string | null;
+  fecha_hora_ingreso_vehiculo?: string | null;
+  id_recepcion_unidad?: number | null;
+  id_recepcion_unidad_padre?: number | null;
+}): string => {
+  const placa = (i.vehiculo_placa ?? "").trim().toUpperCase();
+  const fechaIngreso = normalizarFechaHora(i.fecha_hora_ingreso_vehiculo);
+
+  if (placa || fechaIngreso) {
+    return `${placa}|${fechaIngreso}`;
+  }
+  return String(i.id_recepcion_unidad_padre ?? i.id_recepcion_unidad ?? "0");
 };
 
 const todayIso = (): string => {
@@ -213,11 +223,22 @@ export const ModalGuiaPrimerTramo = ({
   const [documentoGuiaTransportista, setDocumentoGuiaTransportista] =
     useState<File | null>(null);
 
+  const [conNoConformidad, setConNoConformidad] = useState(false);
+  const [pesoGuiaRemision, setPesoGuiaRemision] = useState<number | null>(null);
+  const [pesoVehicularTotal, setPesoVehicularTotal] = useState<number | null>(
+    null,
+  );
+  const [idRecepcionUnidad, setIdRecepcionUnidad] = useState<number | null>(
+    null,
+  );
+  const [documentoNotaNoConformidad, setDocumentoNotaNoConformidad] =
+    useState<File | null>(null);
+
   // Confirmacion pendiente de reemplazo de documento. Mientras no sea null,
   // el modal de confirmacion esta visible. El file NO se asigna al state del
   // documento hasta que el usuario confirma.
   const [pendingReplacement, setPendingReplacement] = useState<{
-    field: "remitente" | "transportista";
+    field: "remitente" | "transportista" | "nota_no_conformidad";
     file: File;
   } | null>(null);
 
@@ -229,12 +250,57 @@ export const ModalGuiaPrimerTramo = ({
   const [loadingItems, setLoadingItems] = useState(false);
   const [itemsFechaInicio, setItemsFechaInicio] = useState<string>(todayIso());
   const [itemsFechaFin, setItemsFechaFin] = useState<string>(todayIso());
+  // Clave de la recepción activa seleccionada en la guía ("PLACA|FECHA_INGRESO").
+  const [recepcionActivaKey, setRecepcionActivaKey] = useState<string | null>(
+    null,
+  );
   // Mapa itemKey -> id_recepcion_unidad para agrupar items por recepción
   // y permitir autocompletar las guias cuando todos comparten una sola.
   const [recepcionesPorItem, setRecepcionesPorItem] = useState<
     Map<string, number>
   >(new Map());
   const round2 = (n: number): number => Math.round(n * 100) / 100;
+
+  const diferenciaKg = useMemo(() => {
+    if (pesoVehicularTotal === null || pesoGuiaRemision === null) return 0;
+    return round2(Math.abs(pesoVehicularTotal - pesoGuiaRemision));
+  }, [pesoVehicularTotal, pesoGuiaRemision]);
+
+  // Si la diferencia entre peso vehicular y peso de guía >= 1.99 TN (1990 kg), hay discrepancia
+  const hayDiscrepancia = diferenciaKg >= 1990;
+
+  useEffect(() => {
+    if (hayDiscrepancia) {
+      setConNoConformidad(true);
+    }
+  }, [hayDiscrepancia]);
+
+  const totalBruto = useMemo(() => {
+    return round2(
+      items.reduce(
+        (acc, it) => acc + (it.peso_inicial ?? 0),
+        0,
+      ),
+    );
+  }, [items]);
+
+  const totalTara = useMemo(() => {
+    return round2(
+      items.reduce(
+        (acc, it) => acc + (it.peso_final ?? 0),
+        0,
+      ),
+    );
+  }, [items]);
+
+  const totalNeto = useMemo(() => {
+    return round2(
+      items.reduce(
+        (acc, it) => acc + (it.peso_neto ?? 0),
+        0,
+      ),
+    );
+  }, [items]);
 
   /**
    * Actualiza el peso documentario de un item (lote o partición) en la guía,
@@ -248,8 +314,8 @@ export const ModalGuiaPrimerTramo = ({
     field: "peso_inicial" | "peso_final" | "peso_neto",
     value: number,
   ) => {
-    setItems((prev) =>
-      prev.map((it) => {
+    setItems((prev) => {
+      const updated = prev.map((it) => {
         if (it.tempId !== tempId) return it;
 
         const val = round2(value);
@@ -278,8 +344,14 @@ export const ModalGuiaPrimerTramo = ({
           peso_final: nuevoFin,
           peso_neto: nuevoNet,
         };
-      }),
-    );
+      });
+
+      const sumGuia = round2(
+        updated.reduce((acc, it) => acc + (it.peso_neto ?? 0), 0),
+      );
+      setPesoGuiaRemision(sumGuia);
+      return updated;
+    });
   };
 
   const [submitting, setSubmitting] = useState(false);
@@ -533,6 +605,19 @@ export const ModalGuiaPrimerTramo = ({
         setSinGuiaTransportista(!!guia.sin_guia_transportista);
         setDocumentoGuiaRemitente(null);
         setDocumentoGuiaTransportista(null);
+        setConNoConformidad(!!guia.con_no_conformidad);
+        setPesoGuiaRemision(
+          guia.peso_guia_remision !== null && guia.peso_guia_remision !== undefined
+            ? Number(guia.peso_guia_remision)
+            : null,
+        );
+        setPesoVehicularTotal(
+          guia.peso_vehicular_total !== null && guia.peso_vehicular_total !== undefined
+            ? Number(guia.peso_vehicular_total)
+            : null,
+        );
+        setIdRecepcionUnidad(guia.id_recepcion_unidad ?? null);
+        setDocumentoNotaNoConformidad(null);
 
         const mappedItems: ItemFormItem[] = (guia.lotes || []).map((l) => ({
           tempId: `${itemKey(l)}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -545,6 +630,9 @@ export const ModalGuiaPrimerTramo = ({
           peso_neto: l.peso_neto,
           tipo_producto: l.tipo_producto,
           tipo_mineral: l.tipo_mineral,
+          balanza_peso_inicial: l.balanza_peso_inicial ?? l.peso_inicial ?? null,
+          balanza_peso_final: l.balanza_peso_final ?? l.peso_final ?? null,
+          balanza_peso_neto: l.balanza_peso_neto ?? l.peso_neto ?? null,
         }));
         setItems(mappedItems);
       } else {
@@ -778,9 +866,29 @@ export const ModalGuiaPrimerTramo = ({
       peso_neto: i.peso_neto,
       tipo_producto: i.tipo_producto,
       tipo_mineral: i.tipo_mineral,
+      balanza_peso_inicial: i.balanza_peso_inicial ?? i.peso_inicial ?? null,
+      balanza_peso_final: i.balanza_peso_final ?? i.peso_final ?? null,
+      balanza_peso_neto: i.balanza_peso_neto ?? i.peso_neto ?? null,
     }));
     const merged: ItemFormItem[] = [...items, ...nuevos];
     setItems(merged);
+
+    if (seleccionados.length > 0) {
+      setRecepcionActivaKey(recepcionGroupKey(seleccionados[0]));
+    }
+
+    const sumGuia = round2(
+      merged.reduce((acc, it) => acc + (it.peso_neto ?? 0), 0),
+    );
+    const sumVehicular = round2(
+      merged.reduce(
+        (acc, it) => acc + (it.balanza_peso_neto ?? it.peso_neto ?? 0),
+        0,
+      ),
+    );
+    setPesoGuiaRemision(sumGuia);
+    setPesoVehicularTotal(sumVehicular);
+
     // Construir el Map temporal de recepciones SINCRONAMENTE para pasarselo
     // al helper de sincronizacion. Esto evita el bug de timing del setState
     // de recepcionesPorItem (React batchea, el state nuevo no esta disponible
@@ -804,6 +912,20 @@ export const ModalGuiaPrimerTramo = ({
   const handleEliminarItem = (tempId: string) => {
     const itemsRestantes = items.filter((i) => i.tempId !== tempId);
     setItems((prev) => prev.filter((i) => i.tempId !== tempId));
+    if (itemsRestantes.length === 0) {
+      setRecepcionActivaKey(null);
+    }
+    const sumGuia = round2(
+      itemsRestantes.reduce((acc, it) => acc + (it.peso_neto ?? 0), 0),
+    );
+    const sumVehicular = round2(
+      itemsRestantes.reduce(
+        (acc, it) => acc + (it.balanza_peso_neto ?? it.peso_neto ?? 0),
+        0,
+      ),
+    );
+    setPesoGuiaRemision(itemsRestantes.length > 0 ? sumGuia : null);
+    setPesoVehicularTotal(itemsRestantes.length > 0 ? sumVehicular : null);
     // Sincronizar los inputs de guias (autocompletar o limpiar) segun
     // si los items resultantes siguen perteneciendo a una sola recepcion.
     void sincronizarGuiasPorRecepciones(itemsRestantes);
@@ -829,19 +951,10 @@ export const ModalGuiaPrimerTramo = ({
       const id = mapaRecepciones.get(itemKey(it));
       if (id) recepciones.add(id);
     }
-    // console.log("[autocompletar] sincronizarGuiasPorRecepciones - set de recepciones:", {
-    //   items: itemsActuales.length,
-    //   recepciones: Array.from(recepciones),
-    //   size: recepciones.size,
-    //   usoOverride: !!recepcionesOverride,
-    // });
 
     if (recepciones.size !== 1) {
       // 0 items, o mezcla de recepciones. Limpiar inputs.
-      // const motivo = itemsActuales.length === 0
-      //   ? "no hay items"
-      //   : `mezcla de ${recepciones.size} recepciones`;
-      // console.log("[autocompletar] action: limpiar -", motivo);
+      setIdRecepcionUnidad(null);
       setGuiaRemitente("");
       setGuiaTransportista("");
       setDocumentoGuiaRemitente(null);
@@ -856,6 +969,34 @@ export const ModalGuiaPrimerTramo = ({
 
     // size === 1. Decidir si autocompletar o mantener.
     const unicaRecepcion = recepciones.values().next().value as number;
+    setIdRecepcionUnidad(unicaRecepcion);
+
+    // Fetch explicito al endpoint: trae vehiculo, conductor, textos (guia_remitente,
+    // guia_transportista) y los archivos (documentos_programacion)
+    // directamente desde recepcion_unidad de la BD.
+    let dataRecepcion: RES_ArchivosGuiasRecepcion;
+    try {
+      dataRecepcion =
+        await ItemsMineralService.get_archivos_guias_by_recepcion(
+          unicaRecepcion,
+        );
+    } catch {
+      return;
+    }
+
+    // Autocompletar vehiculo (tractor), carreta, conductor y empresa si estan vacios
+    if (!idVehiculo && dataRecepcion.id_vehiculo) {
+      setIdVehiculo(String(dataRecepcion.id_vehiculo));
+    }
+    if (!idVehiculoCarreta && dataRecepcion.id_vehiculo_carreta) {
+      setIdVehiculoCarreta(String(dataRecepcion.id_vehiculo_carreta));
+    }
+    if (!idConductor && dataRecepcion.id_conductor) {
+      setIdConductor(String(dataRecepcion.id_conductor));
+    }
+    if (!idEmpresaTransporte && dataRecepcion.id_empresa_transporte) {
+      setIdEmpresaTransporte(String(dataRecepcion.id_empresa_transporte));
+    }
 
     const inputsVacios =
       guiaRemitente.trim() === "" &&
@@ -864,31 +1005,6 @@ export const ModalGuiaPrimerTramo = ({
       documentoGuiaTransportista === null;
 
     if (!inputsVacios) {
-      // console.log("[autocompletar] action: mantener - inputs ya poblados", {
-      //   guiaRemitente,
-      //   guiaTransportista,
-      //   tieneRemitente: !!documentoGuiaRemitente,
-      //   tieneTransportista: !!documentoGuiaTransportista,
-      // });
-      return;
-    }
-
-    // console.log("[autocompletar] action: autocompletar desde recepcion", { unicaRecepcion });
-
-    // Fetch explicito al endpoint: trae los textos (guia_remitente,
-    // guia_transportista) y los archivos (documentos_programacion)
-    // directamente desde recepcion_unidad de la BD. Esto elimina la
-    // dependencia de itemsDisponibles, que solo contiene items
-    // visibles en el sub-modal y puede NO tener filas para algunas
-    // recepciones si el operador selecciono items por separado.
-    let dataRecepcion: RES_ArchivosGuiasRecepcion;
-    try {
-      dataRecepcion =
-        await ItemsMineralService.get_archivos_guias_by_recepcion(
-          unicaRecepcion,
-        );
-      // console.log("[autocompletar] respuesta del endpoint:", dataRecepcion);
-    } catch {
       return;
     }
 
@@ -1082,7 +1198,7 @@ export const ModalGuiaPrimerTramo = ({
    * abre un modal controlado que pide confirmacion antes de sobrescribirlo.
    */
   const handleFilesChange = (
-    field: "remitente" | "transportista",
+    field: "remitente" | "transportista" | "nota_no_conformidad",
     files: File[],
   ) => {
     // El MultiFilePicker envia `[]` cuando el usuario pulsa "Limpiar nuevos"
@@ -1090,19 +1206,23 @@ export const ModalGuiaPrimerTramo = ({
     // como una operacion valida de limpieza y NO como un payload vacio a ignorar.
     if (files.length === 0) {
       if (field === "remitente") setDocumentoGuiaRemitente(null);
-      else setDocumentoGuiaTransportista(null);
+      else if (field === "transportista") setDocumentoGuiaTransportista(null);
+      else setDocumentoNotaNoConformidad(null);
       return;
     }
     const file = files[0];
     const existing =
       field === "remitente"
         ? guia?.documentos?.guia_remitente
-        : guia?.documentos?.guia_transportista;
+        : field === "transportista"
+          ? guia?.documentos?.guia_transportista
+          : guia?.documentos?.nota_no_conformidad;
     if (existing) {
       setPendingReplacement({ field, file });
     } else {
       if (field === "remitente") setDocumentoGuiaRemitente(file);
-      else setDocumentoGuiaTransportista(file);
+      else if (field === "transportista") setDocumentoGuiaTransportista(file);
+      else setDocumentoNotaNoConformidad(file);
     }
   };
 
@@ -1110,8 +1230,10 @@ export const ModalGuiaPrimerTramo = ({
     if (!pendingReplacement) return;
     if (pendingReplacement.field === "remitente") {
       setDocumentoGuiaRemitente(pendingReplacement.file);
-    } else {
+    } else if (pendingReplacement.field === "transportista") {
       setDocumentoGuiaTransportista(pendingReplacement.file);
+    } else {
+      setDocumentoNotaNoConformidad(pendingReplacement.file);
     }
     setPendingReplacement(null);
   };
@@ -1139,6 +1261,11 @@ export const ModalGuiaPrimerTramo = ({
     setSinGuiaTransportista(false);
     setDocumentoGuiaRemitente(null);
     setDocumentoGuiaTransportista(null);
+    setConNoConformidad(false);
+    setPesoGuiaRemision(null);
+    setPesoVehicularTotal(null);
+    setIdRecepcionUnidad(null);
+    setDocumentoNotaNoConformidad(null);
     setItems([]);
     setRecepcionesPorItem(new Map());
   };
@@ -1240,6 +1367,10 @@ export const ModalGuiaPrimerTramo = ({
         if (!onUpdate) return;
         const dto: DTO_ActualizarGuiaPrimerTramo = {
           id_sucursal: idSucursal,
+          id_recepcion_unidad: idRecepcionUnidad,
+          con_no_conformidad: conNoConformidad,
+          peso_guia_remision: pesoGuiaRemision,
+          peso_vehicular_total: pesoVehicularTotal,
           id_proveedor: Number(idProveedor),
           id_concesion: Number(idConcesion),
           id_conductor: Number(idConductor),
@@ -1272,12 +1403,17 @@ export const ModalGuiaPrimerTramo = ({
           documento_guia_transportista: sinGuiaTransportista
             ? null
             : documentoGuiaTransportista,
+          documento_nota_no_conformidad: documentoNotaNoConformidad,
           motivo: null,
         };
         await onUpdate(guia.id, dto);
       } else {
         const dto: DTO_CrearGuiaPrimerTramo = {
           id_sucursal: idSucursal,
+          id_recepcion_unidad: idRecepcionUnidad,
+          con_no_conformidad: conNoConformidad,
+          peso_guia_remision: pesoGuiaRemision,
+          peso_vehicular_total: pesoVehicularTotal,
           id_proveedor: Number(idProveedor),
           id_concesion: Number(idConcesion),
           id_conductor: Number(idConductor),
@@ -1304,6 +1440,7 @@ export const ModalGuiaPrimerTramo = ({
           documento_guia_transportista: sinGuiaTransportista
             ? null
             : documentoGuiaTransportista,
+          documento_nota_no_conformidad: documentoNotaNoConformidad,
         };
         await onSubmit(dto);
       }
@@ -1320,69 +1457,71 @@ export const ModalGuiaPrimerTramo = ({
     [loadingConcesiones],
   );
 
+  const fechasHeader = (
+    <div className="flex items-center gap-3">
+      <div className="flex items-center gap-1.5">
+        <span className="text-[11px] font-semibold text-zinc-400 whitespace-nowrap">
+          Inicio Traslado: <span className="text-red-400">*</span>
+        </span>
+        <TextInput
+          type="date"
+          value={fechaInicioTraslado ?? ""}
+          onChange={(e) => setFechas(e.currentTarget.value || null)}
+          classNames={fieldClasses}
+          radius="md"
+          size="xs"
+          style={{ width: 135 }}
+          required
+        />
+      </div>
+      <div className="flex items-center gap-1.5">
+        <span className="text-[11px] font-semibold text-zinc-400 whitespace-nowrap">
+          Emisión:
+        </span>
+        <TextInput
+          type="date"
+          value={fechaEmision ?? ""}
+          onChange={(e) => setFechaEmision(e.currentTarget.value || null)}
+          classNames={fieldClasses}
+          radius="md"
+          size="xs"
+          style={{ width: 135 }}
+        />
+      </div>
+      <div className="flex items-center gap-1.5">
+        <span className="text-[11px] font-semibold text-zinc-400 whitespace-nowrap">
+          En Planta:
+        </span>
+        <TextInput
+          type="date"
+          value={fechaEnPlanta ?? ""}
+          onChange={(e) => setFechaEnPlanta(e.currentTarget.value || null)}
+          classNames={fieldClasses}
+          radius="md"
+          size="xs"
+          style={{ width: 135 }}
+        />
+      </div>
+    </div>
+  );
+
   return (
     <>
       <ModalEstandar
         opened={opened}
         close={handleClose}
-        title={
-          guia
-            ? "Editar Guía de Primer Tramo"
-            : "Registrar Guía de Primer Tramo"
-        }
-        size="xl"
+        title={guia ? "Editar Guía" : "Registrar Guía"}
+        size="78rem"
+        rightSection={fechasHeader}
       >
         <Stack
           gap="md"
           className="max-h-[85vh] overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
-          {/* ========== 1. Fechas ========== */}
-          <Grid gutter="sm">
-            <Grid.Col span={{ base: 12, sm: 4 }}>
-              <TextInput
-                type="date"
-                label="Fecha Inicio Traslado:"
-                value={fechaInicioTraslado ?? ""}
-                onChange={(e) => setFechas(e.currentTarget.value || null)}
-                classNames={fieldClasses}
-                radius="lg"
-                size="xs"
-                leftSection={<IconCalendar size={14} />}
-                required
-              />
-            </Grid.Col>
-            <Grid.Col span={{ base: 12, sm: 4 }}>
-              <TextInput
-                type="date"
-                label="Fecha Emisión:"
-                value={fechaEmision ?? ""}
-                onChange={(e) => setFechaEmision(e.currentTarget.value || null)}
-                classNames={fieldClasses}
-                radius="lg"
-                size="xs"
-                leftSection={<IconCalendar size={14} />}
-              />
-            </Grid.Col>
-            <Grid.Col span={{ base: 12, sm: 4 }}>
-              <TextInput
-                type="date"
-                label="Fecha En Planta:"
-                value={fechaEnPlanta ?? ""}
-                onChange={(e) =>
-                  setFechaEnPlanta(e.currentTarget.value || null)
-                }
-                classNames={fieldClasses}
-                radius="lg"
-                size="xs"
-                leftSection={<IconCalendar size={14} />}
-              />
-            </Grid.Col>
-          </Grid>
-
-          {/* ========== 2. Proveedor y Concesión ========== */}
-          <Grid gutter="sm">
-            <Grid.Col span={{ base: 12, sm: 6 }}>
+          {/* ========== 1. Proveedor, Concesión y Guías ========== */}
+          <Grid gutter="sm" align="flex-end">
+            <Grid.Col span={{ base: 12, sm: 3 }}>
               <Group gap="xs" align="flex-end" wrap="nowrap">
                 <Select
                   label="Proveedor:"
@@ -1400,7 +1539,7 @@ export const ModalGuiaPrimerTramo = ({
                   onChange={handleProveedorChange}
                   classNames={fieldClasses}
                   radius="lg"
-                  size="xs"
+                  size="sm"
                   disabled={loadingProveedores}
                   rightSection={
                     loadingProveedores ? <Loader size={16} /> : undefined
@@ -1414,7 +1553,7 @@ export const ModalGuiaPrimerTramo = ({
                   radius="md"
                 >
                   <ActionIcon
-                    size="30px"
+                    size="36px"
                     radius="lg"
                     variant="filled"
                     color="indigo"
@@ -1426,7 +1565,7 @@ export const ModalGuiaPrimerTramo = ({
                 </Tooltip>
               </Group>
             </Grid.Col>
-            <Grid.Col span={{ base: 12, sm: 6 }}>
+            <Grid.Col span={{ base: 12, sm: 3 }}>
               <Group gap="xs" align="flex-end" wrap="nowrap">
                 <Select
                   label={labelConcesion}
@@ -1443,7 +1582,7 @@ export const ModalGuiaPrimerTramo = ({
                   onChange={setIdConcesion}
                   classNames={fieldClasses}
                   radius="lg"
-                  size="xs"
+                  size="sm"
                   required
                   disabled={!idProveedor || loadingConcesiones}
                   rightSection={
@@ -1461,7 +1600,7 @@ export const ModalGuiaPrimerTramo = ({
                   radius="md"
                 >
                   <ActionIcon
-                    size="30px"
+                    size="36px"
                     radius="lg"
                     variant="filled"
                     color="indigo"
@@ -1474,11 +1613,7 @@ export const ModalGuiaPrimerTramo = ({
                 </Tooltip>
               </Group>
             </Grid.Col>
-          </Grid>
-
-          {/* ========== 3. Guías Remitente y Transportista ========== */}
-          <Grid gutter="sm">
-            <Grid.Col span={{ base: 12, sm: 5 }}>
+            <Grid.Col span={{ base: 12, sm: 3 }}>
               <TextInput
                 label="N° Guía Remitente:"
                 placeholder="Ej. 001-12345"
@@ -1488,7 +1623,7 @@ export const ModalGuiaPrimerTramo = ({
                 }
                 classNames={fieldClasses}
                 radius="lg"
-                size="xs"
+                size="sm"
                 maxLength={20}
                 required
                 error={
@@ -1499,50 +1634,51 @@ export const ModalGuiaPrimerTramo = ({
                 }
               />
             </Grid.Col>
-            <Grid.Col span={{ base: 12, sm: 5 }}>
-              <TextInput
-                label="N° Guía Transportista:"
-                placeholder="Ej. 001-12345"
-                value={guiaTransportista}
-                onChange={(e) =>
-                  setGuiaTransportista(e.currentTarget.value.toUpperCase())
-                }
-                classNames={fieldClasses}
-                radius="lg"
-                size="xs"
-                maxLength={20}
-                disabled={sinGuiaTransportista}
-                error={
-                  existeTransportistaEnVivo
-                    ? (mensajesDuplicado.transportista ??
-                      "Ya existe otra guía activa con este número de guía transportista.")
-                    : undefined
-                }
-              />
-            </Grid.Col>
-            <Grid.Col span={{ base: 12, sm: 2 }}>
+            <Grid.Col span={{ base: 12, sm: 3 }}>
               <div className="flex flex-col">
-                <span
-                  className="text-zinc-400 font-medium text-xs mb-1 whitespace-nowrap overflow-hidden text-ellipsis"
-                  title="Sin Guía Transportista"
-                >
-                  Sin Guía Transp.:
-                </span>
-                <div className="flex items-center h-8">
-                  <Switch
-                    checked={sinGuiaTransportista}
-                    onChange={(e) =>
-                      setSinGuiaTransportista(e.currentTarget.checked)
-                    }
-                    color="amber"
-                    size="sm"
-                  />
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-zinc-300 font-medium text-xs whitespace-nowrap">
+                    N° Guía Transportista:
+                  </span>
+                  <label className="flex items-center gap-1.5 cursor-pointer text-xs text-zinc-400 select-none hover:text-zinc-200 transition-colors">
+                    <span>Sin guía</span>
+                    <Switch
+                      checked={sinGuiaTransportista}
+                      onChange={(e) =>
+                        setSinGuiaTransportista(e.currentTarget.checked)
+                      }
+                      color="amber"
+                      size="xs"
+                    />
+                  </label>
                 </div>
+                <TextInput
+                  placeholder={
+                    sinGuiaTransportista
+                      ? "(Sin guía transportista)"
+                      : "Ej. 001-12345"
+                  }
+                  value={guiaTransportista}
+                  onChange={(e) =>
+                    setGuiaTransportista(e.currentTarget.value.toUpperCase())
+                  }
+                  classNames={fieldClasses}
+                  radius="lg"
+                  size="sm"
+                  maxLength={20}
+                  disabled={sinGuiaTransportista}
+                  error={
+                    existeTransportistaEnVivo
+                      ? (mensajesDuplicado.transportista ??
+                        "Ya existe otra guía activa con este número de guía transportista.")
+                      : undefined
+                  }
+                />
               </div>
             </Grid.Col>
           </Grid>
 
-          {/* Indicador de validación */}
+          {/* Indicador de validación de duplicados */}
           {validatingEnVivo && (
             <Group gap="xs" align="center" pl="xs">
               <Loader size={12} color="yellow" />
@@ -1552,10 +1688,10 @@ export const ModalGuiaPrimerTramo = ({
             </Group>
           )}
 
-          {/* ========== 4. Vehículos y Empresas ========== */}
-          <Grid gutter="sm">
-            <Grid.Col span={{ base: 12, sm: 6 }}>
-              <Group gap="xs" align="flex-end" wrap="nowrap">
+          {/* ========== 2. Vehículos y Conductor ========== */}
+          <Grid columns={10} gutter="xs">
+            <Grid.Col span={{ base: 10, sm: 2 }}>
+              <Group gap={6} align="flex-end" wrap="nowrap">
                 <Select
                   label="Vehículo (Tractor):"
                   placeholder={loadingVehiculos ? "Cargando..." : "Seleccione"}
@@ -1569,32 +1705,32 @@ export const ModalGuiaPrimerTramo = ({
                   onChange={setIdVehiculo}
                   classNames={fieldClasses}
                   radius="lg"
-                  size="xs"
+                  size="sm"
                   disabled={loadingVehiculos}
                   rightSection={
                     loadingVehiculos ? <Loader size={16} /> : undefined
                   }
                   required
-                  className="flex-1"
+                  className="flex-1 min-w-0"
                 />
                 <Tooltip label="Registrar nuevo Vehículo" withArrow radius="md">
                   <ActionIcon
-                    size="30px"
+                    size="32px"
                     radius="lg"
                     variant="filled"
                     color="indigo"
                     onClick={() => setOpenedModalVehiculo("tractor")}
-                    className="mb-0.5"
+                    className="mb-0.5 shrink-0"
                   >
                     <IconPlus size={16} />
                   </ActionIcon>
                 </Tooltip>
               </Group>
             </Grid.Col>
-            <Grid.Col span={{ base: 12, sm: 6 }}>
-              <Group gap="xs" align="flex-end" wrap="nowrap">
+            <Grid.Col span={{ base: 10, sm: 2 }}>
+              <Group gap={6} align="flex-end" wrap="nowrap">
                 <Select
-                  label="Empresa de Transporte:"
+                  label="Empresa Transporte:"
                   placeholder={
                     loadingEmpresasTransporte ? "Cargando..." : "Seleccione"
                   }
@@ -1608,12 +1744,12 @@ export const ModalGuiaPrimerTramo = ({
                   onChange={setIdEmpresaTransporte}
                   classNames={fieldClasses}
                   radius="lg"
-                  size="xs"
+                  size="sm"
                   disabled={loadingEmpresasTransporte}
                   rightSection={
                     loadingEmpresasTransporte ? <Loader size={16} /> : undefined
                   }
-                  className="flex-1"
+                  className="flex-1 min-w-0"
                 />
                 <Tooltip
                   label="Registrar nueva Empresa de Transporte"
@@ -1621,20 +1757,20 @@ export const ModalGuiaPrimerTramo = ({
                   radius="md"
                 >
                   <ActionIcon
-                    size="30px"
+                    size="32px"
                     radius="lg"
                     variant="filled"
                     color="indigo"
                     onClick={() => setOpenedModalEmpresa("tractor")}
-                    className="mb-0.5"
+                    className="mb-0.5 shrink-0"
                   >
                     <IconPlus size={16} />
                   </ActionIcon>
                 </Tooltip>
               </Group>
             </Grid.Col>
-            <Grid.Col span={{ base: 12, sm: 6 }}>
-              <Group gap="xs" align="flex-end" wrap="nowrap">
+            <Grid.Col span={{ base: 10, sm: 2 }}>
+              <Group gap={6} align="flex-end" wrap="nowrap">
                 <Select
                   label="Vehículo Carreta:"
                   placeholder={
@@ -1650,12 +1786,12 @@ export const ModalGuiaPrimerTramo = ({
                   onChange={setIdVehiculoCarreta}
                   classNames={fieldClasses}
                   radius="lg"
-                  size="xs"
+                  size="sm"
                   disabled={loadingVehiculos}
                   rightSection={
                     loadingVehiculos ? <Loader size={16} /> : undefined
                   }
-                  className="flex-1"
+                  className="flex-1 min-w-0"
                 />
                 <Tooltip
                   label="Registrar nuevo Vehículo Carreta"
@@ -1663,24 +1799,24 @@ export const ModalGuiaPrimerTramo = ({
                   radius="md"
                 >
                   <ActionIcon
-                    size="30px"
+                    size="32px"
                     radius="lg"
                     variant="filled"
                     color="indigo"
                     loading={loadingTipoCarreta}
                     disabled={loadingTipoCarreta}
                     onClick={handleOpenCarretaVehiculoModal}
-                    className="mb-0.5"
+                    className="mb-0.5 shrink-0"
                   >
                     <IconPlus size={16} />
                   </ActionIcon>
                 </Tooltip>
               </Group>
             </Grid.Col>
-            <Grid.Col span={{ base: 12, sm: 6 }}>
-              <Group gap="xs" align="flex-end" wrap="nowrap">
+            <Grid.Col span={{ base: 10, sm: 2 }}>
+              <Group gap={6} align="flex-end" wrap="nowrap">
                 <Select
-                  label="Empresa de Transporte Carreta:"
+                  label="Empresa Carreta:"
                   placeholder={
                     loadingEmpresasTransporte
                       ? "Cargando..."
@@ -1696,12 +1832,12 @@ export const ModalGuiaPrimerTramo = ({
                   onChange={setIdEmpresaTransporteCarreta}
                   classNames={fieldClasses}
                   radius="lg"
-                  size="xs"
+                  size="sm"
                   disabled={loadingEmpresasTransporte}
                   rightSection={
                     loadingEmpresasTransporte ? <Loader size={16} /> : undefined
                   }
-                  className="flex-1"
+                  className="flex-1 min-w-0"
                 />
                 <Tooltip
                   label="Registrar nueva Empresa de Transporte Carreta"
@@ -1709,24 +1845,20 @@ export const ModalGuiaPrimerTramo = ({
                   radius="md"
                 >
                   <ActionIcon
-                    size="30px"
+                    size="32px"
                     radius="lg"
                     variant="filled"
                     color="indigo"
                     onClick={() => setOpenedModalEmpresa("carreta")}
-                    className="mb-0.5"
+                    className="mb-0.5 shrink-0"
                   >
                     <IconPlus size={16} />
                   </ActionIcon>
                 </Tooltip>
               </Group>
             </Grid.Col>
-          </Grid>
-
-          {/* ========== 5. Conductor, Motivo, Condición ========== */}
-          <Grid gutter="sm">
-            <Grid.Col span={{ base: 12, sm: 4 }}>
-              <Group gap="xs" align="flex-end" wrap="nowrap">
+            <Grid.Col span={{ base: 10, sm: 2 }}>
+              <Group gap={6} align="flex-end" wrap="nowrap">
                 <Select
                   label="Conductor:"
                   placeholder={
@@ -1742,13 +1874,13 @@ export const ModalGuiaPrimerTramo = ({
                   onChange={setIdConductor}
                   classNames={fieldClasses}
                   radius="lg"
-                  size="xs"
+                  size="sm"
                   disabled={loadingConductores}
                   rightSection={
                     loadingConductores ? <Loader size={16} /> : undefined
                   }
                   required
-                  className="flex-1"
+                  className="flex-1 min-w-0"
                 />
                 <Tooltip
                   label="Registrar nuevo Conductor"
@@ -1756,19 +1888,23 @@ export const ModalGuiaPrimerTramo = ({
                   radius="md"
                 >
                   <ActionIcon
-                    size="30px"
+                    size="32px"
                     radius="lg"
                     variant="filled"
                     color="indigo"
                     onClick={() => setOpenedModalConductor(true)}
-                    className="mb-0.5"
+                    className="mb-0.5 shrink-0"
                   >
                     <IconPlus size={16} />
                   </ActionIcon>
                 </Tooltip>
               </Group>
             </Grid.Col>
-            <Grid.Col span={{ base: 12, sm: 4 }}>
+          </Grid>
+
+          {/* ========== 3. Motivo, Condición y Pesos ========== */}
+          <Grid gutter="sm" align="flex-end">
+            <Grid.Col span={{ base: 12, sm: 3 }}>
               <Select
                 label="Motivo de Traslado:"
                 data={MOTIVO_TRASLADO_OPTIONS}
@@ -1776,11 +1912,11 @@ export const ModalGuiaPrimerTramo = ({
                 onChange={setMotivoTraslado}
                 classNames={fieldClasses}
                 radius="lg"
-                size="xs"
+                size="sm"
                 required
               />
             </Grid.Col>
-            <Grid.Col span={{ base: 12, sm: 4 }}>
+            <Grid.Col span={{ base: 12, sm: 3 }}>
               <Select
                 label="Condición de Ingreso:"
                 placeholder="Seleccione (opcional)"
@@ -1790,14 +1926,89 @@ export const ModalGuiaPrimerTramo = ({
                 onChange={setCondicionIngreso}
                 classNames={fieldClasses}
                 radius="lg"
-                size="xs"
+                size="sm"
+              />
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, sm: 3 }}>
+              <NumberInput
+                label="Peso Guía Remisión (kg):"
+                placeholder="0.00"
+                value={pesoGuiaRemision ?? ""}
+                onChange={(val) =>
+                  setPesoGuiaRemision(typeof val === "number" ? val : null)
+                }
+                decimalScale={2}
+                thousandSeparator=","
+                classNames={fieldClasses}
+                radius="lg"
+                size="sm"
+                min={0}
+              />
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, sm: 3 }}>
+              <NumberInput
+                label="Peso Balanza (kg):"
+                placeholder="0.00"
+                value={pesoVehicularTotal ?? ""}
+                onChange={(val) =>
+                  setPesoVehicularTotal(typeof val === "number" ? val : null)
+                }
+                decimalScale={2}
+                thousandSeparator=","
+                classNames={fieldClasses}
+                radius="lg"
+                size="sm"
+                min={0}
               />
             </Grid.Col>
           </Grid>
 
-          {/* ========== 6. Documentos de las Guías (subidos por separado) ========== */}
+          {/* ========== 6. Documentos de las Guías ========== */}
+          <div className="flex items-center justify-between mt-1">
+            <div className="flex items-center gap-3">
+              <Text size="xs" fw={700} className="text-zinc-200 uppercase tracking-wide">
+                Documentos de la Guía
+              </Text>
+              {hayDiscrepancia && (
+                <Badge
+                  color="orange"
+                  size="xs"
+                  variant="light"
+                  leftSection={<IconAlertTriangle size={12} />}
+                >
+                  Discrepancia: {(diferenciaKg / 1000).toFixed(2)} TN ({diferenciaKg.toLocaleString("es-PE")} kg)
+                </Badge>
+              )}
+            </div>
+            <Tooltip
+              label="Bloqueado automáticamente por discrepancia de peso (≥ 1.99 TN)"
+              disabled={!hayDiscrepancia}
+              withArrow
+              position="left"
+            >
+              <div>
+                <Switch
+                  label="Con No Conformidad"
+                  checked={conNoConformidad}
+                  onChange={(e) => setConNoConformidad(e.currentTarget.checked)}
+                  disabled={hayDiscrepancia}
+                  color="orange"
+                  size="sm"
+                  styles={{
+                    label: {
+                      color: conNoConformidad ? "#fbbf24" : "#a1a1aa",
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      cursor: hayDiscrepancia ? "not-allowed" : "pointer",
+                    },
+                  }}
+                />
+              </div>
+            </Tooltip>
+          </div>
+
           <Grid gutter="sm">
-            <Grid.Col span={{ base: 12, sm: 6 }}>
+            <Grid.Col span={{ base: 12, sm: conNoConformidad ? 4 : 6 }}>
               <MultiFilePicker
                 label="Guía Remitente:"
                 description="PDF o imagen de la guía del remitente"
@@ -1820,7 +2031,7 @@ export const ModalGuiaPrimerTramo = ({
                 maxFiles={1}
               />
             </Grid.Col>
-            <Grid.Col span={{ base: 12, sm: 6 }}>
+            <Grid.Col span={{ base: 12, sm: conNoConformidad ? 4 : 6 }}>
               <MultiFilePicker
                 label="Guía Transportista:"
                 description="PDF o imagen de la guía del transportista"
@@ -1849,13 +2060,73 @@ export const ModalGuiaPrimerTramo = ({
                 maxFiles={1}
               />
             </Grid.Col>
+
+            {/* El input de Nota de No Conformidad solo se muestra si conNoConformidad está marcado */}
+            {conNoConformidad && (
+              <Grid.Col span={{ base: 12, sm: 4 }}>
+                <div
+                  className={
+                    hayDiscrepancia
+                      ? "ring-2 ring-amber-500/80 rounded-xl p-1 bg-amber-500/5 transition-all"
+                      : ""
+                  }
+                >
+                  <MultiFilePicker
+                    label="Nota de No Conformidad:"
+                    description={
+                      hayDiscrepancia
+                        ? "⚠️ Requerido por discrepancia (≥ 1.99 TN)"
+                        : "PDF o imagen de nota de no conformidad"
+                    }
+                    files={
+                      documentoNotaNoConformidad
+                        ? [documentoNotaNoConformidad]
+                        : []
+                    }
+                    onFilesChange={(files) =>
+                      handleFilesChange("nota_no_conformidad", files)
+                    }
+                    existingFiles={
+                      documentoNotaNoConformidad
+                        ? []
+                        : guia?.documentos?.nota_no_conformidad
+                          ? [guia.documentos.nota_no_conformidad]
+                          : []
+                    }
+                    onRemoveExisting={() =>
+                      notifyInfo(
+                        "El archivo existente solo se puede reemplazar. Suba uno nuevo encima para sobrescribirlo.",
+                      )
+                    }
+                    accept="application/pdf,image/*"
+                    multiple={false}
+                    maxFiles={1}
+                  />
+                </div>
+              </Grid.Col>
+            )}
           </Grid>
 
           {/* ========== 7. Items Asociados ========== */}
-          <div className="flex items-center justify-between">
-            <Text size="sm" fw={700} className="text-zinc-200">
-              Items Asociados (Lotes o Particiones)
-            </Text>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Text size="sm" fw={700} className="text-zinc-200">
+                Items Asociados (Lotes o Particiones)
+              </Text>
+              {items.length > 0 && (
+                <Group gap="xs">
+                  <Badge variant="outline" color="blue" size="xs">
+                    Bruto Total: {totalBruto.toLocaleString("es-PE")} kg
+                  </Badge>
+                  <Badge variant="outline" color="gray" size="xs">
+                    Tara Total: {totalTara.toLocaleString("es-PE")} kg
+                  </Badge>
+                  <Badge variant="outline" color="teal" size="xs">
+                    Neto Total: {totalNeto.toLocaleString("es-PE")} kg
+                  </Badge>
+                </Group>
+              )}
+            </div>
             <Button
               size="xs"
               radius="md"
@@ -1878,16 +2149,16 @@ export const ModalGuiaPrimerTramo = ({
                   <th className="text-center py-3 w-28 whitespace-nowrap">
                     Tipo
                   </th>
-                  <th className="text-center py-3 min-w-[160px] whitespace-nowrap">
+                  <th className="text-center py-3 min-w-85 whitespace-nowrap">
                     Correlativo
                   </th>
-                  <th className="text-center py-3 w-32 whitespace-nowrap">
+                  <th className="text-center py-3 w-36 whitespace-nowrap">
                     P. Bruto
                   </th>
-                  <th className="text-center py-3 w-32 whitespace-nowrap">
+                  <th className="text-center py-3 w-36 whitespace-nowrap">
                     Tara
                   </th>
-                  <th className="text-center py-3 w-32 whitespace-nowrap">
+                  <th className="text-center py-3 w-36 whitespace-nowrap">
                     P. Neto
                   </th>
                   <th
@@ -1913,7 +2184,7 @@ export const ModalGuiaPrimerTramo = ({
                       key={it.tempId}
                       className="border-b border-zinc-900/60 hover:bg-zinc-900/20 transition-colors"
                     >
-                      <td className="py-2.5 text-center whitespace-nowrap">
+                      <td className="py-2.5 text-center whitespace-nowrap align-middle">
                         <Badge
                           variant="light"
                           color={
@@ -1926,22 +2197,55 @@ export const ModalGuiaPrimerTramo = ({
                           {it.tipo_item}
                         </Badge>
                       </td>
-                      <td className="py-2.5 text-center whitespace-nowrap">
-                        <div className="flex items-center justify-center gap-2">
-                          <div className="p-1 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
-                            <IconFileText size={14} />
+                      <td className="py-2.5 text-center whitespace-nowrap align-middle">
+                        <div className="flex flex-col items-center justify-center gap-1.5">
+                          <div className="flex items-center justify-center gap-2">
+                            <div className="p-1 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
+                              <IconFileText size={14} />
+                            </div>
+                            <Text
+                              size="xs"
+                              fw={700}
+                              className="text-zinc-200 font-mono tracking-wider whitespace-nowrap"
+                            >
+                              {it.correlativo}
+                            </Text>
                           </div>
-                          <Text
-                            size="xs"
-                            fw={600}
-                            className="text-zinc-200 font-mono tracking-wider whitespace-nowrap"
-                          >
-                            {it.correlativo}
-                          </Text>
+
+                          {/* Badges de pesos en balanza del lote o partición */}
+                          <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                            <Badge
+                              variant="light"
+                              color="blue"
+                              size="xs"
+                              radius="sm"
+                              className="font-mono text-[10px] px-1.5 py-0.5 border border-blue-500/20"
+                            >
+                              Bruto Bal: {(it.balanza_peso_inicial ?? 0).toLocaleString("es-PE")} kg
+                            </Badge>
+                            <Badge
+                              variant="light"
+                              color="gray"
+                              size="xs"
+                              radius="sm"
+                              className="font-mono text-[10px] px-1.5 py-0.5 border border-zinc-700"
+                            >
+                              Tara Bal: {(it.balanza_peso_final ?? 0).toLocaleString("es-PE")} kg
+                            </Badge>
+                            <Badge
+                              variant="light"
+                              color="teal"
+                              size="xs"
+                              radius="sm"
+                              className="font-mono text-[10px] px-1.5 py-0.5 border border-teal-500/20 font-semibold"
+                            >
+                              Neto Bal: {(it.balanza_peso_neto ?? 0).toLocaleString("es-PE")} kg
+                            </Badge>
+                          </div>
                         </div>
                       </td>
 
-                      <td className="py-2 text-center align-middle whitespace-nowrap">
+                      <td className="py-2.5 text-center align-middle whitespace-nowrap">
                         <PesoGuiaInput
                           label={`Peso inicial ${it.correlativo}`}
                           value={it.peso_inicial ?? 0}
@@ -1950,7 +2254,7 @@ export const ModalGuiaPrimerTramo = ({
                           }
                         />
                       </td>
-                      <td className="py-2 text-center align-middle whitespace-nowrap">
+                      <td className="py-2.5 text-center align-middle whitespace-nowrap">
                         <PesoGuiaInput
                           label={`Peso final ${it.correlativo}`}
                           value={it.peso_final ?? 0}
@@ -1959,7 +2263,7 @@ export const ModalGuiaPrimerTramo = ({
                           }
                         />
                       </td>
-                      <td className="py-2 text-center align-middle whitespace-nowrap">
+                      <td className="py-2.5 text-center align-middle whitespace-nowrap">
                         <PesoGuiaInput
                           label={`Peso neto ${it.correlativo}`}
                           value={it.peso_neto ?? 0}
@@ -1969,7 +2273,7 @@ export const ModalGuiaPrimerTramo = ({
                           }
                         />
                       </td>
-                      <td className="py-2.5 text-center">
+                      <td className="py-2.5 text-center align-middle">
                         <Tooltip label="Eliminar" withArrow position="top">
                           <ActionIcon
                             size="sm"
@@ -2032,8 +2336,10 @@ export const ModalGuiaPrimerTramo = ({
               El documento actual de{" "}
               <strong className="text-zinc-100">
                 {pendingReplacement?.field === "remitente"
-                  ? "la guia del remitente"
-                  : "la guia del transportista"}
+                  ? "la guía del remitente"
+                  : pendingReplacement?.field === "transportista"
+                    ? "la guía del transportista"
+                    : "la nota de no conformidad"}
               </strong>{" "}
               sera reemplazado por el archivo seleccionado. Esta accion no se
               puede deshacer.
@@ -2147,6 +2453,7 @@ export const ModalGuiaPrimerTramo = ({
         fechaInicioFiltroIngreso={itemsFechaInicio}
         fechaFinFiltroIngreso={itemsFechaFin}
         idProveedorFijo={idProveedor ? Number(idProveedor) : null}
+        recepcionFija={recepcionActivaKey}
         onClose={() => setOpenItemModal(false)}
         onConfirm={handleAgregarItems}
         onFechaInicioChange={async (nuevaFecha) => {
@@ -2232,15 +2539,16 @@ const PesoGuiaInput = ({
       min={0}
       decimalScale={2}
       fixedDecimalScale
+      thousandSeparator=","
       hideControls
       radius="lg"
       size="xs"
       aria-label={label}
       classNames={{
-        input: `text-[11px] h-7 px-2 font-mono text-center bg-zinc-900/60 border-zinc-800 focus:border-indigo-500 ${color ? color : "text-zinc-200"}`,
+        input: `text-xs h-7.5 px-2.5 font-mono text-center bg-zinc-900/60 border-zinc-800 focus:border-indigo-500 ${color ? color : "text-zinc-200"}`,
       }}
       className="mx-auto"
-      style={{ width: 100 }}
+      style={{ width: 115 }}
     />
   );
 };
@@ -2261,10 +2569,11 @@ interface GrupoProveedor {
  * spans todo el grupo; `createdAtMin` ordena las recepciones.
  */
 interface GrupoRecepcion {
-  key: number;
+  key: string;
   placa: string | null;
   /** Datetime del ingreso del vehículo a planta. Null si el item no lo trae. */
   fecha_hora_ingreso_vehiculo: string | null;
+  fechaHoraIngresoTs: number;
   proveedores: GrupoProveedor[];
   totalItems: number;
   createdAtMin: number;
@@ -2283,6 +2592,11 @@ interface ModalSeleccionarItemProps {
    * pertenecen a mas de un proveedor.
    */
   idProveedorFijo: number | null;
+  /**
+   * Si la guía ya tiene items de una recepción específica, bloquea la
+   * selección de items de cualquier otra recepción.
+   */
+  recepcionFija?: string | null;
   onClose: () => void;
   onConfirm: (seleccionados: RES_ItemMineralDisponible[]) => void;
   onFechaInicioChange: (fecha: string) => void;
@@ -2296,6 +2610,7 @@ const ModalSeleccionarItem = ({
   fechaInicioFiltroIngreso,
   fechaFinFiltroIngreso,
   idProveedorFijo,
+  recepcionFija,
   onClose,
   onConfirm,
   onFechaInicioChange,
@@ -2322,7 +2637,34 @@ const ModalSeleccionarItem = ({
     onClose();
   };
 
+  // Recepción ancla: key de la recepción del primer item seleccionado.
+  // Si no hay selección, queda null. Si se fijó desde el exterior, se respeta esa.
+  const recepcionAncla = useMemo<string | null>(() => {
+    if (recepcionFija) return recepcionFija;
+    for (const i of items) {
+      if (seleccionados.has(itemKey(i))) {
+        return recepcionGroupKey(i);
+      }
+    }
+    return null;
+  }, [items, seleccionados, recepcionFija]);
+
+  // Proveedor ancla: nombre del primer item seleccionado (estable mientras
+  // no se deseleccione completamente). Si no hay seleccion, queda null.
+  const proveedorAncla = useMemo<string | null>(() => {
+    for (const i of items) {
+      if (seleccionados.has(itemKey(i)) && i.proveedor_nombre)
+        return i.proveedor_nombre;
+    }
+    return null;
+  }, [items, seleccionados]);
+
   const isItemDisabled = (i: RES_ItemMineralDisponible): boolean => {
+    // Si ya hay una recepcion elegida, cualquier item de otra recepcion queda disabled.
+    if (recepcionAncla !== null && recepcionGroupKey(i) !== recepcionAncla) {
+      return true;
+    }
+
     if (idProveedorFijo !== null) {
       return (
         i.id_proveedor_minero !== null &&
@@ -2338,16 +2680,6 @@ const ModalSeleccionarItem = ({
     return false;
   };
 
-  // Proveedor ancla: nombre del primer item seleccionado (estable mientras
-  // no se deseleccione completamente). Si no hay seleccion, queda null.
-  const proveedorAncla = useMemo<string | null>(() => {
-    for (const i of items) {
-      if (seleccionados.has(itemKey(i)) && i.proveedor_nombre)
-        return i.proveedor_nombre;
-    }
-    return null;
-  }, [items, seleccionados]);
-
   const toggle = (key: string) => {
     const item = items.find((i) => itemKey(i) === key);
     if (item && isItemDisabled(item)) return;
@@ -2357,6 +2689,51 @@ const ModalSeleccionarItem = ({
         next.delete(key);
       } else {
         next.add(key);
+      }
+      return next;
+    });
+  };
+
+  const toggleUnidad = (r: GrupoRecepcion) => {
+    if (recepcionAncla !== null && r.key !== recepcionAncla) return;
+    const allItemsInR = r.proveedores.flatMap((p) => p.items);
+    let targetProvider = proveedorAncla;
+    if (idProveedorFijo !== null) {
+      targetProvider = null;
+    } else if (!targetProvider && allItemsInR.length > 0) {
+      targetProvider = allItemsInR[0].proveedor_nombre ?? "(Sin proveedor)";
+    }
+
+    const validItems = allItemsInR.filter((i) => {
+      if (recepcionAncla !== null && recepcionGroupKey(i) !== recepcionAncla) {
+        return false;
+      }
+      if (idProveedorFijo !== null) {
+        return (
+          i.id_proveedor_minero === null ||
+          i.id_proveedor_minero === idProveedorFijo
+        );
+      }
+      if (targetProvider !== null) {
+        return (i.proveedor_nombre ?? "(Sin proveedor)") === targetProvider;
+      }
+      return true;
+    });
+
+    if (validItems.length === 0) return;
+
+    const allSelected = validItems.every((i) => seleccionados.has(itemKey(i)));
+
+    setSeleccionados((prev) => {
+      const next = new Set(prev);
+      if (allSelected) {
+        for (const i of allItemsInR) {
+          next.delete(itemKey(i));
+        }
+      } else {
+        for (const i of validItems) {
+          next.add(itemKey(i));
+        }
       }
       return next;
     });
@@ -2414,11 +2791,11 @@ const ModalSeleccionarItem = ({
    * distintas.
    */
   const porRecepcion = new Map<
-    number,
+    string,
     Map<string, RES_ItemMineralDisponible[]>
   >();
   for (const it of ordenados) {
-    const rk = recepcionKey(it);
+    const rk = recepcionGroupKey(it);
     let porProveedor = porRecepcion.get(rk);
     if (!porProveedor) {
       porProveedor = new Map<string, RES_ItemMineralDisponible[]>();
@@ -2450,6 +2827,11 @@ const ModalSeleccionarItem = ({
       fecha_hora_ingreso_vehiculo:
         todos.find((i) => i.fecha_hora_ingreso_vehiculo)
           ?.fecha_hora_ingreso_vehiculo ?? null,
+      fechaHoraIngresoTs: (() => {
+        const fh = todos.find((i) => i.fecha_hora_ingreso_vehiculo)
+          ?.fecha_hora_ingreso_vehiculo;
+        return fh ? Date.parse(fh) || 0 : 0;
+      })(),
       proveedores,
       totalItems: todos.length,
       createdAtMin: todos.reduce(
@@ -2459,11 +2841,14 @@ const ModalSeleccionarItem = ({
     };
   });
 
-  gruposPorRecepcion.sort((a, b) =>
-    a.createdAtMin !== b.createdAtMin
+  gruposPorRecepcion.sort((a, b) => {
+    if (a.fechaHoraIngresoTs !== b.fechaHoraIngresoTs) {
+      return a.fechaHoraIngresoTs - b.fechaHoraIngresoTs;
+    }
+    return a.createdAtMin !== b.createdAtMin
       ? a.createdAtMin - b.createdAtMin
-      : a.key - b.key,
-  );
+      : a.key.localeCompare(b.key);
+  });
 
   const filtrosHeader = (
     <div className="flex items-center gap-3">
@@ -2578,93 +2963,149 @@ const ModalSeleccionarItem = ({
                   </td>
                 </tr>
               ) : (
-                gruposPorRecepcion.map((r, rIdx) => (
-                  <Fragment key={r.key}>
-                    {r.proveedores.map((g) =>
-                      g.items.map((i, idx) => {
-                        const key = itemKey(i);
-                        const disabled = isItemDisabled(i);
-                        // Solo la primera fila de la recepción pinta la celda
-                        // con rowspan, así que solo ahí hace falta partir el
-                        // datetime.
-                        const fhIngreso =
-                          rIdx === 0 && idx === 0
-                            ? splitFechaHora(r.fecha_hora_ingreso_vehiculo)
-                            : null;
-                        const tooltipLabel = disabled
-                          ? idProveedorFijo !== null
-                            ? `Este item pertenece al proveedor "${i.proveedor_nombre ?? "sin nombre"}". Cambie el proveedor o limpie los items seleccionados para poder elegir este.`
-                            : `Este item pertenece al proveedor "${i.proveedor_nombre ?? "sin nombre"}". Solo puedes seleccionar items de un mismo proveedor ("${proveedorAncla ?? g.key}").`
-                          : "";
-                        return (
-                          <tr
-                            key={key}
-                            className={`border-b border-zinc-900/40 ${disabled ? "opacity-40 cursor-not-allowed" : "cursor-pointer hover:bg-zinc-900/30"} ${seleccionados.has(key) ? "bg-emerald-950/20" : ""}`}
-                            onClick={() => !disabled && toggle(key)}
-                          >
-                            {rIdx === 0 && idx === 0 && (
-                              // Ojo: NO aplicar `flex` al <td>. Un td es
-                              // display:table-cell; pasarlo a flex lo saca del
-                              // algoritmo de tabla y rowSpan deja de funcionar
-                              // (las celdas se descuadran y las columnas se
-                              // colapsan). El layout vertical va en un <div>
-                              // interno.
-                              <td
-                                rowSpan={r.totalItems}
-                                className="align-middle bg-zinc-800/50 border-y border-r border-l border-zinc-700/60 px-3 py-2"
-                              >
-                                <div className="flex flex-col items-center gap-1.5 p-1">
-                                  <Badge
-                                    color="teal"
-                                    size="sm"
-                                    radius="md"
-                                    className="font-mono font-bold uppercase tracking-wide"
-                                  >
-                                    {r.placa ? r.placa.toUpperCase() : "—"}
-                                  </Badge>
-                                  {fhIngreso ? (
-                                    <span className="flex flex-col items-center leading-tight whitespace-nowrap">
-                                      <span className="font-mono text-[10px] tabular-nums text-zinc-200">
-                                        {fhIngreso.fecha}
-                                      </span>
-                                      <span className="font-mono text-[11px] font-semibold tabular-nums text-zinc-200">
-                                        {fhIngreso.hora}
-                                      </span>
-                                    </span>
-                                  ) : (
-                                    <span className="text-[10px] text-zinc-600">
-                                      sin fecha
-                                    </span>
-                                  )}
-                                </div>
-                              </td>
-                            )}
-                            {idx === 0 && (
-                              <td
-                                rowSpan={g.items.length}
-                                className="text-center align-middle font-semibold text-zinc-200 text-xs bg-zinc-800/25 border-r border-zinc-800/80 px-3"
-                              >
-                                {g.key}
-                              </td>
-                            )}
-                            <td
-                              className="text-center"
-                              onClick={(e) => e.stopPropagation()}
+                gruposPorRecepcion.map((r) => {
+                  const allItemsInR = r.proveedores.flatMap((p) => p.items);
+                  const validItemsInR = allItemsInR.filter(
+                    (i) => !isItemDisabled(i),
+                  );
+                  const isUnitDisabled = validItemsInR.length === 0;
+                  const isAllUnitSelected =
+                    validItemsInR.length > 0 &&
+                    validItemsInR.every((i) => seleccionados.has(itemKey(i)));
+                  const isSomeUnitSelected = validItemsInR.some((i) =>
+                    seleccionados.has(itemKey(i)),
+                  );
+
+                  return (
+                    <Fragment key={r.key}>
+                      {r.proveedores.map((g, gIdx) =>
+                        g.items.map((i, idx) => {
+                          const key = itemKey(i);
+                          const disabled = isItemDisabled(i);
+                          // Solo la primera fila de la recepción pinta la celda
+                          // con rowspan, así que solo ahí hace falta partir el
+                          // datetime.
+                          const fhIngreso =
+                            gIdx === 0 && idx === 0
+                              ? splitFechaHora(r.fecha_hora_ingreso_vehiculo)
+                              : null;
+                          const tooltipLabel = disabled
+                            ? recepcionAncla !== null &&
+                              recepcionGroupKey(i) !== recepcionAncla
+                              ? `Solo puedes seleccionar items de la recepción elegida (${r.placa ? r.placa.toUpperCase() : "unidad actual"}). Desmarca los items seleccionados para cambiar de recepción.`
+                              : idProveedorFijo !== null
+                                ? `Este item pertenece al proveedor "${i.proveedor_nombre ?? "sin nombre"}". Cambie el proveedor o limpie los items seleccionados para poder elegir este.`
+                                : `Este item pertenece al proveedor "${i.proveedor_nombre ?? "sin nombre"}". Solo puedes seleccionar items del mismo proveedor ("${proveedorAncla ?? g.key}").`
+                            : "";
+                          return (
+                            <tr
+                              key={key}
+                              className={`border-b border-zinc-900/40 ${disabled ? "opacity-40 cursor-not-allowed" : "cursor-pointer hover:bg-zinc-900/30"} ${seleccionados.has(key) ? "bg-emerald-950/20" : ""}`}
+                              onClick={() => !disabled && toggle(key)}
                             >
-                              <Tooltip
-                                label={tooltipLabel}
-                                withArrow
-                                disabled={!disabled}
+                              {gIdx === 0 && idx === 0 && (
+                                // Ojo: NO aplicar `flex` al <td>. Un td es
+                                // display:table-cell; pasarlo a flex lo saca del
+                                // algoritmo de tabla y rowSpan deja de funcionar
+                                // (las celdas se descuadran y las columnas se
+                                // colapsan). El layout vertical va en un <div>
+                                // interno.
+                                <td
+                                  rowSpan={r.totalItems}
+                                  className="align-middle bg-zinc-800/50 border-y border-r border-l border-zinc-700/60 px-3 py-2"
+                                >
+                                  <div className="flex flex-col items-center gap-1.5 p-1">
+                                    <div
+                                      className="flex items-center gap-2 cursor-pointer"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (!isUnitDisabled) toggleUnidad(r);
+                                      }}
+                                    >
+                                      <Tooltip
+                                        label={
+                                          isUnitDisabled
+                                            ? recepcionAncla !== null &&
+                                              r.key !== recepcionAncla
+                                              ? "Solo puedes seleccionar items de la recepción elegida"
+                                              : "No hay items seleccionables para esta unidad"
+                                            : isAllUnitSelected
+                                              ? "Deseleccionar todos los items de esta unidad"
+                                              : "Seleccionar todos los items de esta unidad"
+                                        }
+                                        withArrow
+                                      >
+                                        <div>
+                                          <Checkbox
+                                            color="teal"
+                                            size="xs"
+                                            checked={isAllUnitSelected}
+                                            indeterminate={
+                                              isSomeUnitSelected &&
+                                              !isAllUnitSelected
+                                            }
+                                            disabled={isUnitDisabled}
+                                            onChange={() => toggleUnidad(r)}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="cursor-pointer"
+                                          />
+                                        </div>
+                                      </Tooltip>
+                                      <Badge
+                                        color="teal"
+                                        size="sm"
+                                        radius="md"
+                                        className="font-mono font-bold uppercase tracking-wide cursor-pointer select-none"
+                                      >
+                                        {r.placa ? r.placa.toUpperCase() : "—"}
+                                      </Badge>
+                                    </div>
+                                    {fhIngreso ? (
+                                      <span className="flex flex-col items-center leading-tight whitespace-nowrap">
+                                        <span className="font-mono text-[10px] tabular-nums text-zinc-200">
+                                          {fhIngreso.fecha}
+                                        </span>
+                                        <span className="font-mono text-[11px] font-semibold tabular-nums text-zinc-200">
+                                          {fhIngreso.hora}
+                                        </span>
+                                      </span>
+                                    ) : (
+                                      <span className="text-[10px] text-zinc-600">
+                                        sin fecha
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+                              )}
+                              {idx === 0 && (
+                                <td
+                                  rowSpan={g.items.length}
+                                  className="text-center align-middle font-semibold text-zinc-200 text-xs bg-zinc-800/25 border-r border-zinc-800/80 px-3"
+                                >
+                                  {g.key}
+                                </td>
+                              )}
+                              <td
+                                className="text-center"
+                                onClick={(e) => e.stopPropagation()}
                               >
-                                <input
-                                  type="checkbox"
-                                  checked={seleccionados.has(key)}
-                                  onChange={() => toggle(key)}
-                                  disabled={disabled}
-                                  className="accent-emerald-500 disabled:cursor-not-allowed"
-                                />
-                              </Tooltip>
-                            </td>
+                                <Tooltip
+                                  label={tooltipLabel}
+                                  withArrow
+                                  disabled={!disabled}
+                                >
+                                  <div className="flex justify-center">
+                                    <Checkbox
+                                      color="teal"
+                                      size="xs"
+                                      checked={seleccionados.has(key)}
+                                      onChange={() => toggle(key)}
+                                      disabled={disabled}
+                                      className="cursor-pointer"
+                                    />
+                                  </div>
+                                </Tooltip>
+                              </td>
                             <td className="text-center">
                               <Badge
                                 variant="light"
@@ -2697,8 +3138,9 @@ const ModalSeleccionarItem = ({
                       }),
                     )}
                   </Fragment>
-                ))
-              )}
+                );
+              })
+            )}
             </tbody>
           </Table>
         </div>

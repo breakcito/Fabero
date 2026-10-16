@@ -15,14 +15,14 @@ export const useTicketIngresoVehiculo = () => {
   const [loadingTicket, setLoadingTicket] = useState(false);
 
   const printTicketIngreso = useCallback(
-    async (idRecepcionUnidad: number) => {
+    async (idRecepcionUnidad: number, idGuia?: number) => {
       if (!idRecepcionUnidad) return;
       setLoadingTicket(true);
       try {
-        const target = `ticket-ingreso-${idRecepcionUnidad}`;
+        const target = `ticket-ingreso-${idRecepcionUnidad}${idGuia ? `-${idGuia}` : ""}`;
         prepare(target);
         const data: TicketIngresoVehiculoData =
-          await RecepcionUnidadesService.getTicketIngreso(idRecepcionUnidad);
+          await RecepcionUnidadesService.getTicketIngreso(idRecepcionUnidad, idGuia);
 
         print(<TicketIngresoVehiculoPdf data={data} />, {
           documentTitle: `Ticket de Ingreso ${data.tiv || data.correlativo}`,

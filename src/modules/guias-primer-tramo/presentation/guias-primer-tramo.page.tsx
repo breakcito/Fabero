@@ -14,6 +14,7 @@ import {
   IconPencil,
   IconTrash,
   IconPrinter,
+  IconAlertTriangle,
 } from "@tabler/icons-react";
 import { useTitlePage } from "../../../hooks/useTitlePage";
 import { useUIStore } from "../../../stores/ui.store";
@@ -394,18 +395,56 @@ export const GuiasPrimerTramoPage = () => {
             accessor: "estado",
             title: "Estado",
             textAlign: "center",
-            width: 100,
+            width: 125,
             render: (g: RES_GuiaPrimerTramo) => {
               const isActivo = g.estado === EstadoBase.Activo;
+              const tieneNoConformidad = Boolean(g.con_no_conformidad || g.documentos?.nota_no_conformidad?.url);
+              const docNoConformidad = g.documentos?.nota_no_conformidad?.url ?? null;
+
               return (
-                <Badge
-                  color={isActivo ? "emerald" : "red"}
-                  variant="light"
-                  size="xs"
-                  radius="md"
-                >
-                  {isActivo ? "ACTIVO" : "ANULADA"}
-                </Badge>
+                <Stack gap={4} align="center">
+                  <Badge
+                    color={isActivo ? "emerald" : "red"}
+                    variant="light"
+                    size="xs"
+                    radius="md"
+                  >
+                    {isActivo ? "ACTIVO" : "ANULADA"}
+                  </Badge>
+
+                  {tieneNoConformidad && (
+                    docNoConformidad ? (
+                      <Tooltip label="Ver Nota de No Conformidad" withArrow>
+                        <Badge
+                          color="orange"
+                          variant="light"
+                          size="xs"
+                          radius="md"
+                          leftSection={<IconAlertTriangle size={11} />}
+                          className="cursor-pointer hover:opacity-80 active:scale-95 transition-all"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.open(docNoConformidad, "_blank");
+                          }}
+                        >
+                          No Conforme
+                        </Badge>
+                      </Tooltip>
+                    ) : (
+                      <Tooltip label="Registrado con no conformidad (sin archivo)" withArrow>
+                        <Badge
+                          color="orange"
+                          variant="outline"
+                          size="xs"
+                          radius="md"
+                          leftSection={<IconAlertTriangle size={11} />}
+                        >
+                          No Conforme
+                        </Badge>
+                      </Tooltip>
+                    )
+                  )}
+                </Stack>
               );
             },
           },

@@ -34,6 +34,10 @@ export interface RES_LoteGuia {
   peso_inicial: number | null;
   peso_final: number | null;
   peso_neto: number | null;
+  balanza_peso_inicial?: number | null;
+  balanza_peso_final?: number | null;
+  balanza_peso_neto?: number | null;
+  log_cambios?: RES_CambiosLog[] | null;
   created_at: string | null;
 }
 
@@ -47,6 +51,7 @@ export interface RES_DocumentoGuia {
 export interface RES_GuiaDocumentos {
   guia_remitente: RES_DocumentoGuia | null;
   guia_transportista: RES_DocumentoGuia | null;
+  nota_no_conformidad?: RES_DocumentoGuia | null;
 }
 
 export interface RES_GuiaPrimerTramo {
@@ -80,6 +85,10 @@ export interface RES_GuiaPrimerTramo {
   guia_transportista: string | null;
   sin_guia_transportista: boolean;
   documentos: RES_GuiaDocumentos | null;
+  id_recepcion_unidad?: number | null;
+  con_no_conformidad?: boolean;
+  peso_guia_remision?: number | null;
+  peso_vehicular_total?: number | null;
   id_empleado_registro: number | null;
   log_cambios: RES_CambiosLog[] | null;
   estado: EstadoGuiaPrimerTramo | EstadoBase | string;
@@ -107,9 +116,17 @@ export interface RES_ItemMineralDisponible {
   peso_inicial: number | null;
   peso_final: number | null;
   peso_neto: number | null;
+  balanza_peso_inicial?: number | null;
+  balanza_peso_final?: number | null;
+  balanza_peso_neto?: number | null;
   created_at: string;
   proveedor_nombre: string | null;
+  id_vehiculo?: number | null;
   vehiculo_placa?: string | null;
+  id_vehiculo_carreta?: number | null;
+  vehiculo_carreta_placa?: string | null;
+  id_conductor?: number | null;
+  id_empresa_transporte?: number | null;
   fecha_hora_ingreso_vehiculo?: string | null;
   en_guia: boolean;
   // Datos de la recepcion que el modal de guia-primer-tramo usa para
@@ -121,6 +138,11 @@ export interface RES_ItemMineralDisponible {
 }
 
 export interface RES_ArchivosGuiasRecepcion {
+  id_recepcion_unidad?: number | null;
+  id_vehiculo?: number | null;
+  id_vehiculo_carreta?: number | null;
+  id_conductor?: number | null;
+  id_empresa_transporte?: number | null;
   guia_remitente: string | null;
   guia_transportista: string | null;
   documentos: RES_GuiaDocumentos | null;

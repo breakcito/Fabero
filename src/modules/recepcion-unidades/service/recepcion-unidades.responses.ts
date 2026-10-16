@@ -99,6 +99,18 @@ export interface TicketIngresoVehiculoData {
   observaciones: string;
 }
 
+export interface GuiaRecepcionItem {
+  id: number;
+  guia_remitente: string | null;
+  guia_transportista: string | null;
+  sin_guia_transportista: boolean;
+  con_no_conformidad: boolean;
+  peso_guia_remision: number;
+  peso_vehicular_total: number;
+  fecha_emision: string | null;
+  created_at: string;
+}
+
 export interface ProgramacionVisitaPayload {
   id_recepcion_visita: number;
   id_motivo_ingreso: number | null;

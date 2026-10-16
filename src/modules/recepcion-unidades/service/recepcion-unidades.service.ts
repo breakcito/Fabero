@@ -232,9 +232,26 @@ export const RecepcionUnidadesService = {
   /**
    * Obtener los datos estructurados para imprimir el Ticket de Ingreso de Vehículos con Carga
    */
-  getTicketIngreso: async (id: number): Promise<TicketIngresoVehiculoData> => {
+  getTicketIngreso: async (
+    id: number,
+    idGuia?: number,
+  ): Promise<TicketIngresoVehiculoData> => {
     const { data } = await api.get<IRespuesta<TicketIngresoVehiculoData>>(
       `/recepcion-unidades/${id}/ticket-ingreso`,
+      {
+        params: idGuia ? { id_guia: idGuia } : undefined,
+      },
+    );
+    assertBusinessSuccess(data);
+    return data.data;
+  },
+
+  /**
+   * Obtener las guías de primer tramo asociadas a la recepción de unidad.
+   */
+  getGuiasRecepcion: async (id: number): Promise<import("./recepcion-unidades.responses").GuiaRecepcionItem[]> => {
+    const { data } = await api.get<IRespuesta<import("./recepcion-unidades.responses").GuiaRecepcionItem[]>>(
+      `/recepcion-unidades/${id}/guias`,
     );
     assertBusinessSuccess(data);
     return data.data;

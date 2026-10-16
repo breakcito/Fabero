@@ -263,13 +263,13 @@ export const MultiFilePicker = ({
   return (
     <Stack gap="xs" className={className} {...props}>
       {/* Header */}
-      <Group justify="space-between" align="flex-end">
-        <div>
+      <Group justify="space-between" align="flex-end" wrap="nowrap" gap="xs">
+        <div className="min-w-0 flex-1">
           {label && (
             <Text
               size="xs"
               fw={800}
-              className="text-zinc-100 uppercase tracking-widest mb-0.5"
+              className="text-zinc-100 uppercase tracking-wider mb-0.5 truncate"
             >
               {label}
             </Text>
@@ -286,7 +286,7 @@ export const MultiFilePicker = ({
                 size="xs"
                 c="zinc.5"
                 fw={600}
-                className="truncate max-w-62.5"
+                className="truncate"
               >
                 {description}
               </Text>
@@ -294,7 +294,7 @@ export const MultiFilePicker = ({
           )}
         </div>
 
-        <Group gap="xs">
+        <Group gap="xs" wrap="nowrap" className="shrink-0">
           {files.length > 0 && (
             <Button
               variant="subtle"
