@@ -150,30 +150,33 @@ export const ModalAprobarValorizacion = ({
     return map;
   }, [anticiposCatalog]);
 
-  const subtotalNeto = valorizacion?.total_subtotal ?? 0;
-  const porcentajeIgv = valorizacion?.porcentaje_igv ?? 0;
-  const porcentajeDetraccion = valorizacion?.porcentaje_detraccion ?? 0;
-
-  const montoIgv = useMemo(() => {
-    return subtotalNeto * (porcentajeIgv / 100);
-  }, [subtotalNeto, porcentajeIgv]);
-
-  const totalConIgv = useMemo(() => {
-    return subtotalNeto + montoIgv;
-  }, [subtotalNeto, montoIgv]);
-
-  const montoDetraccion = useMemo(() => {
-    return totalConIgv * (porcentajeDetraccion / 100);
-  }, [totalConIgv, porcentajeDetraccion]);
-
   const totalAnticipos = useMemo(() => {
     return anticipos.reduce((acc, curr) => acc + (Number(curr.monto_retirado) || 0), 0);
   }, [anticipos]);
 
+  const subtotalBaseLote = valorizacion?.total_subtotal ?? 0;
+  const subtotalNeto = useMemo(() => {
+    return Math.max(0, subtotalBaseLote - totalAnticipos);
+  }, [subtotalBaseLote, totalAnticipos]);
+
+  const porcentajeIgv = valorizacion?.porcentaje_igv ?? 0;
+  const porcentajeDetraccion = valorizacion?.porcentaje_detraccion ?? 0;
+
+  const montoIgv = useMemo(() => {
+    return Math.round(subtotalNeto * (porcentajeIgv / 100) * 100) / 100;
+  }, [subtotalNeto, porcentajeIgv]);
+
+  const totalConIgv = useMemo(() => {
+    return Math.round((subtotalNeto + montoIgv) * 100) / 100;
+  }, [subtotalNeto, montoIgv]);
+
+  const montoDetraccion = useMemo(() => {
+    return Math.round(totalConIgv * (porcentajeDetraccion / 100) * 100) / 100;
+  }, [totalConIgv, porcentajeDetraccion]);
+
   const montoTransferencia = useMemo(() => {
-    const transfer = subtotalNeto - totalAnticipos;
-    return transfer < 0 ? 0 : transfer;
-  }, [subtotalNeto, totalAnticipos]);
+    return Math.max(0, Math.round((totalConIgv - montoDetraccion) * 100) / 100);
+  }, [totalConIgv, montoDetraccion]);
 
   const tipoPago = useMemo((): TipoPagoValorizacionCompra => {
     if (totalAnticipos <= 0) {

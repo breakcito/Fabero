@@ -330,8 +330,6 @@ export const TicketLiquidacionCompraPdf = ({ data }: TicketLiquidacionCompraPdfP
   let sumTms = 0;
   let sumTotalUss = 0;
   let sumSubtotalSinDesc = 0;
-  let sumPenalidad = 0;
-  let sumFlete = 0;
   let sumDescuentos = 0;
   let sumLeyX = 0;
   let sumRecupX = 0;
@@ -352,8 +350,6 @@ export const TicketLiquidacionCompraPdf = ({ data }: TicketLiquidacionCompraPdfP
     sumTms += tmsVal;
     sumTotalUss += subVal;
     sumSubtotalSinDesc += subSinDescVal;
-    sumPenalidad += penVal;
-    sumFlete += fleVal;
     sumDescuentos += descVal;
     sumLeyX += (Number(d.ley) || 0) * (tmsVal > 0 ? tmsVal : 1);
     sumRecupX += (Number(d.recuperacion) || 0) * (tmsVal > 0 ? tmsVal : 1);
@@ -407,15 +403,15 @@ export const TicketLiquidacionCompraPdf = ({ data }: TicketLiquidacionCompraPdfP
     return sumTmh > 0 ? fmtNum(sumTmh, 3) : "—";
   })();
 
-  // Cálculos económicos
+  // Cálculos económicos: el subtotal es el monto resultante tras restar descuento y anticipos
   const pctIgv = data.porcentaje_igv !== null && data.porcentaje_igv !== undefined ? Number(data.porcentaje_igv) : 18;
   const pctDetraccion = data.porcentaje_detraccion !== null && data.porcentaje_detraccion !== undefined ? Number(data.porcentaje_detraccion) : 10;
-  const subtotalUss = Number(data.total_subtotal) || sumTotalUss;
-  const igv18 = data.igv !== null && data.igv !== undefined ? Number(data.igv) : Math.round(subtotalUss * (pctIgv / 100) * 100) / 100;
-  const totalUss = data.total_con_igv !== null && data.total_con_igv !== undefined ? Number(data.total_con_igv) : subtotalUss + igv18;
-  const detraccion10 = data.monto_detraccion !== null && data.monto_detraccion !== undefined ? Number(data.monto_detraccion) : Math.round(totalUss * (pctDetraccion / 100) * 100) / 100;
-  const anticipos = Number(data.total_anticipos) || 0;
-  const netoAPagar = data.neto_a_pagar !== null && data.neto_a_pagar !== undefined ? Number(data.neto_a_pagar) : totalUss - detraccion10 - anticipos;
+  const baseLotesConDescuento = Number(data.total_subtotal) || sumTotalUss;
+  const subtotalUss = Math.max(0, baseLotesConDescuento - totalAnticiposAplicados);
+  const igv18 = Math.round(subtotalUss * (pctIgv / 100) * 100) / 100;
+  const totalUss = Math.round((subtotalUss + igv18) * 100) / 100;
+  const detraccion10 = Math.round(totalUss * (pctDetraccion / 100) * 100) / 100;
+  const netoAPagar = Math.max(0, Math.round((totalUss - detraccion10) * 100) / 100);
 
   // Anchos proporcionales de las 16 columnas (suman 100%)
   const colWidths = {
