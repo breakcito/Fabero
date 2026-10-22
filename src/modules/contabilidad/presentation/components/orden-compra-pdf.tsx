@@ -215,16 +215,28 @@ const styles = StyleSheet.create({
   },
 });
 
-const formatFechaCorta = (fechaIso?: string): string => {
-  if (!fechaIso) return "—";
+const formatFechaCorta = (fecha?: string | null): string => {
+  if (!fecha) return "—";
   try {
-    const d = new Date(fechaIso);
-    const day = String(d.getDate()).padStart(2, "0");
-    const month = String(d.getMonth() + 1).padStart(2, "0");
-    const year = d.getFullYear();
-    return `${day}/${month}/${year}`;
+    const trimmed = fecha.trim();
+    const datePart = trimmed.includes("T")
+      ? trimmed.split("T")[0]
+      : trimmed.split(" ")[0];
+    const parts = datePart.split("-");
+    if (parts.length === 3) {
+      const [year, month, day] = parts;
+      return `${day.padStart(2, "0")}/${month.padStart(2, "0")}/${year}`;
+    }
+    const d = new Date(trimmed);
+    if (!isNaN(d.getTime())) {
+      const day = String(d.getDate()).padStart(2, "0");
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const year = d.getFullYear();
+      return `${day}/${month}/${year}`;
+    }
+    return trimmed;
   } catch {
-    return fechaIso;
+    return fecha;
   }
 };
 
@@ -304,9 +316,16 @@ export const OrdenCompraPdf = ({ comprobante, valorizacion }: Props) => {
       new Date(b.fecha_hora_pago).getTime() - new Date(a.fecha_hora_pago).getTime(),
   );
   const ultimoPagoNeto = pagosNeto[0];
-  const ultimaFechaPagoNeto = ultimoPagoNeto
-    ? formatFechaCorta(ultimoPagoNeto.fecha_hora_pago)
+  const ultimaFechaPagoNetoRaw =
+    comprobante.ultima_fecha_pago_neto ||
+    ultimoPagoNeto?.fecha_hora_pago ||
+    null;
+  const ultimaFechaPagoNeto = ultimaFechaPagoNetoRaw
+    ? formatFechaCorta(ultimaFechaPagoNetoRaw)
     : "";
+
+  const esContado = comprobante.es_al_contado ?? !comprobante.es_al_credito;
+  const esCredito = !!comprobante.es_al_credito;
 
   // Aprobación de Gerencia para "AUTORIZADO POR"
   const apGerencia = comprobante.aprobaciones?.find(
@@ -537,13 +556,13 @@ export const OrdenCompraPdf = ({ comprobante, valorizacion }: Props) => {
               <Text>AL CONTADO:</Text>
             </View>
             <View style={[styles.whiteCell, { width: "10%" }]}>
-              <Text>{comprobante.es_al_contado ? "X" : " "}</Text>
+              <Text>{esContado ? "X" : " "}</Text>
             </View>
             <View style={[styles.yellowCell, { width: "15%" }]}>
               <Text>FECHA DE PAGO</Text>
             </View>
             <View style={[styles.whiteCell, { width: "17%", borderRightWidth: 0 }]}>
-              <Text>{comprobante.es_al_contado ? ultimaFechaPagoNeto : " "}</Text>
+              <Text>{esContado ? (ultimaFechaPagoNeto || " ") : " "}</Text>
             </View>
           </View>
 
@@ -554,7 +573,7 @@ export const OrdenCompraPdf = ({ comprobante, valorizacion }: Props) => {
             </View>
             <View style={[styles.whiteCell, { width: "20%" }]}>
               <Text>
-                {comprobante.es_al_credito && comprobante.plazo_credito
+                {esCredito && comprobante.plazo_credito
                   ? `${comprobante.plazo_credito} ${(comprobante.plazo_credito_periodo || "Días").toUpperCase()}`
                   : "—"}
               </Text>
@@ -563,13 +582,13 @@ export const OrdenCompraPdf = ({ comprobante, valorizacion }: Props) => {
               <Text>AL CRÉDITO:</Text>
             </View>
             <View style={[styles.whiteCell, { width: "10%" }]}>
-              <Text>{comprobante.es_al_credito ? "X" : "—"}</Text>
+              <Text>{esCredito ? "X" : "—"}</Text>
             </View>
             <View style={[styles.yellowCell, { width: "15%" }]}>
               <Text>FECHA DE PAGO</Text>
             </View>
             <View style={[styles.whiteCell, { width: "17%", borderRightWidth: 0 }]}>
-              <Text>{comprobante.es_al_credito ? ultimaFechaPagoNeto : " "}</Text>
+              <Text>{esCredito ? (ultimaFechaPagoNeto || " ") : " "}</Text>
             </View>
           </View>
 

@@ -104,6 +104,7 @@ export interface RES_ComprobanteCompra {
   empleado_registro_nombre: string | null;
   total_pagado_neto: number;
   total_pagado_detraccion: number;
+  ultima_fecha_pago_neto?: string | null;
   evidencias?: IArchivo[];
   lotes_valorizados?: RES_LoteValorizadoComprobante[];
   pagos?: RES_PagoComprobante[];

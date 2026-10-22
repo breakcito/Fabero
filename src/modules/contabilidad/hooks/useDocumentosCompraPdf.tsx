@@ -3,6 +3,7 @@ import { usePrint } from "../../../hooks/usePrint";
 import { useNotify } from "../../../hooks/useNotify";
 import { ValorizacionCompraService } from "../../valorizacion-compra/service/valorizacion-compra.service";
 import type { RES_ValorizacionCompra } from "../../valorizacion-compra/service/valorizacion-compra.responses";
+import { ContabilidadCompraService } from "../service/contabilidad-compra.service";
 import type { RES_ComprobanteCompra } from "../service/contabilidad-compra.responses";
 import { DeclaracionJuradaPdf } from "../presentation/components/declaracion-jurada-pdf";
 import { NotaIngresoAlmacenPdf } from "../presentation/components/nota-ingreso-almacen-pdf";
@@ -82,13 +83,33 @@ export const useDocumentosCompraPdf = () => {
           );
           notifySuccess("Nota de Ingreso al Almacén generada exitosamente.");
         } else if (tipo === "oc") {
+          let compOc = comprobante;
+          if (
+            compOc.ultima_fecha_pago_neto === undefined &&
+            (!compOc.pagos || compOc.pagos.length === 0)
+          ) {
+            try {
+              const resComp = await ContabilidadCompraService.obtenerComprobante(
+                comprobante.id
+              );
+              if (resComp.data) {
+                compOc = resComp.data;
+              }
+            } catch (e) {
+              console.warn(
+                "[useDocumentosCompraPdf] No se pudo obtener detalle completo del comprobante:",
+                e
+              );
+            }
+          }
+
           print(
             <OrdenCompraPdf
-              comprobante={comprobante}
+              comprobante={compOc}
               valorizacion={valorizacion}
             />,
             {
-              documentTitle: `Orden de Compra ${comprobante.codigo_completo}`,
+              documentTitle: `Orden de Compra ${compOc.codigo_completo}`,
               target,
             }
           );
