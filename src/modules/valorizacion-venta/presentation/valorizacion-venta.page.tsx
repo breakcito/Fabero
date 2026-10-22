@@ -92,7 +92,7 @@ const fieldClasses = {
 };
 
 export const ValorizacionVentaPage = () => {
-  useTitlePage("Valorizaciones de Venta", true);
+  useTitlePage("Valorizaciones de Venta", true, true);
 
   const [loadingPlantas, setLoadingPlantas] = useState(false);
   const [plantas, setPlantas] = useState<PlantaDisponible[]>([]);

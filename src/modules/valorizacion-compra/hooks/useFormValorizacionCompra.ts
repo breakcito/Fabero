@@ -156,6 +156,8 @@ export const useFormValorizacionCompra = ({
   const [evidencias, setEvidencias] = useState<File[]>([]);
   const [evidenciasExistentes, setEvidenciasExistentes] = useState<IArchivo[]>([]);
   const [fechaHoraValorizacion, setFechaHoraValorizacion] = useState<string | null>(nowIsoDateTime());
+  const [porcentajeIgv, setPorcentajeIgv] = useState<number>(18.0);
+  const [porcentajeDetraccion, setPorcentajeDetraccion] = useState<number>(10.0);
   const [montoPenalidad, setMontoPenalidad] = useState<number>(0);
   const [montoFlete, setMontoFlete] = useState<number>(0);
 
@@ -254,6 +256,16 @@ export const useFormValorizacionCompra = ({
       setFechaHoraValorizacion(
         valorizacionEditar.fecha_hora_valorizacion ?? nowIsoDateTime(),
       );
+      setPorcentajeIgv(
+        (valorizacionEditar as { porcentaje_igv?: number | null }).porcentaje_igv != null
+          ? Number((valorizacionEditar as { porcentaje_igv?: number | null }).porcentaje_igv)
+          : 18.0,
+      );
+      setPorcentajeDetraccion(
+        (valorizacionEditar as { porcentaje_detraccion?: number | null }).porcentaje_detraccion != null
+          ? Number((valorizacionEditar as { porcentaje_detraccion?: number | null }).porcentaje_detraccion)
+          : 10.0,
+      );
       setMontoPenalidad(valorizacionEditar.monto_penalidad ?? 0);
       setMontoFlete(valorizacionEditar.monto_flete ?? 0);
     } else {
@@ -270,6 +282,8 @@ export const useFormValorizacionCompra = ({
       setCuentasDetraccion([]);
       setAnticiposCatalog([]);
       setFechaHoraValorizacion(nowIsoDateTime());
+      setPorcentajeIgv(18.0);
+      setPorcentajeDetraccion(10.0);
       setMontoPenalidad(0);
       setMontoFlete(0);
     }
@@ -518,6 +532,8 @@ export const useFormValorizacionCompra = ({
           id_cuenta_bancaria: idCuentaBancaria,
           id_cuenta_detraccion: idCuentaDetraccion,
           tipo_pago: tipoPago,
+          porcentaje_igv: porcentajeIgv,
+          porcentaje_detraccion: porcentajeDetraccion,
           detalles: detalles.map((d) => d.req),
           anticipos: anticipos,
           evidencias,
@@ -526,7 +542,7 @@ export const useFormValorizacionCompra = ({
           fecha_hora_valorizacion: fechaHoraValorizacion,
         });
         idGuardado = valorizacionEditar.id;
-        notifySuccess("Valorización actualizada correctamente");
+        notifySuccess("Propuesta de valorización actualizada correctamente");
       } else {
         const res = await ValorizacionCompraService.crearValorizacion({
           id_proveedor_minero: idProveedor!,
@@ -534,6 +550,8 @@ export const useFormValorizacionCompra = ({
           id_cuenta_bancaria: idCuentaBancaria,
           id_cuenta_detraccion: idCuentaDetraccion,
           tipo_pago: tipoPago,
+          porcentaje_igv: porcentajeIgv,
+          porcentaje_detraccion: porcentajeDetraccion,
           detalles: detalles.map((d) => d.req),
           anticipos: anticipos,
           evidencias,
@@ -546,7 +564,7 @@ export const useFormValorizacionCompra = ({
             : typeof dataResp?.id_valorizacion === "number"
               ? dataResp.id_valorizacion
               : undefined;
-        notifySuccess("Valorización creada correctamente en estado Pendiente");
+        notifySuccess("Propuesta de valorización creada correctamente");
       }
 
       setLoadingSubmit(false);
@@ -594,6 +612,10 @@ export const useFormValorizacionCompra = ({
     setEvidenciasExistentes,
     fechaHoraValorizacion,
     setFechaHoraValorizacion,
+    porcentajeIgv,
+    setPorcentajeIgv,
+    porcentajeDetraccion,
+    setPorcentajeDetraccion,
     montoPenalidad,
     setMontoPenalidad,
     montoFlete,

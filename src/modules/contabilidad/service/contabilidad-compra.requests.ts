@@ -15,6 +15,12 @@ export interface REQ_CrearComprobante {
   fecha_emision: string;
   porcentaje_igv?: number;
   porcentaje_detraccion?: number;
+  es_al_contado?: boolean;
+  es_al_credito?: boolean;
+  plazo_credito?: number | null;
+  plazo_credito_periodo?: string | null;
+  total_cuotas?: number | null;
+  metodo_pago?: string;
   evidencias?: File[];
 }
 

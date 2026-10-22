@@ -2,10 +2,15 @@ import { useEffect } from "react";
 import { useUIStore } from "../stores/ui.store";
 
 // Hook para manejar el titulo de la pagina y el titulo de la pestaña
-export const useTitlePage = (title?: string, showSucursalSelect = false) => {
+export const useTitlePage = (
+  title?: string,
+  showSucursalSelect = false,
+  showIndicadores = false,
+) => {
   const currentTitle = useUIStore((state) => state.title);
   const setTitle = useUIStore((state) => state.setTitle);
   const setVerSucursal = useUIStore((state) => state.set_ver_sucursal);
+  const setVerIndicadores = useUIStore((state) => state.set_ver_indicadores);
 
   useEffect(() => {
     if (title !== undefined) {
@@ -19,6 +24,13 @@ export const useTitlePage = (title?: string, showSucursalSelect = false) => {
       setVerSucursal(false);
     };
   }, [showSucursalSelect, setVerSucursal]);
+
+  useEffect(() => {
+    setVerIndicadores(showIndicadores);
+    return () => {
+      setVerIndicadores(false);
+    };
+  }, [showIndicadores, setVerIndicadores]);
 
   return {
     title: currentTitle,

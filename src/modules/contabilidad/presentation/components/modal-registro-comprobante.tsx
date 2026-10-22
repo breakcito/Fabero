@@ -10,18 +10,15 @@ import {
   Stack,
   Text,
   TextInput,
-  Tooltip,
-  ActionIcon,
 } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
-import { IconAlertCircle, IconCoin } from "@tabler/icons-react";
+import { IconAlertCircle } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import { z } from "zod";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
 import { MultiFilePicker } from "../../../../presentation/utils/archivo/multifile-picker";
 import { AuxService } from "../../../../service/auxiliar.service";
 import { useNotify } from "../../../../hooks/useNotify";
-import { ModalRegistroTipoCambio } from "./modal-registro-tipo-cambio";
 import type { RES_Proveedor } from "../../../../service/responses/proveedor";
 import type { REQ_CrearComprobante } from "../../service/contabilidad-compra.requests";
 
@@ -73,6 +70,7 @@ export const ModalRegistroComprobante = ({
     monto_penalidad: number;
     monto_flete: number;
     total_dolares: number;
+    total_dolares_sin_descuento?: number;
     monto_anticipos: number;
   }>>([]);
   const [loadingValorizaciones, setLoadingValorizaciones] = useState(false);
@@ -83,6 +81,11 @@ export const ModalRegistroComprobante = ({
   const [fechaEmision, setFechaEmision] = useState<Date | null>(new Date());
   const [porcentajeIgv, setPorcentajeIgv] = useState<number | string>(18);
   const [porcentajeDetraccion, setPorcentajeDetraccion] = useState<number | string>(10);
+  const [metodoPago, setMetodoPago] = useState<string>("Transferencia");
+  const [condicionPago, setCondicionPago] = useState<"contado" | "credito">("contado");
+  const [plazoCredito, setPlazoCredito] = useState<number | string>("");
+  const [plazoCreditoPeriodo, setPlazoCreditoPeriodo] = useState<string>("Días");
+  const [totalCuotas, setTotalCuotas] = useState<number | string>(1);
   const [evidencias, setEvidencias] = useState<File[]>([]);
 
   const [tipoCambio, setTipoCambio] = useState<{
@@ -90,7 +93,6 @@ export const ModalRegistroComprobante = ({
     valor_venta: number;
   } | null>(null);
   const [loadingTipoCambio, setLoadingTipoCambio] = useState(false);
-  const [modalTipoCambioOpened, setModalTipoCambioOpened] = useState(false);
 
   const fechaEmisionStr = toDateString(fechaEmision);
 
@@ -105,6 +107,11 @@ export const ModalRegistroComprobante = ({
       setFechaEmision(new Date());
       setPorcentajeIgv(18);
       setPorcentajeDetraccion(10);
+      setMetodoPago("Transferencia");
+      setCondicionPago("contado");
+      setPlazoCredito("");
+      setPlazoCreditoPeriodo("Días");
+      setTotalCuotas(1);
       setEvidencias([]);
       setTipoCambio(null);
     });
@@ -183,31 +190,40 @@ export const ModalRegistroComprobante = ({
     if (!valorizacionSeleccionada || !tipoCambio) {
       return null;
     }
-    const totalDolaresAntesDescuento = Number(valorizacionSeleccionada.total_dolares);
+    const subtotalSinDescuento = Number(
+      valorizacionSeleccionada.total_dolares_sin_descuento ?? valorizacionSeleccionada.total_dolares ?? 0
+    );
     const descuento =
       Number(valorizacionSeleccionada.monto_penalidad ?? 0) +
       Number(valorizacionSeleccionada.monto_flete ?? 0);
-    const totalDolares = Math.max(totalDolaresAntesDescuento - descuento, 0);
-    const totalAnticipos = Number(valorizacionSeleccionada.monto_anticipos);
+    const totalAnticipos = Number(valorizacionSeleccionada.monto_anticipos ?? 0);
     const tcVenta = Number(tipoCambio.valor_venta) || 0;
-    const totalSolesAntesDescuento = totalDolaresAntesDescuento * tcVenta;
-    const totalSoles = Math.max(totalSolesAntesDescuento - descuento * tcVenta, 0);
-    const baseDetraccion = Math.max(totalDolaresAntesDescuento - totalAnticipos, 0);
-    const montoDetraccion = baseDetraccion * (Number(porcentajeDetraccion) / 100);
-    const montoNeto = totalDolares - totalAnticipos - montoDetraccion;
+
+    // Formulas:
+    // valor_venta: subtotal_sin_descuento - descuento - monto_pagado_anticipos
+    const valorVenta = Math.max(0, subtotalSinDescuento - descuento - totalAnticipos);
+    const pctIgv = Number(porcentajeIgv) > 1 ? Number(porcentajeIgv) / 100 : Number(porcentajeIgv);
+    const montoIgv = valorVenta * pctIgv;
+    // total: valor_venta + monto_igv
+    const total = valorVenta + montoIgv;
+    const pctDetraccion = Number(porcentajeDetraccion) > 1 ? Number(porcentajeDetraccion) / 100 : Number(porcentajeDetraccion);
+    const montoDetraccion = total * pctDetraccion;
+    const montoDetraccionSoles = montoDetraccion * tcVenta;
+    const montoNeto = total - montoDetraccion;
 
     return {
-      totalDolaresAntesDescuento,
+      subtotalSinDescuento,
       descuento,
-      totalDolares,
       totalAnticipos,
-      tcVenta,
-      totalSolesAntesDescuento,
-      totalSoles,
+      valorVenta,
+      montoIgv,
+      total,
       montoDetraccion,
+      montoDetraccionSoles,
       montoNeto,
+      tcVenta,
     };
-  }, [valorizacionSeleccionada, tipoCambio, porcentajeDetraccion]);
+  }, [valorizacionSeleccionada, tipoCambio, porcentajeIgv, porcentajeDetraccion]);
 
   const handleClose = () => {
     onClose();
@@ -237,8 +253,25 @@ export const ModalRegistroComprobante = ({
       return;
     }
 
+    if (condicionPago === "credito") {
+      if (!plazoCredito || Number(plazoCredito) <= 0) {
+        notifyError("Indique una cantidad válida para el plazo de crédito.");
+        return;
+      }
+      if (!totalCuotas || Number(totalCuotas) < 1) {
+        notifyError("Indique un número válido de cuotas (mínimo 1).");
+        return;
+      }
+    }
+
     const ok = await onSubmit({
       ...parsed.data,
+      es_al_contado: condicionPago === "contado",
+      es_al_credito: condicionPago === "credito",
+      plazo_credito: condicionPago === "credito" ? Number(plazoCredito) : null,
+      plazo_credito_periodo: condicionPago === "credito" ? plazoCreditoPeriodo : null,
+      total_cuotas: condicionPago === "credito" ? Number(totalCuotas) : null,
+      metodo_pago: metodoPago,
       evidencias: evidencias.length > 0 ? evidencias : undefined,
     });
 
@@ -360,66 +393,135 @@ export const ModalRegistroComprobante = ({
               size="xs"
               radius="lg"
             />
-            <Group align="end" wrap="nowrap" className="flex-1 min-w-0">
-              <NumberInput
-                label="Tipo de Cambio (Venta)"
-                value={tipoCambio ? tipoCambio.valor_venta : ""}
-                readOnly
-                decimalScale={3}
-                fixedDecimalScale
+            <NumberInput
+              label="Tipo de Cambio (Venta)"
+              value={tipoCambio ? tipoCambio.valor_venta : ""}
+              readOnly
+              decimalScale={3}
+              fixedDecimalScale
+              size="xs"
+              radius="lg"
+              rightSection={loadingTipoCambio ? <Loader size={16} /> : undefined}
+              placeholder={loadingTipoCambio ? "Buscando..." : "No registra"}
+            />
+          </Group>
+
+          {/* Método de Pago y Condición de Pago */}
+          <Grid gutter="sm">
+            <Grid.Col span={{ base: 12, sm: 6 }}>
+              <Select
+                label="Método de Pago"
+                data={["Transferencia", "Depósito", "Efectivo"]}
+                value={metodoPago}
+                onChange={(val) => setMetodoPago(val || "Transferencia")}
                 size="xs"
                 radius="lg"
-                className="flex-1"
-                rightSection={loadingTipoCambio ? <Loader size={16} /> : undefined}
-                placeholder={loadingTipoCambio ? "Buscando..." : "No registra"}
+                required
+                comboboxProps={{ withinPortal: true }}
               />
-              <Tooltip
-                label={
-                  tipoCambio
-                    ? `Tipo de cambio del ${fechaEmisionStr}`
-                    : "Registrar tipo de cambio"
-                }
-              >
-                <ActionIcon
-                  size="lg"
-                  variant="light"
-                  color={tipoCambio ? "teal" : "yellow"}
-                  onClick={() => setModalTipoCambioOpened(true)}
-                  disabled={!fechaEmisionStr}
-                >
-                  <IconCoin size={20} />
-                </ActionIcon>
-              </Tooltip>
-            </Group>
-          </Group>
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, sm: 6 }}>
+              <Select
+                label="Condición de Pago"
+                data={[
+                  { value: "contado", label: "Al Contado" },
+                  { value: "credito", label: "Al Crédito" },
+                ]}
+                value={condicionPago}
+                onChange={(val) => setCondicionPago(val === "credito" ? "credito" : "contado")}
+                size="xs"
+                radius="lg"
+                required
+                comboboxProps={{ withinPortal: true }}
+              />
+            </Grid.Col>
+          </Grid>
+
+          {/* Si es Al Crédito: Plazo, Periodo y Cuotas */}
+          {condicionPago === "credito" && (
+            <Grid gutter="sm" p="xs" bg="#18181b" className="rounded-lg border border-zinc-800">
+              <Grid.Col span={{ base: 12, sm: 4 }}>
+                <NumberInput
+                  label="Plazo Crédito"
+                  placeholder="Ej: 15"
+                  min={1}
+                  step={1}
+                  value={plazoCredito}
+                  onChange={setPlazoCredito}
+                  size="xs"
+                  radius="lg"
+                  required
+                />
+              </Grid.Col>
+              <Grid.Col span={{ base: 12, sm: 4 }}>
+                <Select
+                  label="Periodo Plazo"
+                  data={["Días", "Semanas", "Meses"]}
+                  value={plazoCreditoPeriodo}
+                  onChange={(val) => setPlazoCreditoPeriodo(val || "Días")}
+                  size="xs"
+                  radius="lg"
+                  required
+                  comboboxProps={{ withinPortal: true }}
+                />
+              </Grid.Col>
+              <Grid.Col span={{ base: 12, sm: 4 }}>
+                <NumberInput
+                  label="Total Cuotas"
+                  placeholder="Ej: 1"
+                  min={1}
+                  step={1}
+                  value={totalCuotas}
+                  onChange={setTotalCuotas}
+                  size="xs"
+                  radius="lg"
+                  required
+                />
+              </Grid.Col>
+            </Grid>
+          )}
 
           {!tipoCambio && fechaEmisionStr && (
             <Alert color="yellow" variant="light" icon={<IconAlertCircle size={16} />}>
-              No existe tipo de cambio para esta fecha. Usa el botón de moneda para registrar uno.
+              No existe tipo de cambio registrado para la fecha ({fechaEmisionStr}). Verifique el registro global en el encabezado.
             </Alert>
           )}
 
           {resumenCalcs && (
-            <div className="grid grid-cols-2 gap-2 p-3 bg-zinc-900/40 border border-zinc-800 rounded-lg">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 bg-zinc-900/40 border border-zinc-800 rounded-lg">
               <div>
-                <Text fz={10} c="dimmed" tt="uppercase" fw={700}>Total Antes Descuento</Text>
-                <Text fz="sm" fw={700} c="zinc.3">$ {resumenCalcs.totalDolaresAntesDescuento.toFixed(2)}</Text>
+                <Text fz={10} c="dimmed" tt="uppercase" fw={700}>Subtotal</Text>
+                <Text fz="sm" fw={700} c="zinc.3">$ {resumenCalcs.subtotalSinDescuento.toFixed(2)}</Text>
               </div>
               <div>
-                <Text fz={10} c="dimmed" tt="uppercase" fw={700}>Descuento (PEN + Flete)</Text>
-                <Text fz="sm" fw={700} c="red.4">- $ {resumenCalcs.descuento.toFixed(2)}</Text>
-              </div>
-              <div>
-                <Text fz={10} c="dimmed" tt="uppercase" fw={700}>Total Dólares</Text>
-                <Text fz="sm" fw={700} c="emerald.4">$ {resumenCalcs.totalDolares.toFixed(2)}</Text>
-              </div>
-              <div>
-                <Text fz={10} c="dimmed" tt="uppercase" fw={700}>Total Soles</Text>
-                <Text fz="sm" fw={700} c="cyan.4">S/ {resumenCalcs.totalSoles.toFixed(2)}</Text>
+                <Text fz={10} c="dimmed" tt="uppercase" fw={700}>Descuento</Text>
+                <Text fz="sm" fw={700} c={resumenCalcs.descuento > 0 ? "red.4" : "dimmed"}>
+                  {resumenCalcs.descuento > 0 ? `- $ ${resumenCalcs.descuento.toFixed(2)}` : "$ 0.00"}
+                </Text>
               </div>
               <div>
                 <Text fz={10} c="dimmed" tt="uppercase" fw={700}>Anticipos</Text>
-                <Text fz="sm" fw={700} c="indigo.4">$ {resumenCalcs.totalAnticipos.toFixed(2)}</Text>
+                <Text fz="sm" fw={700} c={resumenCalcs.totalAnticipos > 0 ? "indigo.4" : "dimmed"}>
+                  {resumenCalcs.totalAnticipos > 0 ? `- $ ${resumenCalcs.totalAnticipos.toFixed(2)}` : "$ 0.00"}
+                </Text>
+              </div>
+              <div>
+                <Text fz={10} c="dimmed" tt="uppercase" fw={700}>Valor Venta</Text>
+                <Text fz="sm" fw={700} c="cyan.4">$ {resumenCalcs.valorVenta.toFixed(2)}</Text>
+              </div>
+              <div>
+                <Text fz={10} c="dimmed" tt="uppercase" fw={700}>IGV</Text>
+                <Text fz="sm" fw={700} c="amber.4">$ {resumenCalcs.montoIgv.toFixed(2)}</Text>
+              </div>
+              <div>
+                <Text fz={10} c="dimmed" tt="uppercase" fw={700}>Total</Text>
+                <Text fz="sm" fw={700} c="emerald.4">$ {resumenCalcs.total.toFixed(2)}</Text>
+              </div>
+              <div>
+                <Text fz={10} c="dimmed" tt="uppercase" fw={700}>Detracción</Text>
+                <Text fz="sm" fw={700} c="yellow.4">
+                  $ {resumenCalcs.montoDetraccion.toFixed(2)} (S/ {resumenCalcs.montoDetraccionSoles.toFixed(2)})
+                </Text>
               </div>
               <div>
                 <Text fz={10} c="dimmed" tt="uppercase" fw={700}>Neto a Pagar</Text>
@@ -451,19 +553,6 @@ export const ModalRegistroComprobante = ({
           </Group>
         </Stack>
       </ModalEstandar>
-
-      <ModalRegistroTipoCambio
-        opened={modalTipoCambioOpened}
-        onClose={() => setModalTipoCambioOpened(false)}
-        fecha={fechaEmisionStr}
-        onCreated={() => {
-          AuxService.get_tipo_cambio_por_fecha(fechaEmisionStr).then((res) => {
-            if (res.success && res.data) {
-              setTipoCambio({ id: res.data.id, valor_venta: Number(res.data.valor_venta) || 0 });
-            }
-          });
-        }}
-      />
     </>
   );
 };

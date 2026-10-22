@@ -25,6 +25,8 @@ interface UIState {
   clearMessage: () => void;
   ver_sucursal: boolean;
   set_ver_sucursal: (ver_sucursal: boolean) => void;
+  ver_indicadores: boolean;
+  set_ver_indicadores: (ver_indicadores: boolean) => void;
   sucursales: RES_Sucursal[];
   set_sucursales: (sucursales: RES_Sucursal[]) => void;
   clear_sucursales: () => void;
@@ -48,6 +50,10 @@ export const useUIStore = create<UIState>((set) => ({
   ver_sucursal: false,
   set_ver_sucursal: (ver_sucursal: boolean) => {
     set({ ver_sucursal });
+  },
+  ver_indicadores: false,
+  set_ver_indicadores: (ver_indicadores: boolean) => {
+    set({ ver_indicadores });
   },
   sucursales: loadSucursales(),
   set_sucursales: (sucursales: RES_Sucursal[]) => {

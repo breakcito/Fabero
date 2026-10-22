@@ -1,5 +1,5 @@
 export enum EstadoValorizacionCompra {
-  Pendiente = "Pendiente",
+  Propuesta = "Propuesta",
   Aprobado = "Aprobado",
   Anulado = "Anulado",
 }

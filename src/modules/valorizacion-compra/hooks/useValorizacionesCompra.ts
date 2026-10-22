@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { ValorizacionCompraService } from "../service/valorizacion-compra.service";
 import { useNotify } from "../../../hooks/useNotify";
 import type { RES_ValorizacionCompra } from "../service/valorizacion-compra.responses";
-import type { REQ_AnularValorizacion } from "../service/valorizacion-compra.requests";
+import type { REQ_AnularValorizacion, REQ_AprobarValorizacion } from "../service/valorizacion-compra.requests";
 
 export const useValorizacionesCompra = () => {
   const { notifySuccess, notifyError } = useNotify();
@@ -53,15 +53,17 @@ export const useValorizacionesCompra = () => {
     setModalFormOpened(true);
   };
 
-  const handleAprobar = async (id: number) => {
+  const handleAprobar = async (id: number, payload: REQ_AprobarValorizacion): Promise<boolean> => {
     setTogglingIds((prev) => ({ ...prev, [id]: true }));
     try {
-      const res = await ValorizacionCompraService.aprobarValorizacion(id);
+      const res = await ValorizacionCompraService.aprobarValorizacion(id, payload);
       if (res.success) {
         notifySuccess("Valorización aprobada correctamente");
         await cargarValorizaciones();
+        return true;
       } else {
         notifyError(res.message || "Error al aprobar la valorización");
+        return false;
       }
     } catch (err: unknown) {
       let rawMsg = "Error al aprobar la valorización";
@@ -76,6 +78,7 @@ export const useValorizacionesCompra = () => {
 
       const cleanMsg = rawMsg.replace(/^Error al aprobar valorización:\s*/i, "");
       notifyError(cleanMsg);
+      return false;
     } finally {
       setTogglingIds((prev) => ({ ...prev, [id]: false }));
     }

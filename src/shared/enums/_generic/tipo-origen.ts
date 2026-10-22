@@ -1,4 +1,5 @@
 export enum TipoOrigen {
-  Proveedor = "Proveedor",
   Interno = "Interno",
+  Externo = "Externo",
+  Proveedor = "Proveedor",
 }

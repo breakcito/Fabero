@@ -1,6 +1,5 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 import type { MuestraExternaResponse } from "../../service/cierre-leyes.responses";
-import type { GrupoAnalisisResponse } from "../../../gestion-leyes/service/gestion-leyes.responses";
 
 const OZT_TO_GRAMS = 34.2856;
 
@@ -98,40 +97,25 @@ const numInt = (v: number | null | undefined): string => {
 
 export interface ReporteMuestrasExternasPdfProps {
   muestras: MuestraExternaResponse[];
-  grupos?: GrupoAnalisisResponse[];
 }
 
 export const ReporteMuestrasExternasPdf = ({
   muestras,
-  grupos = [],
 }: ReporteMuestrasExternasPdfProps) => {
-  // Encontrar detalles configurados para valorización en los grupos
-  const detalleOro = grupos.flatMap((g) => g.analitos).find((a) => a.para_valorizacion_oro);
-  const detallePlata = grupos.flatMap((g) => g.analitos).find((a) => a.para_valorizacion_plata);
-  const detalleHumedad = grupos.flatMap((g) => g.analitos).find((a) => a.para_valorizacion_humedad);
-  const detalleRecuperacion = grupos.flatMap((g) => g.analitos).find((a) => a.para_valorizacion_recuperacion);
-
   const getLeyesMuestra = (m: MuestraExternaResponse) => {
-    const calcularLeyAnalito = (detalleId?: number, esDesplegable?: boolean): number => {
-      if (!detalleId) return 0;
-      const registros = m.analisis.filter((a) => a.id_grupo_analisis_detalle === detalleId);
-      if (registros.length === 0) return 0;
+    const registros = m.analisis || [];
+    if (registros.length === 0) {
+      return { leyOro: 0, leyPlata: 0, leyHumedad: 0, leyRecuperacion: 0 };
+    }
 
-      if (esDesplegable) {
-        const conValor = registros.filter((r) => r.esta_confirmada || r.ley > 0);
-        if (conValor.length > 0) {
-          return conValor.reduce((acc, cur) => acc + cur.ley, 0) / conValor.length;
-        }
-        return registros.reduce((acc, cur) => acc + cur.ley, 0) / registros.length;
-      }
-
-      return registros[0]?.ley ?? 0;
-    };
-
-    const leyOro = calcularLeyAnalito(detalleOro?.detalle_id, detalleOro?.es_desplegable);
-    const leyPlata = calcularLeyAnalito(detallePlata?.detalle_id, detallePlata?.es_desplegable);
-    const leyHumedad = calcularLeyAnalito(detalleHumedad?.detalle_id, false);
-    const leyRecuperacion = calcularLeyAnalito(detalleRecuperacion?.detalle_id, false);
+    const conOro = registros.filter((r) => r.ley_oro > 0);
+    const leyOro = conOro.length > 0 ? conOro.reduce((acc, cur) => acc + cur.ley_oro, 0) / conOro.length : 0;
+    const conPlata = registros.filter((r) => r.ley_plata > 0);
+    const leyPlata = conPlata.length > 0 ? conPlata.reduce((acc, cur) => acc + cur.ley_plata, 0) / conPlata.length : 0;
+    const conHumedad = registros.filter((r) => r.ley_humedad > 0);
+    const leyHumedad = conHumedad.length > 0 ? conHumedad.reduce((acc, cur) => acc + cur.ley_humedad, 0) / conHumedad.length : 0;
+    const conRec = registros.filter((r) => r.ley_recuperacion > 0);
+    const leyRecuperacion = conRec.length > 0 ? conRec.reduce((acc, cur) => acc + cur.ley_recuperacion, 0) / conRec.length : 0;
 
     return { leyOro, leyPlata, leyHumedad, leyRecuperacion };
   };
@@ -153,12 +137,8 @@ export const ReporteMuestrasExternasPdf = ({
     const baseStyle = isAlt ? styles.dataCellAlt : styles.dataCell;
     const { leyOro, leyPlata, leyHumedad, leyRecuperacion } = getLeyesMuestra(m);
 
-    // Si tiene codigo_cliente, se muestra (o combinado con su correlativo si se desea)
-    const codigoTexto = m?.codigo_cliente
-      ? `${m.codigo_cliente} (${m.correlativo})`
-      : m?.correlativo ?? "";
-
-    const fechaTexto = formatFecha(m?.fecha_hora_ingreso || m?.created_at);
+    const codigoTexto = m?.codigo_cliente || m?.nombre || m?.correlativo || "";
+    const fechaTexto = formatFecha(m?.created_at);
 
     const text =
       colKey === "item"

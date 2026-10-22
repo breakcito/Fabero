@@ -29,12 +29,12 @@ export const ModalPesoInicial = ({ lote, onCancel, onSubmit, targetIdOverride }:
   const { notifyError } = useNotify();
 
   // Inputs
-  // El proveedor_minero se autocompleta con el de la recepción
+  // El proveedor_minero se autocompleta con el del lote si ya fue elegido;
+  // si el lote no tiene aún proveedor, se sugiere el de la recepción
   // (denormalizado como `id_proveedor_minero_recepcion` en la respuesta del lote).
-  // Si la recepción no tiene proveedor pero el lote sí, se usa el del lote.
-  // El usuario puede cambiarlo libremente desde el Select.
+  // El usuario puede cambiarlo libremente desde el Select en cualquier instancia.
   const initialProveedorId =
-    lote.id_proveedor_minero_recepcion ?? lote.id_proveedor_minero ?? null;
+    lote.id_proveedor_minero ?? lote.id_proveedor_minero_recepcion ?? null;
   const [idProveedor, setIdProveedor] = useState<string | null>(
     initialProveedorId ? String(initialProveedorId) : null,
   );
@@ -89,6 +89,11 @@ export const ModalPesoInicial = ({ lote, onCancel, onSubmit, targetIdOverride }:
   useEffect(() => {
     setObservaciones(lote.observaciones ?? "");
   }, [lote.observaciones]);
+
+  useEffect(() => {
+    const provId = lote.id_proveedor_minero ?? lote.id_proveedor_minero_recepcion ?? null;
+    setIdProveedor(provId ? String(provId) : null);
+  }, [lote.id, lote.id_proveedor_minero, lote.id_proveedor_minero_recepcion]);
 
   const handleProveedorChange = (val: string | null) => {
     setIdProveedor(val);
@@ -164,6 +169,7 @@ export const ModalPesoInicial = ({ lote, onCancel, onSubmit, targetIdOverride }:
                     label="Proveedor Minero:"
                     placeholder={loadingCatalogos ? "Cargando..." : "Seleccione proveedor"}
                     searchable
+                    clearable
                     disabled={loadingCatalogos}
                     rightSection={loadingCatalogos ? <Loader size={16} /> : undefined}
                     data={proveedores
@@ -177,6 +183,7 @@ export const ModalPesoInicial = ({ lote, onCancel, onSubmit, targetIdOverride }:
                       }))}
                     value={idProveedor}
                     onChange={handleProveedorChange}
+                    comboboxProps={{ withinPortal: true }}
                     classNames={fieldClasses}
                     radius="lg"
                     className="flex-1"

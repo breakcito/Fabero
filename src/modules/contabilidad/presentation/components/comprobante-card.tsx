@@ -8,7 +8,6 @@ import {
   IconReceipt,
   IconCalendar,
   IconPaperclip,
-  IconFileText,
   IconFileDescription,
   IconShoppingCart,
 } from "@tabler/icons-react";
@@ -30,8 +29,9 @@ interface ComprobanteCardProps {
 }
 
 const COLOR_BY_TIPO: Record<TipoAprobacionComprobante, string> = {
-  [TipoAprobacionComprobante.Contabilidad]: "indigo",
   [TipoAprobacionComprobante.Comercial]: "blue",
+  [TipoAprobacionComprobante.Contabilidad]: "indigo",
+  [TipoAprobacionComprobante.Gerencia]: "violet",
   [TipoAprobacionComprobante.Documentaria]: "yellow",
 };
 
@@ -78,7 +78,11 @@ const formatFecha = (iso: string): string => {
 };
 
 const findAprob = (aprobaciones: RES_AprobacionComprobante[], tipo: TipoAprobacionComprobante) =>
-  aprobaciones.find((a) => a.tipo === tipo) ?? null;
+  aprobaciones.find((a) => {
+    if (a.tipo === tipo) return true;
+    if (tipo === TipoAprobacionComprobante.Gerencia && (a.tipo as unknown as string) === "Documentaria") return true;
+    return false;
+  }) ?? null;
 
 const MiniAprobacionChip = ({
   tipo,
@@ -159,9 +163,13 @@ export const ComprobanteCard = ({
         ? comprobante.avance_pago_detraccion / comprobante.tipo_cambio_venta
         : 0);
 
+  const totalDolares = isCompra
+    ? ((comprobante as RES_ComprobanteCompra).total ?? (comprobante as any).total_dolares ?? 0)
+    : ((comprobante as RES_ComprobanteVenta).total_dolares ?? 0);
+
   const pctPagadoTotal =
-    !isAnulado && comprobante.total_dolares > 0
-      ? Math.min(100, (totalPagadoUsd / comprobante.total_dolares) * 100)
+    !isAnulado && totalDolares > 0
+      ? Math.min(100, (totalPagadoUsd / totalDolares) * 100)
       : 0;
 
   const isDetraccionSaldado =
@@ -174,7 +182,7 @@ export const ComprobanteCard = ({
 
   const isTotalSaldado =
     !isAnulado &&
-    (pctPagadoTotal >= 99.99 || (comprobante.total_dolares - totalPagadoUsd) <= 0.01);
+    (pctPagadoTotal >= 99.99 || (totalDolares - totalPagadoUsd) <= 0.01);
 
   const todasAprobadas = isCompra
     ? (comprobante as RES_ComprobanteCompra).aprobaciones.every((a) => a.esta_aprobado)
@@ -209,7 +217,7 @@ export const ComprobanteCard = ({
               {comprobante.codigo_completo}
             </Text>
             {badgeEstado(comprobante.estado)}
-            {isCompra && Number(comprobante.total_dolares || 0) <= 0 && (
+            {isCompra && totalDolares <= 0 && (
               <Badge variant="light" color="red" size="sm" radius="md" fw={700}>
                 Sin Valor Comercial
               </Badge>
@@ -219,22 +227,6 @@ export const ComprobanteCard = ({
               badgeTipoPago((comprobante as RES_ComprobanteVenta).tipo_pago)}
             {isCompra && !isAnulado && (
               <Group gap={4} ml={4} wrap="nowrap">
-                <Tooltip label="Declaración Jurada de Procedencia" withArrow position="top">
-                  <Button
-                    size="compact-xs"
-                    variant="light"
-                    color="gray"
-                    radius="md"
-                    leftSection={<IconFileText size={12} />}
-                    loading={loadingDoc[`${comprobante.id}-dj`]}
-                    disabled={loadingDoc[`${comprobante.id}-dj`]}
-                    onClick={() =>
-                      imprimirDocumento(comprobante as RES_ComprobanteCompra, "dj")
-                    }
-                  >
-                    DJ
-                  </Button>
-                </Tooltip>
 
                 <Tooltip label="Nota de Ingreso al Almacén" withArrow position="top">
                   <Button
@@ -342,14 +334,20 @@ export const ComprobanteCard = ({
             <Text fz={10} tt="uppercase" c={isAnulado ? "red.4" : "indigo.4"} fw={700}>Total</Text>
             {renderBadgeEstadoPago(isTotalSaldado)}
           </Group>
-          <Text fz="lg" fw={800} c="white" className="font-mono">$ {comprobante.total_dolares.toFixed(2)}</Text>
-          <Text fz={10} c="dimmed">
-            Equiv: S/ {comprobante.total_soles.toFixed(2)} · IGV: S/ {comprobante.monto_igv_soles.toFixed(2)}
-          </Text>
+          <Text fz="lg" fw={800} c="white" className="font-mono">$ {totalDolares.toFixed(2)}</Text>
+          {isCompra ? (
+            <Text fz={10} c="dimmed">
+              V. Venta: $ {(comprobante as RES_ComprobanteCompra).valor_venta.toFixed(2)} · IGV: $ {(comprobante as RES_ComprobanteCompra).monto_igv.toFixed(2)}
+            </Text>
+          ) : (
+            <Text fz={10} c="dimmed">
+              Equiv: S/ {(comprobante as RES_ComprobanteVenta).total_soles.toFixed(2)} · IGV: S/ {(comprobante as RES_ComprobanteVenta).monto_igv_soles.toFixed(2)}
+            </Text>
+          )}
           <Text fz={10} c="dimmed">TC: {comprobante.tipo_cambio_venta.toFixed(3)}</Text>
           <Progress value={pctPagadoTotal} color={isAnulado ? "red" : "indigo"} size="xs" mt={6} />
           <Text fz={9} c="dimmed" mt={2}>
-            Pagado: $ {totalPagadoUsd.toFixed(2)} / $ {comprobante.total_dolares.toFixed(2)}
+            Pagado: $ {totalPagadoUsd.toFixed(2)} / $ {totalDolares.toFixed(2)}
           </Text>
         </div>
 
@@ -436,46 +434,58 @@ export const ComprobanteCard = ({
                 ))}
                 {!isAnulado && (
                   isCompra ? (
-                    (((comprobante as RES_ComprobanteCompra).monto_penalidad ?? 0) > 0 || ((comprobante as RES_ComprobanteCompra).monto_flete ?? 0) > 0) && (
-                      <Box className="border-t border-zinc-800 pt-2 mt-1">
-                        <Stack gap={4}>
+                    <Box className="border-t border-zinc-800 pt-2 mt-1">
+                      <Stack gap={4}>
+                        <Group justify="space-between">
+                          <Text fz={10} c="zinc.5" tt="uppercase" fw={600}>
+                            Subtotal Lotes
+                          </Text>
+                          <Text fz={11} fw={600} c="zinc.3" className="font-mono">
+                            $ {(comprobante as RES_ComprobanteCompra).subtotal_sin_descuento.toFixed(2)}
+                          </Text>
+                        </Group>
+                        {((comprobante as RES_ComprobanteCompra).descuento ?? 0) > 0 && (
                           <Group justify="space-between">
-                            <Text fz={10} c="zinc.5" tt="uppercase" fw={600}>
-                              Subtotal Lotes
-                            </Text>
-                            <Text fz={11} fw={600} c="zinc.3" className="font-mono">
-                              $ {comprobante.total_dolares_antes_descuento.toFixed(2)}
+                            <Text fz={10} c="amber.4">(–) Descuento</Text>
+                            <Text fz={11} fw={600} c="amber.4" className="font-mono">
+                              –$ {(comprobante as RES_ComprobanteCompra).descuento.toFixed(2)}
                             </Text>
                           </Group>
-                          {((comprobante as RES_ComprobanteCompra).monto_penalidad ?? 0) > 0 && (
-                            <Group justify="space-between">
-                              <Text fz={10} c="amber.4">(–) Penalidad</Text>
-                              <Text fz={11} fw={600} c="amber.4" className="font-mono">
-                                –$ {(comprobante as RES_ComprobanteCompra).monto_penalidad.toFixed(2)}
-                              </Text>
-                            </Group>
-                          )}
-                          {((comprobante as RES_ComprobanteCompra).monto_flete ?? 0) > 0 && (
-                            <Group justify="space-between">
-                              <Text fz={10} c="cyan.4">(–) Flete</Text>
-                              <Text fz={11} fw={600} c="cyan.4" className="font-mono">
-                                –$ {(comprobante as RES_ComprobanteCompra).monto_flete.toFixed(2)}
-                              </Text>
-                            </Group>
-                          )}
-                          <Box className="border-t border-zinc-800 pt-2 mt-1">
-                            <Group justify="space-between">
-                              <Text fz={10} c="emerald.4" fw={700} tt="uppercase">
-                                Total
-                              </Text>
-                              <Text fz={12} fw={800} c="emerald.4" className="font-mono">
-                                $ {comprobante.total_dolares.toFixed(2)}
-                              </Text>
-                            </Group>
-                          </Box>
-                        </Stack>
-                      </Box>
-                    )
+                        )}
+                        {((comprobante as RES_ComprobanteCompra).monto_pagado_anticipos ?? 0) > 0 && (
+                          <Group justify="space-between">
+                            <Text fz={10} c="indigo.4">(–) Anticipos</Text>
+                            <Text fz={11} fw={600} c="indigo.4" className="font-mono">
+                              –$ {(comprobante as RES_ComprobanteCompra).monto_pagado_anticipos.toFixed(2)}
+                            </Text>
+                          </Group>
+                        )}
+                        <Group justify="space-between">
+                          <Text fz={10} c="cyan.4" tt="uppercase" fw={600}>Valor Venta</Text>
+                          <Text fz={11} fw={600} c="cyan.4" className="font-mono">
+                            $ {(comprobante as RES_ComprobanteCompra).valor_venta.toFixed(2)}
+                          </Text>
+                        </Group>
+                        <Group justify="space-between">
+                          <Text fz={10} c="zinc.4">
+                            (+) IGV ({(Number((comprobante as RES_ComprobanteCompra).porcentaje_igv || 0.18) <= 1 ? Number((comprobante as RES_ComprobanteCompra).porcentaje_igv || 0.18) * 100 : Number((comprobante as RES_ComprobanteCompra).porcentaje_igv || 18)).toFixed(0)}%)
+                          </Text>
+                          <Text fz={11} fw={600} c="zinc.3" className="font-mono">
+                            +$ {(comprobante as RES_ComprobanteCompra).monto_igv.toFixed(2)}
+                          </Text>
+                        </Group>
+                        <Box className="border-t border-zinc-800 pt-2 mt-1">
+                          <Group justify="space-between">
+                            <Text fz={10} c="emerald.4" fw={700} tt="uppercase">
+                              Total
+                            </Text>
+                            <Text fz={12} fw={800} c="emerald.4" className="font-mono">
+                              $ {totalDolares.toFixed(2)}
+                            </Text>
+                          </Group>
+                        </Box>
+                      </Stack>
+                    </Box>
                   ) : (
                     ((comprobante as RES_ComprobanteVenta).descuento ?? 0) > 0 && (
                       <Box className="border-t border-zinc-800 pt-2 mt-1">
@@ -520,19 +530,19 @@ export const ComprobanteCard = ({
           <Group gap="xs">
             <Text fz={10} tt="uppercase" fw={700} c="dimmed">Aprobaciones:</Text>
             <MiniAprobacionChip
-              tipo={TipoAprobacionComprobante.Contabilidad}
-              aprobaciones={(comprobante as RES_ComprobanteCompra).aprobaciones}
-              aprobandoTipo={aprobandoTipo}
-              onAprobar={onAprobar}
-            />
-            <MiniAprobacionChip
               tipo={TipoAprobacionComprobante.Comercial}
               aprobaciones={(comprobante as RES_ComprobanteCompra).aprobaciones}
               aprobandoTipo={aprobandoTipo}
               onAprobar={onAprobar}
             />
             <MiniAprobacionChip
-              tipo={TipoAprobacionComprobante.Documentaria}
+              tipo={TipoAprobacionComprobante.Contabilidad}
+              aprobaciones={(comprobante as RES_ComprobanteCompra).aprobaciones}
+              aprobandoTipo={aprobandoTipo}
+              onAprobar={onAprobar}
+            />
+            <MiniAprobacionChip
+              tipo={TipoAprobacionComprobante.Gerencia}
               aprobaciones={(comprobante as RES_ComprobanteCompra).aprobaciones}
               aprobandoTipo={aprobandoTipo}
               onAprobar={onAprobar}

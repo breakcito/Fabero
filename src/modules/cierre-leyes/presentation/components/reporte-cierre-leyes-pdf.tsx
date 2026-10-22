@@ -133,17 +133,17 @@ export const ReporteCierreLeyesPdf = ({ lotes }: ReporteCierreLeyesPdfProps) => 
         : colKey === "tmh"
         ? num(lote?.peso_neto, 3)
         : colKey === "h2o"
-        ? num(lote?.ley_humedad, 3)
+        ? num(lote?.grupo_analisis?.ley_humedad_cierre, 3)
         : colKey === "au"
-        ? num(lote?.ley_oro, 3)
+        ? num(lote?.grupo_analisis?.ley_oro_cierre, 3)
         : colKey === "auGr"
-        ? num((lote?.ley_oro ?? 0) * OZT_TO_GRAMS, 3)
+        ? num((lote?.grupo_analisis?.ley_oro_cierre ?? 0) * OZT_TO_GRAMS, 3)
         : colKey === "ag"
-        ? num(lote?.ley_plata, 3)
+        ? num(lote?.grupo_analisis?.ley_plata_cierre, 3)
         : colKey === "agGr"
-        ? num((lote?.ley_plata ?? 0) * OZT_TO_GRAMS, 3)
+        ? num((lote?.grupo_analisis?.ley_plata_cierre ?? 0) * OZT_TO_GRAMS, 3)
         : colKey === "recAu"
-        ? num(lote?.ley_recuperacion, 2)
+        ? num(lote?.grupo_analisis?.ley_recuperacion_cierre, 2)
         : "";
     return <Text style={baseStyle}>{text}</Text>;
   };

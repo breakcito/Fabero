@@ -22,6 +22,7 @@ import type { IArchivo } from "../../../shared/interfaces/archivo";
 // Hooks & Services - Compra
 import { useComprobantesCompra } from "../hooks/useComprobantesCompra";
 import { usePagosComprobante } from "../hooks/usePagosComprobante";
+import { useDocumentosCompraPdf } from "../hooks/useDocumentosCompraPdf";
 import { ContabilidadCompraService } from "../service/contabilidad-compra.service";
 import type { TipoAprobacionComprobante } from "../../../shared/enums/contabilidad-compra/tipo-aprobacion-comprobante";
 import type { RES_ComprobanteCompra } from "../service/contabilidad-compra.responses";
@@ -81,6 +82,7 @@ export default function ContabilidadPage() {
   useTitlePage(
     tipoContabilidad === "compra" ? "Contabilidad Compra" : "Contabilidad Venta",
     true,
+    true,
   );
 
   const handleCambioTipo = (valor: string) => {
@@ -109,6 +111,7 @@ export default function ContabilidadPage() {
   } = useComprobantesCompra();
 
   const { anularPago: anularPagoCompra } = usePagosComprobante();
+  const { imprimirDocumento: imprimirDocumentoCompra } = useDocumentosCompraPdf();
 
   const [proveedores, setProveedores] = useState<RES_Proveedor[]>([]);
   const [loadingProveedores, setLoadingProveedores] = useState(true);
@@ -248,6 +251,7 @@ export default function ContabilidadPage() {
         }
         if (actualizado.success && actualizado.data) {
           setComprobantePago(actualizado.data);
+          void imprimirDocumentoCompra(actualizado.data, "oc");
           return actualizado.data;
         }
       }

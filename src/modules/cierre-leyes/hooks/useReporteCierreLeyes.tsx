@@ -15,12 +15,11 @@ export const useReporteCierreLeyes = () => {
    */
   const printReporte = useCallback(
     (lotes: LoteCierreResponse[]) => {
-      const candidatos = lotes.filter((l) => l.estado_leyes === "Confirmado");
-      if (candidatos.length === 0) return;
+      if (lotes.length === 0) return;
 
       prepare(TARGET_NAME);
       print(
-        <ReporteCierreLeyesPdf lotes={candidatos} />,
+        <ReporteCierreLeyesPdf lotes={lotes} />,
         {
           documentTitle: "Reporte Cierre de Leyes",
           target: TARGET_NAME,

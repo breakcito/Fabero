@@ -54,12 +54,12 @@ export const ModalPesoFinal = ({ lote, onCancel, onSubmit, targetIdOverride }: P
   const [nuevaZonaNombre, setNuevaZonaNombre] = useState("");
 
   // Estados Formulario - Peso Inicial (Izquierda)
-  // Mismo fallback que modal-peso-inicial.tsx:36-39 — primero el proveedor
-  // de la unidad (denormalizado como id_proveedor_minero_recepcion), luego
-  // el del propio lote. Garantiza que una partición sin proveedor asignado
-  // en la unidad aún herede el dato del lote padre.
+  // El proveedor_minero se autocompleta con el del lote si ya fue elegido (ej. en peso inicial);
+  // si el lote no tiene aún proveedor, se sugiere el de la recepción
+  // (denormalizado como `id_proveedor_minero_recepcion` en la respuesta del lote).
+  // El usuario puede cambiarlo libremente desde el Select en cualquier instancia.
   const initialProveedorId =
-    lote.id_proveedor_minero_recepcion ?? lote.id_proveedor_minero ?? null;
+    lote.id_proveedor_minero ?? lote.id_proveedor_minero_recepcion ?? null;
   const [idProveedor, setIdProveedor] = useState<string | null>(
     initialProveedorId ? String(initialProveedorId) : null,
   );
@@ -102,6 +102,11 @@ export const ModalPesoFinal = ({ lote, onCancel, onSubmit, targetIdOverride }: P
   useEffect(() => {
     setObservaciones(lote.observaciones ?? "");
   }, [lote.observaciones]);
+
+  useEffect(() => {
+    const provId = lote.id_proveedor_minero ?? lote.id_proveedor_minero_recepcion ?? null;
+    setIdProveedor(provId ? String(provId) : null);
+  }, [lote.id, lote.id_proveedor_minero, lote.id_proveedor_minero_recepcion]);
 
   const handleProveedorChange = (val: string | null) => {
     setIdProveedor(val);
@@ -222,6 +227,7 @@ export const ModalPesoFinal = ({ lote, onCancel, onSubmit, targetIdOverride }: P
                   label="Proveedor Minero:"
                   placeholder={loadingCatalogos ? "Cargando..." : "Seleccione"}
                   searchable
+                  clearable
                   disabled={loadingCatalogos}
                   rightSection={loadingCatalogos ? <Loader size={16} /> : undefined}
                   data={proveedores
@@ -235,6 +241,7 @@ export const ModalPesoFinal = ({ lote, onCancel, onSubmit, targetIdOverride }: P
                     }))}
                   value={idProveedor}
                   onChange={handleProveedorChange}
+                  comboboxProps={{ withinPortal: true }}
                   classNames={fieldClasses}
                   radius="lg"
                   size="xs"

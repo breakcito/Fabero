@@ -15,6 +15,7 @@ interface HeaderProps {
 export const Header = ({ onMenuToggle }: HeaderProps) => {
   const { title } = useTitlePage();
   const ver_sucursal = useUIStore((state) => state.ver_sucursal);
+  const ver_indicadores = useUIStore((state) => state.ver_indicadores);
   const sucursales = useUIStore((state) => state.sucursales);
   const sucursal_elegida = useUIStore((state) => state.sucursal_elegida);
   const set_sucursal_elegida = useUIStore((state) => state.set_sucursal_elegida);
@@ -105,8 +106,12 @@ export const Header = ({ onMenuToggle }: HeaderProps) => {
 
       {/* Indicadores y Menú de usuario */}
       <div className="relative z-10 flex items-center gap-2">
-        <IndicadorTipoCambio />
-        <IndicadorPrecioInter />
+        {ver_indicadores && (
+          <>
+            <IndicadorTipoCambio />
+            <IndicadorPrecioInter />
+          </>
+        )}
         <UserMenu />
       </div>
 

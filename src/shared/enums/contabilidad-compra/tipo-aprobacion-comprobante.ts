@@ -1,5 +1,6 @@
 export enum TipoAprobacionComprobante {
-  Contabilidad = "Contabilidad",
   Comercial = "Comercial",
-  Documentaria = "Documentaria",
+  Contabilidad = "Contabilidad",
+  Gerencia = "Gerencia",
+  Documentaria = "Documentaria", // Retrocompatibilidad
 }

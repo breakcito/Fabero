@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   Stack,
   Text,
@@ -41,12 +41,35 @@ const formatearFechaHora = (iso: string): string => {
   }
 };
 
-const formatearValor = (valor: unknown, campoBd?: string | null): string => {
+const esCampoBooleano = (campoBd?: string | null, campo?: string | null): boolean => {
+  const normBd = (campoBd || "").toLowerCase();
+  const normCampo = (campo || "").toLowerCase();
+  return (
+    normBd.includes("confirmad") ||
+    normBd.includes("activo") ||
+    normBd.includes("habilitad") ||
+    normBd.startsWith("es_") ||
+    normBd.startsWith("tiene_") ||
+    normCampo.includes("confirmaci") ||
+    normCampo.includes("confirmad") ||
+    normCampo.includes("activo") ||
+    normCampo.includes("habilitad")
+  );
+};
+
+const formatearValor = (valor: unknown, campoBd?: string | null, campo?: string | null): string => {
   if (valor === null || valor === undefined) {
     return "—";
   }
   if (typeof valor === "boolean") {
     return valor ? "Sí" : "No";
+  }
+  if (valor === "true" || valor === "false") {
+    return valor === "true" ? "Sí" : "No";
+  }
+  if (esCampoBooleano(campoBd, campo)) {
+    if (valor === 1 || valor === "1") return "Sí";
+    if (valor === 0 || valor === "0") return "No";
   }
   if (typeof valor === "number") {
     if (Number.isInteger(valor)) return String(valor);
@@ -200,6 +223,32 @@ export const CambiosLogViewer = ({ cambios, camposLegiblesCustom }: CambiosLogVi
     };
   }, [cambios, empleadosMap]);
 
+  const parseFecha = (str: string): number => {
+    if (!str) return 0;
+    const cleanStr = str.includes("T") ? str : str.replace(" ", "T");
+    const t = new Date(cleanStr).getTime();
+    return Number.isNaN(t) ? new Date(str).getTime() || 0 : t;
+  };
+
+  const logsOrdenados = useMemo(() => {
+    if (!cambios || cambios.length === 0) return [];
+    return cambios
+      .map((log, originalIndex) => ({ log, originalIndex }))
+      .sort((a, b) => {
+        const rawA = a.log as unknown as Record<string, unknown>;
+        const rawB = b.log as unknown as Record<string, unknown>;
+        const fechaA = String(a.log.update_at || rawA.fecha_hora || "");
+        const fechaB = String(b.log.update_at || rawB.fecha_hora || "");
+        const timeA = parseFecha(fechaA);
+        const timeB = parseFecha(fechaB);
+        if (timeA !== timeB && timeA > 0 && timeB > 0) {
+          return timeB - timeA; // Más reciente primero
+        }
+        return b.originalIndex - a.originalIndex; // Si fechas son iguales o no parseables, el último ingresado va primero
+      })
+      .map((item) => item.log);
+  }, [cambios]);
+
   if (!cambios || cambios.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 gap-2 text-zinc-500">
@@ -212,7 +261,7 @@ export const CambiosLogViewer = ({ cambios, camposLegiblesCustom }: CambiosLogVi
   return (
     <div className="max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
       <Stack gap="md">
-        {cambios.map((log, index) => {
+        {logsOrdenados.map((log, index) => {
           const rawLog = log as unknown as Record<string, unknown>;
           const fechaStamp = String(log.update_at || rawLog.fecha_hora || "");
           const key = `${fechaStamp}-${log.id_empleado}-${index}`;
@@ -276,10 +325,10 @@ export const CambiosLogViewer = ({ cambios, camposLegiblesCustom }: CambiosLogVi
                           ) : (
                             <>
                               <div className="rounded border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 font-mono text-rose-300 line-through opacity-80 text-center select-all">
-                                {formatearValor(c.valor_anterior, c.campo_bd)}
+                                {formatearValor(c.valor_anterior, c.campo_bd, c.campo)}
                               </div>
                               <div className="rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-emerald-300 font-semibold text-center select-all">
-                                {formatearValor(c.valor_nuevo, c.campo_bd)}
+                                {formatearValor(c.valor_nuevo, c.campo_bd, c.campo)}
                               </div>
                             </>
                           )}

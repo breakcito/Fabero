@@ -124,7 +124,7 @@ export const ModalAnularComprobante = ({
               Total ($)
             </Text>
             <Text size="sm" fw={800} c="white" className="font-mono">
-              $ {comprobante.total_dolares.toFixed(2)}
+              $ {('total' in comprobante && (comprobante as any).total !== undefined ? Number((comprobante as any).total) : Number((comprobante as any).total_dolares || 0)).toFixed(2)}
             </Text>
           </Group>
         </div>

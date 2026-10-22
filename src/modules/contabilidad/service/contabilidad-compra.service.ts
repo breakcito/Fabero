@@ -49,6 +49,24 @@ export const ContabilidadCompraService = {
     if (payload.porcentaje_detraccion != null) {
       formData.append("porcentaje_detraccion", String(payload.porcentaje_detraccion));
     }
+    if (payload.es_al_contado != null) {
+      formData.append("es_al_contado", payload.es_al_contado ? "1" : "0");
+    }
+    if (payload.es_al_credito != null) {
+      formData.append("es_al_credito", payload.es_al_credito ? "1" : "0");
+    }
+    if (payload.plazo_credito != null) {
+      formData.append("plazo_credito", String(payload.plazo_credito));
+    }
+    if (payload.plazo_credito_periodo) {
+      formData.append("plazo_credito_periodo", payload.plazo_credito_periodo);
+    }
+    if (payload.total_cuotas != null) {
+      formData.append("total_cuotas", String(payload.total_cuotas));
+    }
+    if (payload.metodo_pago) {
+      formData.append("metodo_pago", payload.metodo_pago);
+    }
     if (payload.evidencias && payload.evidencias.length > 0) {
       payload.evidencias.forEach((file) => {
         formData.append("evidencias[]", file);

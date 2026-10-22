@@ -41,6 +41,7 @@ import {
 } from "../../../presentation/utils/filtro-rango-fechas";
 import { ModalFormValorizacionCompra } from "./components/modal-form-valorizacion-compra";
 import { ModalAnularValorizacion } from "./components/modal-anular-valorizacion";
+import { ModalAprobarValorizacion } from "./components/modal-aprobar-valorizacion";
 import { CambiosLogViewer } from "../../../presentation/utils/cambios-log-viewer";
 import { ModalEstandar } from "../../../presentation/utils/modal-estandar";
 import { ArchivoCard } from "../../../presentation/utils/archivo/archivo-card";
@@ -93,7 +94,7 @@ const fieldClasses = {
 };
 
 export const ValorizacionCompraPage = () => {
-  useTitlePage("Valorizaciones de Compra", true);
+  useTitlePage("Valorizaciones de Compra", true, true);
 
   const { printTicketLiquidacion, loadingTicket } = useTicketLiquidacionCompra();
   const { print, prepare } = usePrint();
@@ -203,6 +204,14 @@ export const ValorizacionCompraPage = () => {
     handleConfirmarAnular,
   } = useValorizacionesCompra();
 
+  const [modalAprobarOpened, setModalAprobarOpened] = useState(false);
+  const [valorizacionAprobar, setValorizacionAprobar] = useState<RES_ValorizacionCompra | null>(null);
+
+  const handleAbrirAprobar = (r: RES_ValorizacionCompra) => {
+    setValorizacionAprobar(r);
+    setModalAprobarOpened(true);
+  };
+
   const handleSolicitarOc = (r: RES_ValorizacionCompra) => {
     const yaSolicitado = Boolean(r.id_empleado_solicita_oc);
     mostrarConfirmacion({
@@ -310,10 +319,10 @@ export const ValorizacionCompraPage = () => {
 
   const getBadgeEstado = (estado: EstadoValorizacionCompra) => {
     switch (estado) {
-      case EstadoValorizacionCompra.Pendiente:
+      case EstadoValorizacionCompra.Propuesta:
         return (
-          <Badge color="amber" variant="light" size="sm">
-            Pendiente
+          <Badge color="yellow" variant="light" size="sm">
+            Propuesta
           </Badge>
         );
       case EstadoValorizacionCompra.Aprobado:
@@ -422,7 +431,7 @@ export const ValorizacionCompraPage = () => {
       title: "Acciones",
       textAlign: "center" as const,
       render: (r: RES_ValorizacionCompra) => {
-        const isPendiente = r.estado === EstadoValorizacionCompra.Pendiente;
+        const isPropuesta = r.estado === EstadoValorizacionCompra.Propuesta;
         const isAnulado = r.estado === EstadoValorizacionCompra.Anulado;
         const isBusy = togglingIds[r.id];
 
@@ -481,8 +490,8 @@ export const ValorizacionCompraPage = () => {
               </ActionIcon>
             </Tooltip>
 
-            {isPendiente && (
-              <Tooltip label="Editar Valorización">
+            {isPropuesta && (
+              <Tooltip label="Editar Propuesta">
                 <ActionIcon
                   color="yellow"
                   variant="light"
@@ -494,39 +503,15 @@ export const ValorizacionCompraPage = () => {
               </Tooltip>
             )}
 
-            {isPendiente && (
-              <Tooltip label="Aprobar Valorización">
+            {isPropuesta && (
+              <Tooltip label="Aprobar Propuesta">
                 <ActionIcon
                   color="teal"
                   variant="filled"
                   size="sm"
                   loading={isBusy}
                   disabled={isBusy}
-                  onClick={() => {
-                    const totalFmt = Number(r.total_subtotal ?? 0).toLocaleString("es-PE", {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    });
-                    mostrarConfirmacion({
-                      title: "Aprobar valorización",
-                      message: (
-                        <div className="space-y-2">
-                          <p>
-                            Se aprobará la valorización
-                            del proveedor {" "} <strong className="text-white">{r.proveedor_nombre}</strong>
-                            con un total de {" "}
-                            <strong className="text-emerald-400">$ {totalFmt}</strong>.
-                          </p>
-                          <p className="text-zinc-400 text-xs">
-                            Una vez aprobada, la valorización no podrá ser editada.
-                          </p>
-                        </div>
-                      ),
-                      confirmLabel: "Sí, aprobar",
-                      cancelLabel: "Cancelar",
-                      onConfirm: () => handleAprobar(r.id),
-                    });
-                  }}
+                  onClick={() => handleAbrirAprobar(r)}
                 >
                   <IconCheck size={14} />
                 </ActionIcon>
@@ -829,7 +814,7 @@ export const ValorizacionCompraPage = () => {
             <Select
               label="Estado"
               placeholder="Seleccionar estado"
-              data={["Todos", EstadoValorizacionCompra.Pendiente, EstadoValorizacionCompra.Aprobado, EstadoValorizacionCompra.Anulado]}
+              data={["Todos", EstadoValorizacionCompra.Propuesta, EstadoValorizacionCompra.Aprobado, EstadoValorizacionCompra.Anulado]}
               value={filtroEstado}
               onChange={(val) => setFiltroEstado(val || "Todos")}
               size="xs"
@@ -869,7 +854,7 @@ export const ValorizacionCompraPage = () => {
             onClick={handleNuevo}
             className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-900/20 shrink-0 h-9.5 px-6 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
           >
-            Nueva Valorización
+            Nueva Propuesta
           </Button>
         </div>
       </div>
@@ -951,6 +936,14 @@ export const ValorizacionCompraPage = () => {
         valorizacion={valorizacionAnular}
         onConfirm={handleConfirmarAnular}
         loading={valorizacionAnular ? !!togglingIds[valorizacionAnular.id] : false}
+      />
+
+      {/* Modal Aprobar Valorización */}
+      <ModalAprobarValorizacion
+        opened={modalAprobarOpened}
+        onClose={() => setModalAprobarOpened(false)}
+        valorizacion={valorizacionAprobar}
+        onAprobar={handleAprobar}
       />
     </div>
   );

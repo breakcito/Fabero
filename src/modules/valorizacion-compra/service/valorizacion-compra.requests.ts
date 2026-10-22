@@ -6,6 +6,7 @@ import type { IArchivo } from "../../../shared/interfaces/archivo";
 export const Schema_ValorizacionDetalleItem = z.object({
   id_lote_guia: z.number().int().positive("Debe seleccionar un lote válido"),
   elemento_quimico: z.nativeEnum(ElementoQuimicoValorizacion),
+  id_grupo_analisis: z.number().int().positive().nullable().optional(),
   id_condicion_comercial: z.number().int().positive().nullable().optional(),
   id_valor_elemento_quimico: z.number().int().positive().nullable().optional(),
   inter: z.number().min(0, "El valor internacional debe ser mayor o igual a 0"),
@@ -16,6 +17,10 @@ export const Schema_ValorizacionDetalleItem = z.object({
   factor: z.number().optional(),
   monto_penalidad: z.number().min(0).optional(),
   monto_flete: z.number().min(0).optional(),
+  ley_oro_manual: z.number().min(0).optional(),
+  ley_plata_manual: z.number().min(0).optional(),
+  ley_humedad_manual: z.number().min(0).optional(),
+  ley_recuperacion_manual: z.number().min(0).optional(),
 });
 
 export const Schema_ValorizacionAnticipoItem = z.object({
@@ -29,7 +34,9 @@ export const Schema_CrearValorizacion = z.object({
   id_concesion: z.number().int().positive("Seleccione una concesión"),
   id_cuenta_bancaria: z.number().int().positive().nullable().optional(),
   id_cuenta_detraccion: z.number().int().positive().nullable().optional(),
-  tipo_pago: z.nativeEnum(TipoPagoValorizacionCompra),
+  tipo_pago: z.nativeEnum(TipoPagoValorizacionCompra).optional(),
+  porcentaje_igv: z.number().min(0).max(100).optional(),
+  porcentaje_detraccion: z.number().min(0).max(100).optional(),
   detalles: z.array(Schema_ValorizacionDetalleItem).min(1, "Debe agregar al menos un lote"),
   anticipos: z.array(Schema_ValorizacionAnticipoItem).optional(),
   evidencias: z.array(z.instanceof(File)).optional(),
@@ -42,7 +49,9 @@ export const Schema_EditarValorizacion = z.object({
   id_concesion: z.number().int().positive("Seleccione una concesión"),
   id_cuenta_bancaria: z.number().int().positive().nullable().optional(),
   id_cuenta_detraccion: z.number().int().positive().nullable().optional(),
-  tipo_pago: z.nativeEnum(TipoPagoValorizacionCompra),
+  tipo_pago: z.nativeEnum(TipoPagoValorizacionCompra).optional(),
+  porcentaje_igv: z.number().min(0).max(100).optional(),
+  porcentaje_detraccion: z.number().min(0).max(100).optional(),
   detalles: z.array(Schema_ValorizacionDetalleItem).min(1, "Debe agregar al menos un lote"),
   anticipos: z.array(Schema_ValorizacionAnticipoItem).optional(),
   evidencias: z.array(z.instanceof(File)).optional(),
@@ -51,6 +60,14 @@ export const Schema_EditarValorizacion = z.object({
   fecha_hora_valorizacion: z.string().nullable().optional(),
   monto_penalidad: z.number().min(0).optional(),
   monto_flete: z.number().min(0).optional(),
+});
+
+export const Schema_AprobarValorizacion = z.object({
+  id_cuenta_bancaria: z.number().int().positive("Seleccione una cuenta bancaria"),
+  id_cuenta_detraccion: z.number().int().positive("Seleccione una cuenta de detracción"),
+  tipo_pago: z.nativeEnum(TipoPagoValorizacionCompra),
+  anticipos: z.array(Schema_ValorizacionAnticipoItem).optional(),
+  evidencias: z.array(z.instanceof(File)).optional(),
 });
 
 export const Schema_AnularValorizacion = z.object({
@@ -66,6 +83,7 @@ export interface REQ_FiltroValorizaciones {
 export interface REQ_ValorizacionDetalleItem {
   id_lote_guia: number;
   elemento_quimico: ElementoQuimicoValorizacion;
+  id_grupo_analisis?: number | null;
   id_condicion_comercial?: number | null;
   id_valor_elemento_quimico?: number | null;
   inter: number;
@@ -76,6 +94,10 @@ export interface REQ_ValorizacionDetalleItem {
   factor?: number;
   monto_penalidad?: number;
   monto_flete?: number;
+  ley_oro_manual?: number;
+  ley_plata_manual?: number;
+  ley_humedad_manual?: number;
+  ley_recuperacion_manual?: number;
 }
 
 export interface REQ_ValorizacionAnticipoItem {
@@ -89,7 +111,9 @@ export interface REQ_CrearValorizacion {
   id_concesion: number;
   id_cuenta_bancaria?: number | null;
   id_cuenta_detraccion?: number | null;
-  tipo_pago: TipoPagoValorizacionCompra;
+  tipo_pago?: TipoPagoValorizacionCompra;
+  porcentaje_igv?: number;
+  porcentaje_detraccion?: number;
   detalles: REQ_ValorizacionDetalleItem[];
   anticipos?: REQ_ValorizacionAnticipoItem[];
   evidencias?: File[];
@@ -102,7 +126,9 @@ export interface REQ_EditarValorizacion {
   id_concesion: number;
   id_cuenta_bancaria?: number | null;
   id_cuenta_detraccion?: number | null;
-  tipo_pago: TipoPagoValorizacionCompra;
+  tipo_pago?: TipoPagoValorizacionCompra;
+  porcentaje_igv?: number;
+  porcentaje_detraccion?: number;
   detalles: REQ_ValorizacionDetalleItem[];
   anticipos?: REQ_ValorizacionAnticipoItem[];
   evidencias?: File[];
@@ -111,6 +137,14 @@ export interface REQ_EditarValorizacion {
   fecha_hora_valorizacion?: string | null;
   monto_penalidad?: number;
   monto_flete?: number;
+}
+
+export interface REQ_AprobarValorizacion {
+  id_cuenta_bancaria: number;
+  id_cuenta_detraccion: number;
+  tipo_pago: TipoPagoValorizacionCompra;
+  anticipos?: REQ_ValorizacionAnticipoItem[];
+  evidencias?: File[];
 }
 
 export interface REQ_AnularValorizacion {

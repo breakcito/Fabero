@@ -146,7 +146,7 @@ export const ModalHistorialPagos = ({
           <Group gap="xs" align="center">
             <div className="bg-zinc-900/60 border border-zinc-800 rounded-lg px-2.5 py-1 text-center">
               <Text fz={9} tt="uppercase" c="dimmed" fw={700}>Total ($)</Text>
-              <Text fz="xs" fw={800} c="white">$ {comprobante.total_dolares.toFixed(2)}</Text>
+              <Text fz="xs" fw={800} c="white">$ {('total' in comprobante && (comprobante as any).total !== undefined ? Number((comprobante as any).total) : Number((comprobante as any).total_dolares || 0)).toFixed(2)}</Text>
             </div>
             <div className="bg-zinc-900/60 border border-emerald-500/40 rounded-lg px-2.5 py-1 text-center">
               <Text fz={9} tt="uppercase" c="emerald.4" fw={700}>Total Pagado ($)</Text>

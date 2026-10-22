@@ -4,6 +4,7 @@ import type { RES_Proveedor } from "./responses/proveedor";
 import type { RES_Empleado } from "./responses/empleado";
 import type { RES_Empresa } from "./responses/empresa";
 import type { RES_Marca } from "./responses/marca";
+import type { RES_Laboratorio } from "./responses/laboratorio";
 import type { TipoEntidad } from "../shared/enums/_generic/tipo-entidad";
 import type { RES_Banco } from "./responses/banco";
 import type {
@@ -497,6 +498,25 @@ export const AuxService = {
       maquila: number;
       consumo: number;
     } | null;
+    grupos_analisis?: Array<{
+      id: number;
+      nombre: string;
+      numero_correlativo: number;
+      ley_oro_cierre: number;
+      ley_plata_cierre: number;
+      ley_humedad_cierre: number;
+      ley_recuperacion_cierre: number;
+    }>;
+    condiciones_comerciales?: Array<{
+      id: number;
+      elemento_quimico: string;
+      ley_inicio: number;
+      ley_fin: number;
+      recuperacion: number;
+      maquila: number;
+      consumo: number;
+      riesgo_comercial?: number;
+    }>;
   }>> => {
     const params: Record<string, unknown> = { id_proveedor: idProveedor };
     if (idValorizacion) {
@@ -661,6 +681,16 @@ export const AuxService = {
       "/valor-elemento-quimico/historial",
       { params: { limit } },
     );
+    return data;
+  },
+
+  get_laboratorios: async (): Promise<RES_Laboratorio[]> => {
+    const { data } = await api.get(`${path}/laboratorios`);
+    return data.data ?? [];
+  },
+
+  crear_laboratorio: async (payload: { nombre: string; ruc?: string }): Promise<IRespuesta<RES_Laboratorio>> => {
+    const { data } = await api.post(`${path}/laboratorios`, payload);
     return data;
   },
 };

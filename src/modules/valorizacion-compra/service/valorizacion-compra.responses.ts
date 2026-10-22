@@ -8,6 +8,8 @@ export interface RES_ValorizacionCompraDetalle {
   id: number;
   id_valorizacion_compra: number;
   id_lote_guia: number;
+  id_grupo_analisis?: number | null;
+  grupo_analisis_nombre?: string | null;
   id_condicion_comercial: number | null;
   id_valor_elemento_quimico: number | null;
   elemento_quimico: ElementoQuimicoValorizacion;
@@ -59,6 +61,9 @@ export interface RES_ValorizacionCompra {
   id_proveedor_minero: number;
   proveedor_nombre: string | null;
   proveedor_ruc: string | null;
+  proveedor_documento?: string | null;
+  porcentaje_igv?: number;
+  porcentaje_detraccion?: number;
   id_concesion: number;
   concesion_nombre: string | null;
   id_cuenta_bancaria: number | null;

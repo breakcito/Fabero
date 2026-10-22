@@ -31,7 +31,6 @@ import { onSocketEvent } from "../../service/_socket.ts";
 import { useAuditoriaStore } from "../../stores/auditoria.store.ts";
 import ModoAuditoriaPage from "../../modules/modo-auditoria/presentation/ModoAuditoriaPage.tsx";
 import { SucursalesPage } from "../../modules/sucursales/presentation/sucursales.page.tsx";
-import { GestionLeyesPage } from "../../modules/gestion-leyes/presentation/gestion-leyes.page.tsx";
 import { CierreLeyesPage } from "../../modules/cierre-leyes/presentation/cierre-leyes.page.tsx";
 import CondicionesComercialesProveedorPage from "../../modules/condiciones-comerciales-proveedor/presentation/condiciones-comerciales-proveedor.page.tsx";
 import CondicionesComercialesPlantaPage from "../../modules/condiciones-comerciales-planta/presentation/condiciones-comerciales-planta.page.tsx";
@@ -176,7 +175,6 @@ export const App = () => {
           </Route>
           {/* Gestion Leyes */}
           <Route path="leyes" element={<GenericLayout />}>
-            <Route path="configuracion" element={<GestionLeyesPage />} />
             <Route path="cierre-leyes" element={<CierreLeyesPage />} />
           </Route>
 

@@ -16,6 +16,7 @@ import {
   IconFileText,
   IconCoins,
   IconCheck,
+  IconFlask,
 } from "@tabler/icons-react";
 import { ElementoQuimicoValorizacion } from "../../../../shared/enums/_generic/elemento-quimico-valorizacion";
 import { AuxService } from "../../../../service/auxiliar.service";
@@ -23,6 +24,29 @@ import { useNotify } from "../../../../hooks/useNotify";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
 import type { REQ_ValorizacionDetalleItem } from "../../service/valorizacion-compra.requests";
 import type { RES_ValorizacionCompraDetalle } from "../../service/valorizacion-compra.responses";
+
+export interface GrupoAnalisisLote {
+  id: number;
+  nombre: string;
+  numero_correlativo: number;
+  ley_oro_cierre: number;
+  ley_plata_cierre: number;
+  ley_humedad_cierre: number;
+  ley_recuperacion_cierre: number;
+  tiene_propuesta_oro?: boolean;
+  tiene_propuesta_plata?: boolean;
+}
+
+export interface CondicionComercialItem {
+  id: number;
+  elemento_quimico: string;
+  ley_inicio: number;
+  ley_fin: number;
+  recuperacion: number;
+  maquila: number;
+  consumo: number;
+  riesgo_comercial?: number;
+}
 
 interface LoteDisponible {
   id_lote_guia: number;
@@ -37,6 +61,10 @@ interface LoteDisponible {
   tms: number;
   ley_oro: number;
   ley_plata: number;
+  ley_recuperacion?: number;
+  id_grupo_analisis?: number | null;
+  grupos_analisis?: GrupoAnalisisLote[];
+  condiciones_comerciales?: CondicionComercialItem[];
   es_valorizado_oro?: boolean;
   es_valorizado_plata?: boolean;
   con_valor_comercial?: boolean;
@@ -107,9 +135,15 @@ export const ModalAgregarLote = ({
   const [lotes, setLotes] = useState<LoteDisponible[]>([]);
 
   const [selectedLoteGuiaId, setSelectedLoteGuiaId] = useState<string | null>(null);
+  const [selectedGrupoAnalisisId, setSelectedGrupoAnalisisId] = useState<string | null>(null);
   const [elemento, setElemento] = useState<ElementoQuimicoValorizacion | null>(
     ElementoQuimicoValorizacion.Oro,
   );
+
+  const [leyOro, setLeyOro] = useState<number | string>(0);
+  const [leyPlata, setLeyPlata] = useState<number | string>(0);
+  const [leyHumedad, setLeyHumedad] = useState<number | string>(0);
+  const [leyRecuperacion, setLeyRecuperacion] = useState<number | string>(0);
 
   const [recuperacion, setRecuperacion] = useState<number | string>(0);
   const [inter, setInter] = useState<number | string>(0);
@@ -135,6 +169,7 @@ export const ModalAgregarLote = ({
     if (!opened) {
       setLotes([]);
       setSelectedLoteGuiaId(null);
+      setSelectedGrupoAnalisisId(null);
       return;
     }
 
@@ -147,6 +182,7 @@ export const ModalAgregarLote = ({
     if (!idProveedor) {
       setLotes([]);
       setSelectedLoteGuiaId(null);
+      setSelectedGrupoAnalisisId(null);
       return;
     }
 
@@ -157,14 +193,8 @@ export const ModalAgregarLote = ({
           idProveedor,
           idValorizacionEdicion,
         );
-        // Excluir lotes sin leyes completas (Oro, Plata, Humedad) o ya valorizados para ambos elementos
+        // Excluir lotes ya valorizados para ambos elementos
         const disponibles = data.filter((l) => {
-          const tieneLeyes =
-            Number(l.ley_oro || 0) > 0 &&
-            Number(l.ley_plata || 0) > 0 &&
-            Number(l.ley_humedad || 0) > 0;
-          if (!tieneLeyes) return false;
-
           const tieneOro =
             l.es_valorizado_oro ||
             existingDetalles.some(
@@ -207,14 +237,19 @@ export const ModalAgregarLote = ({
     setFactor(req.factor ?? 1.1023);
     setMontoPenalidad(display.monto_penalidad ?? 0);
     setMontoFlete(display.monto_flete ?? 0);
+    setSelectedGrupoAnalisisId(req.id_grupo_analisis ? String(req.id_grupo_analisis) : null);
+    setLeyOro(req.ley_oro_manual ?? (req.elemento_quimico === ElementoQuimicoValorizacion.Oro ? display.ley : 0));
+    setLeyPlata(req.ley_plata_manual ?? (req.elemento_quimico === ElementoQuimicoValorizacion.Plata ? display.ley : 0));
+    setLeyHumedad(req.ley_humedad_manual ?? display.ley_humedad);
+    setLeyRecuperacion(req.ley_recuperacion_manual ?? 0);
     // Preserva el id_valor_elemento_quimico del detalle para no romper el envio
     setPrecioEncontrado(
       display.id_valor_elemento_quimico
         ? {
-            id: display.id_valor_elemento_quimico,
-            inter: req.inter,
-            fecha: fechaHoraValorizacion?.split(" ")[0] ?? "",
-          }
+          id: display.id_valor_elemento_quimico,
+          inter: req.inter,
+          fecha: fechaHoraValorizacion?.split(" ")[0] ?? "",
+        }
         : null,
     );
   }, [detalleEditar, fechaHoraValorizacion]);
@@ -269,11 +304,11 @@ export const ModalAgregarLote = ({
     const esOro = display.elemento_quimico === ElementoQuimicoValorizacion.Oro;
     const condicion = req.id_condicion_comercial
       ? {
-          id_condicion_comercial: req.id_condicion_comercial,
-          recuperacion: display.recuperacion,
-          maquila: display.maquila,
-          consumo: display.consumo,
-        }
+        id_condicion_comercial: req.id_condicion_comercial,
+        recuperacion: display.recuperacion,
+        maquila: display.maquila,
+        consumo: display.consumo,
+      }
       : null;
     return {
       id_lote_guia: display.id_lote_guia,
@@ -288,6 +323,22 @@ export const ModalAgregarLote = ({
       tms: display.tms,
       ley_oro: esOro ? display.ley : 0,
       ley_plata: !esOro ? display.ley : 0,
+      id_grupo_analisis: req.id_grupo_analisis ?? display.id_grupo_analisis ?? null,
+      grupos_analisis: req.id_grupo_analisis
+        ? [
+          {
+            id: req.id_grupo_analisis,
+            nombre: display.grupo_analisis_nombre || "Grupo Asignado",
+            numero_correlativo: 1,
+            ley_oro_cierre: req.ley_oro_manual ?? (esOro ? display.ley : 0),
+            ley_plata_cierre: req.ley_plata_manual ?? (!esOro ? display.ley : 0),
+            ley_humedad_cierre: req.ley_humedad_manual ?? display.ley_humedad,
+            ley_recuperacion_cierre: req.ley_recuperacion_manual ?? 0,
+            tiene_propuesta_oro: false,
+            tiene_propuesta_plata: false,
+          },
+        ]
+        : [],
       condicion_oro: esOro ? condicion : null,
       condicion_plata: !esOro ? condicion : null,
     };
@@ -298,6 +349,64 @@ export const ModalAgregarLote = ({
     if (!selectedLoteGuiaId) return null;
     return lotes.find((l) => String(l.id_lote_guia) === selectedLoteGuiaId) || null;
   }, [selectedLoteGuiaId, lotes, loteEnEdicion]);
+
+  // Precargar grupo de analisis y leyes al seleccionar lote
+  useEffect(() => {
+    if (detalleEditar) return;
+    if (!loteSeleccionado) {
+      setSelectedGrupoAnalisisId(null);
+      setLeyOro(0);
+      setLeyPlata(0);
+      setLeyHumedad(0);
+      setLeyRecuperacion(0);
+      return;
+    }
+
+    const grupos = loteSeleccionado.grupos_analisis || [];
+    if (grupos.length > 0) {
+      const g = grupos[0];
+      setSelectedGrupoAnalisisId(String(g.id));
+      setLeyOro(g.ley_oro_cierre);
+      setLeyPlata(g.ley_plata_cierre);
+      setLeyHumedad(g.ley_humedad_cierre > 0 ? g.ley_humedad_cierre : loteSeleccionado.ley_humedad);
+      setLeyRecuperacion(g.ley_recuperacion_cierre || 0);
+    } else {
+      setSelectedGrupoAnalisisId(null);
+      setLeyOro(loteSeleccionado.ley_oro || 0);
+      setLeyPlata(loteSeleccionado.ley_plata || 0);
+      setLeyHumedad(loteSeleccionado.ley_humedad || 0);
+      setLeyRecuperacion(0);
+    }
+  }, [loteSeleccionado, detalleEditar]);
+
+  const handleSelectGrupo = (grupoIdStr: string | null) => {
+    setSelectedGrupoAnalisisId(grupoIdStr);
+    if (!grupoIdStr || !loteSeleccionado?.grupos_analisis) return;
+    const g = loteSeleccionado.grupos_analisis.find((item) => String(item.id) === grupoIdStr);
+    if (g) {
+      setLeyOro(g.ley_oro_cierre);
+      setLeyPlata(g.ley_plata_cierre);
+      setLeyHumedad(g.ley_humedad_cierre > 0 ? g.ley_humedad_cierre : loteSeleccionado.ley_humedad);
+      setLeyRecuperacion(g.ley_recuperacion_cierre || 0);
+    }
+  };
+
+  const opcionesGrupos = useMemo(() => {
+    if (!loteSeleccionado?.grupos_analisis) return [];
+    return loteSeleccionado.grupos_analisis.map((g) => ({
+      value: String(g.id),
+      label: `${g.nombre} — Au: ${g.ley_oro_cierre} | Ag: ${g.ley_plata_cierre}`,
+    }));
+  }, [loteSeleccionado]);
+
+  const grupoSeleccionadoObj = useMemo(() => {
+    if (!selectedGrupoAnalisisId || !loteSeleccionado?.grupos_analisis) return null;
+    return (
+      loteSeleccionado.grupos_analisis.find(
+        (g) => String(g.id) === selectedGrupoAnalisisId,
+      ) || null
+    );
+  }, [selectedGrupoAnalisisId, loteSeleccionado]);
 
   // Opciones de elemento dinámicas según lo que ya se haya valorizado para el lote seleccionado
   const opcionesElementos = useMemo(() => {
@@ -375,7 +484,55 @@ export const ModalAgregarLote = ({
     }
   }, [loteSeleccionado, existingDetalles, elemento, detalleEditar]);
 
-  // Precargar condiciones comerciales al cambiar lote o elemento
+  const numHum = typeof leyHumedad === "number" ? leyHumedad : parseFloat(String(leyHumedad)) || 0;
+  const numOro = typeof leyOro === "number" ? leyOro : parseFloat(String(leyOro)) || 0;
+  const numPlata = typeof leyPlata === "number" ? leyPlata : parseFloat(String(leyPlata)) || 0;
+  const numRecLey = typeof leyRecuperacion === "number" ? leyRecuperacion : parseFloat(String(leyRecuperacion)) || 0;
+
+  // Buscar dinámicamente la condición comercial correspondiente según elemento y ley actual
+  const condicionActual = useMemo(() => {
+    if (!loteSeleccionado || !elemento) return null;
+    const currentLey = elemento === ElementoQuimicoValorizacion.Oro ? numOro : numPlata;
+
+    // 1. Buscar coincidencia exacta en las condiciones comerciales del proveedor por rango de ley
+    if (loteSeleccionado.condiciones_comerciales && loteSeleccionado.condiciones_comerciales.length > 0) {
+      const match = loteSeleccionado.condiciones_comerciales.find((c) => {
+        const matchElem = c.elemento_quimico === elemento;
+        const inicio = typeof c.ley_inicio === "number" ? c.ley_inicio : parseFloat(String(c.ley_inicio)) || 0;
+        const fin = typeof c.ley_fin === "number" ? c.ley_fin : parseFloat(String(c.ley_fin)) || 0;
+        return matchElem && currentLey >= inicio && currentLey <= fin;
+      });
+
+      if (match) {
+        return {
+          id_condicion_comercial: match.id,
+          recuperacion: Number(match.recuperacion),
+          maquila: Number(match.maquila),
+          consumo: Number(match.consumo),
+          ley_inicio: Number(match.ley_inicio),
+          ley_fin: Number(match.ley_fin),
+        };
+      }
+    }
+
+    // 2. Fallback a la condición precalculada para el elemento
+    const fallback =
+      elemento === ElementoQuimicoValorizacion.Oro
+        ? loteSeleccionado.condicion_oro
+        : loteSeleccionado.condicion_plata;
+
+    if (fallback) {
+      return {
+        ...fallback,
+        ley_inicio: null as number | null,
+        ley_fin: null as number | null,
+      };
+    }
+
+    return null;
+  }, [loteSeleccionado, elemento, numOro, numPlata]);
+
+  // Precargar condiciones comerciales al cambiar lote, elemento o ley
   useEffect(() => {
     if (detalleEditar) return;
     if (!loteSeleccionado || !elemento) {
@@ -385,30 +542,28 @@ export const ModalAgregarLote = ({
       return;
     }
 
-    const cond =
-      elemento === ElementoQuimicoValorizacion.Oro
-        ? loteSeleccionado.condicion_oro
-        : loteSeleccionado.condicion_plata;
-
-    if (cond) {
-      setRecuperacion(cond.recuperacion);
-      setMaquila(cond.maquila);
-      setConsumo(cond.consumo);
+    if (condicionActual) {
+      setRecuperacion(condicionActual.recuperacion);
+      setMaquila(condicionActual.maquila);
+      setConsumo(condicionActual.consumo);
     } else {
       setRecuperacion(0);
       setMaquila(0);
       setConsumo(0);
     }
-  }, [loteSeleccionado, elemento, detalleEditar]);
+  }, [condicionActual, loteSeleccionado, elemento, detalleEditar]);
 
   const esSinValorComercial = loteSeleccionado?.con_valor_comercial === false;
 
+  const tmsCalculado = useMemo(() => {
+    if (!loteSeleccionado) return 0;
+    return Number((loteSeleccionado.tmh * (1 - (numHum / 100))).toFixed(4));
+  }, [loteSeleccionado, numHum]);
+
   const ley = useMemo(() => {
     if (!loteSeleccionado || !elemento) return 0;
-    return elemento === ElementoQuimicoValorizacion.Oro
-      ? loteSeleccionado.ley_oro
-      : loteSeleccionado.ley_plata;
-  }, [loteSeleccionado, elemento]);
+    return elemento === ElementoQuimicoValorizacion.Oro ? numOro : numPlata;
+  }, [loteSeleccionado, elemento, numOro, numPlata]);
 
   const ptn = useMemo(() => {
     if (esSinValorComercial) return 0;
@@ -430,9 +585,8 @@ export const ModalAgregarLote = ({
 
   const subtotalSinDescuento = useMemo(() => {
     if (!loteSeleccionado || esSinValorComercial) return 0;
-    const tms = loteSeleccionado.tms;
-    return (ptn * tms) / 1000;
-  }, [esSinValorComercial, ptn, loteSeleccionado]);
+    return (ptn * tmsCalculado) / 1000;
+  }, [esSinValorComercial, ptn, loteSeleccionado, tmsCalculado]);
 
   const totalItem = useMemo(() => {
     if (esSinValorComercial) return 0;
@@ -476,14 +630,12 @@ export const ModalAgregarLote = ({
     const numRea = typeof consumo === "number" ? consumo : parseFloat(String(consumo)) || 0;
     const numFac = typeof factor === "number" ? factor : parseFloat(String(factor)) || 1.1023;
 
-    const cond =
-      elemento === ElementoQuimicoValorizacion.Oro
-        ? loteSeleccionado.condicion_oro
-        : loteSeleccionado.condicion_plata;
+    const cond = condicionActual;
 
     const reqItem: REQ_ValorizacionDetalleItem = {
       id_lote_guia: loteSeleccionado.id_lote_guia,
       elemento_quimico: elemento,
+      id_grupo_analisis: selectedGrupoAnalisisId ? Number(selectedGrupoAnalisisId) : null,
       id_condicion_comercial: esSinValorComercial ? null : (cond ? cond.id_condicion_comercial : null),
       id_valor_elemento_quimico: esSinValorComercial ? null : (precioEncontrado?.id ?? null),
       inter: esSinValorComercial ? 0 : numInter,
@@ -494,12 +646,18 @@ export const ModalAgregarLote = ({
       factor: esSinValorComercial ? 1 : numFac,
       monto_penalidad: numPen,
       monto_flete: numFle,
+      ley_oro_manual: numOro,
+      ley_plata_manual: numPlata,
+      ley_humedad_manual: numHum,
+      ley_recuperacion_manual: numRecLey,
     };
 
     const displayItem: RES_ValorizacionCompraDetalle = {
       id: detalleEditar ? detalleEditar.display.id : 0,
       id_valorizacion_compra: detalleEditar ? detalleEditar.display.id_valorizacion_compra : 0,
       id_lote_guia: loteSeleccionado.id_lote_guia,
+      id_grupo_analisis: selectedGrupoAnalisisId ? Number(selectedGrupoAnalisisId) : null,
+      grupo_analisis_nombre: grupoSeleccionadoObj ? grupoSeleccionadoObj.nombre : null,
       id_condicion_comercial: esSinValorComercial ? null : (cond ? cond.id_condicion_comercial : null),
       id_valor_elemento_quimico: esSinValorComercial ? null : (precioEncontrado?.id ?? null),
       elemento_quimico: elemento,
@@ -509,8 +667,8 @@ export const ModalAgregarLote = ({
       grt: loteSeleccionado.grt,
       fecha_ingreso: loteSeleccionado.fecha_en_planta,
       tmh: loteSeleccionado.tmh,
-      ley_humedad: loteSeleccionado.ley_humedad,
-      tms: loteSeleccionado.tms,
+      ley_humedad: numHum,
+      tms: tmsCalculado,
       ley,
       inter: esSinValorComercial ? 0 : numInter,
       des_inter: esSinValorComercial ? 0 : numDes,
@@ -534,6 +692,7 @@ export const ModalAgregarLote = ({
 
     // reset campos y cerrar
     setSelectedLoteGuiaId(null);
+    setSelectedGrupoAnalisisId(null);
     setInter(0);
     setDesInter(0);
     setFactor(1.1023);
@@ -572,20 +731,20 @@ export const ModalAgregarLote = ({
               data={
                 detalleEditar
                   ? [
-                      {
-                        value: String(detalleEditar.display.id_lote_guia),
-                        label:
-                          detalleEditar.display.lote_correlativo ||
-                          "-",
-                      },
-                    ]
-                  : lotes.map((l) => ({
-                      value: String(l.id_lote_guia),
+                    {
+                      value: String(detalleEditar.display.id_lote_guia),
                       label:
-                        l.con_valor_comercial === false
-                          ? `${l.correlativo_lote} (Sin Valor Comercial)`
-                          : l.correlativo_lote,
-                    }))
+                        detalleEditar.display.lote_correlativo ||
+                        "-",
+                    },
+                  ]
+                  : lotes.map((l) => ({
+                    value: String(l.id_lote_guia),
+                    label:
+                      l.con_valor_comercial === false
+                        ? `${l.correlativo_lote} (Sin Valor Comercial)`
+                        : l.correlativo_lote,
+                  }))
               }
               value={selectedLoteGuiaId}
               onChange={(val) => setSelectedLoteGuiaId(val)}
@@ -655,7 +814,7 @@ export const ModalAgregarLote = ({
                     % H2O
                   </Text>
                   <Text fz="xs" fw={700} c="amber.3">
-                    {loteSeleccionado.ley_humedad.toFixed(2)}%
+                    {numHum.toFixed(2)}%
                   </Text>
                 </Box>
               </Grid.Col>
@@ -665,7 +824,7 @@ export const ModalAgregarLote = ({
                     TMS (t)
                   </Text>
                   <Text fz="xs" fw={700} c="emerald.3">
-                    {(loteSeleccionado.tms / 1000).toFixed(3)}
+                    {(tmsCalculado / 1000).toFixed(3)}
                   </Text>
                 </Box>
               </Grid.Col>
@@ -675,7 +834,7 @@ export const ModalAgregarLote = ({
                     Ley ({elemento})
                   </Text>
                   <Text fz="xs" fw={700} c="yellow.3">
-                    {ley.toFixed(4)} oz/tc
+                    {ley.toFixed(3)} oz/tc
                   </Text>
                 </Box>
               </Grid.Col>
@@ -689,12 +848,93 @@ export const ModalAgregarLote = ({
           </Box>
         )}
 
+        {/* Selector de Grupo de Análisis y Ajuste de Leyes */}
+        {loteSeleccionado && (
+          <Paper p="sm" radius="md" bg="#18181b" className="border border-zinc-800/80 space-y-2.5">
+            <Group justify="space-between" align="center">
+              <Text fw={700} fz="xs" c="cyan.4" className="flex items-center gap-1.5">
+                <IconFlask size={16} /> Grupo de Análisis y Leyes
+              </Text>
+              {grupoSeleccionadoObj ? (
+                <Badge color="cyan" variant="light" size="xs" radius="sm" fw={600}>
+                  {grupoSeleccionadoObj.nombre}
+                </Badge>
+              ) : (
+                <Badge color="zinc" variant="outline" size="xs" radius="sm">
+                  Sin grupo asignado
+                </Badge>
+              )}
+            </Group>
+
+            <Grid gutter="xs" align="flex-end">
+              <Grid.Col span={{ base: 12, sm: 6 }}>
+                <Select
+                  label="Seleccionar Grupo de Análisis:"
+                  placeholder="[Seleccione Grupo de Análisis]"
+                  data={opcionesGrupos}
+                  value={selectedGrupoAnalisisId}
+                  onChange={handleSelectGrupo}
+                  disabled={!!detalleEditar}
+                  size="xs"
+                  radius="lg"
+                  classNames={fieldClasses}
+                />
+              </Grid.Col>
+              <Grid.Col span={{ base: 6, sm: 3 }}>
+                <NumberInput
+                  label="Ley Oro:"
+                  value={leyOro}
+                  onChange={(val) => setLeyOro(val ?? 0)}
+                  min={0}
+                  step={0.001}
+                  decimalScale={3}
+                  size="xs"
+                  radius="lg"
+                  hideControls
+                  rightSection={<Text fz={10} c="zinc.5" mr={6}>oz/tc</Text>}
+                  rightSectionWidth={46}
+                  classNames={fieldClasses}
+                />
+              </Grid.Col>
+              <Grid.Col span={{ base: 6, sm: 3 }}>
+                <NumberInput
+                  label="Ley Plata:"
+                  value={leyPlata}
+                  onChange={(val) => setLeyPlata(val ?? 0)}
+                  min={0}
+                  step={0.001}
+                  decimalScale={3}
+                  size="xs"
+                  radius="lg"
+                  hideControls
+                  rightSection={<Text fz={10} c="zinc.5" mr={6}>oz/tc</Text>}
+                  rightSectionWidth={46}
+                  classNames={fieldClasses}
+                />
+              </Grid.Col>
+            </Grid>
+          </Paper>
+        )}
+
         {/* Inputs de Condiciones de Valorización */}
         <Paper p="sm" radius="md" bg="#18181b" className="border border-zinc-800/80">
-          <Text fw={600} fz="xs" c="amber.4" mb="xs" className="flex items-center gap-1.5">
-            <IconCoins size={14} /> Condiciones Comerciales y Valorización
-          </Text>
-          
+          <Group justify="space-between" align="center" mb="xs" wrap="wrap" gap={8}>
+            <Text fw={600} fz="xs" c="amber.4" className="flex items-center gap-1.5">
+              <IconCoins size={15} /> Condiciones Comerciales y Valorización
+            </Text>
+            {condicionActual ? (
+              <Badge color="teal" variant="light" size="xs">
+                {condicionActual.ley_inicio !== null && condicionActual.ley_fin !== null
+                  ? `Condición: [${condicionActual.ley_inicio} - ${condicionActual.ley_fin} oz/tc] (Rec: ${condicionActual.recuperacion}%, Maq: $${condicionActual.maquila})`
+                  : `Condición aplicada (Rec: ${condicionActual.recuperacion}%, Maq: $${condicionActual.maquila})`}
+              </Badge>
+            ) : (
+              <Badge color="zinc" variant="outline" size="xs">
+                Sin condición registrada para esta ley (valores manuales)
+              </Badge>
+            )}
+          </Group>
+
           <Grid gutter="xs">
             <Grid.Col span={{ base: 6, sm: 4 }}>
               <NumberInput
@@ -705,6 +945,9 @@ export const ModalAgregarLote = ({
                 decimalScale={2}
                 size="xs"
                 radius="lg"
+                hideControls
+                rightSection={<Text fz={10} c="zinc.5" mr={6}>$/oz</Text>}
+                rightSectionWidth={44}
                 classNames={fieldClasses}
                 disabled={interBloqueado}
               />
@@ -718,6 +961,9 @@ export const ModalAgregarLote = ({
                 decimalScale={2}
                 size="xs"
                 radius="lg"
+                hideControls
+                rightSection={<Text fz={10} c="zinc.5" mr={6}>$/oz</Text>}
+                rightSectionWidth={44}
                 classNames={fieldClasses}
                 disabled={esSinValorComercial}
               />
@@ -732,6 +978,9 @@ export const ModalAgregarLote = ({
                 decimalScale={2}
                 size="xs"
                 radius="lg"
+                hideControls
+                rightSection={<Text fz={10} c="zinc.5" mr={6}>%</Text>}
+                rightSectionWidth={34}
                 classNames={fieldClasses}
                 disabled={esSinValorComercial}
               />
@@ -745,6 +994,9 @@ export const ModalAgregarLote = ({
                 decimalScale={2}
                 size="xs"
                 radius="lg"
+                hideControls
+                rightSection={<Text fz={10} c="zinc.5" mr={6}>$/tc</Text>}
+                rightSectionWidth={44}
                 classNames={fieldClasses}
                 disabled={esSinValorComercial}
               />
@@ -758,6 +1010,9 @@ export const ModalAgregarLote = ({
                 decimalScale={2}
                 size="xs"
                 radius="lg"
+                hideControls
+                rightSection={<Text fz={10} c="zinc.5" mr={6}>$/tc</Text>}
+                rightSectionWidth={44}
                 classNames={fieldClasses}
                 disabled={esSinValorComercial}
               />
@@ -772,6 +1027,7 @@ export const ModalAgregarLote = ({
                 decimalScale={4}
                 size="xs"
                 radius="lg"
+                hideControls
                 classNames={fieldClasses}
                 disabled={esSinValorComercial}
               />
@@ -785,6 +1041,9 @@ export const ModalAgregarLote = ({
                 decimalScale={2}
                 size="xs"
                 radius="lg"
+                hideControls
+                rightSection={<Text fz={10} c="zinc.5" mr={6}>$</Text>}
+                rightSectionWidth={34}
                 classNames={fieldClasses}
                 disabled={esSinValorComercial}
               />
@@ -798,6 +1057,9 @@ export const ModalAgregarLote = ({
                 decimalScale={2}
                 size="xs"
                 radius="lg"
+                hideControls
+                rightSection={<Text fz={10} c="zinc.5" mr={6}>$</Text>}
+                rightSectionWidth={34}
                 classNames={fieldClasses}
                 disabled={esSinValorComercial}
               />

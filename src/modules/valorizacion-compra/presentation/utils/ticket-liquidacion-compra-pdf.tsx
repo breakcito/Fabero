@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   resumenTable: {
-    width: 175,
+    width: 195,
     borderWidth: 0.8,
     borderColor: COLOR_BORDE,
   },
@@ -329,24 +329,41 @@ export const TicketLiquidacionCompraPdf = ({ data }: TicketLiquidacionCompraPdfP
   let sumTmh = 0;
   let sumTms = 0;
   let sumTotalUss = 0;
+  let sumSubtotalSinDesc = 0;
+  let sumPenalidad = 0;
+  let sumFlete = 0;
+  let sumDescuentos = 0;
   let sumLeyX = 0;
   let sumRecupX = 0;
   let sumPen = 0;
 
   detalles.forEach((d) => {
     const tmsVal = Number(d.tms) || 0;
+    const penVal = Number(d.monto_penalidad) || 0;
+    const fleVal = Number(d.monto_flete) || 0;
+    const descVal = Number(d.descuento) || (penVal + fleVal);
+    const subVal = Number(d.subtotal) || 0;
+    const subSinDescVal =
+      d.subtotal_sin_descuento !== undefined && d.subtotal_sin_descuento !== null
+        ? Number(d.subtotal_sin_descuento)
+        : subVal + descVal;
+
     sumTmh += Number(d.tmh) || 0;
     sumTms += tmsVal;
-    sumTotalUss += Number(d.subtotal) || 0;
+    sumTotalUss += subVal;
+    sumSubtotalSinDesc += subSinDescVal;
+    sumPenalidad += penVal;
+    sumFlete += fleVal;
+    sumDescuentos += descVal;
     sumLeyX += (Number(d.ley) || 0) * (tmsVal > 0 ? tmsVal : 1);
     sumRecupX += (Number(d.recuperacion) || 0) * (tmsVal > 0 ? tmsVal : 1);
-    sumPen += Number(d.monto_penalidad) || 0;
+    sumPen += penVal;
   });
 
   const basePond = sumTms > 0 ? sumTms : (detalles.length || 1);
   const leyPonderada = sumLeyX / basePond;
   const recupPonderada = sumRecupX / basePond;
-  const precioPorTmsPonderado = sumTms > 0 ? sumTotalUss / sumTms : 0;
+  const precioPorTmsPonderado = sumTms > 0 ? sumSubtotalSinDesc / sumTms : 0;
 
   const fmtRecup = (r: number): string => {
     if (r === 0 || Number.isNaN(r)) return "—";
@@ -364,11 +381,39 @@ export const TicketLiquidacionCompraPdf = ({ data }: TicketLiquidacionCompraPdfP
     0,
   );
 
+  // TMH Total según GR:
+  // Se obtiene del backend (data.tmh_total_gr) o se calcula sumando peso_neto de lote_guia de los lotes valorizados
+  const displayTmhTotalGr = (() => {
+    if (data.tmh_total_gr !== null && data.tmh_total_gr !== undefined && data.tmh_total_gr !== "—") {
+      const n = Number(data.tmh_total_gr);
+      if (!Number.isNaN(n) && n > 0) return fmtNum(n, 3);
+    }
+    const seenLg = new Set<number>();
+    let sumGr = 0;
+    let countLg = 0;
+    detalles.forEach((d) => {
+      const lgId = d.id_lote_guia;
+      if (lgId && !seenLg.has(lgId)) {
+        seenLg.add(lgId);
+        countLg++;
+        const pNetoGuia =
+          d.peso_neto_guia !== undefined && d.peso_neto_guia !== null && Number(d.peso_neto_guia) > 0
+            ? Number(d.peso_neto_guia)
+            : Number(d.tmh) || 0;
+        sumGr += pNetoGuia;
+      }
+    });
+    if (countLg > 0 && sumGr > 0) return fmtNum(sumGr, 3);
+    return sumTmh > 0 ? fmtNum(sumTmh, 3) : "—";
+  })();
+
   // Cálculos económicos
+  const pctIgv = data.porcentaje_igv !== null && data.porcentaje_igv !== undefined ? Number(data.porcentaje_igv) : 18;
+  const pctDetraccion = data.porcentaje_detraccion !== null && data.porcentaje_detraccion !== undefined ? Number(data.porcentaje_detraccion) : 10;
   const subtotalUss = Number(data.total_subtotal) || sumTotalUss;
-  const igv18 = data.igv !== null && data.igv !== undefined ? Number(data.igv) : Math.round(subtotalUss * 0.18 * 100) / 100;
+  const igv18 = data.igv !== null && data.igv !== undefined ? Number(data.igv) : Math.round(subtotalUss * (pctIgv / 100) * 100) / 100;
   const totalUss = data.total_con_igv !== null && data.total_con_igv !== undefined ? Number(data.total_con_igv) : subtotalUss + igv18;
-  const detraccion10 = data.monto_detraccion !== null && data.monto_detraccion !== undefined ? Number(data.monto_detraccion) : Math.round(totalUss * 0.10 * 100) / 100;
+  const detraccion10 = data.monto_detraccion !== null && data.monto_detraccion !== undefined ? Number(data.monto_detraccion) : Math.round(totalUss * (pctDetraccion / 100) * 100) / 100;
   const anticipos = Number(data.total_anticipos) || 0;
   const netoAPagar = data.neto_a_pagar !== null && data.neto_a_pagar !== undefined ? Number(data.neto_a_pagar) : totalUss - detraccion10 - anticipos;
 
@@ -403,7 +448,7 @@ export const TicketLiquidacionCompraPdf = ({ data }: TicketLiquidacionCompraPdfP
 
           <View style={styles.titleContainer}>
             <Text style={styles.titleText}>
-              VALORIZACIÓN DE MINERAL POR DIRIMENCIA, REINTEGRO O DESCUENTO
+              VALORIZACION MINERAL
             </Text>
           </View>
 
@@ -495,7 +540,7 @@ export const TicketLiquidacionCompraPdf = ({ data }: TicketLiquidacionCompraPdfP
 
             <View style={styles.infoRow}>
               <Text style={[styles.infoLabel, { width: 145 }]}>TMH TOTAL SEGÚN GR:</Text>
-              <Text style={styles.infoValue}>{dash(data.tmh_total_gr)}</Text>
+              <Text style={styles.infoValue}>{displayTmhTotalGr}</Text>
             </View>
 
             <View style={styles.infoRow}>
@@ -574,7 +619,12 @@ export const TicketLiquidacionCompraPdf = ({ data }: TicketLiquidacionCompraPdfP
                 <Text style={[styles.tableDataCellRight, { width: colWidths.tms }]}>{fmtNum(d.tms, 3)}</Text>
                 <Text style={[styles.tableDataCellRight, { width: colWidths.precTms }]}>{fmtNum(d.precio_por_tonelada, 2)}</Text>
                 <Text style={[styles.tableDataCellRight, { width: colWidths.total, borderRightWidth: 0 }]}>
-                  {fmtNum(d.subtotal, 2)}
+                  {fmtNum(
+                    d.subtotal_sin_descuento !== undefined && d.subtotal_sin_descuento !== null
+                      ? Number(d.subtotal_sin_descuento)
+                      : (Number(d.subtotal) || 0) + (Number(d.descuento) || ((Number(d.monto_penalidad) || 0) + (Number(d.monto_flete) || 0))),
+                    2,
+                  )}
                 </Text>
               </View>
             );
@@ -640,7 +690,7 @@ export const TicketLiquidacionCompraPdf = ({ data }: TicketLiquidacionCompraPdfP
             </Text>
             {/* Celda amarilla TOTAL US$ */}
             <Text style={[styles.totalsYellowCell, { width: colWidths.total, borderRightWidth: 0 }]}>
-              {fmtNum(sumTotalUss, 2)}
+              {fmtNum(sumSubtotalSinDesc, 2)}
             </Text>
           </View>
         </View>
@@ -648,13 +698,24 @@ export const TicketLiquidacionCompraPdf = ({ data }: TicketLiquidacionCompraPdfP
         {/* ========== RESUMEN ECONÓMICO (TOTALES) ========== */}
         <View style={styles.bottomSection}>
           <View style={styles.resumenTable}>
+            {/* Si existen descuentos (flete / penalidad) */}
+            {sumDescuentos > 0 && (
+              <View style={styles.resumenRow}>
+                <Text style={styles.resumenLabel}>DESCUENTO</Text>
+                <Text style={[styles.resumenValue, { color: "#DC2626" }]}>
+                  -${fmtNum(sumDescuentos, 2)}
+                </Text>
+              </View>
+            )}
+
+            {/* Anticipos aplicados */}
             {totalAnticiposAplicados > 0 && (
               <View style={styles.resumenRow}>
                 <Text style={styles.resumenLabel}>
-                  {facturasAgrupadas || "ANTICIPOS"}
+                  {facturasAgrupadas ? `ANTICIPOS (${facturasAgrupadas})` : "ANTICIPOS"}
                 </Text>
-                <Text style={styles.resumenValue}>
-                  ${fmtNum(totalAnticiposAplicados, 2)}
+                <Text style={[styles.resumenValue, { color: "#DC2626" }]}>
+                  -${fmtNum(totalAnticiposAplicados, 2)}
                 </Text>
               </View>
             )}
@@ -665,7 +726,7 @@ export const TicketLiquidacionCompraPdf = ({ data }: TicketLiquidacionCompraPdfP
             </View>
 
             <View style={styles.resumenRow}>
-              <Text style={styles.resumenLabel}>IGV 18%</Text>
+              <Text style={styles.resumenLabel}>IGV {pctIgv}%</Text>
               <Text style={styles.resumenValue}>{fmtNum(igv18, 2)}</Text>
             </View>
 
@@ -675,7 +736,7 @@ export const TicketLiquidacionCompraPdf = ({ data }: TicketLiquidacionCompraPdfP
             </View>
 
             <View style={styles.resumenRow}>
-              <Text style={styles.resumenLabel}>DETRACCIÓN 10%</Text>
+              <Text style={styles.resumenLabel}>DETRACCIÓN {pctDetraccion}%</Text>
               <Text style={styles.resumenValue}>{fmtNum(detraccion10, 2)}</Text>
             </View>
 

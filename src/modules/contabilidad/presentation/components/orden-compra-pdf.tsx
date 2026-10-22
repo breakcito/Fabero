@@ -243,22 +243,83 @@ export const OrdenCompraPdf = ({ comprobante, valorizacion }: Props) => {
 
   // Cálculos económicos
   const subtotal =
-    valorizacion?.total_subtotal != null
-      ? valorizacion.total_subtotal
-      : comprobante.total_dolares_antes_descuento || comprobante.total_dolares || 0;
+    comprobante.subtotal_sin_descuento != null
+      ? comprobante.subtotal_sin_descuento
+      : (valorizacion?.total_subtotal != null
+        ? valorizacion.total_subtotal
+        : 0);
+
+  const descuento = comprobante.descuento || 0;
 
   const anticipo =
-    valorizacion?.total_anticipos != null
-      ? valorizacion.total_anticipos
-      : comprobante.monto_pagado_anticipos || 0;
+    comprobante.monto_pagado_anticipos != null
+      ? comprobante.monto_pagado_anticipos
+      : (valorizacion?.total_anticipos != null
+        ? valorizacion.total_anticipos
+        : 0);
 
-  const valorVenta = Math.max(0, subtotal - anticipo);
-  const igv = valorVenta * 0.18;
-  const total = valorVenta + igv;
-  const detraccion = total * 0.10;
-  const netoAPagar = total - detraccion;
+  const valorVenta =
+    comprobante.valor_venta != null
+      ? comprobante.valor_venta
+      : Math.max(0, subtotal - descuento - anticipo);
+
+  const pctIgv =
+    Number(comprobante.porcentaje_igv || 0.18) <= 1
+      ? Number(comprobante.porcentaje_igv || 0.18)
+      : Number(comprobante.porcentaje_igv || 18) / 100;
+
+  const igv =
+    comprobante.monto_igv != null
+      ? comprobante.monto_igv
+      : valorVenta * pctIgv;
+
+  const total =
+    comprobante.total != null
+      ? comprobante.total
+      : valorVenta + igv;
+
+  const pctDetraccion =
+    Number(comprobante.porcentaje_detraccion || 0.10) <= 1
+      ? Number(comprobante.porcentaje_detraccion || 0.10)
+      : Number(comprobante.porcentaje_detraccion || 10) / 100;
+
+  const detraccion =
+    comprobante.monto_detraccion != null
+      ? comprobante.monto_detraccion
+      : total * pctDetraccion;
+
+  const netoAPagar =
+    comprobante.monto_neto != null
+      ? comprobante.monto_neto
+      : total - detraccion;
 
   const sonTexto = numeroALetras(total);
+
+  // Pagos netos registrados (último pago neto no anulado)
+  const pagosNeto = (comprobante.pagos || []).filter(
+    (p) => !p.es_para_detraccion && !p.es_anulado,
+  );
+  pagosNeto.sort(
+    (a, b) =>
+      new Date(b.fecha_hora_pago).getTime() - new Date(a.fecha_hora_pago).getTime(),
+  );
+  const ultimoPagoNeto = pagosNeto[0];
+  const ultimaFechaPagoNeto = ultimoPagoNeto
+    ? formatFechaCorta(ultimoPagoNeto.fecha_hora_pago)
+    : "";
+
+  // Aprobación de Gerencia para "AUTORIZADO POR"
+  const apGerencia = comprobante.aprobaciones?.find(
+    (a) =>
+      ((a.tipo as unknown as string) === "Gerencia" ||
+        (a.tipo as unknown as string) === "Documentaria") &&
+      a.esta_aprobado,
+  );
+  const autorizadoPor = apGerencia?.empleado_registro_nombre || "—";
+  const solicitadoPor =
+    comprobante.empleado_solicita_oc_nombre ||
+    valorizacion?.empleado_solicita_oc ||
+    "—";
 
   return (
     <Document title={`Orden de Compra - ${comprobante.codigo_completo}`}>
@@ -416,7 +477,7 @@ export const OrdenCompraPdf = ({ comprobante, valorizacion }: Props) => {
               <Text>SOLICITADO POR:</Text>
             </View>
             <View style={[styles.whiteCell, { width: "37%" }]}>
-              <Text>—</Text>
+              <Text>{solicitadoPor}</Text>
             </View>
             <View style={[styles.yellowCell, { width: "10%" }]}>
               <Text>ÁREA:</Text>
@@ -432,7 +493,7 @@ export const OrdenCompraPdf = ({ comprobante, valorizacion }: Props) => {
               <Text>AUTORIZADO POR:</Text>
             </View>
             <View style={[styles.whiteCell, { width: "37%" }]}>
-              <Text>—</Text>
+              <Text>{autorizadoPor}</Text>
             </View>
             <View style={[styles.yellowCell, { width: "10%" }]}>
               <Text>ÁREA:</Text>
@@ -470,19 +531,19 @@ export const OrdenCompraPdf = ({ comprobante, valorizacion }: Props) => {
               <Text>MÉTODO DE PAGO:</Text>
             </View>
             <View style={[styles.whiteCell, { width: "20%" }]}>
-              <Text>—</Text>
+              <Text>{(comprobante.metodo_pago || "Transferencia").toUpperCase()}</Text>
             </View>
             <View style={[styles.yellowCell, { width: "15%" }]}>
               <Text>AL CONTADO:</Text>
             </View>
             <View style={[styles.whiteCell, { width: "10%" }]}>
-              <Text> </Text>
+              <Text>{comprobante.es_al_contado ? "X" : " "}</Text>
             </View>
             <View style={[styles.yellowCell, { width: "15%" }]}>
               <Text>FECHA DE PAGO</Text>
             </View>
             <View style={[styles.whiteCell, { width: "17%", borderRightWidth: 0 }]}>
-              <Text> </Text>
+              <Text>{comprobante.es_al_contado ? ultimaFechaPagoNeto : " "}</Text>
             </View>
           </View>
 
@@ -492,19 +553,23 @@ export const OrdenCompraPdf = ({ comprobante, valorizacion }: Props) => {
               <Text>PLAZO DE CRÉDITO:</Text>
             </View>
             <View style={[styles.whiteCell, { width: "20%" }]}>
-              <Text>—</Text>
+              <Text>
+                {comprobante.es_al_credito && comprobante.plazo_credito
+                  ? `${comprobante.plazo_credito} ${(comprobante.plazo_credito_periodo || "Días").toUpperCase()}`
+                  : "—"}
+              </Text>
             </View>
             <View style={[styles.yellowCell, { width: "15%" }]}>
               <Text>AL CRÉDITO:</Text>
             </View>
             <View style={[styles.whiteCell, { width: "10%" }]}>
-              <Text>—</Text>
+              <Text>{comprobante.es_al_credito ? "X" : "—"}</Text>
             </View>
             <View style={[styles.yellowCell, { width: "15%" }]}>
               <Text>FECHA DE PAGO</Text>
             </View>
             <View style={[styles.whiteCell, { width: "17%", borderRightWidth: 0 }]}>
-              <Text>{formatFechaCorta(comprobante.fecha_emision)}</Text>
+              <Text>{comprobante.es_al_credito ? ultimaFechaPagoNeto : " "}</Text>
             </View>
           </View>
 
@@ -520,7 +585,7 @@ export const OrdenCompraPdf = ({ comprobante, valorizacion }: Props) => {
               <Text>TOTAL DE CUOTAS:</Text>
             </View>
             <View style={[styles.whiteCell, { width: "17%", borderRightWidth: 0 }]}>
-              <Text>—</Text>
+              <Text>{comprobante.es_al_credito ? "1 cuota fija" : (comprobante.total_cuotas ? `${comprobante.total_cuotas} cuota(s)` : "—")}</Text>
             </View>
           </View>
         </View>
@@ -609,6 +674,15 @@ export const OrdenCompraPdf = ({ comprobante, valorizacion }: Props) => {
               <Text style={styles.totalValueCell}>$ {subtotal.toFixed(2)}</Text>
             </View>
 
+            {descuento > 0 && (
+              <View style={styles.totalRow}>
+                <View style={styles.totalLabelCell}>
+                  <Text>DESCUENTO</Text>
+                </View>
+                <Text style={styles.totalValueCell}>$ {descuento.toFixed(2)}</Text>
+              </View>
+            )}
+
             <View style={styles.totalRow}>
               <View style={styles.totalLabelCell}>
                 <Text>ANTICIPO</Text>
@@ -627,7 +701,7 @@ export const OrdenCompraPdf = ({ comprobante, valorizacion }: Props) => {
 
             <View style={styles.totalRow}>
               <View style={styles.totalLabelCell}>
-                <Text>IGV 18%</Text>
+                <Text>IGV {(pctIgv * 100).toFixed(0)}%</Text>
               </View>
               <Text style={styles.totalValueCell}>$ {igv.toFixed(2)}</Text>
             </View>
@@ -641,7 +715,7 @@ export const OrdenCompraPdf = ({ comprobante, valorizacion }: Props) => {
 
             <View style={styles.totalRow}>
               <View style={styles.totalLabelCell}>
-                <Text>DETRACCION 10%</Text>
+                <Text>DETRACCION {(pctDetraccion * 100).toFixed(0)}%</Text>
               </View>
               <Text style={styles.totalValueCell}>$ {detraccion.toFixed(2)}</Text>
             </View>

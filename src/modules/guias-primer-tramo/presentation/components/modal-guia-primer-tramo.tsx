@@ -2221,7 +2221,7 @@ export const ModalGuiaPrimerTramo = ({
                               radius="sm"
                               className="font-mono text-[10px] px-1.5 py-0.5 border border-blue-500/20"
                             >
-                              Bruto Bal: {(it.balanza_peso_inicial ?? 0).toLocaleString("es-PE")} kg
+                              Bruto: {(it.balanza_peso_inicial ?? 0).toLocaleString("es-PE")} kg
                             </Badge>
                             <Badge
                               variant="light"
@@ -2230,7 +2230,7 @@ export const ModalGuiaPrimerTramo = ({
                               radius="sm"
                               className="font-mono text-[10px] px-1.5 py-0.5 border border-zinc-700"
                             >
-                              Tara Bal: {(it.balanza_peso_final ?? 0).toLocaleString("es-PE")} kg
+                              Tara: {(it.balanza_peso_final ?? 0).toLocaleString("es-PE")} kg
                             </Badge>
                             <Badge
                               variant="light"
@@ -2239,7 +2239,7 @@ export const ModalGuiaPrimerTramo = ({
                               radius="sm"
                               className="font-mono text-[10px] px-1.5 py-0.5 border border-teal-500/20 font-semibold"
                             >
-                              Neto Bal: {(it.balanza_peso_neto ?? 0).toLocaleString("es-PE")} kg
+                              Neto: {(it.balanza_peso_neto ?? 0).toLocaleString("es-PE")} kg
                             </Badge>
                           </div>
                         </div>

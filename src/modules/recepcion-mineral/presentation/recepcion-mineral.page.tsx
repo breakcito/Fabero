@@ -244,6 +244,7 @@ export const RecepcionMineralPage = () => {
         notifySuccess("Peso inicial registrado correctamente");
         refreshParticionesDeParticion(idParticion);
         await refreshLotesPadreParticionados();
+        await loadRecepciones();
         if (updated.id_ticket_balanza !== null) {
           printTicketBalanzaParticion(updated.id);
         }
@@ -258,6 +259,7 @@ export const RecepcionMineralPage = () => {
       printTicketBalanzaParticion,
       refreshParticionesDeParticion,
       refreshLotesPadreParticionados,
+      loadRecepciones,
     ],
   );
 
@@ -276,6 +278,7 @@ export const RecepcionMineralPage = () => {
         notifySuccess("Peso final registrado correctamente");
         refreshParticionesDeParticion(idParticion);
         await refreshLotesPadreParticionados();
+        await loadRecepciones();
         if (updated.id_ticket_balanza !== null) {
           printTicketBalanzaParticion(updated.id);
         }
@@ -290,6 +293,7 @@ export const RecepcionMineralPage = () => {
       printTicketBalanzaParticion,
       refreshParticionesDeParticion,
       refreshLotesPadreParticionados,
+      loadRecepciones,
     ],
   );
 

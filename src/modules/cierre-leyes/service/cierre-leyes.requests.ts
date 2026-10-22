@@ -1,24 +1,45 @@
 import { EstadoLeyes } from "../../../shared/enums/_generic/estado-leyes";
 import { TipoOrigen } from "../../../shared/enums/_generic/tipo-origen";
 
-export interface GuardarValorPayload {
-  id?: number | null;
-  id_lote_mineral: number;
-  id_grupo_analisis_detalle: number;
-  tipo_origen: TipoOrigen | null;
-  uuid_fila: string;
-  ley: number;
-  esta_confirmada: boolean;
+export interface CrearGrupoPayload {
+  id_lote_mineral?: number;
+  id_muestra_externa?: number;
+  nombre: string;
+  id_laboratorio?: number;
+  asumido_por?: string;
+  numero_ensayo?: number;
+  tipo_origen?: TipoOrigen;
+  documentos?: File[];
 }
 
-export interface GuardarValorMuestraPayload {
-  id?: number | null;
-  id_muestra_externa: number;
-  id_grupo_analisis_detalle: number;
-  tipo_origen: TipoOrigen | null;
-  uuid_fila: string;
-  ley: number;
-  esta_confirmada: boolean;
+export interface AgregarAnalisisGrupoPayload {
+  id_laboratorio?: number;
+  asumido_por?: string;
+  numero_ensayo?: number;
+  tipo_origen?: TipoOrigen;
+  documentos?: File[];
+}
+
+export interface GuardarValoresAnalisisPayload {
+  ley_oro?: number;
+  ley_plata?: number;
+  ley_humedad?: number;
+  ley_recuperacion?: number;
+  ley_oro_confirmada?: boolean;
+  ley_plata_confirmada?: boolean;
+  tipo_origen?: TipoOrigen | null;
+  asumido_por?: string;
+  numero_ensayo?: number;
+  id_laboratorio?: number | null;
+  motivo?: string;
+}
+
+export interface GuardarLeyesCierreGrupoPayload {
+  ley_oro_cierre?: number;
+  ley_plata_cierre?: number;
+  ley_humedad_cierre?: number;
+  ley_recuperacion_cierre?: number;
+  motivo?: string;
 }
 
 export interface FiltrosLotesSugeridos {
@@ -27,29 +48,19 @@ export interface FiltrosLotesSugeridos {
   fechaFin?: string | null;
 }
 
-export interface IniciarLotePayload {
-  id_lote_mineral: number;
+export interface ConfirmarLotePayload {
+  con_valor_comercial: boolean;
 }
 
 export interface IniciarMuestraPayload {
-  id_proveedor_minero: number;
-  codigo_cliente?: string | null;
-  fecha_hora_ingreso?: string | null;
+  codigo_cliente?: string;
+  nombre?: string;
+  id_proveedor?: number;
+  proveedor_nombre?: string;
+  fecha?: string;
+  id_laboratorio?: number;
+  asumido_por?: string;
+  numero_ensayo?: number;
+  documentos?: File[];
 }
 
-export interface ConfirmarLotePayload {
-  id_lote_mineral: number;
-  con_valor_comercial: boolean;
-  leyes_manuales?: Array<{
-    id_grupo_analisis_detalle: number;
-    ley: number;
-  }>;
-}
-
-export interface AsociarMuestraPayload {
-  id_lote_mineral: number;
-}
-
-export interface ActualizarOrigenFilaPayload {
-  tipo_origen: TipoOrigen | null;
-}

@@ -37,7 +37,7 @@ import { formatNumber } from "../../../shared/functions/formatNumber";
 import { RefreshButton } from "../../../presentation/utils/refresh-button";
 
 export const BlendingPage = () => {
-  useTitlePage("Blending", true);
+  useTitlePage("Blending", true, true);
 
   const {
     blendings,

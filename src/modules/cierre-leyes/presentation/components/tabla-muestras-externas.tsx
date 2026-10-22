@@ -1,773 +1,751 @@
 import React, { useState } from "react";
-import { Loader, Select, Tooltip, Button, Checkbox } from "@mantine/core";
-import { IconHistory, IconLink, IconPlus, IconPrinter, IconTrashX } from "@tabler/icons-react";
+import { ActionIcon, Select, Tooltip, Loader } from "@mantine/core";
+import {
+  IconPlus,
+  IconTrashX,
+  IconLink,
+  IconFileDescription,
+  IconLock,
+  IconPrinter,
+  IconGripVertical,
+  IconX,
+  IconChecklist,
+  IconHistory,
+} from "@tabler/icons-react";
 import { TipoOrigen } from "../../../../shared/enums/_generic/tipo-origen";
-import type { MuestraExternaResponse, LoteCierreResponse } from "../../service/cierre-leyes.responses";
-import type { GrupoAnalisisResponse, GrupoAnalisisDetalleResponse } from "../../../../modules/gestion-leyes/service/gestion-leyes.responses";
+import type {
+  MuestraExternaResponse,
+  LoteCierreResponse,
+  IArchivoDoc,
+} from "../../service/cierre-leyes.responses";
 import { CellInput } from "./cell-input";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
 import { CambiosLogViewer } from "../../../../presentation/utils/cambios-log-viewer";
-import type { GuardarValorMuestraPayload } from "../../service/cierre-leyes.service";
+import { ModalDocumentosAnalisis } from "./modal-documentos-analisis";
+import type { GuardarValoresAnalisisPayload } from "../../service/cierre-leyes.service";
 import type { RES_CambiosLog } from "../../../../service/responses/_generic/cambios-log";
 import { useNotify } from "../../../../hooks/useNotify";
-import { mostrarConfirmacion } from "../../../../presentation/utils/modal-confirmacion";
 
 interface TablaMuestrasExternasProps {
   muestras: MuestraExternaResponse[];
-  grupos: GrupoAnalisisResponse[];
-  lotesDisponibles: LoteCierreResponse[]; // solo Pendiente / EnProceso
-  onGuardarValor: (payload: GuardarValorMuestraPayload) => Promise<boolean>;
-  onAgregarAnalisis: (idMuestraExterna: number) => Promise<boolean>;
-  onEliminarFila: (idMuestraExterna: number, uuidFila: string) => Promise<boolean>;
-  onActualizarOrigenFila: (idMuestraExterna: number, uuidFila: string, tipoOrigen: TipoOrigen | null) => Promise<boolean>;
-  onAsociar: (idMuestraExterna: number, idLoteMineral: number) => Promise<boolean>;
-  isAsociando?: (idMuestraExterna: number) => boolean;
-  isAgregandoAnalisis?: (idMuestraExterna: number) => boolean;
-  isGuardandoCelda?: (key: string) => boolean;
-  cellKeyFn?: (p: Pick<GuardarValorMuestraPayload, "id_muestra_externa" | "id_grupo_analisis_detalle" | "uuid_fila" | "tipo_origen"> & { id?: number | null }) => string;
-  /** Determina si la muestra puede asociarse a un lote (existe al menos un lote disponible con el mismo proveedor). */
-  puedeAsociar?: (m: MuestraExternaResponse, lotesDisponibles: LoteCierreResponse[]) => { ok: boolean; motivo?: string };
-  /** Permitir arrastrar las filas para soltarlas sobre un lote (HTML5 nativo). */
-  onDragStart?: (idMuestraExterna: number, e: React.DragEvent<HTMLTableRowElement>) => void;
-  onDragEnd?: () => void;
-  /** IDs de muestras marcadas con el checkbox para asociar. */
-  seleccionadasIds?: number[];
-  /** Alterna el checkbox de asociar una muestra. */
-  onToggleSeleccion?: (idMuestraExterna: number) => void;
-  /** Abre el modal "Asociar N seleccionadas" desde el botón "Asociar" de una fila seleccionada. */
-  onAsociarMultiplesClick?: () => void;
-  /** IDs de muestras marcadas para imprimir reporte. */
-  seleccionadasImprimirIds?: number[];
-  /** Alterna el checkbox de imprimir reporte de una muestra. */
-  onToggleSeleccionImprimir?: (idMuestraExterna: number) => void;
-  /** Alterna seleccionar todas / deseleccionar todas para imprimir. */
-  onToggleSelectAllImprimir?: () => void;
-  /** Dispara la impresión del reporte con las seleccionadas. */
-  onImprimirReporte?: () => void;
+  lotesDisponibles: LoteCierreResponse[];
+  onGuardarValoresAnalisis: (idAnalisis: number, payload: GuardarValoresAnalisisPayload) => Promise<boolean>;
+  onAbrirModalAgregarAnalisis: (idGrupo: number, nombre: string) => void;
+  onEliminarAnalisis: (idAnalisis: number) => Promise<boolean>;
+  onAsociarAGrupo: (idMuestraExterna: number, idGrupo: number) => Promise<boolean>;
+  onAsociarMuestrasMultiples?: (idsMuestraExterna: number[], idGrupo: number) => Promise<boolean>;
+  onSubirDocumentos: (idAnalisis: number, archivos: File[]) => Promise<IArchivoDoc[] | boolean | null>;
+  isAsociando?: (idMuestra: number) => boolean;
+  onImprimirMuestra?: (muestra: MuestraExternaResponse) => void;
+  onImprimirMuestras?: (muestras: MuestraExternaResponse[]) => void;
 }
 
 export const TablaMuestrasExternas = ({
   muestras,
-  grupos,
   lotesDisponibles,
-  onGuardarValor,
-  onAgregarAnalisis,
-  onEliminarFila,
-  onActualizarOrigenFila,
-  onAsociar,
+  onGuardarValoresAnalisis,
+  onAbrirModalAgregarAnalisis,
+  onEliminarAnalisis,
+  onAsociarAGrupo,
+  onAsociarMuestrasMultiples,
+  onSubirDocumentos,
   isAsociando,
-  isAgregandoAnalisis,
-  isGuardandoCelda,
-  cellKeyFn,
-  puedeAsociar,
-  onDragStart,
-  onDragEnd,
-  seleccionadasIds,
-  onToggleSeleccion,
-  onAsociarMultiplesClick,
-  seleccionadasImprimirIds,
-  onToggleSeleccionImprimir,
-  onToggleSelectAllImprimir,
-  onImprimirReporte,
+  onImprimirMuestras,
 }: TablaMuestrasExternasProps) => {
   const { notifyWarning } = useNotify();
 
-  // Estado para modal "Asociar a lote"
-  const [asociarOpen, setAsociarOpen] = useState(false);
-  const [muestraSeleccionada, setMuestraSeleccionada] = useState<MuestraExternaResponse | null>(null);
-  const [loteDestinoId, setLoteDestinoId] = useState<string | null>(null);
+  // Selección de muestras (restringida al mismo proveedor)
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
-  // Estado para modal de historial
+  // Modal asociar (soporta 1 o varias muestras)
+  const [modalAsociarOpen, setModalAsociarOpen] = useState(false);
+  const [muestrasParaAsociar, setMuestrasParaAsociar] = useState<MuestraExternaResponse[]>([]);
+  const [idGrupoDestino, setIdGrupoDestino] = useState<string | null>(null);
+  const [guardandoAsociar, setGuardandoAsociar] = useState(false);
+
+  // Modal documentos
+  const [modalDocsId, setModalDocsId] = useState<number | null>(null);
+  const [modalDocsList, setModalDocsList] = useState<IArchivoDoc[]>([]);
+
+  // Modal auditoría
   const [modalLogOpened, setModalLogOpened] = useState(false);
   const [selectedLogInfo, setSelectedLogInfo] = useState<{
-    analitoNombre: string;
+    titulo: string;
     cambios: RES_CambiosLog[] | null | undefined;
   } | null>(null);
 
-  const handleOpenLogModal = (analitoNombre: string, cambios?: RES_CambiosLog[] | null) => {
-    setSelectedLogInfo({ analitoNombre, cambios });
+  const handleOpenLogModal = (titulo: string, cambios?: RES_CambiosLog[] | null) => {
+    setSelectedLogInfo({ titulo, cambios });
     setModalLogOpened(true);
   };
 
-  const totalMuestras = muestras.length;
-  const totalImprimir = seleccionadasImprimirIds?.length ?? 0;
-  const headerImprimirChecked = totalMuestras > 0 && totalImprimir === totalMuestras;
-  const headerImprimirIndeterminate = totalImprimir > 0 && totalImprimir < totalMuestras;
+  // Muestras seleccionadas actuales
+  const muestrasSeleccionadas = muestras.filter((m) => selectedIds.includes(m.id_muestra_externa));
+  const proveedorSeleccionadoNombre = muestrasSeleccionadas[0]?.proveedor_nombre;
+  const proveedorSeleccionadoId = muestrasSeleccionadas[0]?.id_proveedor;
 
-  const handleHeaderImprimirToggle = () => {
-    onToggleSelectAllImprimir?.();
-  };
-
-  const esFilaSeleccionada = (id: number): boolean =>
-    !!seleccionadasIds && seleccionadasIds.includes(id);
-
-  const totalSeleccionadasParaBoton = (id: number): number => {
-    if (!esFilaSeleccionada(id)) return 0;
-    return seleccionadasIds?.length ?? 0;
-  };
-
-  /**
-   * Construye el drag image como una columna de cards (una por muestra del grupo
-   * a asociar). Si la fila arrastrada está en la selección y hay >1 seleccionadas,
-   * muestra todas las seleccionadas; si no, muestra solo la arrastrada. Incluye
-   * un badge "N muestras" en la esquina cuando hay más de una.
-   */
-  const handleDragStart = (m: MuestraExternaResponse, e: React.DragEvent<HTMLTableRowElement>) => {
-    const enSeleccion = !!seleccionadasIds && seleccionadasIds.includes(m.id);
-    const idsParaGhost =
-      enSeleccion && seleccionadasIds && seleccionadasIds.length > 0
-        ? seleccionadasIds
-        : [m.id];
-    const cards = idsParaGhost
-      .map((id) => muestras.find((x) => x.id === id))
-      .filter((x): x is MuestraExternaResponse => x != null);
-
-    const ghost = document.createElement("div");
-    ghost.style.position = "absolute";
-    ghost.style.top = "-1000px";
-    ghost.style.left = "-1000px";
-    ghost.style.display = "flex";
-    ghost.style.flexDirection = "column";
-    ghost.style.gap = "4px";
-    ghost.style.padding = "8px";
-    ghost.style.background = "rgba(9, 9, 11, 0.92)";
-    ghost.style.border = "1px solid rgba(99, 102, 241, 0.5)";
-    ghost.style.borderRadius = "12px";
-    ghost.style.boxShadow = "0 4px 24px rgba(99, 102, 241, 0.4)";
-    ghost.style.fontFamily = "inherit";
-    ghost.style.minWidth = "150px";
-
-    for (const c of cards) {
-      const card = document.createElement("div");
-      card.style.padding = "4px 8px";
-      card.style.background = "rgba(99, 102, 241, 0.15)";
-      card.style.border = "1px solid rgba(99, 102, 241, 0.4)";
-      card.style.borderRadius = "8px";
-      card.style.display = "flex";
-      card.style.flexDirection = "column";
-      card.style.gap = "1px";
-
-      const corr = document.createElement("span");
-      corr.textContent = c.correlativo;
-      corr.style.fontFamily = "monospace";
-      corr.style.fontWeight = "700";
-      corr.style.color = "rgb(165, 180, 252)";
-      corr.style.fontSize = "11px";
-      card.appendChild(corr);
-
-      if (c.proveedor_razon_social) {
-        const prov = document.createElement("span");
-        prov.textContent = c.proveedor_razon_social;
-        prov.style.fontSize = "9px";
-        prov.style.color = "rgb(212, 212, 216)";
-        prov.style.maxWidth = "130px";
-        prov.style.overflow = "hidden";
-        prov.style.textOverflow = "ellipsis";
-        prov.style.whiteSpace = "nowrap";
-        card.appendChild(prov);
-      }
-
-      ghost.appendChild(card);
-    }
-
-    if (cards.length > 1) {
-      const badge = document.createElement("div");
-      badge.textContent = `${cards.length} muestras`;
-      badge.style.position = "absolute";
-      badge.style.top = "-10px";
-      badge.style.right = "-10px";
-      badge.style.background = "rgb(99, 102, 241)";
-      badge.style.color = "#fff";
-      badge.style.borderRadius = "9999px";
-      badge.style.padding = "2px 8px";
-      badge.style.fontSize = "10px";
-      badge.style.fontWeight = "700";
-      badge.style.boxShadow = "0 2px 8px rgba(99, 102, 241, 0.6)";
-      ghost.appendChild(badge);
-    }
-
-    document.body.appendChild(ghost);
-    e.dataTransfer.setDragImage(ghost, 30, 8);
-    setTimeout(() => document.body.removeChild(ghost), 0);
-    onDragStart?.(m.id, e);
-  };
-
-  const handleAbrirAsociar = (m: MuestraExternaResponse) => {
-    setMuestraSeleccionada(m);
-    setLoteDestinoId(null);
-    setAsociarOpen(true);
-  };
-
-  const handleConfirmarAsociacion = async () => {
-    if (!muestraSeleccionada || !loteDestinoId) {
-      notifyWarning("Selecciona un lote destino para asociar la muestra.");
+  const handleToggleSelect = (m: MuestraExternaResponse) => {
+    if (selectedIds.includes(m.id_muestra_externa)) {
+      setSelectedIds((prev) => prev.filter((id) => id !== m.id_muestra_externa));
       return;
     }
-    const ok = await onAsociar(muestraSeleccionada.id, Number(loteDestinoId));
-    if (ok) {
-      setAsociarOpen(false);
-      setMuestraSeleccionada(null);
-      setLoteDestinoId(null);
+
+    if (selectedIds.length > 0) {
+      const primer = muestras.find((x) => selectedIds.includes(x.id_muestra_externa));
+      if (primer && primer.id_proveedor !== m.id_proveedor) {
+        notifyWarning(
+          `Solo puedes seleccionar muestras del mismo proveedor ("${
+            primer.proveedor_nombre || "Sin Proveedor"
+          }"). Limpia la selección previa para cambiar de proveedor.`
+        );
+        return;
+      }
+    }
+
+    setSelectedIds((prev) => [...prev, m.id_muestra_externa]);
+  };
+
+  const handleAbrirAsociar = () => {
+    if (muestrasSeleccionadas.length === 0) return;
+    setMuestrasParaAsociar(muestrasSeleccionadas);
+    setIdGrupoDestino(null);
+    setModalAsociarOpen(true);
+  };
+
+  const handleConfirmarAsociar = async () => {
+    if (muestrasParaAsociar.length === 0 || !idGrupoDestino || guardandoAsociar) return;
+    setGuardandoAsociar(true);
+    try {
+      const destinoNum = Number(idGrupoDestino);
+
+      let ok = false;
+      if (muestrasParaAsociar.length === 1) {
+        ok = await onAsociarAGrupo(muestrasParaAsociar[0].id_muestra_externa, destinoNum);
+      } else if (onAsociarMuestrasMultiples) {
+        ok = await onAsociarMuestrasMultiples(
+          muestrasParaAsociar.map((m) => m.id_muestra_externa),
+          destinoNum
+        );
+      } else {
+        for (const m of muestrasParaAsociar) {
+          await onAsociarAGrupo(m.id_muestra_externa, destinoNum);
+        }
+        ok = true;
+      }
+
+      if (ok) {
+        setSelectedIds((prev) =>
+          prev.filter((id) => !muestrasParaAsociar.some((m) => m.id_muestra_externa === id))
+        );
+        setModalAsociarOpen(false);
+        setMuestrasParaAsociar([]);
+      }
+    } finally {
+      setGuardandoAsociar(false);
     }
   };
 
-  const handleEliminarFilaConfirm = (idMuestraExterna: number, uuidFila: string) => {
-    mostrarConfirmacion({
-      title: "Eliminar corrida de análisis",
-      tipo: "peligro",
-      confirmLabel: "Eliminar",
-      cancelLabel: "Cancelar",
-      message: (
-        <div className="space-y-1">
-          <p>¿Estás seguro de que deseas eliminar esta corrida de análisis?</p>
-          <p className="text-zinc-500 text-xs">
-            Se borrarán todos los valores ingresados en esta corrida (no se pueden revertir).
-          </p>
+  // Drag & drop: crear preview visual flotante (card con código de cliente o mini lista)
+  const createDragGhost = (items: MuestraExternaResponse[]) => {
+    const container = document.createElement("div");
+    container.style.position = "fixed";
+    container.style.top = "-9999px";
+    container.style.left = "-9999px";
+    container.style.zIndex = "999999";
+    container.style.pointerEvents = "none";
+    container.style.background = "linear-gradient(135deg, rgba(30, 27, 75, 0.98), rgba(15, 23, 42, 0.98))";
+    container.style.border = "1.5px solid rgba(99, 102, 241, 0.85)";
+    container.style.borderRadius = "12px";
+    container.style.padding = "8px 12px";
+    container.style.boxShadow = "0 12px 30px rgba(0, 0, 0, 0.7), 0 0 18px rgba(99, 102, 241, 0.5)";
+    container.style.fontFamily = "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+    container.style.color = "#f8fafc";
+    container.style.minWidth = "180px";
+    container.style.maxWidth = "260px";
+
+    if (items.length === 1) {
+      const it = items[0];
+      const codigo = it.codigo_cliente || it.correlativo || `Muestra #${it.id_muestra_externa}`;
+      const proveedor = it.proveedor_nombre || "Sin Proveedor";
+      container.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div style="width: 26px; height: 26px; border-radius: 6px; background: rgba(99, 102, 241, 0.35); border: 1px solid rgba(129, 140, 248, 0.6); display: flex; align-items: center; justify-content: center; font-size: 13px;">
+            🔬
+          </div>
+          <div style="overflow: hidden;">
+            <div style="font-weight: 800; font-size: 12px; color: #c7d2fe; letter-spacing: 0.3px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">${codigo}</div>
+            <div style="font-size: 10px; color: #94a3b8; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">${proveedor}</div>
+          </div>
         </div>
-      ),
-      onConfirm: async () => {
-        await onEliminarFila(idMuestraExterna, uuidFila);
-      },
-    });
-  };
-
-  // Estado local optimista para el Tipo Origen de cada corrida (uuid_fila → TipoOrigen | null)
-  const [runOrigines, setRunOrigines] = useState<Record<string, TipoOrigen | null>>({});
-
-  const handleUpdateOrigen = async (
-    idMuestra: number,
-    uuidFila: string,
-    newOrigen: TipoOrigen | null,
-  ) => {
-    setRunOrigines((prev) => ({ ...prev, [uuidFila]: newOrigen }));
-    await onActualizarOrigenFila(idMuestra, uuidFila, newOrigen);
-  };
-
-  const buildCellKey = (
-    p: Pick<GuardarValorMuestraPayload, "id_muestra_externa" | "id_grupo_analisis_detalle" | "uuid_fila" | "tipo_origen"> & { id?: number | null },
-  ): string =>
-    cellKeyFn
-      ? cellKeyFn(p)
-      : `m${p.id_muestra_externa}|${p.id_grupo_analisis_detalle}|${p.uuid_fila}|${p.tipo_origen ?? "_"}|${p.id ?? "new"}`;
-
-  const opcionesLotes = (() => {
-    const filtrados = muestraSeleccionada
-      ? lotesDisponibles.filter(
-          (l) =>
-            l.id_proveedor_minero !== null &&
-            l.id_proveedor_minero === muestraSeleccionada.id_proveedor_minero,
+      `;
+    } else {
+      const count = items.length;
+      const proveedor = items[0]?.proveedor_nombre || "Sin Proveedor";
+      const itemsHtml = items
+        .slice(0, 5)
+        .map(
+          (it) => `
+          <span style="display: inline-block; background: rgba(99, 102, 241, 0.25); border: 1px solid rgba(129, 140, 248, 0.5); border-radius: 5px; padding: 1px 6px; font-size: 10px; font-weight: 700; color: #c7d2fe; margin-right: 4px; margin-bottom: 3px;">
+            ${it.codigo_cliente || it.correlativo || it.nombre}
+          </span>
+        `
         )
-      : lotesDisponibles;
-    return filtrados.map((l) => ({
-      value: String(l.id),
-      label: `${l.correlativo} (${l.estado_leyes})`,
+        .join("");
+      const moreHtml =
+        count > 5
+          ? `<span style="font-size: 10px; color: #94a3b8; font-weight: 600; padding: 1px 4px;">+${count - 5} más</span>`
+          : "";
+
+      container.innerHTML = `
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(99, 102, 241, 0.3); padding-bottom: 3px;">
+            <span style="font-size: 11px; font-weight: 800; color: #e0e7ff;">${count} Muestras</span>
+            <span style="font-size: 9px; background: #4f46e5; color: white; padding: 1px 6px; border-radius: 9999px; font-weight: 700;">Arrastrando</span>
+          </div>
+          <div style="font-size: 10px; color: #94a3b8; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">${proveedor}</div>
+          <div style="display: flex; flex-wrap: wrap; margin-top: 2px;">
+            ${itemsHtml}
+            ${moreHtml}
+          </div>
+        </div>
+      `;
+    }
+
+    document.body.appendChild(container);
+    return container;
+  };
+
+  // Drag & drop: preparar datos y visual ghost
+  const handleDragStart = (e: React.DragEvent, m: MuestraExternaResponse) => {
+    const isSelected = selectedIds.includes(m.id_muestra_externa);
+    const muestrasToDrag =
+      isSelected && selectedIds.length > 0
+        ? muestras.filter((x) => selectedIds.includes(x.id_muestra_externa))
+        : [m];
+
+    const ghost = createDragGhost(muestrasToDrag);
+    e.dataTransfer.setDragImage(ghost, 20, 20);
+    setTimeout(() => {
+      ghost.remove();
+    }, 0);
+
+    const payload = {
+      ids: muestrasToDrag.map((x) => x.id_muestra_externa),
+      idProveedor: m.id_proveedor,
+      proveedorNombre: m.proveedor_nombre,
+      muestras: muestrasToDrag.map((x) => ({
+        id: x.id_muestra_externa,
+        codigo: x.codigo_cliente || x.correlativo || x.nombre,
+        proveedor: x.proveedor_nombre,
+      })),
+    };
+    e.dataTransfer.setData("application/json", JSON.stringify(payload));
+    e.dataTransfer.setData("text/plain", JSON.stringify(payload.ids));
+    e.dataTransfer.effectAllowed = "copyMove";
+  };
+
+  // Opciones de grupos disponibles para asociar (SOLO de lotes con el MISMO proveedor que la muestra)
+  const proveedorReferencia = muestrasParaAsociar[0]?.id_proveedor ?? proveedorSeleccionadoId;
+  const lotesMismoProveedor = proveedorReferencia
+    ? lotesDisponibles.filter((l) => l.id_proveedor_minero === proveedorReferencia)
+    : lotesDisponibles;
+
+  const opcionesGrupos = lotesMismoProveedor.flatMap((l) => {
+    const grupos =
+      l.grupos_analisis && l.grupos_analisis.length > 0
+        ? l.grupos_analisis
+        : l.grupo_analisis
+        ? [l.grupo_analisis]
+        : [];
+
+    return grupos.map((g) => ({
+      value: String(g.id),
+      label: `${l.correlativo} — ${g.nombre}`,
+      idProveedor: l.id_proveedor_minero,
+      proveedorNombre: l.proveedor_razon_social,
     }));
-  })();
-
-  const lotesVisiblesCount = muestraSeleccionada
-    ? lotesDisponibles.filter(
-        (l) =>
-          l.id_proveedor_minero !== null &&
-          l.id_proveedor_minero === muestraSeleccionada.id_proveedor_minero,
-      ).length
-    : lotesDisponibles.length;
-
-  if (muestras.length === 0) {
-    return null;
-  }
+  });
 
   return (
     <>
-      <div className="w-full overflow-x-auto border border-indigo-700/40 rounded-2xl bg-indigo-950/10 backdrop-blur-md shadow-2xl mt-6">
-        <div className="px-4 py-2 border-b border-indigo-700/30 text-[11px] font-bold tracking-wider text-indigo-300 uppercase flex items-center gap-2">
-          <IconLink size={12} stroke={2.5} />
-          <span>Muestras externas en proceso</span>
-          <span className="ml-auto text-zinc-500 normal-case font-medium">
-            {muestras.length} activa{muestras.length === 1 ? "" : "s"} — check izquierdo: imprimir reporte · check junto a correlativo: asociar
-          </span>
+      {/* Barra de Selección (Suple asociación individual y grupal + reportes) */}
+      {selectedIds.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 p-3 px-4 rounded-2xl bg-indigo-950/50 border border-indigo-700/60 shadow-lg shadow-indigo-950/40 mb-3 animate-fade-in backdrop-blur-md">
+          <div className="flex items-center gap-2.5">
+            <span className="p-1 rounded-lg bg-indigo-600/30 text-indigo-300">
+              <IconChecklist size={16} />
+            </span>
+            <div>
+              <span className="text-xs font-bold text-indigo-100">
+                {selectedIds.length} {selectedIds.length === 1 ? "muestra seleccionada" : "muestras seleccionadas"}
+              </span>
+              {proveedorSeleccionadoNombre && (
+                <span className="text-[11px] text-zinc-400 ml-2">
+                  • Proveedor: <strong className="text-zinc-200">{proveedorSeleccionadoNombre}</strong>
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {onImprimirMuestras && (
+              <button
+                type="button"
+                onClick={() => onImprimirMuestras(muestrasSeleccionadas)}
+                className="text-xs font-semibold text-cyan-300 hover:text-white flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-cyan-700/60 bg-cyan-950/60 hover:bg-cyan-900/60 transition-all cursor-pointer shadow-sm"
+              >
+                <IconPrinter size={13} /> Imprimir Reporte ({selectedIds.length})
+              </button>
+            )}
+
+            <button
+              type="button"
+              disabled={muestrasSeleccionadas.some((m) => isAsociando?.(m.id_muestra_externa))}
+              onClick={handleAbrirAsociar}
+              className="text-xs font-semibold text-white flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-indigo-500 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 transition-all cursor-pointer shadow-md shadow-indigo-900/40"
+            >
+              <IconLink size={13} /> Asociar a Grupo {selectedIds.length > 1 ? `(${selectedIds.length})` : ""}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedIds([])}
+              className="text-xs text-zinc-400 hover:text-zinc-200 p-1.5 rounded-lg hover:bg-zinc-800/60 transition-all cursor-pointer"
+              title="Limpiar selección"
+            >
+              <IconX size={15} />
+            </button>
+          </div>
         </div>
+      )}
+
+      <div className="w-full overflow-x-auto border border-zinc-800 rounded-2xl bg-zinc-900/20 backdrop-blur-md shadow-2xl">
         <table className="w-full text-left border-collapse table-auto">
           <thead>
             <tr className="bg-zinc-900/80 border-b border-zinc-800 text-[10px] font-bold tracking-wider text-zinc-400 uppercase">
-              <th rowSpan={2} className="p-2.5 border-r border-zinc-800 text-center align-middle min-w-10 w-10">
-                <Tooltip
-                  label={
-                    headerImprimirChecked
-                      ? "Desmarcar todas"
-                      : "Seleccionar todas para imprimir reporte"
-                  }
-                  withArrow
-                  position="top"
-                >
-                  <Checkbox
-                    aria-label="Seleccionar todas las muestras para imprimir reporte"
-                    checked={headerImprimirChecked}
-                    indeterminate={headerImprimirIndeterminate}
-                    onChange={handleHeaderImprimirToggle}
-                    size="xs"
-                    color="indigo"
-                  />
-                </Tooltip>
-              </th>
-              <th rowSpan={2} className="p-2.5 border-r border-zinc-800 text-center align-middle min-w-60">
-                <div className="flex items-center justify-center gap-3">
-                  <span>Muestra externa</span>
-                  {!!seleccionadasImprimirIds && seleccionadasImprimirIds.length > 0 && (
-                    <Tooltip
-                      label={`Imprimir ${seleccionadasImprimirIds.length} muestra${seleccionadasImprimirIds.length === 1 ? "" : "s"} seleccionada${seleccionadasImprimirIds.length === 1 ? "" : "s"}`}
-                      withArrow
-                      position="top"
-                    >
-                      <button
-                        type="button"
-                        onClick={onImprimirReporte}
-                        className="relative p-1 rounded-lg border transition-all flex items-center justify-center text-amber-300 bg-amber-500/15 border-amber-500/30 hover:bg-amber-500/25"
-                        aria-label="Imprimir reporte de muestras seleccionadas"
-                      >
-                        <IconPrinter size={12} stroke={2.5} />
-                        <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center">
-                          {seleccionadasImprimirIds.length}
-                        </span>
-                      </button>
-                    </Tooltip>
-                  )}
-                </div>
-              </th>
-              {grupos.map((g: GrupoAnalisisResponse) => {
-                // Para grupos con indicar_origen=true, se añade 1 columna extra (Tipo Origen) por cada corrida
-                // → colSpan = (analitos con sus PROMEDIO) + 1 si indicar_origen
-                const colSpan = g.analitos.reduce((acc: number, a: GrupoAnalisisDetalleResponse) => acc + (a.es_desplegable ? 2 : 1), 0) + (g.indicar_origen ? 1 : 0);
-                return (
-                  <th
-                    key={g.id}
-                    colSpan={colSpan}
-                    className="p-2 border-r border-zinc-800 text-center align-middle bg-zinc-900/50"
-                  >
-                    <div className="flex flex-col items-center">
-                      <span className="text-zinc-200 font-semibold">{g.nombre}</span>
-                    </div>
-                  </th>
-                );
-              })}
-            </tr>
-
-            <tr className="bg-zinc-900/60 border-b border-zinc-800 text-[10px] font-bold text-zinc-400 uppercase">
-              {grupos.map((g: GrupoAnalisisResponse) => {
-                const elements: React.ReactNode[] = [];
-                if (g.indicar_origen) {
-                  elements.push(
-                    <th key={`${g.id}-origen`} className="p-1.5 border-r border-zinc-800 text-center align-middle font-medium text-zinc-500">
-                      Tipo Origen
-                    </th>,
-                  );
-                }
-                g.analitos.forEach((a: GrupoAnalisisDetalleResponse) => {
-                  elements.push(
-                    <th key={`${g.id}-${a.id_analito}`} className="p-1.5 border-r border-zinc-800 text-center align-middle bg-zinc-900/10">
-                      <div className="flex flex-col items-center">
-                        <span className="text-zinc-300 font-semibold">{a.nombre}</span>
-                      </div>
-                    </th>,
-                  );
-                  if (a.es_desplegable) {
-                    elements.push(
-                      <th key={`${g.id}-${a.id_analito}-prom`} className="p-1.5 border-r border-zinc-800 text-center align-middle bg-zinc-900/20 font-semibold text-indigo-400">
-                        Promedio
-                      </th>,
-                    );
-                  }
-                });
-                return elements;
-              })}
+              <th className="p-2.5 border-r border-zinc-800 text-center min-w-44">Muestra</th>
+              <th className="p-2 border-r border-zinc-800 text-center w-28">Origen</th>
+              <th className="p-2 border-r border-zinc-800 text-center min-w-28">NWAU (Oro)</th>
+              <th className="p-2 border-r border-zinc-800 text-center min-w-28">NWAG (Plata)</th>
+              <th className="p-2 border-r border-zinc-800 text-center min-w-24">Humedad</th>
+              <th className="p-2 border-r border-zinc-800 text-center min-w-24">Recuperación</th>
+              <th className="p-2 text-center min-w-24">Evidencia</th>
             </tr>
           </thead>
-
-          <tbody className="divide-y divide-zinc-800">
-            {muestras.map((m: MuestraExternaResponse) => {
-              const dbUuids = Array.from(
-                new Set(m.analisis.map((a) => a.uuid_fila).filter(Boolean)),
-              );
-              const runs = dbUuids.length > 0 ? dbUuids : [`default-run-${m.id}`];
-              const totalRowsForMuestra = runs.length;
-              const asociandoMuestraActual = !!isAsociando?.(m.id);
-              const agregandoActual = !!isAgregandoAnalisis?.(m.id);
-
-              return runs.map((uuidFila: string, runIdx: number) => {
-                const dbRecord = m.analisis.find((a) => a.uuid_fila === uuidFila && a.tipo_origen !== null);
-                const currentTipoOrigen = (
-                  runOrigines[uuidFila] ?? dbRecord?.tipo_origen ?? null
-                ) as TipoOrigen | null;
+          <tbody className="divide-y divide-zinc-800 text-xs">
+            {muestras.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="p-6 text-center text-zinc-500 text-xs">
+                  No hay muestras externas registradas.
+                </td>
+              </tr>
+            ) : (
+              muestras.map((muestra) => {
+                const analisisList = muestra.analisis ?? [];
+                const numAnalisis = analisisList.length > 0 ? analisisList.length : 1;
+                const isSelected = selectedIds.includes(muestra.id_muestra_externa);
 
                 return (
-                  <tr
-                    key={`${m.id}-${uuidFila}`}
-                    draggable
-                    onDragStart={(e) => handleDragStart(m, e)}
-                    onDragEnd={() => onDragEnd?.()}
-                    className="hover:bg-zinc-800/10 transition-colors border-b border-zinc-800 cursor-grab active:cursor-grabbing"
-                  >
-                    {runIdx === 0 && (
-                      <td
-                        rowSpan={totalRowsForMuestra}
-                        className="p-2.5 border-r border-zinc-800 align-middle text-center"
+                  <React.Fragment key={muestra.id}>
+                    {analisisList.length === 0 ? (
+                      <tr
+                        draggable={true}
+                        onDragStart={(e) => handleDragStart(e, muestra)}
+                        className={`transition-colors ${
+                          isSelected ? "bg-indigo-950/30" : "hover:bg-zinc-800/20"
+                        }`}
                       >
-                        <Tooltip label={`Seleccionar ${m.correlativo} para imprimir`} withArrow position="top">
-                          <Checkbox
-                            aria-label={`Seleccionar muestra ${m.correlativo} para imprimir`}
-                            checked={!!seleccionadasImprimirIds && seleccionadasImprimirIds.includes(m.id)}
-                            onChange={() => onToggleSeleccionImprimir?.(m.id)}
-                            size="xs"
-                            color="indigo"
-                          />
-                        </Tooltip>
-                      </td>
-                    )}
-                    {runIdx === 0 && (
-                      <td
-                        rowSpan={totalRowsForMuestra}
-                        className="p-2.5 border-r border-zinc-800 align-middle text-center"
-                      >
-                        <div className="flex flex-col gap-2 items-center">
-                          {/* Fila 1: acciones primarias */}
-                          <div className="flex items-center gap-1.5">
-                            <Tooltip label="Marcar para asociar a lote" withArrow position="top">
-                              <Checkbox
-                                aria-label={`Seleccionar muestra ${m.correlativo} para asociar`}
-                                checked={!!seleccionadasIds && seleccionadasIds.includes(m.id)}
-                                onChange={() => onToggleSeleccion?.(m.id)}
-                                size="xs"
-                                color="indigo"
+                        <td className="p-2.5 border-r border-zinc-800 text-center align-middle">
+                          <div className="flex flex-col items-center gap-1.5">
+                            {/* Checkbox, Nombre, Drag Handle */}
+                            <div className="flex items-center gap-1.5 justify-center">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => handleToggleSelect(muestra)}
+                                className="rounded border-zinc-700 bg-zinc-900 text-indigo-600 focus:ring-0 focus:ring-offset-0 cursor-pointer h-3.5 w-3.5"
+                                title="Seleccionar para asociar o imprimir"
                               />
-                            </Tooltip>
-                            <span className="px-2 py-0.5 bg-indigo-500/15 border border-indigo-500/30 text-indigo-200 rounded-full font-mono text-xs font-semibold whitespace-nowrap">
-                              {m.correlativo}
-                            </span>
-                            <Tooltip label="Agregar nueva corrida de análisis" withArrow position="top">
-                              <button
-                                type="button"
-                                onClick={() => onAgregarAnalisis(m.id)}
-                                disabled={agregandoActual || asociandoMuestraActual}
-                                className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-lg hover:bg-emerald-500/25 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                              >
-                                {agregandoActual ? <Loader size={9} color="currentColor" /> : <IconPlus size={10} />}
-                                {agregandoActual ? "..." : "Análisis"}
-                              </button>
-                            </Tooltip>
-                            {(() => {
-                              const val = puedeAsociar ? puedeAsociar(m, lotesDisponibles) : { ok: true };
-                              const deshabilitado = asociandoMuestraActual || agregandoActual;
-                              const totalSel = totalSeleccionadasParaBoton(m.id);
-                              const enModoMulti = totalSel > 0;
-                              const handleClick = () => {
-                                if (!val.ok) {
-                                  notifyWarning(val.motivo ?? "No se puede asociar la muestra");
-                                  return;
-                                }
-                                if (enModoMulti && onAsociarMultiplesClick) {
-                                  onAsociarMultiplesClick();
-                                  return;
-                                }
-                                handleAbrirAsociar(m);
-                              };
-                              const tooltipLabel = !val.ok
-                                ? (val.motivo ?? "No se puede asociar")
-                                : enModoMulti
-                                ? `Asociar las ${totalSel} muestra${totalSel === 1 ? "" : "s"} seleccionada${totalSel === 1 ? "" : "s"} a un lote`
-                                : "Asociar esta muestra a un lote";
-                              return (
-                                <Tooltip
-                                  label={tooltipLabel}
-                                  withArrow
-                                  position="top"
-                                >
+                              <span className="font-bold text-zinc-200 text-xs">
+                                {muestra.codigo_cliente || muestra.nombre}
+                              </span>
+                              <Tooltip label="Arrastra al grupo de un lote para asociar" withArrow>
+                                <span className="cursor-grab active:cursor-grabbing text-zinc-500 hover:text-indigo-400">
+                                  <IconGripVertical size={13} />
+                                </span>
+                              </Tooltip>
+                            </div>
+
+                            {/* Proveedor */}
+                            {muestra.proveedor_nombre && (
+                              <span className="text-[10px] text-zinc-400 font-medium truncate max-w-44 px-1.5 py-0.2 rounded bg-zinc-800/60 border border-zinc-700/50">
+                                {muestra.proveedor_nombre}
+                              </span>
+                            )}
+
+                            {/* Botón Añadir Análisis */}
+                            <button
+                              type="button"
+                              onClick={() => onAbrirModalAgregarAnalisis(muestra.id, muestra.nombre)}
+                              className="mt-0.5 text-[10px] font-semibold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 px-2.5 py-1 rounded-lg border border-cyan-800/60 bg-cyan-950/40 hover:bg-cyan-900/40 transition-all cursor-pointer"
+                            >
+                              <IconPlus size={11} /> Añadir Análisis
+                            </button>
+                          </div>
+                        </td>
+                        <td colSpan={6} className="p-4 border-r border-zinc-800 text-center text-zinc-500 text-xs">
+                          Sin ensayos registrados en esta muestra.
+                        </td>
+                      </tr>
+                    ) : (
+                      analisisList.map((analisis, idx) => {
+                        const tieneDocs = analisis.documentos && analisis.documentos.length > 0;
+
+                        return (
+                          <tr
+                            key={analisis.id}
+                            draggable={idx === 0}
+                            onDragStart={(e) => idx === 0 && handleDragStart(e, muestra)}
+                            className={`transition-colors ${
+                              isSelected ? "bg-indigo-950/30" : "hover:bg-zinc-800/20"
+                            }`}
+                          >
+                            {/* COLUMNA MUESTRA (Limpia: Checkbox + Nombre + Historial + Proveedor + Añadir Análisis) */}
+                            {idx === 0 && (
+                              <td rowSpan={numAnalisis} className="p-2.5 border-r border-zinc-800 text-center align-middle">
+                                <div className="flex flex-col items-center gap-1.5">
+                                  {/* Checkbox, Nombre, Historial, Drag Handle */}
+                                  <div className="flex items-center gap-1.5 justify-center">
+                                    <input
+                                      type="checkbox"
+                                      checked={isSelected}
+                                      onChange={() => handleToggleSelect(muestra)}
+                                      className="rounded border-zinc-700 bg-zinc-900 text-indigo-600 focus:ring-0 focus:ring-offset-0 cursor-pointer h-3.5 w-3.5"
+                                      title="Seleccionar para asociar o imprimir"
+                                    />
+                                    <span className="font-bold text-zinc-200 text-xs">
+                                      {muestra.codigo_cliente || muestra.nombre}
+                                    </span>
+                                    {analisisList.some((a) => a.log_cambios && a.log_cambios.length > 0) && (
+                                      <Tooltip label="Ver historial de cambios de la muestra" withArrow>
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            handleOpenLogModal(
+                                              `Historial — Muestra ${muestra.codigo_cliente || muestra.nombre}`,
+                                              analisisList.flatMap((a) => a.log_cambios || [])
+                                            )
+                                          }
+                                          className="text-amber-400 hover:text-amber-300 transition-colors p-0.5 cursor-pointer flex items-center"
+                                          title="Historial de cambios"
+                                        >
+                                          <IconHistory size={13} />
+                                        </button>
+                                      </Tooltip>
+                                    )}
+                                    <Tooltip label="Arrastra al grupo de un lote para asociar" withArrow>
+                                      <span className="cursor-grab active:cursor-grabbing text-zinc-500 hover:text-indigo-400">
+                                        <IconGripVertical size={13} />
+                                      </span>
+                                    </Tooltip>
+                                  </div>
+
+                                  {/* Proveedor */}
+                                  {muestra.proveedor_nombre && (
+                                    <span className="text-[10px] text-zinc-400 font-medium truncate max-w-44 px-1.5 py-0.2 rounded bg-zinc-800/60 border border-zinc-700/50">
+                                      {muestra.proveedor_nombre}
+                                    </span>
+                                  )}
+
+                                  {/* Botón Añadir Análisis */}
                                   <button
                                     type="button"
-                                    onClick={handleClick}
-                                    disabled={deshabilitado}
-                                    className={`relative flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-semibold border rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-                                      enModoMulti
-                                        ? "text-emerald-300 bg-emerald-500/15 border-emerald-500/40 hover:bg-emerald-500/25"
-                                        : "text-indigo-300 bg-indigo-500/15 border-indigo-500/30 hover:bg-indigo-500/30"
-                                    }`}
+                                    onClick={() => onAbrirModalAgregarAnalisis(muestra.id, muestra.nombre)}
+                                    className="mt-0.5 text-[10px] font-semibold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 px-2.5 py-1 rounded-lg border border-cyan-800/60 bg-cyan-950/40 hover:bg-cyan-900/40 transition-all cursor-pointer"
                                   >
-                                    {asociandoMuestraActual ? <Loader size={9} color="currentColor" /> : <IconLink size={10} />}
-                                    Asociar
-                                    {enModoMulti && totalSel > 1 && (
-                                      <span className="ml-1 min-w-4 h-4 px-1 rounded-full bg-emerald-500 text-white text-[9px] font-bold flex items-center justify-center">
-                                        {totalSel}
-                                      </span>
-                                    )}
+                                    <IconPlus size={11} /> Añadir Análisis
                                   </button>
-                                </Tooltip>
-                              );
-                            })()}
-                          </div>
-                          {/* Fila 2: metadatos compactos (proveedor + fecha + empleado + codigo cliente opcional) */}
-                          <div className="flex flex-col gap-0.5 text-[10px] leading-tight items-center">
-                            <div className="flex items-center gap-1.5 flex-wrap justify-center">
-                              <span className="text-zinc-300 font-medium truncate max-w-55 text-center">
-                                {m.proveedor_razon_social ?? `Guest #${m.id_proveedor_minero}`}
-                              </span>
-                              {m.codigo_cliente && (
-                                <span className="px-1.5 py-0.2 bg-indigo-950/60 text-indigo-300 rounded border border-indigo-800/60 font-mono text-[9px] font-semibold">
-                                  {m.codigo_cliente}
-                                </span>
-                              )}
-                            </div>
-                            <span className="text-[9px] text-zinc-600 text-center">
-                              {new Date(m.fecha_hora_ingreso || m.created_at).toLocaleString("es-ES", {
-                                day: "2-digit",
-                                month: "2-digit",
-                                year: "2-digit",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })}
-                              {m.empleado_registro_nombre && (
-                                <span className="text-zinc-600"> · {m.empleado_registro_nombre}</span>
-                              )}
-                            </span>
-                          </div>
-                        </div>
-                      </td>
-                    )}
+                                </div>
+                              </td>
+                            )}
 
-                    {grupos.map((g: GrupoAnalisisResponse) => (
-                      <React.Fragment key={`${m.id}-${uuidFila}-${g.id}`}>
-                        {/* Columna "Tipo Origen" — se renderiza por corrida (no rowspan) cuando el grupo lo requiere */}
-                        {g.indicar_origen && (
-                          <td className="p-2 border-r border-zinc-800 text-[10px] font-semibold text-zinc-400 text-center bg-zinc-900/10 align-middle">
-                            <div className="flex items-center justify-center gap-1.5">
-                              <Select
-                                size="xs"
-                                data={[
-                                  { value: "null", label: "—" },
-                                  { value: TipoOrigen.Proveedor, label: "P" },
-                                  { value: TipoOrigen.Interno, label: "I" },
-                                ]}
-                                value={currentTipoOrigen ?? "null"}
-                                onChange={(val) => {
-                                  if (val === undefined) return;
-                                  const next = val === "null" ? null : (val as TipoOrigen);
-                                  void handleUpdateOrigen(m.id, uuidFila, next);
-                                }}
-                                allowDeselect={false}
-                                style={{ width: 36 }}
-                                classNames={{
-                                  input: "bg-zinc-950 border-zinc-800 text-white text-[11px] h-7 px-1 focus:border-zinc-500 text-center",
-                                  option: "text-[11px]",
-                                }}
-                                comboboxProps={{ withinPortal: true }}
-                              />
-{totalRowsForMuestra > 1 && (
-                                    <Tooltip label="Eliminar esta corrida de análisis" withArrow position="top">
-                                      <button
-                                        type="button"
-                                        onClick={() => handleEliminarFilaConfirm(m.id, uuidFila)}
-                                        className="text-zinc-500 hover:text-red-400 p-0.5 rounded transition-all"
-                                      >
-                                        <IconTrashX size={12} />
-                                      </button>
-                                    </Tooltip>
-                                  )}
-                            </div>
-                          </td>
-                        )}
-                        {g.analitos.map((a: GrupoAnalisisDetalleResponse) => {
-                          if (a.es_desplegable) {
-                            const runRecords = m.analisis.filter(
-                              (item) => item.id_grupo_analisis_detalle === a.detalle_id && item.uuid_fila === uuidFila && item.tipo_origen === currentTipoOrigen,
-                            );
-                            const mainRecord = runRecords[0];
-                            const cellSaving = !!isGuardandoCelda?.(
-                              buildCellKey({
-                                id_muestra_externa: m.id,
-                                id_grupo_analisis_detalle: a.detalle_id,
-                                uuid_fila: uuidFila,
-                                tipo_origen: currentTipoOrigen,
-                                id: mainRecord?.id ?? null,
-                              }),
-                            );
-
-                            const recordsConValor = m.analisis.filter(
-                              (it) => it.id_grupo_analisis_detalle === a.detalle_id && (it.esta_confirmada || it.ley > 0),
-                            );
-                            const todosRecords = m.analisis.filter(
-                              (it) => it.id_grupo_analisis_detalle === a.detalle_id,
-                            );
-                            const promedioGlobal =
-                              recordsConValor.length > 0
-                                ? recordsConValor.reduce((acc, cur) => acc + cur.ley, 0) / recordsConValor.length
-                                : todosRecords.length > 0
-                                ? todosRecords.reduce((acc, cur) => acc + cur.ley, 0) / todosRecords.length
-                                : 0;
-
-                            return (
-                              <React.Fragment key={`${m.id}-${uuidFila}-${a.detalle_id}`}>
-                                <td className="p-1.5 border-r border-zinc-800 text-center align-middle">
-                                  <CellInput
-                                    key={mainRecord?.id || "new"}
-                                    initialValue={mainRecord?.ley || 0}
-                                    initialChecked={mainRecord ? mainRecord.esta_confirmada : false}
-                                    saving={cellSaving}
-                                    logCambios={mainRecord?.log_cambios}
-                                    onViewLog={() => handleOpenLogModal(a.nombre, mainRecord?.log_cambios)}
-                                    hideCheckbox
-                                    onSave={(val) =>
-                                      onGuardarValor({
-                                        id: mainRecord?.id || null,
-                                        id_muestra_externa: m.id,
-                                        id_grupo_analisis_detalle: a.detalle_id,
-                                        tipo_origen: currentTipoOrigen,
-                                        uuid_fila: uuidFila,
-                                        ley: val,
-                                        esta_confirmada: false,
-                                      })
-                                    }
-                                  />
-                                </td>
-                                {runIdx === 0 && (
-                                  <td
-                                    rowSpan={totalRowsForMuestra}
-                                    className="p-1.5 border-r border-zinc-800 text-center font-bold text-[11px] text-indigo-400 bg-zinc-900/20 align-middle"
-                                  >
-                                    {promedioGlobal !== null ? promedioGlobal.toFixed(3) : "0.000"}
-                                  </td>
+                            {/* ORIGEN MODIFICABLE */}
+                            <td className="p-1.5 border-r border-zinc-800 text-center align-middle">
+                              <div className="flex items-center justify-center gap-1">
+                                <select
+                                  value={analisis.tipo_origen ?? TipoOrigen.Externo}
+                                  onChange={(e) => {
+                                    const nuevoTipo = e.target.value as TipoOrigen;
+                                    onGuardarValoresAnalisis(analisis.id, { tipo_origen: nuevoTipo });
+                                  }}
+                                  className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border focus:outline-none transition-all cursor-pointer ${
+                                    analisis.tipo_origen === TipoOrigen.Externo
+                                      ? "bg-amber-950/60 border-amber-600/60 text-amber-300"
+                                      : "bg-indigo-950/60 border-indigo-600/60 text-indigo-300"
+                                  }`}
+                                  title="Cambiar Tipo de Origen"
+                                >
+                                  <option value={TipoOrigen.Interno} className="bg-zinc-900 text-zinc-200">Interno</option>
+                                  <option value={TipoOrigen.Externo} className="bg-zinc-900 text-zinc-200">Externo</option>
+                                </select>
+                                <ActionIcon
+                                  size="xs"
+                                  variant="subtle"
+                                  color="red"
+                                  onClick={() => onEliminarAnalisis(analisis.id)}
+                                  title="Eliminar fila de análisis"
+                                >
+                                  <IconTrashX size={12} />
+                                </ActionIcon>
+                                {analisis.log_cambios && analisis.log_cambios.length > 0 && (
+                                  <Tooltip label="Ver historial de cambios del análisis" withArrow>
+                                    <ActionIcon
+                                      size="xs"
+                                      variant="subtle"
+                                      color="yellow"
+                                      onClick={() =>
+                                        handleOpenLogModal(
+                                          `Historial de Cambios — Análisis #${analisis.numero_ensayo}`,
+                                          analisis.log_cambios
+                                        )
+                                      }
+                                      title="Historial de cambios"
+                                    >
+                                      <IconHistory size={12} />
+                                    </ActionIcon>
+                                  </Tooltip>
                                 )}
-                              </React.Fragment>
-                            );
-                          } else {
-                            // No desplegable (Humedad, Recuperación): solo se renderiza un input en runIdx === 0 con rowSpan
-                            if (runIdx !== 0) return null;
+                              </div>
+                            </td>
 
-                            const allRecordsOfDetalle = m.analisis.filter(
-                              (item) => item.id_grupo_analisis_detalle === a.detalle_id,
-                            );
-                            const mainRecord = allRecordsOfDetalle[0];
-                            const targetUuid = mainRecord?.uuid_fila || runs[0] || `default-run-${m.id}`;
-                            const cellSaving = !!isGuardandoCelda?.(
-                              buildCellKey({
-                                id_muestra_externa: m.id,
-                                id_grupo_analisis_detalle: a.detalle_id,
-                                uuid_fila: targetUuid,
-                                tipo_origen: null,
-                                id: mainRecord?.id ?? null,
-                              }),
-                            );
+                            {/* ORO */}
+                            <td className="p-1 border-r border-zinc-800 text-center align-middle">
+                              <CellInput
+                                initialValue={analisis.ley_oro}
+                                initialChecked={analisis.ley_oro_confirmada}
+                                disabled={!tieneDocs}
+                                hideCheckbox
+                                onSave={(val) => {
+                                  onGuardarValoresAnalisis(analisis.id, { ley_oro: val });
+                                }}
+                              />
+                            </td>
 
-                            return (
+                            {/* PLATA */}
+                            <td className="p-1 border-r border-zinc-800 text-center align-middle">
+                              <CellInput
+                                initialValue={analisis.ley_plata}
+                                initialChecked={analisis.ley_plata_confirmada}
+                                disabled={!tieneDocs}
+                                hideCheckbox
+                                onSave={(val) => {
+                                  onGuardarValoresAnalisis(analisis.id, { ley_plata: val });
+                                }}
+                              />
+                            </td>
+
+                            {/* HUMEDAD (un solo input por muestra) */}
+                            {idx === 0 && (
                               <td
-                                key={`${m.id}-single-${a.detalle_id}`}
-                                rowSpan={totalRowsForMuestra}
-                                className="p-1.5 border-r border-zinc-800 text-center align-middle"
+                                rowSpan={numAnalisis}
+                                className="p-1 border-r border-zinc-800 text-center align-middle bg-zinc-950/20"
                               >
                                 <CellInput
-                                  key={mainRecord?.id || "new"}
-                                  initialValue={mainRecord?.ley || 0}
-                                  initialChecked={mainRecord ? mainRecord.esta_confirmada : false}
-                                  saving={cellSaving}
-                                  logCambios={mainRecord?.log_cambios}
-                                  onViewLog={() => handleOpenLogModal(a.nombre, mainRecord?.log_cambios)}
-                                  hideCheckbox
-                                  onSave={(val) =>
-                                    onGuardarValor({
-                                      id: mainRecord?.id || null,
-                                      id_muestra_externa: m.id,
-                                      id_grupo_analisis_detalle: a.detalle_id,
-                                      tipo_origen: null,
-                                      uuid_fila: targetUuid,
-                                      ley: val,
-                                      esta_confirmada: false,
-                                    })
+                                  initialValue={
+                                    analisisList.find((a) => a.ley_humedad > 0)?.ley_humedad ??
+                                    analisisList[0]?.ley_humedad ??
+                                    0
                                   }
+                                  initialChecked={false}
+                                  disabled={!analisisList.some((a) => a.documentos && a.documentos.length > 0)}
+                                  hideCheckbox
+                                  onSave={(val) => {
+                                    analisisList.forEach((a) => {
+                                      onGuardarValoresAnalisis(a.id, { ley_humedad: val });
+                                    });
+                                  }}
                                 />
                               </td>
-                            );
-                          }
-                        })}
-                      </React.Fragment>
-                    ))}
-                  </tr>
+                            )}
+
+                            {/* RECUPERACION (un solo input por muestra) */}
+                            {idx === 0 && (
+                              <td
+                                rowSpan={numAnalisis}
+                                className="p-1 border-r border-zinc-800 text-center align-middle bg-zinc-950/20"
+                              >
+                                <CellInput
+                                  initialValue={
+                                    analisisList.find((a) => a.ley_recuperacion > 0)?.ley_recuperacion ??
+                                    analisisList[0]?.ley_recuperacion ??
+                                    0
+                                  }
+                                  initialChecked={false}
+                                  disabled={!analisisList.some((a) => a.documentos && a.documentos.length > 0)}
+                                  hideCheckbox
+                                  onSave={(val) => {
+                                    analisisList.forEach((a) => {
+                                      onGuardarValoresAnalisis(a.id, { ley_recuperacion: val });
+                                    });
+                                  }}
+                                />
+                              </td>
+                            )}
+
+                            {/* SUSTENTO */}
+                            <td className="p-1.5 text-center align-middle">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setModalDocsId(analisis.id);
+                                  setModalDocsList(analisis.documentos);
+                                }}
+                                className={`px-2 py-1 rounded-lg border text-[11px] font-medium flex items-center justify-center gap-1.5 mx-auto transition-all ${
+                                  tieneDocs
+                                    ? "bg-indigo-950/50 border-indigo-700/60 text-indigo-300 hover:bg-indigo-900/50"
+                                    : "bg-rose-950/30 border-rose-800/60 text-rose-400 hover:bg-rose-900/40"
+                                }`}
+                              >
+                                {tieneDocs ? <IconFileDescription size={13} /> : <IconLock size={13} />}
+                                <span>{analisis.documentos.length}</span>
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </React.Fragment>
                 );
-              });
-            })}
+              })
+            )}
           </tbody>
         </table>
       </div>
 
+      {/* Modal Asociar a Grupo */}
       <ModalEstandar
-        opened={asociarOpen}
-        close={() => setAsociarOpen(false)}
-        title="Asociar muestra externa a lote"
+        opened={modalAsociarOpen}
+        close={() => !guardandoAsociar && setModalAsociarOpen(false)}
+        title={
+          <div className="flex items-center gap-2 text-indigo-400 font-bold text-sm">
+            <IconLink size={17} />
+            <span>Asociar Grupo</span>
+          </div>
+        }
         size="sm"
       >
-        <div className="space-y-4">
-          {muestraSeleccionada && (
-            <div className="text-xs text-zinc-400">
-              Vas a asociar <span className="font-mono text-indigo-300 font-semibold">{muestraSeleccionada.correlativo}</span> al lote del mismo proveedor ({muestraSeleccionada.proveedor_razon_social ?? "—"}) en estado Pendiente o En Proceso. Los análisis de la muestra se migrarán al lote y la muestra desaparecerá de esta tabla.
+        <div className="space-y-3.5">
+          {/* Card de vista previa de muestra(s) en una sola fila compacta */}
+          <div className="p-2.5 rounded-xl bg-zinc-950/60 border border-zinc-800 flex items-center justify-between gap-2">
+            <span className="font-semibold text-zinc-400 uppercase tracking-wider text-[11px] shrink-0">
+              {muestrasParaAsociar.length === 1 ? "Muestra:" : `${muestrasParaAsociar.length} Muestras:`}
+            </span>
+            <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto justify-end">
+              {muestrasParaAsociar.map((m) => (
+                <div
+                  key={m.id_muestra_externa}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-950/60 border border-indigo-700/60 text-xs font-semibold text-indigo-200"
+                >
+                  <span className="text-white">{m.codigo_cliente || m.correlativo || m.nombre}</span>
+                  {m.proveedor_nombre && (
+                    <span className="text-[10px] text-zinc-400">({m.proveedor_nombre})</span>
+                  )}
+                </div>
+              ))}
             </div>
-          )}
+          </div>
 
-          {muestraSeleccionada && lotesVisiblesCount === 0 && (
-            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
-              No hay lotes disponibles del proveedor de esta muestra. Crea o inicia un lote del mismo proveedor antes de asociar.
+          {opcionesGrupos.length === 0 ? (
+            <div className="p-3 rounded-xl bg-amber-950/40 border border-amber-600/50 text-xs text-amber-300 flex items-start gap-2">
+              <span className="text-sm">⚠️</span>
+              <div>
+                No se encontraron lotes con grupos registrados para el proveedor{" "}
+                <strong>"{muestrasParaAsociar[0]?.proveedor_nombre || "Sin Proveedor"}"</strong>.
+                Crea primero un lote y grupo para este proveedor para poder asociar estas muestras.
+              </div>
             </div>
-          )}
-
-          <div className="flex items-center gap-3 pt-1">
-            <div className="flex-1">
-              <Select
-                placeholder={lotesVisiblesCount === 0 ? "No hay lotes compatibles" : "Seleccione un lote..."}
-                data={opcionesLotes}
-                value={loteDestinoId}
-                onChange={setLoteDestinoId}
-                searchable
-                size="xs"
-                radius="lg"
-                disabled={lotesVisiblesCount === 0}
-                comboboxProps={{ withinPortal: true }}
-                classNames={{
-                  input: "bg-zinc-950 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 transition-all rounded-xl h-[40px] font-semibold text-sm",
-                  option: "hover:bg-zinc-800 focus:bg-zinc-800",
-                }}
-              />
-            </div>
-            <Button
-              onClick={handleConfirmarAsociacion}
-              disabled={!loteDestinoId || lotesVisiblesCount === 0 || (muestraSeleccionada ? isAsociando?.(muestraSeleccionada.id) : false)}
-              loading={muestraSeleccionada ? isAsociando?.(muestraSeleccionada.id) : false}
-              leftSection={<IconLink className="w-4 h-4 text-emerald-400" />}
-              radius="lg"
+          ) : (
+            <Select
+              label="Grupo de Análisis Destino"
+              placeholder="Selecciona el grupo de destino..."
+              data={opcionesGrupos}
+              value={idGrupoDestino}
+              onChange={setIdGrupoDestino}
+              searchable
+              required
               size="xs"
-              className="bg-emerald-950/40 border border-emerald-900/50 hover:bg-emerald-900/40 hover:border-emerald-700/60 text-emerald-400 font-semibold h-10 px-5 rounded-xl transition-all disabled:opacity-50"
+              radius="lg"
+              classNames={{
+                input: "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500",
+                label: "text-zinc-300 mb-1 font-medium text-xs",
+              }}
+            />
+          )}
+
+          <div className="flex justify-end gap-2 pt-2 border-t border-zinc-800">
+            <button
+              type="button"
+              disabled={guardandoAsociar}
+              onClick={() => setModalAsociarOpen(false)}
+              className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-zinc-400 hover:text-white border border-zinc-800 hover:bg-zinc-800 disabled:opacity-50 transition-all cursor-pointer"
             >
-              Asociar
-            </Button>
+              Cancelar
+            </button>
+            <button
+              type="button"
+              disabled={
+                !idGrupoDestino ||
+                opcionesGrupos.length === 0 ||
+                guardandoAsociar ||
+                muestrasParaAsociar.some((m) => isAsociando?.(m.id_muestra_externa))
+              }
+              onClick={handleConfirmarAsociar}
+              className="px-4 py-1.5 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 transition-all cursor-pointer flex items-center gap-1.5 shadow-md shadow-indigo-900/40"
+            >
+              {guardandoAsociar ? (
+                <>
+                  <Loader size={13} color="white" />
+                  <span>Asociando...</span>
+                </>
+              ) : (
+                <>
+                  <IconLink size={14} />
+                  <span>Confirmar Asociación {muestrasParaAsociar.length > 1 ? `(${muestrasParaAsociar.length})` : ""}</span>
+                </>
+              )}
+            </button>
           </div>
         </div>
       </ModalEstandar>
 
+      {/* Modal Historial */}
       <ModalEstandar
         opened={modalLogOpened}
         close={() => setModalLogOpened(false)}
-        title={
-          <div className="flex items-center gap-1.5">
-            <IconHistory size={20} className="text-amber-400" />
-            <span>Historial de cambios ({selectedLogInfo?.analitoNombre || "Análisis"})</span>
-          </div>
-        }
+        title={selectedLogInfo?.titulo ?? "Historial de Cambios"}
         size="lg"
       >
-        <CambiosLogViewer
-          cambios={selectedLogInfo?.cambios?.filter((c) => !c.motivo?.toLowerCase().includes("muestra externa") && !c.cambios?.some((sub) => sub.campo_bd === "id_muestra_externa" || (sub.campo_bd === "id_lote_mineral" && sub.valor_anterior === null)))}
-          camposLegiblesCustom={{
-            ley: "Ley",
-            esta_confirmada: "Estado Confirmado",
-            tipo_origen: "Tipo de origen",
-            id_lote_mineral: "Lote Mineral",
-            id_muestra_externa: "Muestra Externa",
-          }}
-        />
+        <CambiosLogViewer cambios={selectedLogInfo?.cambios ?? []} />
       </ModalEstandar>
+
+      {/* Modal Documentos */}
+      {modalDocsId !== null && (
+        <ModalDocumentosAnalisis
+          opened={true}
+          onClose={() => setModalDocsId(null)}
+          idAnalisis={modalDocsId}
+          documentos={
+            (() => {
+              for (const m of muestras) {
+                const an = m.analisis?.find((a) => a.id === modalDocsId);
+                if (an) return an.documentos;
+              }
+              return modalDocsList;
+            })()
+          }
+          onSubirDocumentos={onSubirDocumentos}
+        />
+      )}
     </>
   );
 };

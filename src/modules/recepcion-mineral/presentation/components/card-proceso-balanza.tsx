@@ -342,9 +342,9 @@ export const CardProcesoBalanza = ({
     correlativo: p.lote_correlativo ?? "",
     numero_correlativo: null,
     con_codigo_manual: false,
-    id_proveedor_minero: p.id_proveedor_minero ?? null,
+    id_proveedor_minero: p.id_proveedor_minero ?? idProveedorUnidad ?? null,
     id_proveedor_minero_recepcion:
-      idProveedorUnidad ?? p.id_proveedor_minero ?? null,
+      idProveedorUnidad ?? ru.id_proveedor_minero ?? null,
     id_zona_origen: p.id_zona_origen ?? null,
     numero_contacto: p.numero_contacto ?? null,
     tipo_producto: p.tipo_producto ?? null,
@@ -500,8 +500,8 @@ export const CardProcesoBalanza = ({
     // se persisten en lote_mineral y el backend los hidrata en cada listado.
     const proveedorUnidad =
       particion.id_proveedor_minero ??
-      lotePadreReal?.id_proveedor_minero_recepcion ??
       lotePadreReal?.id_proveedor_minero ??
+      lotePadreReal?.id_proveedor_minero_recepcion ??
       ru.id_proveedor_minero ??
       null;
 

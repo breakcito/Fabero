@@ -42,7 +42,15 @@ export const ValorizacionCompraService = {
     if (payload.id_cuenta_detraccion != null) {
       formData.append("id_cuenta_detraccion", String(payload.id_cuenta_detraccion));
     }
-    formData.append("tipo_pago", payload.tipo_pago);
+    if (payload.tipo_pago) {
+      formData.append("tipo_pago", payload.tipo_pago);
+    }
+    if (payload.porcentaje_igv != null) {
+      formData.append("porcentaje_igv", String(payload.porcentaje_igv));
+    }
+    if (payload.porcentaje_detraccion != null) {
+      formData.append("porcentaje_detraccion", String(payload.porcentaje_detraccion));
+    }
     formData.append("detalles", JSON.stringify(payload.detalles));
     formData.append("anticipos", JSON.stringify(payload.anticipos ?? []));
     if (payload.evidencias && payload.evidencias.length > 0) {
@@ -72,7 +80,15 @@ export const ValorizacionCompraService = {
     if (payload.id_cuenta_detraccion != null) {
       formData.append("id_cuenta_detraccion", String(payload.id_cuenta_detraccion));
     }
-    formData.append("tipo_pago", payload.tipo_pago);
+    if (payload.tipo_pago) {
+      formData.append("tipo_pago", payload.tipo_pago);
+    }
+    if (payload.porcentaje_igv != null) {
+      formData.append("porcentaje_igv", String(payload.porcentaje_igv));
+    }
+    if (payload.porcentaje_detraccion != null) {
+      formData.append("porcentaje_detraccion", String(payload.porcentaje_detraccion));
+    }
     formData.append("detalles", JSON.stringify(payload.detalles));
     formData.append("anticipos", JSON.stringify(payload.anticipos ?? []));
     formData.append(
@@ -96,8 +112,23 @@ export const ValorizacionCompraService = {
     return data;
   },
 
-  aprobarValorizacion: async (id: number): Promise<IRespuesta<void>> => {
-    const { data } = await api.post(`${basePath}/${id}/aprobar`);
+  aprobarValorizacion: async (
+    id: number,
+    payload: import("./valorizacion-compra.requests").REQ_AprobarValorizacion,
+  ): Promise<IRespuesta<void>> => {
+    const formData = new FormData();
+    formData.append("id_cuenta_bancaria", String(payload.id_cuenta_bancaria));
+    formData.append("id_cuenta_detraccion", String(payload.id_cuenta_detraccion));
+    formData.append("tipo_pago", payload.tipo_pago);
+    formData.append("anticipos", JSON.stringify(payload.anticipos ?? []));
+    if (payload.evidencias && payload.evidencias.length > 0) {
+      payload.evidencias.forEach((file) => {
+        formData.append("evidencias[]", file);
+      });
+    }
+    const { data } = await api.post(`${basePath}/${id}/aprobar`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
     return data;
   },
 
