@@ -550,7 +550,9 @@ export const TicketLiquidacionCompraPdf = ({ data }: TicketLiquidacionCompraPdfP
 
             <View style={styles.infoRow}>
               <Text style={[styles.infoLabel, { width: 145 }]}>FACTURA ASOCIADA:</Text>
-              <Text style={styles.infoValue}>{dash(data.factura_asociada)}</Text>
+              <Text style={styles.infoValue}>
+                {dash(data.factura_asociada)}
+              </Text>
             </View>
           </View>
         </View>

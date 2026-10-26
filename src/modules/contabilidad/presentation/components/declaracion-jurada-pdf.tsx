@@ -136,14 +136,29 @@ const styles = StyleSheet.create({
   },
 });
 
+const MESES = [
+  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+  "Julio", "Agosto", "Setiembre", "Octubre", "Noviembre", "Diciembre"
+];
+
 const formatFechaLarga = (fechaIso?: string): string => {
   if (!fechaIso) {
     const ahora = new Date();
-    return `La Libertad, ${ahora.getDate()} de ${ahora.toLocaleString("es-PE", { month: "long" })} de ${ahora.getFullYear()}`;
+    return `La Libertad, ${ahora.getDate()} de ${MESES[ahora.getMonth()]} de ${ahora.getFullYear()}`;
   }
   try {
+    const datePart = fechaIso.split("T")[0].split(" ")[0];
+    const parts = datePart.split("-");
+    if (parts.length === 3) {
+      const anio = parseInt(parts[0], 10);
+      const mesIdx = parseInt(parts[1], 10) - 1;
+      const dia = parseInt(parts[2], 10);
+      if (!Number.isNaN(dia) && mesIdx >= 0 && mesIdx < 12 && !Number.isNaN(anio)) {
+        return `La Libertad, ${dia} de ${MESES[mesIdx]} de ${anio}`;
+      }
+    }
     const d = new Date(fechaIso);
-    return `La Libertad, ${d.getDate()} de ${d.toLocaleString("es-PE", { month: "long" })} de ${d.getFullYear()}`;
+    return `La Libertad, ${d.getDate()} de ${MESES[d.getMonth()]} de ${d.getFullYear()}`;
   } catch {
     return `La Libertad, —`;
   }
@@ -152,6 +167,14 @@ const formatFechaLarga = (fechaIso?: string): string => {
 const formatFechaCorta = (fechaIso?: string): string => {
   if (!fechaIso) return "—";
   try {
+    const datePart = fechaIso.split("T")[0].split(" ")[0];
+    const parts = datePart.split("-");
+    if (parts.length === 3) {
+      const anio = parts[0];
+      const mes = parts[1].padStart(2, "0");
+      const dia = parts[2].padStart(2, "0");
+      return `${dia}/${mes}/${anio}`;
+    }
     const d = new Date(fechaIso);
     const day = String(d.getDate()).padStart(2, "0");
     const month = String(d.getMonth() + 1).padStart(2, "0");
@@ -167,16 +190,30 @@ export const DeclaracionJuradaPdf = ({ comprobante, valorizacion }: Props) => {
     comprobante?.proveedor_nombre || valorizacion?.proveedor_nombre || "—";
   const proveedorRuc =
     comprobante?.proveedor_ruc || valorizacion?.proveedor_ruc || "—";
-  const proveedorDireccion = valorizacion?.proveedor_direccion || "—";
+  const proveedorDireccion =
+    valorizacion?.proveedor_direccion && valorizacion.proveedor_direccion !== "—"
+      ? valorizacion.proveedor_direccion
+      : "________________________________________";
 
   const concesionNombre =
     comprobante?.concesion_nombre || valorizacion?.concesion_nombre || "—";
   const concesionCodigo = valorizacion?.concesion_codigo_reinfo || "—";
 
-  const codigoCompleto =
-    comprobante?.codigo_completo || valorizacion?.factura_asociada || valorizacion?.correlativo || "—";
-  const fechaEmision =
-    comprobante?.fecha_emision || valorizacion?.fecha_hora_valorizacion || valorizacion?.created_at;
+  const numeroFactura =
+    comprobante?.codigo_completo ||
+    (comprobante?.serie && comprobante?.numero ? `${comprobante.serie}-${comprobante.numero}` : null) ||
+    (valorizacion?.factura_asociada && valorizacion.factura_asociada !== "—" ? valorizacion.factura_asociada : null);
+
+  const fechaFactura =
+    comprobante?.fecha_emision ||
+    valorizacion?.fecha_factura ||
+    null;
+
+  const fechaDocumento =
+    comprobante?.fecha_emision ||
+    valorizacion?.fecha_factura ||
+    valorizacion?.fecha_hora_valorizacion ||
+    valorizacion?.created_at;
 
   // Ubicación: distrito, provincia, departamento
   let distrito = "—";
@@ -213,11 +250,11 @@ export const DeclaracionJuradaPdf = ({ comprobante, valorizacion }: Props) => {
         : "—";
 
   return (
-    <Document title={`Declaración Jurada - ${codigoCompleto}`}>
+    <Document title={`Declaración Jurada - ${numeroFactura || valorizacion?.correlativo || "Doc"}`}>
       <Page size="A4" orientation="portrait" style={styles.page}>
         {/* FECHA SUPERIOR */}
         <Text style={styles.headerDate}>
-          {formatFechaLarga(fechaEmision)}
+          {formatFechaLarga(fechaDocumento)}
         </Text>
 
         {/* TÍTULO PRINCIPAL */}
@@ -229,12 +266,13 @@ export const DeclaracionJuradaPdf = ({ comprobante, valorizacion }: Props) => {
         <Text style={styles.paragraph}>
           La empresa {proveedorNombre} con RUC N° {proveedorRuc}, con domicilio
           fiscal en {proveedorDireccion}, debidamente representado por su
-          Gerente General —, identificado con D.N.I. N° —, que de acuerdo a lo
-          dispuesto por el capitulo II de la Ley General de Minería D.S.
-          014-92-EM sobre la libre comercialización de oro; asi como los Decretos
-          Legislativos N° 1100,1105,1107, y los D.S. N° 06-2012-EM y D.S.
-          012-2012-EM, relacionado a la interdicción a la minería ilegal, proceso
-          de formalización de las actividades de pequeña minería y minería
+          Gerente General ________________________________________, identificado con
+          D.N.I. N° ____________________, que de acuerdo a lo dispuesto por el
+          capitulo II de la Ley General de Minería D.S. 014-92-EM sobre la libre
+          comercialización de oro; asi como los Decretos Legislativos N°
+          1100,1105,1107, y los D.S. N° 06-2012-EM y D.S. 012-2012-EM,
+          relacionado a la interdicción a la minería ilegal, proceso de
+          formalización de las actividades de pequeña minería y minería
           artesanal, medidas para el control y fiscalización del producto
           minero, obtenidas en dichas actividades; DECLARA BAJO JURAMENTO que el
           mineral bruto que ofrecemos comercializar a FABRICACIONES FABERO S.A.C.
@@ -247,12 +285,12 @@ export const DeclaracionJuradaPdf = ({ comprobante, valorizacion }: Props) => {
           <Text style={styles.tableHeader}>DATOS DE LA FACTURA</Text>
           <View style={styles.tableRow}>
             <Text style={styles.labelCell}>N° DE FACTURA</Text>
-            <Text style={styles.valueCell}>{codigoCompleto}</Text>
+            <Text style={styles.valueCell}>{numeroFactura || "—"}</Text>
           </View>
           <View style={styles.tableRow}>
             <Text style={styles.labelCell}>FECHA DE FACTURA</Text>
             <Text style={styles.valueCell}>
-              {formatFechaCorta(fechaEmision)}
+              {fechaFactura ? formatFechaCorta(fechaFactura) : "—"}
             </Text>
           </View>
           <View style={styles.tableRowLast}>
@@ -324,8 +362,9 @@ export const DeclaracionJuradaPdf = ({ comprobante, valorizacion }: Props) => {
         {/* SECCIÓN FIRMAS */}
         <View style={styles.signaturesArea}>
           <View style={styles.signatureColumn}>
+            {/* Espacio en blanco para la firma física */}
+            <View style={{ height: 50 }} />
             <View style={styles.signatureLine} />
-            <Text style={styles.signatureName}>—</Text>
             <Text style={styles.signatureRole}>GERENTE GENERAL</Text>
             <Text style={styles.signatureCompany}>{proveedorNombre}</Text>
             <Text style={styles.signatureRuc}>R.U.C.: {proveedorRuc}</Text>

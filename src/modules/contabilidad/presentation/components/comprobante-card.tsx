@@ -164,7 +164,7 @@ export const ComprobanteCard = ({
         : 0);
 
   const totalDolares = isCompra
-    ? ((comprobante as RES_ComprobanteCompra).total ?? (comprobante as any).total_dolares ?? 0)
+    ? ((comprobante as RES_ComprobanteCompra).total ?? 0)
     : ((comprobante as RES_ComprobanteVenta).total_dolares ?? 0);
 
   const pctPagadoTotal =
@@ -265,22 +265,22 @@ export const ComprobanteCard = ({
             )}
           </Group>
           <Group gap={4}>
-            <IconCalendar size={12} className="text-zinc-500" />
-            <Text fz={11} c="dimmed">{formatFecha(comprobante.fecha_emision)}</Text>
+            <IconCalendar size={13} className="text-zinc-300" />
+            <Text fz={11} c="white">{formatFecha(comprobante.fecha_emision)}</Text>
             {isCompra ? (
               <>
-                <Text fz={11} c="dimmed">·</Text>
-                <Text fz={11} c="dimmed">{(comprobante as RES_ComprobanteCompra).valorizacion_correlativo}</Text>
-                <Text fz={11} c="dimmed">·</Text>
-                <Text fz={11} fw={600}>{(comprobante as RES_ComprobanteCompra).proveedor_nombre}</Text>
-                <Text fz={11} c="dimmed">({(comprobante as RES_ComprobanteCompra).concesion_nombre ?? "—"})</Text>
+                <Text fz={11} c="white">·</Text>
+                <Text fz={11} c="white">{(comprobante as RES_ComprobanteCompra).valorizacion_correlativo}</Text>
+                <Text fz={11} c="white">·</Text>
+                <Text fz={11} fw={700} c="white">{(comprobante as RES_ComprobanteCompra).proveedor_nombre}</Text>
+                <Text fz={11} c="white">({(comprobante as RES_ComprobanteCompra).concesion_nombre ?? "—"})</Text>
               </>
             ) : (
               <>
-                <Text fz={11} c="dimmed">·</Text>
+                <Text fz={11} c="white">·</Text>
                 <Badge color="indigo" variant="light" size="xs">Planta</Badge>
-                <Text fz={11} fw={600} c="white">{(comprobante as RES_ComprobanteVenta).planta_nombre}</Text>
-                <Text fz={11} c="dimmed">
+                <Text fz={11} fw={700} c="white">{(comprobante as RES_ComprobanteVenta).planta_nombre}</Text>
+                <Text fz={11} c="white">
                   ({(comprobante as RES_ComprobanteVenta).empresa_nombre ?? "Fabero"})
                 </Text>
               </>
@@ -331,50 +331,50 @@ export const ComprobanteCard = ({
       <Group grow align="stretch" mb="sm">
         <div className={`bg-zinc-900/50 border ${isAnulado ? "border-red-900/30" : "border-indigo-500/30"} rounded-lg p-3`}>
           <Group justify="space-between">
-            <Text fz={10} tt="uppercase" c={isAnulado ? "red.4" : "indigo.4"} fw={700}>Total</Text>
+            <Text fz={11} tt="uppercase" c={isAnulado ? "red.4" : "indigo.4"} fw={700}>Total</Text>
             {renderBadgeEstadoPago(isTotalSaldado)}
           </Group>
           <Text fz="lg" fw={800} c="white" className="font-mono">$ {totalDolares.toFixed(2)}</Text>
           {isCompra ? (
-            <Text fz={10} c="dimmed">
+            <Text fz={11} c="white">
               V. Venta: $ {(comprobante as RES_ComprobanteCompra).valor_venta.toFixed(2)} · IGV: $ {(comprobante as RES_ComprobanteCompra).monto_igv.toFixed(2)}
             </Text>
           ) : (
-            <Text fz={10} c="dimmed">
+            <Text fz={11} c="white">
               Equiv: S/ {(comprobante as RES_ComprobanteVenta).total_soles.toFixed(2)} · IGV: S/ {(comprobante as RES_ComprobanteVenta).monto_igv_soles.toFixed(2)}
             </Text>
           )}
-          <Text fz={10} c="dimmed">TC: {comprobante.tipo_cambio_venta.toFixed(3)}</Text>
+          <Text fz={11} c="white">TC: {comprobante.tipo_cambio_venta.toFixed(3)}</Text>
           <Progress value={pctPagadoTotal} color={isAnulado ? "red" : "indigo"} size="xs" mt={6} />
-          <Text fz={9} c="dimmed" mt={2}>
+          <Text fz={11} c="white" mt={4} fw={500}>
             Pagado: $ {totalPagadoUsd.toFixed(2)} / $ {totalDolares.toFixed(2)}
           </Text>
         </div>
 
         <div className={`bg-zinc-900/50 border ${isAnulado ? "border-red-900/30" : "border-teal-500/30"} rounded-lg p-3`}>
           <Group justify="space-between">
-            <Text fz={10} tt="uppercase" c={isAnulado ? "red.4" : "teal.4"} fw={700}>Saldo Neto</Text>
+            <Text fz={11} tt="uppercase" c={isAnulado ? "red.4" : "teal.4"} fw={700}>Saldo Neto</Text>
             {renderBadgeEstadoPago(isNetoSaldado)}
           </Group>
           <Text fz="lg" fw={800} c="white" className="font-mono">$ {comprobante.monto_neto.toFixed(2)}</Text>
-          <Text fz={10} c="dimmed">Equiv: S/ {(comprobante.monto_neto * comprobante.tipo_cambio_venta).toFixed(2)}</Text>
-          <Text fz={10} c="dimmed">TC: {comprobante.tipo_cambio_venta.toFixed(3)}</Text>
+          <Text fz={11} c="white">Equiv: S/ {(comprobante.monto_neto * comprobante.tipo_cambio_venta).toFixed(2)}</Text>
+          <Text fz={11} c="white">TC: {comprobante.tipo_cambio_venta.toFixed(3)}</Text>
           <Progress value={pctPagadoNeto} color={isAnulado ? "red" : "teal"} size="xs" mt={6} />
-          <Text fz={9} c="dimmed" mt={2}>
+          <Text fz={11} c="white" mt={4} fw={500}>
             Pagado: $ {(isAnulado ? 0 : comprobante.avance_pago_neto).toFixed(2)} / $ {comprobante.monto_neto.toFixed(2)}
           </Text>
         </div>
 
         <div className={`bg-zinc-900/50 border ${isAnulado ? "border-red-900/30" : "border-yellow-500/30"} rounded-lg p-3`}>
           <Group justify="space-between">
-            <Text fz={10} tt="uppercase" c={isAnulado ? "red.4" : "yellow.4"} fw={700}>Detracción (S/)</Text>
+            <Text fz={11} tt="uppercase" c={isAnulado ? "red.4" : "yellow.4"} fw={700}>Detracción (S/)</Text>
             {renderBadgeEstadoPago(isDetraccionSaldado)}
           </Group>
           <Text fz="lg" fw={800} c="white" className="font-mono">S/ {comprobante.monto_detraccion_soles.toFixed(2)}</Text>
-          <Text fz={10} c="dimmed">Equiv: $ {comprobante.monto_detraccion.toFixed(2)}</Text>
-          <Text fz={10} c="dimmed">TC: {comprobante.tipo_cambio_venta.toFixed(3)} · {(comprobante.porcentaje_detraccion * 100).toFixed(0)}%</Text>
+          <Text fz={11} c="white">Equiv: $ {comprobante.monto_detraccion.toFixed(2)}</Text>
+          <Text fz={11} c="white">TC: {comprobante.tipo_cambio_venta.toFixed(3)} · {(comprobante.porcentaje_detraccion * 100).toFixed(0)}%</Text>
           <Progress value={pctPagadoDetraccion} color={isAnulado ? "red" : "yellow"} size="xs" mt={6} />
-          <Text fz={9} c="dimmed" mt={2}>
+          <Text fz={11} c="white" mt={4} fw={500}>
             Pagado: S/ {(isAnulado ? 0 : comprobante.avance_pago_detraccion).toFixed(2)} / S/ {comprobante.monto_detraccion_soles.toFixed(2)}
           </Text>
         </div>

@@ -102,6 +102,8 @@ export interface RES_ValorizacionCompra {
   tmh_total_gr?: string | number | null;
   tmh_total_balanza?: number | null;
   factura_asociada?: string | null;
+  fecha_factura?: string | null;
+  tiene_factura?: boolean;
   igv?: number | null;
   total_con_igv?: number | null;
   monto_detraccion?: number | null;
