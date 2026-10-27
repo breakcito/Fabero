@@ -282,12 +282,12 @@ export const TablaCierreLeyes = ({
           <thead>
             {/* Cabecera Principal */}
             <tr className="bg-zinc-900/80 border-b border-zinc-800 text-[10px] font-bold tracking-wider text-zinc-400 uppercase">
-              <th rowSpan={2} className="p-2.5 border-r border-zinc-800 text-center align-middle min-w-40">
+              <th rowSpan={2} className="p-2.5 border-r border-zinc-800 text-center align-middle w-36">
                 Lote
               </th>
 
-              <th rowSpan={2} className="p-2.5 border-r border-zinc-800 text-center align-middle min-w-36">
-                Grupo de Análisis
+              <th rowSpan={2} className="p-2.5 border-r border-zinc-800 text-center align-middle w-32">
+                Grupo
               </th>
 
               {/* LEYES (cubriendo Au, Ag, Humedad, Recuperación -> 7 columnas) */}

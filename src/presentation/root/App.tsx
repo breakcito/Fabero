@@ -1,4 +1,6 @@
 import { Routes, Route, Navigate } from "react-router-dom";
+import { lazy, Suspense } from "react";
+import { Loader } from "@mantine/core";
 import { PublicLayout } from "../layouts/public.layout.tsx";
 import { AuthLayout } from "../layouts/auth/auth.layout.tsx";
 import { ProtectedRoute } from "./protectedRoute.tsx";
@@ -42,6 +44,20 @@ import BlendingPage from "../../modules/blending/presentation/blending.page.tsx"
 import ProgramacionDespachosPage from "../../modules/programacion-despachos/presentation/programacion-despachos.page.tsx";
 import ProgramarRecepcionPage from "../../modules/programar-recepcion/presentation/programar-recepcion.page.tsx";
 import { ValorizacionesVentaPage } from "../../modules/valorizacion-venta/presentation/valorizacion-venta.page.tsx";
+
+// El dashboard arrastra la librería de gráficos (~500 KB), por eso se carga
+// bajo demanda para no penalizar al resto de rutas.
+const DashboardPage = lazy(() =>
+  import("../../modules/dashboard/presentation/dashboard.page.tsx").then((m) => ({
+    default: m.DashboardPage,
+  })),
+);
+
+const DashboardFallback = () => (
+  <div className="flex min-h-[60vh] items-center justify-center">
+    <Loader color="indigo" type="bars" />
+  </div>
+);
 
 export const App = () => {
   const { setModoAuditoria } = useAuditoriaStore();
@@ -88,7 +104,17 @@ export const App = () => {
       >
         {/* Inicio */}
         <Route path="/" element={<Navigate to="/home" replace />} />
-        <Route path="/home" element={<HomePage />} />
+        {/* Dashboard de indicadores (reemplaza al home) */}
+        <Route
+          path="/home"
+          element={
+            <Suspense fallback={<DashboardFallback />}>
+              <DashboardPage />
+            </Suspense>
+          }
+        />
+        {/* Accesos rápidos del home (conservado) */}
+        <Route path="/home/acciones" element={<HomePage />} />
 
         {/* Perfil */}
         <Route path="/perfil" element={<PerfilPage />} />

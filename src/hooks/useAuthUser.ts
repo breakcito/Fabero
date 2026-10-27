@@ -28,7 +28,15 @@ export const useAuthUser = () => {
   const isAuthorized = useMemo(() => {
     // Rutas que siempre están permitidas
     const universallyAllowed = ["/", "/home", "/perfil"];
-    if (universallyAllowed.includes(location.pathname)) return true;
+    if (
+      universallyAllowed.some(
+        (ruta) =>
+          location.pathname === ruta ||
+          location.pathname.startsWith(`${ruta}/`),
+      )
+    ) {
+      return true;
+    }
 
     // Si el menú aún no carga pero está autenticado, permitimos el paso inicial.
     if (!menu || menu.length === 0) return true;
