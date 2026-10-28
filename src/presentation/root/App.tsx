@@ -4,8 +4,6 @@ import { AuthLayout } from "../layouts/auth/auth.layout.tsx";
 import { ProtectedRoute } from "./protectedRoute.tsx";
 import { PublicRoute } from "./publicRoute.tsx";
 // import { PlaceholderPage } from "../pages/placeholder.page.tsx";
-// Layouts
-import { GenericLayout } from "../layouts/generic.layout.tsx";
 // Vistas
 import { LoginPage } from "../../modules/login/presentation/login.page.tsx";
 import { HomePage } from "../pages/home/home.page.tsx";
@@ -42,6 +40,15 @@ import BlendingPage from "../../modules/blending/presentation/blending.page.tsx"
 import ProgramacionDespachosPage from "../../modules/programacion-despachos/presentation/programacion-despachos.page.tsx";
 import ProgramarRecepcionPage from "../../modules/programar-recepcion/presentation/programar-recepcion.page.tsx";
 import { ValorizacionesVentaPage } from "../../modules/valorizacion-venta/presentation/valorizacion-venta.page.tsx";
+import SystemPage from "../../modules/system/presentation/system.page.tsx";
+import { RUTAS_LEGACY } from "../../shared/variables/rutas-legacy";
+
+/**
+ * Rutas legacy (arbol anidado /configuracion/... y /operaciones/...) que se
+ * redirigen a las rutas planas actuales. Se mantienen para no romper los
+ * enlaces guardados antes del aplanado del arbol de navegacion.
+ */
+const RUTAS_LEGACY_ENTRADAS = Object.entries(RUTAS_LEGACY);
 
 export const App = () => {
   const { setModoAuditoria } = useAuditoriaStore();
@@ -93,117 +100,74 @@ export const App = () => {
         {/* Perfil */}
         <Route path="/perfil" element={<PerfilPage />} />
 
-        {/* Configuracion */}
-        <Route path="/configuracion" element={<GenericLayout />}>
-          {/* Empresas */}
-          <Route path="empresas" element={<GenericLayout />}>
-            <Route path="empresas" element={<EmpresasPage />} />
-            <Route path="sucursales" element={<SucursalesPage />} />
-          </Route>
+        {/* ------------------------------------------------------------
+            Rutas planas: el path del nodo (menu/submenu/modulo) ES la ruta.
+            Los contenedores (es_desplegable) no tienen ruta propia.
+           ------------------------------------------------------------ */}
+        <Route path="/empresas" element={<EmpresasPage />} />
+        <Route path="/sucursales" element={<SucursalesPage />} />
+        <Route path="/areas_cargos" element={<OrganigramaPage />} />
+        <Route path="/trabajadores" element={<PersonalPage />} />
+        <Route path="/roles" element={<RolesPage />} />
+        <Route path="/cuentas" element={<CuentasPage />} />
+        <Route path="/proveedores-mineros" element={<ProveedoresPage />} />
+        <Route path="/plantas-destino" element={<PlantasDestinoPage />} />
+        <Route
+          path="/empresas-transporte"
+          element={<EmpresasTransportePage />}
+        />
+        <Route
+          path="/condiciones-comerciales-proveedor"
+          element={<CondicionesComercialesProveedorPage />}
+        />
+        <Route
+          path="/condiciones-comerciales-planta"
+          element={<CondicionesComercialesPlantaPage />}
+        />
+        <Route path="/conductores" element={<ConductoresPage />} />
+        <Route path="/vehiculos" element={<VehiculosPage />} />
+        <Route path="/recepcion-unidades" element={<RecepcionUnidadesPage />} />
+        <Route path="/recepcion-visitas" element={<RecepcionVisitasPage />} />
+        <Route
+          path="/programar-recepcion"
+          element={<ProgramarRecepcionPage />}
+        />
+        <Route path="/recepcion-mineral" element={<RecepcionMineralPage />} />
+        <Route
+          path="/validacion-distribucion"
+          element={<ValidacionDistribucionPage />}
+        />
+        <Route path="/resumen-balanza" element={<ResumenBalanzaPage />} />
+        <Route path="/guias-primer-tramo" element={<GuiasPrimerTramoPage />} />
+        <Route path="/cierre-leyes" element={<CierreLeyesPage />} />
+        <Route
+          path="/anticipos-proveedor"
+          element={<AnticiposProveedorPage />}
+        />
+        <Route path="/anticipos-planta" element={<AnticiposPlantaPage />} />
+        <Route
+          path="/valorizacion-compra"
+          element={<ValorizacionesCompraPage />}
+        />
+        <Route
+          path="/valorizacion-venta"
+          element={<ValorizacionesVentaPage />}
+        />
+        <Route path="/contabilidad" element={<ContabilidadPage />} />
+        <Route path="/blending" element={<BlendingPage />} />
+        <Route path="/despacho" element={<ProgramacionDespachosPage />} />
 
-          {/* Personal */}
-          <Route path="personal" element={<GenericLayout />}>
-            <Route path="areas_cargos" element={<OrganigramaPage />} />
-            <Route path="trabajadores" element={<PersonalPage />} />
-          </Route>
+        {/* Modulo System: configuracion del arbol de navegacion */}
+        <Route path="/system" element={<SystemPage />} />
 
-          {/* Usuarios */}
-          <Route path="usuarios" element={<GenericLayout />}>
-            <Route path="roles" element={<RolesPage />} />
-            <Route path="cuentas" element={<CuentasPage />} />
-          </Route>
-
-          {/* Socios Comerciales */}
-          <Route path="socios-comerciales" element={<GenericLayout />}>
-            <Route path="proveedores-mineros" element={<ProveedoresPage />} />
-            <Route
-              path="proveedor"
-              element={<CondicionesComercialesProveedorPage />}
-            />
-            <Route
-              path="planta"
-              element={<CondicionesComercialesPlantaPage />}
-            />
-            <Route path="plantas-destino" element={<PlantasDestinoPage />} />
-            <Route
-              path="empresas-transporte"
-              element={<EmpresasTransportePage />}
-            />
-          </Route>
-
-          {/* Transporte */}
-          <Route path="empresa-transporte" element={<GenericLayout />}>
-            <Route path="conductores" element={<ConductoresPage />} />
-            <Route path="vehiculos" element={<VehiculosPage />} />
-          </Route>
-        </Route>
-
-        {/* Operaciones */}
-        <Route path="/operaciones" element={<GenericLayout />}>
-          <Route path="vigilancia" element={<GenericLayout />}>
-            {/* Recepción de Unidades */}
-            <Route
-              path="recepcion-unidades"
-              element={<RecepcionUnidadesPage />}
-            />
-            {/* Recepción de Visitas */}
-            <Route
-              path="recepcion-visitas"
-              element={<RecepcionVisitasPage />}
-            />
-
-            {/* Programación de Unidades */}
-            <Route path="programar-recepcion" element={<ProgramarRecepcionPage />} />
-          </Route>
-          <Route path="balanza" element={<GenericLayout />}>
-            {/* Recepción de Minerales */}
-            <Route
-              path="recepcion-mineral"
-              element={<RecepcionMineralPage />}
-            />
-            {/* Validación y Distribución */}
-            <Route
-              path="validacion-distribucion"
-              element={<ValidacionDistribucionPage />}
-            />
-            {/* Resumen de Balanza */}
-            <Route path="resumen-balanza" element={<ResumenBalanzaPage />} />
-          </Route>
-          <Route path="guias" element={<GenericLayout />}>
-            {/* Recepción de Minerales */}
-            <Route path="primer-tramo" element={<GuiasPrimerTramoPage />} />
-          </Route>
-          {/* Gestion Leyes */}
-          <Route path="leyes" element={<GenericLayout />}>
-            <Route path="cierre-leyes" element={<CierreLeyesPage />} />
-          </Route>
-
-          <Route path="anticipos" element={<GenericLayout />}>
-            <Route path="proveedor" element={<AnticiposProveedorPage />} />
-            <Route path="planta" element={<AnticiposPlantaPage />} />
-          </Route>
-
-          {/* Gestion Valorizaciones */}
-          <Route path="valorizacion" element={<GenericLayout />}>
-            <Route path="compra" element={<ValorizacionesCompraPage />} />
-            <Route path="venta" element={<ValorizacionesVentaPage />} />
-          </Route>
-
-          {/* Gestion Contabilidad */}
-          <Route path="contabilidad" element={<GenericLayout />}>
-            <Route path="contabilidad" element={<ContabilidadPage />} />
-          </Route>
-
-          {/* Blending */}
-          <Route path="blending" element={<GenericLayout />}>
-            <Route path="blending" element={<BlendingPage />} />
-          </Route>
-
-          {/* Despacho */}
-          <Route path="despacho" element={<GenericLayout />}>
-            <Route path="programacion" element={<ProgramacionDespachosPage />} />
-          </Route>
-        </Route>
+        {/* Redirecciones de rutas legacy (arbol anidado) */}
+        {RUTAS_LEGACY_ENTRADAS.map(([desde, hacia]) => (
+          <Route
+            key={desde}
+            path={desde}
+            element={<Navigate to={hacia} replace />}
+          />
+        ))}
 
         <Route path="*" element={<Navigate to="/home" replace />} />
       </Route>

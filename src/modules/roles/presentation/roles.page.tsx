@@ -172,7 +172,7 @@ export const RolesPage = () => {
         title={
           selectedRol ? `Editar Permisos: ${selectedRol.nombre}` : "Crear Rol"
         }
-        size="md"
+        size="lg"
       >
         <RegistroRol
           estructura={registro.estructura}
@@ -182,8 +182,8 @@ export const RolesPage = () => {
           setNombre={registro.setNombre}
           descripcion={registro.descripcion}
           setDescripcion={registro.setDescripcion}
-          modulosSeleccionados={registro.modulosSeleccionados}
-          onToggleModulo={registro.handleToggleModulo}
+          isChecked={registro.isChecked}
+          onTogglePermiso={registro.handleTogglePermiso}
           onToggleSubmenu={registro.handleToggleSubmenu}
           onSave={registro.handleGuardar}
           onCancel={closeCreate}

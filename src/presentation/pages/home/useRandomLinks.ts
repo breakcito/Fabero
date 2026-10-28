@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { CubeIcon } from "@heroicons/react/24/outline";
 import { useMenuNav } from "../../../hooks/useMenuNav";
-import { iconos_menu_navegacion } from "../../../shared/variables/iconos-menu-navegacion";
+import { getIconoPorItem } from "../../../shared/variables/iconos-menu-navegacion";
 
 export interface IAccesoRapido {
   title: string;
@@ -24,26 +24,37 @@ export const useRandomLinks = () => {
 
     const accesses: IAccesoRapido[] = [];
     menu.forEach((menuItem) => {
+      // Menú hoja (acceso directo)
+      if (!menuItem.es_desplegable && menuItem.path) {
+        accesses.push({
+          title: menuItem.nombre,
+          desc: menuItem.nombre,
+          icon: getIconoPorItem(menuItem) || CubeIcon,
+          url: `/${menuItem.path}`,
+        });
+      }
+
       if (!Array.isArray(menuItem.submenus)) return;
 
-      const menuIconData = iconos_menu_navegacion.find(
-        (i) => i.menu_path === menuItem.path,
-      );
-
       menuItem.submenus.forEach((submenu) => {
-        if (!Array.isArray(submenu.modulos)) return;
+        // Submenú hoja (acceso directo)
+        if (!submenu.es_desplegable && submenu.path) {
+          accesses.push({
+            title: submenu.nombre,
+            desc: menuItem.nombre,
+            icon: getIconoPorItem(submenu) || CubeIcon,
+            url: `/${submenu.path}`,
+          });
+        }
 
-        const submenuIconData = menuIconData?.submenus?.find(
-          (s) => s.submenu_path === submenu.path,
-        );
-        const icon = submenuIconData?.icono || CubeIcon;
+        if (!Array.isArray(submenu.modulos)) return;
 
         submenu.modulos.forEach((modulo) => {
           accesses.push({
             title: modulo.nombre,
             desc: submenu.nombre,
-            icon: icon,
-            url: modulo.url,
+            icon: getIconoPorItem(modulo) || CubeIcon,
+            url: `/${modulo.path}`,
           });
         });
       });
