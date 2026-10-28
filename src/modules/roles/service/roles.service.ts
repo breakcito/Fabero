@@ -1,7 +1,11 @@
 import { api } from "../../../service/_api";
 import type { IRespuesta } from "../../../shared/interfaces/_response";
 import type { DTO_RegistroRol } from "./roles.requests";
-import type { RES_Rol, RES_MenuEstructura } from "./roles.responses";
+import type {
+  RES_Rol,
+  RES_MenuEstructura,
+  RES_PermisoNodo,
+} from "./roles.responses";
 
 export class RolesService {
   private static PATH = "/roles";
@@ -27,17 +31,17 @@ export class RolesService {
 
   public static get_permisos_rol = async (
     id_rol: number,
-  ): Promise<IRespuesta<number[]>> => {
+  ): Promise<IRespuesta<RES_PermisoNodo[]>> => {
     const { data } = await api.get(`${this.PATH}/permisos/${id_rol}`);
     return data;
   };
 
   public static actualizar_permisos_rol = async (
     id_rol: number,
-    modulos: number[],
+    permisos: RES_PermisoNodo[],
   ): Promise<IRespuesta<null>> => {
     const { data } = await api.patch(`${this.PATH}/permisos/${id_rol}`, {
-      modulos,
+      permisos,
     });
     return data;
   };

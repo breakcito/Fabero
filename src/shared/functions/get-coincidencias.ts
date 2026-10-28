@@ -133,5 +133,32 @@ export const getCoincidencias = <T>(
   fuseResults.forEach((idx) => addResult(idx, "fuse"));
   flexResults.forEach((idx) => addResult(idx, "flexsearch"));
 
+  // 5. FALLBACK: substring normalizado.
+  // Guarantee que cualquier query cuyas letras existan (en orden, sin importar
+  // tildes/mayúsculas) ENCUENTRE sus matches, incluso cuando Fuse y/o
+  // FlexSearch fallen — algo que ocurre con queries muy cortos (1-3 chars)
+  // y con Bitap en Fuse 7.3.0.
+  if (combinedMap.size === 0 && searchQuery.length >= 1) {
+    const matchesBySubstring = (haystack: string): boolean =>
+      normalizeText(haystack).includes(searchQuery);
+
+    if (isPlainList) {
+      list.forEach((item, idx) => {
+        if (matchesBySubstring(String(item))) {
+          addResult(idx, "flexsearch");
+        }
+      });
+    } else {
+      list.forEach((item, idx) => {
+        const obj = item as Record<string, unknown>;
+        const isMatch = keys.some((k) => {
+          const val = obj[k];
+          return typeof val === "string" && matchesBySubstring(val);
+        });
+        if (isMatch) addResult(idx, "flexsearch");
+      });
+    }
+  }
+
   return Array.from(combinedMap.values());
 };

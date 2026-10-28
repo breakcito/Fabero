@@ -39,6 +39,6 @@ const fn = (): IModuleAIContext => {
   };
 };
 
-registerModuleAIContext("/operaciones/vigilancia/recepcion-visitas", fn);
+registerModuleAIContext("/recepcion-visitas", fn);
 
 export const useModuleAIContext = fn;
