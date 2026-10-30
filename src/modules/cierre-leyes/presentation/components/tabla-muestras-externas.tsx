@@ -3,9 +3,8 @@ import { ActionIcon, Select, Tooltip, Loader } from "@mantine/core";
 import {
   IconPlus,
   IconTrashX,
+  IconEye,
   IconLink,
-  IconFileDescription,
-  IconLock,
   IconPrinter,
   IconGripVertical,
   IconX,
@@ -16,12 +15,15 @@ import { TipoOrigen } from "../../../../shared/enums/_generic/tipo-origen";
 import type {
   MuestraExternaResponse,
   LoteCierreResponse,
+  AnalisisMineralResponse,
   IArchivoDoc,
 } from "../../service/cierre-leyes.responses";
 import { CellInput } from "./cell-input";
+import { BotonEvidenciaAnalisis } from "./boton-evidencia-analisis";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
 import { CambiosLogViewer } from "../../../../presentation/utils/cambios-log-viewer";
 import { ModalDocumentosAnalisis } from "./modal-documentos-analisis";
+import { ModalDetalleAnalisis } from "./modal-detalle-analisis";
 import type { GuardarValoresAnalisisPayload } from "../../service/cierre-leyes.service";
 import type { RES_CambiosLog } from "../../../../service/responses/_generic/cambios-log";
 import { useNotify } from "../../../../hooks/useNotify";
@@ -32,6 +34,7 @@ interface TablaMuestrasExternasProps {
   onGuardarValoresAnalisis: (idAnalisis: number, payload: GuardarValoresAnalisisPayload) => Promise<boolean>;
   onAbrirModalAgregarAnalisis: (idGrupo: number, nombre: string) => void;
   onEliminarAnalisis: (idAnalisis: number) => Promise<boolean>;
+  eliminandoAnalisis?: Record<number, boolean>;
   onAsociarAGrupo: (idMuestraExterna: number, idGrupo: number) => Promise<boolean>;
   onAsociarMuestrasMultiples?: (idsMuestraExterna: number[], idGrupo: number) => Promise<boolean>;
   onSubirDocumentos: (idAnalisis: number, archivos: File[]) => Promise<IArchivoDoc[] | boolean | null>;
@@ -46,6 +49,7 @@ export const TablaMuestrasExternas = ({
   onGuardarValoresAnalisis,
   onAbrirModalAgregarAnalisis,
   onEliminarAnalisis,
+  eliminandoAnalisis,
   onAsociarAGrupo,
   onAsociarMuestrasMultiples,
   onSubirDocumentos,
@@ -54,20 +58,18 @@ export const TablaMuestrasExternas = ({
 }: TablaMuestrasExternasProps) => {
   const { notifyWarning } = useNotify();
 
-  // Selección de muestras (restringida al mismo proveedor)
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
-  // Modal asociar (soporta 1 o varias muestras)
   const [modalAsociarOpen, setModalAsociarOpen] = useState(false);
   const [muestrasParaAsociar, setMuestrasParaAsociar] = useState<MuestraExternaResponse[]>([]);
   const [idGrupoDestino, setIdGrupoDestino] = useState<string | null>(null);
   const [guardandoAsociar, setGuardandoAsociar] = useState(false);
 
-  // Modal documentos
   const [modalDocsId, setModalDocsId] = useState<number | null>(null);
   const [modalDocsList, setModalDocsList] = useState<IArchivoDoc[]>([]);
 
-  // Modal auditoría
+  const [detalleAnalisis, setDetalleAnalisis] = useState<AnalisisMineralResponse | null>(null);
+
   const [modalLogOpened, setModalLogOpened] = useState(false);
   const [selectedLogInfo, setSelectedLogInfo] = useState<{
     titulo: string;
@@ -79,7 +81,6 @@ export const TablaMuestrasExternas = ({
     setModalLogOpened(true);
   };
 
-  // Muestras seleccionadas actuales
   const muestrasSeleccionadas = muestras.filter((m) => selectedIds.includes(m.id_muestra_externa));
   const proveedorSeleccionadoNombre = muestrasSeleccionadas[0]?.proveedor_nombre;
   const proveedorSeleccionadoId = muestrasSeleccionadas[0]?.id_proveedor;
@@ -145,7 +146,6 @@ export const TablaMuestrasExternas = ({
     }
   };
 
-  // Drag & drop: crear preview visual flotante (card con código de cliente o mini lista)
   const createDragGhost = (items: MuestraExternaResponse[]) => {
     const container = document.createElement("div");
     container.style.position = "fixed";
@@ -215,7 +215,6 @@ export const TablaMuestrasExternas = ({
     return container;
   };
 
-  // Drag & drop: preparar datos y visual ghost
   const handleDragStart = (e: React.DragEvent, m: MuestraExternaResponse) => {
     const isSelected = selectedIds.includes(m.id_muestra_externa);
     const muestrasToDrag =
@@ -244,7 +243,6 @@ export const TablaMuestrasExternas = ({
     e.dataTransfer.effectAllowed = "copyMove";
   };
 
-  // Opciones de grupos disponibles para asociar (SOLO de lotes con el MISMO proveedor que la muestra)
   const proveedorReferencia = muestrasParaAsociar[0]?.id_proveedor ?? proveedorSeleccionadoId;
   const lotesMismoProveedor = proveedorReferencia
     ? lotesDisponibles.filter((l) => l.id_proveedor_minero === proveedorReferencia)
@@ -268,7 +266,6 @@ export const TablaMuestrasExternas = ({
 
   return (
     <>
-      {/* Barra de Selección (Suple asociación individual y grupal + reportes) */}
       {selectedIds.length > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-3 p-3 px-4 rounded-2xl bg-indigo-950/50 border border-indigo-700/60 shadow-lg shadow-indigo-950/40 mb-3 animate-fade-in backdrop-blur-md">
           <div className="flex items-center gap-2.5">
@@ -323,13 +320,13 @@ export const TablaMuestrasExternas = ({
         <table className="w-full text-left border-collapse table-auto">
           <thead>
             <tr className="bg-zinc-900/80 border-b border-zinc-800 text-[10px] font-bold tracking-wider text-zinc-400 uppercase">
-              <th className="p-2.5 border-r border-zinc-800 text-center min-w-44">Muestra</th>
-              <th className="p-2 border-r border-zinc-800 text-center w-28">Origen</th>
-              <th className="p-2 border-r border-zinc-800 text-center min-w-28">NWAU (Oro)</th>
-              <th className="p-2 border-r border-zinc-800 text-center min-w-28">NWAG (Plata)</th>
-              <th className="p-2 border-r border-zinc-800 text-center min-w-24">Humedad</th>
-              <th className="p-2 border-r border-zinc-800 text-center min-w-24">Recuperación</th>
-              <th className="p-2 text-center min-w-24">Evidencia</th>
+              <th className="p-2.5 border-r border-zinc-800 text-center w-[32%] min-w-52">Muestra</th>
+              <th className="p-2 border-r border-zinc-800 text-center w-[8%] min-w-18">Evidencia</th>
+              <th className="p-2 border-r border-zinc-800 text-center w-[18%] min-w-33">Origen</th>
+              <th className="p-2 border-r border-zinc-800 text-center w-[13%] min-w-22">NWAU (Oro)</th>
+              <th className="p-2 border-r border-zinc-800 text-center w-[13%] min-w-22">NWAG (Plata)</th>
+              <th className="p-2 border-r border-zinc-800 text-center w-[8%] min-w-18">Humedad</th>
+              <th className="p-2 text-center w-[8%] min-w-21">Recuperación</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-800 text-xs">
@@ -345,6 +342,63 @@ export const TablaMuestrasExternas = ({
                 const numAnalisis = analisisList.length > 0 ? analisisList.length : 1;
                 const isSelected = selectedIds.includes(muestra.id_muestra_externa);
 
+                const renderMuestraCell = (
+                  <td rowSpan={numAnalisis} className="p-2.5 border-r border-zinc-800 text-center align-middle">
+                    <div className="flex flex-col items-center gap-1.5">
+                      <div className="flex items-center gap-2 justify-center flex-wrap">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleToggleSelect(muestra)}
+                          className="rounded border-zinc-700 bg-zinc-900 text-indigo-600 focus:ring-0 focus:ring-offset-0 cursor-pointer h-3.5 w-3.5 shrink-0"
+                          title="Seleccionar para asociar o imprimir"
+                        />
+                        <span className="font-bold text-white text-xs shrink-0">
+                          {muestra.codigo_cliente || muestra.nombre}
+                        </span>
+                        {muestra.proveedor_nombre && (
+                          <span
+                            title={muestra.proveedor_nombre}
+                            className="text-[11px] text-zinc-200 font-semibold truncate max-w-48 px-2.5 py-0.5 rounded-md bg-zinc-800/80 border border-zinc-700/70"
+                          >
+                            {muestra.proveedor_nombre}
+                          </span>
+                        )}
+                        {analisisList.some((a) => a.log_cambios && a.log_cambios.length > 0) && (
+                          <Tooltip label="Ver historial de cambios de la muestra" withArrow>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleOpenLogModal(
+                                  `Historial — Muestra ${muestra.codigo_cliente || muestra.nombre}`,
+                                  analisisList.flatMap((a) => a.log_cambios || [])
+                                )
+                              }
+                              className="text-amber-400 hover:text-amber-300 transition-colors p-0.5 cursor-pointer flex items-center shrink-0"
+                              title="Historial de cambios"
+                            >
+                              <IconHistory size={13} />
+                            </button>
+                          </Tooltip>
+                        )}
+                        <Tooltip label="Arrastra al grupo de un lote para asociar" withArrow>
+                          <span className="cursor-grab active:cursor-grabbing text-zinc-500 hover:text-indigo-400 shrink-0">
+                            <IconGripVertical size={13} />
+                          </span>
+                        </Tooltip>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => onAbrirModalAgregarAnalisis(muestra.id, muestra.nombre)}
+                        className="mt-0.5 text-[10px] font-semibold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 px-2.5 py-1 rounded-lg border border-cyan-800/60 bg-cyan-950/40 hover:bg-cyan-900/40 transition-all cursor-pointer"
+                      >
+                        <IconPlus size={11} /> Añadir Análisis
+                      </button>
+                    </div>
+                  </td>
+                );
+
                 return (
                   <React.Fragment key={muestra.id}>
                     {analisisList.length === 0 ? (
@@ -355,51 +409,23 @@ export const TablaMuestrasExternas = ({
                           isSelected ? "bg-indigo-950/30" : "hover:bg-zinc-800/20"
                         }`}
                       >
-                        <td className="p-2.5 border-r border-zinc-800 text-center align-middle">
-                          <div className="flex flex-col items-center gap-1.5">
-                            {/* Checkbox, Nombre, Drag Handle */}
-                            <div className="flex items-center gap-1.5 justify-center">
-                              <input
-                                type="checkbox"
-                                checked={isSelected}
-                                onChange={() => handleToggleSelect(muestra)}
-                                className="rounded border-zinc-700 bg-zinc-900 text-indigo-600 focus:ring-0 focus:ring-offset-0 cursor-pointer h-3.5 w-3.5"
-                                title="Seleccionar para asociar o imprimir"
-                              />
-                              <span className="font-bold text-zinc-200 text-xs">
-                                {muestra.codigo_cliente || muestra.nombre}
-                              </span>
-                              <Tooltip label="Arrastra al grupo de un lote para asociar" withArrow>
-                                <span className="cursor-grab active:cursor-grabbing text-zinc-500 hover:text-indigo-400">
-                                  <IconGripVertical size={13} />
-                                </span>
-                              </Tooltip>
-                            </div>
-
-                            {/* Proveedor */}
-                            {muestra.proveedor_nombre && (
-                              <span className="text-[10px] text-zinc-400 font-medium truncate max-w-44 px-1.5 py-0.2 rounded bg-zinc-800/60 border border-zinc-700/50">
-                                {muestra.proveedor_nombre}
-                              </span>
-                            )}
-
-                            {/* Botón Añadir Análisis */}
-                            <button
-                              type="button"
-                              onClick={() => onAbrirModalAgregarAnalisis(muestra.id, muestra.nombre)}
-                              className="mt-0.5 text-[10px] font-semibold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 px-2.5 py-1 rounded-lg border border-cyan-800/60 bg-cyan-950/40 hover:bg-cyan-900/40 transition-all cursor-pointer"
-                            >
-                              <IconPlus size={11} /> Añadir Análisis
-                            </button>
-                          </div>
-                        </td>
-                        <td colSpan={6} className="p-4 border-r border-zinc-800 text-center text-zinc-500 text-xs">
+                        {renderMuestraCell}
+                        <td className="p-2 border-r border-zinc-800 text-center align-middle text-zinc-600">-</td>
+                        <td colSpan={5} className="p-4 text-center text-zinc-500 text-xs">
                           Sin ensayos registrados en esta muestra.
                         </td>
                       </tr>
                     ) : (
                       analisisList.map((analisis, idx) => {
-                        const tieneDocs = analisis.documentos && analisis.documentos.length > 0;
+                        const tieneDocs = Boolean(analisis.documentos && analisis.documentos.length > 0);
+                        const analisisEnriquecido: AnalisisMineralResponse = {
+                          ...analisis,
+                          id_muestra_externa: analisis.id_muestra_externa ?? muestra.id_muestra_externa,
+                          muestra_correlativo: analisis.muestra_correlativo ?? muestra.correlativo,
+                          muestra_codigo_cliente: analisis.muestra_codigo_cliente ?? muestra.codigo_cliente,
+                          muestra_proveedor_nombre: analisis.muestra_proveedor_nombre ?? muestra.proveedor_nombre,
+                          muestra_fecha_hora_ingreso: analisis.muestra_fecha_hora_ingreso ?? muestra.fecha_hora_ingreso,
+                        };
 
                         return (
                           <tr
@@ -410,75 +436,30 @@ export const TablaMuestrasExternas = ({
                               isSelected ? "bg-indigo-950/30" : "hover:bg-zinc-800/20"
                             }`}
                           >
-                            {/* COLUMNA MUESTRA (Limpia: Checkbox + Nombre + Historial + Proveedor + Añadir Análisis) */}
-                            {idx === 0 && (
-                              <td rowSpan={numAnalisis} className="p-2.5 border-r border-zinc-800 text-center align-middle">
-                                <div className="flex flex-col items-center gap-1.5">
-                                  {/* Checkbox, Nombre, Historial, Drag Handle */}
-                                  <div className="flex items-center gap-1.5 justify-center">
-                                    <input
-                                      type="checkbox"
-                                      checked={isSelected}
-                                      onChange={() => handleToggleSelect(muestra)}
-                                      className="rounded border-zinc-700 bg-zinc-900 text-indigo-600 focus:ring-0 focus:ring-offset-0 cursor-pointer h-3.5 w-3.5"
-                                      title="Seleccionar para asociar o imprimir"
-                                    />
-                                    <span className="font-bold text-zinc-200 text-xs">
-                                      {muestra.codigo_cliente || muestra.nombre}
-                                    </span>
-                                    {analisisList.some((a) => a.log_cambios && a.log_cambios.length > 0) && (
-                                      <Tooltip label="Ver historial de cambios de la muestra" withArrow>
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            handleOpenLogModal(
-                                              `Historial — Muestra ${muestra.codigo_cliente || muestra.nombre}`,
-                                              analisisList.flatMap((a) => a.log_cambios || [])
-                                            )
-                                          }
-                                          className="text-amber-400 hover:text-amber-300 transition-colors p-0.5 cursor-pointer flex items-center"
-                                          title="Historial de cambios"
-                                        >
-                                          <IconHistory size={13} />
-                                        </button>
-                                      </Tooltip>
-                                    )}
-                                    <Tooltip label="Arrastra al grupo de un lote para asociar" withArrow>
-                                      <span className="cursor-grab active:cursor-grabbing text-zinc-500 hover:text-indigo-400">
-                                        <IconGripVertical size={13} />
-                                      </span>
-                                    </Tooltip>
-                                  </div>
+                            {/* COLUMNA MUESTRA */}
+                            {idx === 0 && renderMuestraCell}
 
-                                  {/* Proveedor */}
-                                  {muestra.proveedor_nombre && (
-                                    <span className="text-[10px] text-zinc-400 font-medium truncate max-w-44 px-1.5 py-0.2 rounded bg-zinc-800/60 border border-zinc-700/50">
-                                      {muestra.proveedor_nombre}
-                                    </span>
-                                  )}
-
-                                  {/* Botón Añadir Análisis */}
-                                  <button
-                                    type="button"
-                                    onClick={() => onAbrirModalAgregarAnalisis(muestra.id, muestra.nombre)}
-                                    className="mt-0.5 text-[10px] font-semibold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 px-2.5 py-1 rounded-lg border border-cyan-800/60 bg-cyan-950/40 hover:bg-cyan-900/40 transition-all cursor-pointer"
-                                  >
-                                    <IconPlus size={11} /> Añadir Análisis
-                                  </button>
-                                </div>
-                              </td>
-                            )}
-
-                            {/* ORIGEN MODIFICABLE */}
+                            {/* EVIDENCIA (movida justo después de Muestra; gris sin archivos, verde con archivos) */}
                             <td className="p-1.5 border-r border-zinc-800 text-center align-middle">
-                              <div className="flex items-center justify-center gap-1">
+                              <BotonEvidenciaAnalisis
+                                cantidad={analisis.documentos?.length ?? 0}
+                                onClick={() => {
+                                  setModalDocsId(analisis.id);
+                                  setModalDocsList(analisis.documentos);
+                                }}
+                              />
+                            </td>
+
+                            {/* ORIGEN Y ACCIONES */}
+                            <td className="p-1.5 border-r border-zinc-800 text-center align-middle">
+                              <div className="flex items-center justify-center gap-0.5">
                                 <select
                                   value={analisis.tipo_origen ?? TipoOrigen.Externo}
                                   onChange={(e) => {
                                     const nuevoTipo = e.target.value as TipoOrigen;
                                     onGuardarValoresAnalisis(analisis.id, { tipo_origen: nuevoTipo });
                                   }}
-                                  className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border focus:outline-none transition-all cursor-pointer ${
+                                  className={`text-[10px] font-semibold px-1 py-0.5 rounded border focus:outline-none transition-all cursor-pointer ${
                                     analisis.tipo_origen === TipoOrigen.Externo
                                       ? "bg-amber-950/60 border-amber-600/60 text-amber-300"
                                       : "bg-indigo-950/60 border-indigo-600/60 text-indigo-300"
@@ -488,15 +469,31 @@ export const TablaMuestrasExternas = ({
                                   <option value={TipoOrigen.Interno} className="bg-zinc-900 text-zinc-200">Interno</option>
                                   <option value={TipoOrigen.Externo} className="bg-zinc-900 text-zinc-200">Externo</option>
                                 </select>
+
+                                {/* Botón Ojo: Ver información adicional del análisis */}
+                                <Tooltip label="Ver información del análisis y muestra" withArrow>
+                                  <ActionIcon
+                                    size="xs"
+                                    variant="subtle"
+                                    color="cyan"
+                                    onClick={() => setDetalleAnalisis(analisisEnriquecido)}
+                                  >
+                                    <IconEye size={13} />
+                                  </ActionIcon>
+                                </Tooltip>
+
                                 <ActionIcon
                                   size="xs"
                                   variant="subtle"
                                   color="red"
+                                  loading={Boolean(eliminandoAnalisis?.[analisis.id])}
+                                  disabled={Boolean(eliminandoAnalisis?.[analisis.id])}
                                   onClick={() => onEliminarAnalisis(analisis.id)}
                                   title="Eliminar fila de análisis"
                                 >
                                   <IconTrashX size={12} />
                                 </ActionIcon>
+
                                 {analisis.log_cambios && analisis.log_cambios.length > 0 && (
                                   <Tooltip label="Ver historial de cambios del análisis" withArrow>
                                     <ActionIcon
@@ -544,7 +541,7 @@ export const TablaMuestrasExternas = ({
                               />
                             </td>
 
-                            {/* HUMEDAD (un solo input por muestra) */}
+                            {/* HUMEDAD */}
                             {idx === 0 && (
                               <td
                                 rowSpan={numAnalisis}
@@ -568,11 +565,11 @@ export const TablaMuestrasExternas = ({
                               </td>
                             )}
 
-                            {/* RECUPERACION (un solo input por muestra) */}
+                            {/* RECUPERACION */}
                             {idx === 0 && (
                               <td
                                 rowSpan={numAnalisis}
-                                className="p-1 border-r border-zinc-800 text-center align-middle bg-zinc-950/20"
+                                className="p-1 text-center align-middle bg-zinc-950/20"
                               >
                                 <CellInput
                                   initialValue={
@@ -591,25 +588,6 @@ export const TablaMuestrasExternas = ({
                                 />
                               </td>
                             )}
-
-                            {/* SUSTENTO */}
-                            <td className="p-1.5 text-center align-middle">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setModalDocsId(analisis.id);
-                                  setModalDocsList(analisis.documentos);
-                                }}
-                                className={`px-2 py-1 rounded-lg border text-[11px] font-medium flex items-center justify-center gap-1.5 mx-auto transition-all ${
-                                  tieneDocs
-                                    ? "bg-indigo-950/50 border-indigo-700/60 text-indigo-300 hover:bg-indigo-900/50"
-                                    : "bg-rose-950/30 border-rose-800/60 text-rose-400 hover:bg-rose-900/40"
-                                }`}
-                              >
-                                {tieneDocs ? <IconFileDescription size={13} /> : <IconLock size={13} />}
-                                <span>{analisis.documentos.length}</span>
-                              </button>
-                            </td>
                           </tr>
                         );
                       })
@@ -621,6 +599,13 @@ export const TablaMuestrasExternas = ({
           </tbody>
         </table>
       </div>
+
+      {/* Modal Detalle de Análisis (Botón Ojo) */}
+      <ModalDetalleAnalisis
+        opened={detalleAnalisis !== null}
+        onClose={() => setDetalleAnalisis(null)}
+        analisis={detalleAnalisis}
+      />
 
       {/* Modal Asociar a Grupo */}
       <ModalEstandar
@@ -635,7 +620,6 @@ export const TablaMuestrasExternas = ({
         size="sm"
       >
         <div className="space-y-3.5">
-          {/* Card de vista previa de muestra(s) en una sola fila compacta */}
           <div className="p-2.5 rounded-xl bg-zinc-950/60 border border-zinc-800 flex items-center justify-between gap-2">
             <span className="font-semibold text-zinc-400 uppercase tracking-wider text-[11px] shrink-0">
               {muestrasParaAsociar.length === 1 ? "Muestra:" : `${muestrasParaAsociar.length} Muestras:`}
@@ -734,15 +718,13 @@ export const TablaMuestrasExternas = ({
           opened={true}
           onClose={() => setModalDocsId(null)}
           idAnalisis={modalDocsId}
-          documentos={
-            (() => {
-              for (const m of muestras) {
-                const an = m.analisis?.find((a) => a.id === modalDocsId);
-                if (an) return an.documentos;
-              }
-              return modalDocsList;
-            })()
-          }
+          documentos={(() => {
+            for (const m of muestras) {
+              const an = m.analisis?.find((a) => a.id === modalDocsId);
+              if (an) return an.documentos;
+            }
+            return modalDocsList;
+          })()}
           onSubirDocumentos={onSubirDocumentos}
         />
       )}

@@ -1,4 +1,5 @@
 import { api } from "../../../service/_api";
+import type { TipoOrigen } from "../../../shared/enums/_generic/tipo-origen";
 import type {
   LoteSugeridoResponse,
   LoteCierreResponse,
@@ -7,6 +8,8 @@ import type {
   IArchivoDoc,
 } from "./cierre-leyes.responses";
 import type {
+  AnalisisItemPayload,
+  AnalisisDraftItem,
   CrearGrupoPayload,
   AgregarAnalisisGrupoPayload,
   GuardarValoresAnalisisPayload,
@@ -16,12 +19,57 @@ import type {
 } from "./cierre-leyes.requests";
 
 export type {
+  AnalisisItemPayload,
+  AnalisisDraftItem,
   CrearGrupoPayload,
   AgregarAnalisisGrupoPayload,
   GuardarValoresAnalisisPayload,
   GuardarLeyesCierreGrupoPayload,
   FiltrosLotesSugeridos,
   IniciarMuestraPayload,
+};
+
+const appendAnalisisPayload = (
+  formData: FormData,
+  payload: {
+    id_laboratorio?: number;
+    asumido_por?: string;
+    numero_ensayo?: number;
+    tipo_origen?: TipoOrigen;
+    documentos?: File[];
+    analisis?: AnalisisItemPayload[];
+  },
+) => {
+  if (payload.analisis && payload.analisis.length > 0) {
+    payload.analisis.forEach((item, idx) => {
+      if (item.id_laboratorio) {
+        formData.append(`analisis[${idx}][id_laboratorio]`, String(item.id_laboratorio));
+      }
+      if (item.asumido_por) {
+        formData.append(`analisis[${idx}][asumido_por]`, item.asumido_por);
+      }
+      if (item.numero_ensayo) {
+        formData.append(`analisis[${idx}][numero_ensayo]`, String(item.numero_ensayo));
+      }
+      if (item.tipo_origen) {
+        formData.append(`analisis[${idx}][tipo_origen]`, item.tipo_origen);
+      }
+      if (item.documentos && item.documentos.length > 0) {
+        item.documentos.forEach((file) => {
+          formData.append(`analisis[${idx}][documentos][]`, file);
+        });
+      }
+    });
+    return;
+  }
+
+  if (payload.id_laboratorio) formData.append("id_laboratorio", String(payload.id_laboratorio));
+  if (payload.asumido_por) formData.append("asumido_por", payload.asumido_por);
+  if (payload.numero_ensayo) formData.append("numero_ensayo", String(payload.numero_ensayo));
+  if (payload.tipo_origen) formData.append("tipo_origen", payload.tipo_origen);
+  if (payload.documentos && payload.documentos.length > 0) {
+    payload.documentos.forEach((file) => formData.append("documentos[]", file));
+  }
 };
 
 export const CierreLeyesService = {
@@ -64,16 +112,7 @@ export const CierreLeyesService = {
     if (payload.id_lote_mineral) formData.append("id_lote_mineral", String(payload.id_lote_mineral));
     if (payload.id_muestra_externa) formData.append("id_muestra_externa", String(payload.id_muestra_externa));
     formData.append("nombre", payload.nombre);
-    if (payload.id_laboratorio) formData.append("id_laboratorio", String(payload.id_laboratorio));
-    if (payload.asumido_por) formData.append("asumido_por", payload.asumido_por);
-    if (payload.numero_ensayo) formData.append("numero_ensayo", String(payload.numero_ensayo));
-    if (payload.tipo_origen) formData.append("tipo_origen", payload.tipo_origen);
-
-    if (payload.documentos && payload.documentos.length > 0) {
-      for (const f of payload.documentos) {
-        formData.append("documentos[]", f);
-      }
-    }
+    appendAnalisisPayload(formData, payload);
 
     const { data } = await api.post("/cierre-leyes/grupos", formData, {
       headers: { "Content-Type": "multipart/form-data" },
@@ -83,16 +122,7 @@ export const CierreLeyesService = {
 
   agregarAnalisisGrupo: async (idGrupo: number, payload: AgregarAnalisisGrupoPayload): Promise<{ id: number }> => {
     const formData = new FormData();
-    if (payload.id_laboratorio) formData.append("id_laboratorio", String(payload.id_laboratorio));
-    if (payload.asumido_por) formData.append("asumido_por", payload.asumido_por);
-    if (payload.numero_ensayo) formData.append("numero_ensayo", String(payload.numero_ensayo));
-    if (payload.tipo_origen) formData.append("tipo_origen", payload.tipo_origen);
-
-    if (payload.documentos && payload.documentos.length > 0) {
-      for (const f of payload.documentos) {
-        formData.append("documentos[]", f);
-      }
-    }
+    appendAnalisisPayload(formData, payload);
 
     const { data } = await api.post(`/cierre-leyes/grupos/${idGrupo}/analisis`, formData, {
       headers: { "Content-Type": "multipart/form-data" },
@@ -141,12 +171,7 @@ export const CierreLeyesService = {
     if (payload.id_proveedor) formData.append("id_proveedor", String(payload.id_proveedor));
     if (payload.proveedor_nombre) formData.append("proveedor_nombre", payload.proveedor_nombre);
     if (payload.fecha) formData.append("fecha", payload.fecha);
-    if (payload.id_laboratorio) formData.append("id_laboratorio", String(payload.id_laboratorio));
-    if (payload.asumido_por) formData.append("asumido_por", payload.asumido_por);
-    if (payload.numero_ensayo) formData.append("numero_ensayo", String(payload.numero_ensayo));
-    if (payload.documentos && payload.documentos.length > 0) {
-      payload.documentos.forEach((file) => formData.append("documentos[]", file));
-    }
+    appendAnalisisPayload(formData, payload);
 
     const { data } = await api.post("/cierre-leyes/muestras-externas/iniciar", formData, {
       headers: { "Content-Type": "multipart/form-data" },
@@ -156,13 +181,7 @@ export const CierreLeyesService = {
 
   agregarAnalisisMuestraExterna: async (idMuestraExterna: number, payload: AgregarAnalisisGrupoPayload): Promise<void> => {
     const formData = new FormData();
-    if (payload.id_laboratorio) formData.append("id_laboratorio", String(payload.id_laboratorio));
-    if (payload.asumido_por) formData.append("asumido_por", payload.asumido_por);
-    if (payload.numero_ensayo) formData.append("numero_ensayo", String(payload.numero_ensayo));
-    if (payload.tipo_origen) formData.append("tipo_origen", payload.tipo_origen);
-    if (payload.documentos && payload.documentos.length > 0) {
-      payload.documentos.forEach((file: File) => formData.append("documentos[]", file));
-    }
+    appendAnalisisPayload(formData, payload);
 
     await api.post(`/cierre-leyes/muestras-externas/${idMuestraExterna}/analisis`, formData, {
       headers: { "Content-Type": "multipart/form-data" },

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { Loader, Tooltip } from "@mantine/core";
 import { IconCheck, IconHistory, IconTrash } from "@tabler/icons-react";
 import { useNotify } from "../../../../hooks/useNotify";
@@ -13,8 +13,7 @@ interface CellInputProps {
   saving?: boolean;
   logCambios?: RES_CambiosLog[] | null;
   onViewLog?: () => void;
-  /** Oculta el botón de confirmar. Usado en la tabla de muestras externas donde la confirmación
-   * es implícita y no existe flag `esta_confirmada` a nivel de la muestra. */
+  /** Oculta el botón de confirmar. Usado en la tabla de muestras externas y columnas de humedad/recuperación. */
   hideCheckbox?: boolean;
 }
 
@@ -30,18 +29,24 @@ export const CellInput = ({
   hideCheckbox,
 }: CellInputProps) => {
   const { notifyWarning } = useNotify();
+
+  const [prevInitialValue, setPrevInitialValue] = useState(initialValue);
   const [val, setVal] = useState<string>(initialValue > 0 ? initialValue.toString() : "");
+
+  const [prevInitialChecked, setPrevInitialChecked] = useState(initialChecked);
   const [checked, setChecked] = useState(initialChecked);
 
-  const hasLog = Boolean(logCambios && logCambios.length > 0);
-
-  useEffect(() => {
+  if (initialValue !== prevInitialValue) {
+    setPrevInitialValue(initialValue);
     setVal(initialValue > 0 ? initialValue.toString() : "");
-  }, [initialValue]);
+  }
 
-  useEffect(() => {
+  if (initialChecked !== prevInitialChecked) {
+    setPrevInitialChecked(initialChecked);
     setChecked(initialChecked);
-  }, [initialChecked]);
+  }
+
+  const hasLog = Boolean(logCambios && logCambios.length > 0);
 
   const handleBlur = () => {
     if (saving) return;
@@ -87,13 +92,17 @@ export const CellInput = ({
   };
 
   return (
-    <div className="flex items-center gap-0.5 min-w-22 justify-center py-0.5">
+    <div
+      className={`flex items-center gap-0.5 ${
+        hideCheckbox ? "min-w-15" : "min-w-20"
+      } justify-center py-0.5`}
+    >
       {!hideCheckbox && (
         <button
           type="button"
           disabled={disabled || saving}
           onClick={handleCheckboxToggle}
-          className={`w-3.5 h-3.5 rounded-md border flex items-center justify-center transition-all ${
+          className={`w-3.5 h-3.5 rounded-md border flex items-center justify-center transition-all shrink-0 ${
             checked
               ? "bg-emerald-600 border-emerald-500 text-white shadow-sm shadow-emerald-900/30"
               : "border-zinc-700 bg-zinc-900/50 text-transparent hover:border-zinc-500"
@@ -111,7 +120,7 @@ export const CellInput = ({
         onBlur={handleBlur}
         onKeyDown={handleKeyDown}
         placeholder="0.00"
-        className="w-14 h-6 text-center text-[11px] leading-none px-1.5 bg-zinc-950 border border-zinc-800 text-white rounded-md focus:border-zinc-400 focus:outline-none transition-all placeholder:text-zinc-700 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-14 h-6 text-center text-[11px] leading-none px-1 bg-zinc-950 border border-zinc-800 text-white rounded-md focus:border-zinc-400 focus:outline-none transition-all placeholder:text-zinc-700 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:opacity-50 disabled:cursor-not-allowed"
       />
       {hasLog && (
         <Tooltip label="Ver historial de cambios" withArrow position="top">

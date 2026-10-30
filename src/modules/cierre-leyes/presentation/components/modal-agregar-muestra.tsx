@@ -2,26 +2,31 @@ import { useEffect, useState } from "react";
 import {
   Select,
   TextInput,
-  NumberInput,
   Button,
   Stack,
   Group,
-  ActionIcon,
-  Modal,
-  Text,
+  Loader,
 } from "@mantine/core";
-import { IconFlask, IconPlus } from "@tabler/icons-react";
+import { DateTimePicker } from "@mantine/dates";
+import "@mantine/dates/styles.css";
+import "dayjs/locale/es";
+import dayjs from "dayjs";
+import { IconFlask, IconCalendarTime } from "@tabler/icons-react";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
-import { FormLaboratorio } from "../../../../presentation/utils/form-laboratorio";
-import { MultiFilePicker } from "../../../../presentation/utils/archivo/multifile-picker";
-import type { useCierreLeyes } from "../../hooks/useCierreLeyes";
+import { TipoOrigen } from "../../../../shared/enums/_generic/tipo-origen";
 import { useNotify } from "../../../../hooks/useNotify";
+import type { useCierreLeyes } from "../../hooks/useCierreLeyes";
+import type { AnalisisDraftItem } from "../../service/cierre-leyes.requests";
+import { ListaAnalisisBorrador } from "./lista-analisis-borrador";
+import { ModalFormAnalisisItem } from "./modal-form-analisis-item";
 
 interface ModalAgregarMuestraProps {
   opened: boolean;
   onClose: () => void;
   ctrl: ReturnType<typeof useCierreLeyes>;
 }
+
+const getFechaHoraActual = () => dayjs().format("YYYY-MM-DD HH:mm:ss");
 
 export const ModalAgregarMuestra = ({
   opened,
@@ -32,41 +37,54 @@ export const ModalAgregarMuestra = ({
 
   const [codigoCliente, setCodigoCliente] = useState("");
   const [idProveedor, setIdProveedor] = useState<string | null>(null);
-  const [fecha, setFecha] = useState<string>(() => new Date().toISOString().split("T")[0]);
-  const [idLaboratorio, setIdLaboratorio] = useState<string | null>(null);
-  const [asumidoPor, setAsumidoPor] = useState<string>("Proveedor");
-  const [numeroEnsayo, setNumeroEnsayo] = useState<number>(1);
-  const [archivos, setArchivos] = useState<File[]>([]);
-  const [submitting, setSubmitting] = useState(false);
+  const [fechaHoraIngreso, setFechaHoraIngreso] = useState<string | null>(getFechaHoraActual);
+  const [analisisItems, setAnalisisItems] = useState<AnalisisDraftItem[]>([]);
 
-  // Submodal para registrar laboratorio
-  const [modalLabAbierto, setModalLabAbierto] = useState(false);
-  const [nuevoLabNombre, setNuevoLabNombre] = useState("");
-  const [nuevoLabRuc, setNuevoLabRuc] = useState("");
+  const [modalItemAbierto, setModalItemAbierto] = useState(false);
+  const [itemEditar, setItemEditar] = useState<AnalisisDraftItem | null>(null);
+
+  const { cargarProveedores, cargarLaboratorios } = ctrl;
 
   useEffect(() => {
     if (opened) {
-      void ctrl.cargarProveedores();
-      void ctrl.cargarLaboratorios();
-      setCodigoCliente("");
-      setIdProveedor(null);
-      setFecha(new Date().toISOString().split("T")[0]);
-      setIdLaboratorio(null);
-      setAsumidoPor("Proveedor");
-      setNumeroEnsayo(1);
-      setArchivos([]);
-      setSubmitting(false);
+      void cargarProveedores();
+      void cargarLaboratorios();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [opened]);
+  }, [opened, cargarProveedores, cargarLaboratorios]);
 
+  const resetEstado = () => {
+    setCodigoCliente("");
+    setIdProveedor(null);
+    setFechaHoraIngreso(getFechaHoraActual());
+    setAnalisisItems([]);
+    setModalItemAbierto(false);
+    setItemEditar(null);
+  };
 
+  const handleCerrar = () => {
+    resetEstado();
+    onClose();
+  };
+
+  const handleGuardarItem = (nuevo: AnalisisDraftItem) => {
+    setAnalisisItems((prev) => {
+      const existe = prev.some((it) => it.localId === nuevo.localId);
+      if (existe) {
+        return prev.map((it) => (it.localId === nuevo.localId ? nuevo : it));
+      }
+      return [...prev, nuevo];
+    });
+  };
+
+  const handleEliminarItem = (localId: string) => {
+    setAnalisisItems((prev) => prev.filter((it) => it.localId !== localId));
+  };
 
   const handleSubmit = async () => {
-    if (submitting) return;
+    if (ctrl.iniciandoMuestra) return;
 
     if (!codigoCliente.trim()) {
-      notifyError("Ingresa el código o identificador de cliente para la muestra");
+      notifyError("Ingresa el código de cliente para la muestra");
       return;
     }
 
@@ -75,32 +93,29 @@ export const ModalAgregarMuestra = ({
       return;
     }
 
-    if (!idLaboratorio) {
-      notifyError("Selecciona el laboratorio para la muestra");
-      return;
-    }
+    const proveedorObj = ctrl.proveedores.find((p) => String(p.id_proveedor) === idProveedor);
+    const fechaFormateada =
+      fechaHoraIngreso && dayjs(fechaHoraIngreso).isValid()
+        ? dayjs(fechaHoraIngreso).format("YYYY-MM-DD HH:mm:ss")
+        : getFechaHoraActual();
 
-    setSubmitting(true);
-    try {
-      const proveedorObj = ctrl.proveedores.find((p) => String(p.id_proveedor) === idProveedor);
+    const ok = await ctrl.iniciarMuestraExterna({
+      codigo_cliente: codigoCliente.trim(),
+      nombre: codigoCliente.trim(),
+      id_proveedor: Number(idProveedor),
+      proveedor_nombre: proveedorObj?.razon_social,
+      fecha: fechaFormateada,
+      analisis: analisisItems.map((it) => ({
+        id_laboratorio: it.id_laboratorio,
+        asumido_por: it.asumido_por,
+        numero_ensayo: it.numero_ensayo,
+        tipo_origen: it.tipo_origen,
+        documentos: it.documentos.length > 0 ? it.documentos : undefined,
+      })),
+    });
 
-      const ok = await ctrl.iniciarMuestraExterna({
-        codigo_cliente: codigoCliente.trim(),
-        nombre: codigoCliente.trim(),
-        id_proveedor: Number(idProveedor),
-        proveedor_nombre: proveedorObj?.razon_social,
-        fecha,
-        id_laboratorio: Number(idLaboratorio),
-        asumido_por: asumidoPor,
-        numero_ensayo: numeroEnsayo,
-        documentos: archivos.length > 0 ? archivos : undefined,
-      });
-
-      if (ok) {
-        onClose();
-      }
-    } finally {
-      setSubmitting(false);
+    if (ok) {
+      handleCerrar();
     }
   };
 
@@ -109,16 +124,15 @@ export const ModalAgregarMuestra = ({
     label: p.razon_social,
   }));
 
-  const opcionesLaboratorios = (ctrl.laboratorios ?? []).map((lab) => ({
-    value: String(lab.id),
-    label: lab.nombre,
-  }));
+  const siguienteNumeroEnsayo =
+    analisisItems.reduce((max, it) => Math.max(max, it.numero_ensayo), 0) + 1;
 
   return (
     <>
       <ModalEstandar
         opened={opened}
-        close={onClose}
+        close={handleCerrar}
+        validateClose={analisisItems.length > 0 || Boolean(codigoCliente.trim())}
         title={
           <div className="flex items-center gap-2">
             <IconFlask size={18} className="text-cyan-400" />
@@ -128,128 +142,87 @@ export const ModalAgregarMuestra = ({
         size="lg"
       >
         <Stack gap="sm">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-[0.85fr_1.05fr_1.3fr] gap-2.5 items-end">
             <TextInput
               label="Código Cliente"
-              placeholder="Ej: M-101, MINA-A..."
+              placeholder="Ej: M-101..."
               value={codigoCliente}
               onChange={(e) => setCodigoCliente(e.currentTarget.value)}
+              maxLength={20}
               required
               autoFocus
               size="xs"
               radius="lg"
               classNames={{
                 input: "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500",
-                label: "text-zinc-300 mb-1 font-medium text-xs",
+                label: "text-zinc-300 mb-1 font-medium text-xs whitespace-nowrap",
               }}
             />
 
-            <TextInput
-              label="Fecha de Ingreso"
-              type="date"
-              value={fecha}
-              onChange={(e) => setFecha(e.currentTarget.value)}
+            <DateTimePicker
+              locale="es"
+              label="Fecha y Hora Ingreso"
+              placeholder="DD/MM/YYYY HH:mm"
+              valueFormat="DD/MM/YYYY HH:mm"
+              value={fechaHoraIngreso}
+              onChange={(val) => setFechaHoraIngreso(val)}
+              leftSection={<IconCalendarTime size={15} className="text-zinc-400" />}
               size="xs"
               radius="lg"
+              popoverProps={{
+                withinPortal: true,
+                classNames: {
+                  dropdown: "bg-zinc-900 border border-zinc-800 shadow-2xl rounded-xl p-3",
+                },
+              }}
               classNames={{
                 input: "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500",
-                label: "text-zinc-300 mb-1 font-medium text-xs",
+                label: "text-zinc-300 mb-1 font-medium text-xs whitespace-nowrap",
               }}
             />
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
             <Select
-              label="Proveedor"
-              placeholder={ctrl.loadingProveedores ? "Cargando proveedores..." : "Selecciona proveedor"}
+              label="Proveedor Minero"
+              placeholder={ctrl.loadingProveedores ? "Cargando..." : "Selecciona proveedor"}
               data={opcionesProveedores}
               value={idProveedor}
               onChange={setIdProveedor}
               searchable
               clearable
               required
+              disabled={ctrl.loadingProveedores}
+              rightSection={ctrl.loadingProveedores ? <Loader size={14} /> : undefined}
               size="xs"
               radius="lg"
               classNames={{
                 input: "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500",
-                label: "text-zinc-300 mb-1 font-medium text-xs",
-              }}
-            />
-
-            <div className="grid grid-cols-[1fr_auto] gap-2 items-end">
-              <Select
-                label="Laboratorio"
-                placeholder={ctrl.loadingLaboratorios ? "Cargando..." : "Selecciona laboratorio"}
-                data={opcionesLaboratorios}
-                value={idLaboratorio}
-                onChange={setIdLaboratorio}
-                searchable
-                clearable
-                required
-                size="xs"
-                radius="lg"
-                classNames={{
-                  input: "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500",
-                  label: "text-zinc-300 mb-1 font-medium text-xs",
-                }}
-              />
-              <ActionIcon
-                size="lg"
-                radius="lg"
-                variant="light"
-                color="indigo"
-                onClick={() => {
-                  setNuevoLabNombre("");
-                  setNuevoLabRuc("");
-                  setModalLabAbierto(true);
-                }}
-                title="Registrar nuevo laboratorio"
-              >
-                <IconPlus size={16} />
-              </ActionIcon>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <Select
-              label="Asumido Por"
-              data={[
-                { value: "Proveedor", label: "Proveedor" },
-                { value: "Fabero", label: "Fabero" },
-              ]}
-              value={asumidoPor}
-              onChange={(val) => setAsumidoPor(val || "Proveedor")}
-              size="xs"
-              radius="lg"
-              classNames={{
-                input: "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500",
-                label: "text-zinc-300 mb-1 font-medium text-xs",
-              }}
-            />
-
-            <NumberInput
-              label="Número de Ensayo"
-              value={numeroEnsayo}
-              onChange={(val) => setNumeroEnsayo(typeof val === "number" ? val : 1)}
-              min={1}
-              size="xs"
-              radius="lg"
-              classNames={{
-                input: "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500",
-                label: "text-zinc-300 mb-1 font-medium text-xs",
+                label: "text-zinc-300 mb-1 font-medium text-xs whitespace-nowrap",
               }}
             />
           </div>
 
-          <MultiFilePicker
-            label="Documentos / Sustento de Análisis"
-            description="PDF, JPG, PNG u otros certificados de laboratorio"
-            files={archivos}
-            onFilesChange={setArchivos}
+          <ListaAnalisisBorrador
+            items={analisisItems}
+            disabled={ctrl.iniciandoMuestra}
+            onAgregarClick={() => {
+              setItemEditar(null);
+              setModalItemAbierto(true);
+            }}
+            onEditarItem={(item) => {
+              setItemEditar(item);
+              setModalItemAbierto(true);
+            }}
+            onEliminarItem={handleEliminarItem}
           />
 
           <Group justify="flex-end" mt="md">
-            <Button variant="default" size="xs" radius="lg" onClick={onClose}>
+            <Button
+              variant="default"
+              size="xs"
+              radius="lg"
+              disabled={ctrl.iniciandoMuestra}
+              onClick={handleCerrar}
+            >
               Cancelar
             </Button>
             <Button
@@ -257,36 +230,31 @@ export const ModalAgregarMuestra = ({
               size="xs"
               radius="lg"
               onClick={handleSubmit}
-              loading={submitting}
-              disabled={!codigoCliente.trim() || !idProveedor || !idLaboratorio || submitting}
+              loading={ctrl.iniciandoMuestra}
+              disabled={!codigoCliente.trim() || !idProveedor || ctrl.iniciandoMuestra}
             >
-              Crear Muestra
+              {analisisItems.length > 0
+                ? `Crear Muestra (${analisisItems.length} análisis)`
+                : "Crear Muestra"}
             </Button>
           </Group>
         </Stack>
       </ModalEstandar>
 
-      {/* Submodal para Registrar Laboratorio al vuelo */}
-      <Modal
-        opened={modalLabAbierto}
-        onClose={() => setModalLabAbierto(false)}
-        title={<Text size="sm" fw={600}>Nuevo Laboratorio</Text>}
-        centered
-        radius="lg"
-      >
-        <FormLaboratorio
-          nombre={nuevoLabNombre}
-          setNombre={setNuevoLabNombre}
-          ruc={nuevoLabRuc}
-          setRuc={setNuevoLabRuc}
-          laboratoriosExistentes={ctrl.laboratorios}
-          onSuccess={async (nuevo) => {
-            setModalLabAbierto(false);
-            await ctrl.cargarLaboratorios();
-            setIdLaboratorio(String(nuevo.id));
-          }}
-        />
-      </Modal>
+      <ModalFormAnalisisItem
+        opened={modalItemAbierto}
+        onClose={() => {
+          setModalItemAbierto(false);
+          setItemEditar(null);
+        }}
+        itemEditar={itemEditar}
+        numeroEnsayoSugerido={siguienteNumeroEnsayo}
+        defaultOrigen={TipoOrigen.Externo}
+        laboratorios={ctrl.laboratorios}
+        loadingLaboratorios={ctrl.loadingLaboratorios}
+        onRecargarLaboratorios={ctrl.cargarLaboratorios}
+        onGuardarItem={handleGuardarItem}
+      />
     </>
   );
 };

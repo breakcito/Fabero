@@ -40,7 +40,9 @@ export const useCierreLeyes = () => {
   const [guardandoValorPorAnalisis, setGuardandoValorPorAnalisis] = useState<Record<number, boolean>>({});
   const [guardandoCierrePorGrupo, setGuardandoCierrePorGrupo] = useState<Record<number, boolean>>({});
   const [creandoGrupo, setCreandoGrupo] = useState(false);
+  const [iniciandoMuestra, setIniciandoMuestra] = useState(false);
   const [agregandoAnalisis, setAgregandoAnalisis] = useState<Record<number, boolean>>({});
+  const [eliminandoAnalisis, setEliminandoAnalisis] = useState<Record<number, boolean>>({});
   const [confirmandoLote, setConfirmandoLote] = useState<Record<number, boolean>>({});
   const [asociandoMuestra, setAsociandoMuestra] = useState<Record<number, boolean>>({});
   const [subiendoDocsPorAnalisis, setSubiendoDocsPorAnalisis] = useState<Record<number, boolean>>({});
@@ -136,7 +138,8 @@ export const useCierreLeyes = () => {
     setAgregandoAnalisis((prev) => ({ ...prev, [idGrupo]: true }));
     try {
       await CierreLeyesService.agregarAnalisisGrupo(idGrupo, payload);
-      notifySuccess("Análisis agregado correctamente al grupo");
+      const count = payload.analisis?.length ?? 1;
+      notifySuccess(count > 1 ? `${count} análisis agregados al grupo` : "Análisis agregado correctamente al grupo");
       await cargarLotes();
       return true;
     } catch (err: unknown) {
@@ -153,7 +156,8 @@ export const useCierreLeyes = () => {
       setAgregandoAnalisis((prev) => ({ ...prev, [idMuestraExterna]: true }));
       try {
         await CierreLeyesService.agregarAnalisisMuestraExterna(idMuestraExterna, payload);
-        notifySuccess("Análisis agregado correctamente a la muestra");
+        const count = payload.analisis?.length ?? 1;
+        notifySuccess(count > 1 ? `${count} análisis agregados a la muestra` : "Análisis agregado correctamente a la muestra");
         await cargarMuestras();
         return true;
       } catch (err: unknown) {
@@ -171,7 +175,6 @@ export const useCierreLeyes = () => {
     async (idAnalisis: number, payload: GuardarValoresAnalisisPayload): Promise<boolean> => {
       setGuardandoValorPorAnalisis((prev) => ({ ...prev, [idAnalisis]: true }));
 
-      // 1. Actualización inmediata en memoria para muestras externas (reactivo)
       setMuestras((prevMuestras) =>
         prevMuestras.map((muestra) => {
           const tieneEsteAnalisis = muestra.analisis.some((an) => an.id === idAnalisis);
@@ -191,7 +194,6 @@ export const useCierreLeyes = () => {
         })
       );
 
-      // 2. Actualización inmediata en memoria para lotes (reactivo)
       setLotes((prevLotes) =>
         prevLotes.map((lote) => {
           const updateGrupo = (g: GrupoAnalisisLoteResponse): GrupoAnalisisLoteResponse => {
@@ -258,7 +260,6 @@ export const useCierreLeyes = () => {
         const docsActualizados = await CierreLeyesService.subirDocumentosAnalisis(idAnalisis, archivos);
         notifySuccess("Documento adjuntado correctamente");
 
-        // Actualizar inmediatamente en memoria para que el front capte al instante el cambio
         setLotes((prevLotes) =>
           prevLotes.map((lote) => {
             const updateGrupo = (g: GrupoAnalisisLoteResponse): GrupoAnalisisLoteResponse => ({
@@ -285,7 +286,6 @@ export const useCierreLeyes = () => {
           }))
         );
 
-        // Recarga en segundo plano sin bloquear la respuesta inmediata de la UI
         void Promise.all([cargarLotes(), cargarMuestras()]);
 
         return docsActualizados;
@@ -301,17 +301,20 @@ export const useCierreLeyes = () => {
   );
 
   const eliminarAnalisis = useCallback(async (idAnalisis: number): Promise<boolean> => {
+    setEliminandoAnalisis((prev) => ({ ...prev, [idAnalisis]: true }));
     try {
       await CierreLeyesService.eliminarAnalisis(idAnalisis);
       notifySuccess("Análisis eliminado");
-      await cargarLotes();
+      await Promise.all([cargarLotes(), cargarMuestras()]);
       return true;
     } catch (err: unknown) {
       console.error(err);
       notifyError("Error al eliminar análisis");
       return false;
+    } finally {
+      setEliminandoAnalisis((prev) => ({ ...prev, [idAnalisis]: false }));
     }
-  }, [cargarLotes, notifySuccess, notifyError]);
+  }, [cargarLotes, cargarMuestras, notifySuccess, notifyError]);
 
   const confirmarLote = useCallback(async (idLote: number, conValorComercial: boolean): Promise<boolean> => {
     setConfirmandoLote((prev) => ({ ...prev, [idLote]: true }));
@@ -330,6 +333,7 @@ export const useCierreLeyes = () => {
   }, [cargarLotes, notifySuccess, notifyError]);
 
   const iniciarMuestraExterna = useCallback(async (payload: IniciarMuestraPayload): Promise<boolean> => {
+    setIniciandoMuestra(true);
     try {
       await CierreLeyesService.iniciarMuestraExterna(payload);
       notifySuccess("Muestra externa creada");
@@ -339,6 +343,8 @@ export const useCierreLeyes = () => {
       console.error(err);
       notifyError("Error al crear muestra externa");
       return false;
+    } finally {
+      setIniciandoMuestra(false);
     }
   }, [cargarMuestras, notifySuccess, notifyError]);
 
@@ -397,7 +403,9 @@ export const useCierreLeyes = () => {
     loadingMuestras,
     loadingProveedores,
     creandoGrupo,
+    iniciandoMuestra,
     agregandoAnalisis,
+    eliminandoAnalisis,
     guardandoValorPorAnalisis,
     guardandoCierrePorGrupo,
     confirmandoLote,

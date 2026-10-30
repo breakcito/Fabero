@@ -2,20 +2,19 @@ import { useEffect, useState } from "react";
 import {
   Select,
   TextInput,
-  NumberInput,
   Button,
   Stack,
   Group,
-  ActionIcon,
-  Modal,
+  Loader,
 } from "@mantine/core";
-import { IconPlus, IconFlask } from "@tabler/icons-react";
+import { IconFlask } from "@tabler/icons-react";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
-import { FormLaboratorio } from "../../../../presentation/utils/form-laboratorio";
-import { MultiFilePicker } from "../../../../presentation/utils/archivo/multifile-picker";
-import type { useCierreLeyes } from "../../hooks/useCierreLeyes";
+import { TipoOrigen } from "../../../../shared/enums/_generic/tipo-origen";
 import { useNotify } from "../../../../hooks/useNotify";
-import type { RES_Laboratorio } from "../../../../service/responses/laboratorio";
+import type { useCierreLeyes } from "../../hooks/useCierreLeyes";
+import type { AnalisisDraftItem } from "../../service/cierre-leyes.requests";
+import { ListaAnalisisBorrador } from "./lista-analisis-borrador";
+import { ModalFormAnalisisItem } from "./modal-form-analisis-item";
 
 interface ModalAgregarGrupoProps {
   opened: boolean;
@@ -32,48 +31,55 @@ export const ModalAgregarGrupo = ({
 }: ModalAgregarGrupoProps) => {
   const { notifyError } = useNotify();
 
-  const [idLote, setIdLote] = useState<string | null>(null);
+  const [idLoteManual, setIdLoteManual] = useState<string | null>(null);
   const [nombreGrupo, setNombreGrupo] = useState("Grupo 1");
-  const [idLaboratorio, setIdLaboratorio] = useState<string | null>(null);
-  const [asumidoPor, setAsumidoPor] = useState<string>("Proveedor");
-  const [numeroEnsayo, setNumeroEnsayo] = useState<number>(1);
-  const [archivos, setArchivos] = useState<File[]>([]);
+  const [analisisItems, setAnalisisItems] = useState<AnalisisDraftItem[]>([]);
 
-  // Sub-modal para registrar nuevo laboratorio
-  const [modalLabAbierto, setModalLabAbierto] = useState(false);
-  const [nuevoLabNombre, setNuevoLabNombre] = useState("");
-  const [nuevoLabRuc, setNuevoLabRuc] = useState("");
+  const [modalItemAbierto, setModalItemAbierto] = useState(false);
+  const [itemEditar, setItemEditar] = useState<AnalisisDraftItem | null>(null);
+
+  const { cargarLotesSugeridos, cargarLaboratorios } = ctrl;
 
   useEffect(() => {
     if (opened) {
-      void ctrl.cargarLotesSugeridos();
-      void ctrl.cargarLaboratorios();
-      setIdLote(idLoteInicial ? String(idLoteInicial) : null);
-      setNombreGrupo("Grupo 1");
-      setIdLaboratorio(null);
-      setAsumidoPor("Proveedor");
-      setNumeroEnsayo(1);
-      setArchivos([]);
+      void cargarLotesSugeridos();
+      void cargarLaboratorios();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [opened, idLoteInicial]);
+  }, [opened, cargarLotesSugeridos, cargarLaboratorios]);
 
-  // Si idLoteInicial no viene, autoseleccionar el primer lote sugerido si hay
-  useEffect(() => {
-    if (opened && !idLoteInicial && ctrl.lotesSugeridos.length > 0 && !idLote) {
-      setIdLote(String(ctrl.lotesSugeridos[0].id));
-    }
-  }, [opened, idLoteInicial, ctrl.lotesSugeridos, idLote]);
+  const resetEstado = () => {
+    setIdLoteManual(null);
+    setNombreGrupo("Grupo 1");
+    setAnalisisItems([]);
+    setModalItemAbierto(false);
+    setItemEditar(null);
+  };
 
-  // Si no hay laboratorios o hay alguno, seleccionar el primero por defecto
-  useEffect(() => {
-    if (ctrl.laboratorios.length > 0 && !idLaboratorio) {
-      setIdLaboratorio(String(ctrl.laboratorios[0].id));
-    }
-  }, [ctrl.laboratorios, idLaboratorio]);
+  const handleCerrar = () => {
+    resetEstado();
+    onClose();
+  };
+
+  const idLoteSeleccionado = idLoteInicial
+    ? String(idLoteInicial)
+    : idLoteManual ?? (ctrl.lotesSugeridos[0] ? String(ctrl.lotesSugeridos[0].id) : null);
+
+  const handleGuardarItem = (nuevo: AnalisisDraftItem) => {
+    setAnalisisItems((prev) => {
+      const existe = prev.some((it) => it.localId === nuevo.localId);
+      if (existe) {
+        return prev.map((it) => (it.localId === nuevo.localId ? nuevo : it));
+      }
+      return [...prev, nuevo];
+    });
+  };
+
+  const handleEliminarItem = (localId: string) => {
+    setAnalisisItems((prev) => prev.filter((it) => it.localId !== localId));
+  };
 
   const handleSubmit = async () => {
-    if (!idLote) {
+    if (!idLoteSeleccionado) {
       notifyError("Debes seleccionar un lote mineral");
       return;
     }
@@ -83,26 +89,39 @@ export const ModalAgregarGrupo = ({
     }
 
     const ok = await ctrl.crearGrupo({
-      id_lote_mineral: Number(idLote),
+      id_lote_mineral: Number(idLoteSeleccionado),
       nombre: nombreGrupo.trim(),
-      id_laboratorio: idLaboratorio ? Number(idLaboratorio) : undefined,
-      asumido_por: asumidoPor,
-      numero_ensayo: numeroEnsayo,
-      tipo_origen: undefined,
-      documentos: archivos.length > 0 ? archivos : undefined,
+      analisis: analisisItems.map((it) => ({
+        id_laboratorio: it.id_laboratorio,
+        asumido_por: it.asumido_por,
+        numero_ensayo: it.numero_ensayo,
+        tipo_origen: it.tipo_origen,
+        documentos: it.documentos.length > 0 ? it.documentos : undefined,
+      })),
     });
 
     if (ok) {
-      onClose();
+      handleCerrar();
     }
   };
 
   const gruposMap = new Map<string, { value: string; label: string }[]>();
 
-  const lotesDisponibles = [...(ctrl.lotesSugeridos ?? [])];
+  const lotesDisponibles: {
+    id: number;
+    correlativo: string;
+    peso_neto: number | null;
+    proveedor_razon_social: string | null;
+  }[] = [...(ctrl.lotesSugeridos ?? [])];
+
   (ctrl.lotes ?? []).forEach((l) => {
     if (!lotesDisponibles.some((x) => x.id === l.id)) {
-      lotesDisponibles.push(l as unknown as typeof lotesDisponibles[0]);
+      lotesDisponibles.push({
+        id: l.id,
+        correlativo: l.correlativo,
+        peso_neto: l.peso_neto,
+        proveedor_razon_social: l.proveedor_razon_social,
+      });
     }
   });
 
@@ -111,8 +130,9 @@ export const ModalAgregarGrupo = ({
     if (!gruposMap.has(prov)) {
       gruposMap.set(prov, []);
     }
-    if (!gruposMap.get(prov)!.some((it) => it.value === String(l.id))) {
-      gruposMap.get(prov)!.push({
+    const listaProv = gruposMap.get(prov)!;
+    if (!listaProv.some((it) => it.value === String(l.id))) {
+      listaProv.push({
         value: String(l.id),
         label: `${l.correlativo} (${l.peso_neto ? `${l.peso_neto} kg` : "Sin peso"})`,
       });
@@ -124,16 +144,15 @@ export const ModalAgregarGrupo = ({
     items,
   }));
 
-  const opcionesLaboratorios = (ctrl.laboratorios ?? []).map((lab) => ({
-    value: String(lab.id),
-    label: lab.nombre,
-  }));
+  const siguienteNumeroEnsayo =
+    analisisItems.reduce((max, it) => Math.max(max, it.numero_ensayo), 0) + 1;
 
   return (
     <>
       <ModalEstandar
         opened={opened}
-        close={onClose}
+        close={handleCerrar}
+        validateClose={analisisItems.length > 0}
         title={
           <div className="flex items-center gap-2">
             <IconFlask size={18} className="text-indigo-400" />
@@ -143,108 +162,63 @@ export const ModalAgregarGrupo = ({
         size="md"
       >
         <Stack gap="sm">
-          <Select
-            label="Lote Mineral"
-            placeholder={ctrl.loadingSugeridos ? "Cargando lotes..." : "Selecciona un lote"}
-            data={opcionesLotes}
-            value={idLote}
-            onChange={setIdLote}
-            searchable
-            required
-            disabled={ctrl.loadingSugeridos || !!idLoteInicial}
-            size="xs"
-            radius="lg"
-            classNames={{
-              input: "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500",
-              label: "text-zinc-300 mb-1 font-medium text-xs",
-            }}
-          />
-
-          <TextInput
-            label="Nombre del Grupo"
-            placeholder="Ej. Grupo 1, Balanza A..."
-            value={nombreGrupo}
-            onChange={(e) => setNombreGrupo(e.currentTarget.value)}
-            required
-            size="xs"
-            radius="lg"
-            classNames={{
-              input: "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500",
-              label: "text-zinc-300 mb-1 font-medium text-xs",
-            }}
-          />
-
-          <div className="grid grid-cols-[1fr_auto] gap-2 items-end">
+          <div className="grid grid-cols-1 sm:grid-cols-[1.45fr_1fr] gap-2.5 items-end">
             <Select
-              label="Laboratorio"
-              placeholder={ctrl.loadingLaboratorios ? "Cargando..." : "Selecciona laboratorio"}
-              data={opcionesLaboratorios}
-              value={idLaboratorio}
-              onChange={setIdLaboratorio}
+              label="Lote Mineral"
+              placeholder={ctrl.loadingSugeridos ? "Cargando lotes..." : "Selecciona un lote"}
+              data={opcionesLotes}
+              value={idLoteSeleccionado}
+              onChange={setIdLoteManual}
               searchable
+              required
+              disabled={ctrl.loadingSugeridos || Boolean(idLoteInicial)}
+              rightSection={ctrl.loadingSugeridos ? <Loader size={14} /> : undefined}
               size="xs"
               radius="lg"
               classNames={{
                 input: "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500",
-                label: "text-zinc-300 mb-1 font-medium text-xs",
-              }}
-            />
-            <ActionIcon
-              size="lg"
-              radius="lg"
-              variant="light"
-              color="indigo"
-              onClick={() => {
-                setNuevoLabNombre("");
-                setNuevoLabRuc("");
-                setModalLabAbierto(true);
-              }}
-              title="Registrar nuevo laboratorio"
-            >
-              <IconPlus size={16} />
-            </ActionIcon>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <Select
-              label="Asumido Por"
-              data={[
-                { value: "Proveedor", label: "Proveedor" },
-                { value: "Fabero", label: "Fabero" },
-              ]}
-              value={asumidoPor}
-              onChange={(val) => setAsumidoPor(val || "Proveedor")}
-              size="xs"
-              radius="lg"
-              classNames={{
-                input: "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500",
-                label: "text-zinc-300 mb-1 font-medium text-xs",
+                label: "text-zinc-300 mb-1 font-medium text-xs whitespace-nowrap",
               }}
             />
 
-            <NumberInput
-              label="Número de Ensayo"
-              value={numeroEnsayo}
-              onChange={(val) => setNumeroEnsayo(typeof val === "number" ? val : 1)}
-              min={1}
+            <TextInput
+              label="Nombre del Grupo"
+              placeholder="Ej. Grupo 1..."
+              value={nombreGrupo}
+              onChange={(e) => setNombreGrupo(e.currentTarget.value)}
+              maxLength={20}
+              required
               size="xs"
               radius="lg"
               classNames={{
                 input: "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500",
-                label: "text-zinc-300 mb-1 font-medium text-xs",
+                label: "text-zinc-300 mb-1 font-medium text-xs whitespace-nowrap",
               }}
             />
           </div>
 
-          <MultiFilePicker
-            label="Documentos / Sustento de Análisis"
-            description="PDF, JPG, PNG u otros certificados (requerido para ingresar leyes)"
-            files={archivos}
-            onFilesChange={setArchivos}
+          <ListaAnalisisBorrador
+            items={analisisItems}
+            disabled={ctrl.creandoGrupo}
+            onAgregarClick={() => {
+              setItemEditar(null);
+              setModalItemAbierto(true);
+            }}
+            onEditarItem={(item) => {
+              setItemEditar(item);
+              setModalItemAbierto(true);
+            }}
+            onEliminarItem={handleEliminarItem}
           />
 
           <Group justify="flex-end" mt="md">
-            <Button variant="default" size="xs" radius="lg" onClick={onClose}>
+            <Button
+              variant="default"
+              size="xs"
+              radius="lg"
+              disabled={ctrl.creandoGrupo}
+              onClick={handleCerrar}
+            >
               Cancelar
             </Button>
             <Button
@@ -252,41 +226,31 @@ export const ModalAgregarGrupo = ({
               size="xs"
               radius="lg"
               loading={ctrl.creandoGrupo}
+              disabled={!idLoteSeleccionado || !nombreGrupo.trim() || ctrl.creandoGrupo}
               onClick={handleSubmit}
             >
-              Crear Grupo
+              {analisisItems.length > 0
+                ? `Crear Grupo (${analisisItems.length} análisis)`
+                : "Crear Grupo"}
             </Button>
           </Group>
         </Stack>
       </ModalEstandar>
 
-      {/* Modal para registrar Laboratorio al vuelo */}
-      <Modal
-        opened={modalLabAbierto}
-        onClose={() => setModalLabAbierto(false)}
-        title="Nuevo Laboratorio"
-        centered
-        radius="lg"
-        size="sm"
-        overlayProps={{ backgroundOpacity: 0.65, blur: 5 }}
-        styles={{
-          content: { background: "#09090b", border: "1px solid #27272a" },
-          header: { background: "#09090b", color: "#fff" },
+      <ModalFormAnalisisItem
+        opened={modalItemAbierto}
+        onClose={() => {
+          setModalItemAbierto(false);
+          setItemEditar(null);
         }}
-      >
-        <FormLaboratorio
-          nombre={nuevoLabNombre}
-          setNombre={setNuevoLabNombre}
-          ruc={nuevoLabRuc}
-          setRuc={setNuevoLabRuc}
-          laboratoriosExistentes={ctrl.laboratorios}
-          onSuccess={(nuevo: RES_Laboratorio) => {
-            setModalLabAbierto(false);
-            void ctrl.cargarLaboratorios();
-            setIdLaboratorio(String(nuevo.id));
-          }}
-        />
-      </Modal>
+        itemEditar={itemEditar}
+        numeroEnsayoSugerido={siguienteNumeroEnsayo}
+        defaultOrigen={TipoOrigen.Interno}
+        laboratorios={ctrl.laboratorios}
+        loadingLaboratorios={ctrl.loadingLaboratorios}
+        onRecargarLaboratorios={ctrl.cargarLaboratorios}
+        onGuardarItem={handleGuardarItem}
+      />
     </>
   );
 };

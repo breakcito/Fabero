@@ -22,9 +22,11 @@ export interface LoteSugeridoResponse {
 
 export interface AnalisisMineralResponse {
   id: number;
-  id_grupo_analisis: number;
+  id_grupo_analisis: number | null;
+  id_muestra_externa?: number | null;
   id_laboratorio: number | null;
   laboratorio_nombre?: string | null;
+  laboratorio_ruc?: string | null;
   asumido_por: string;
   numero_ensayo: number;
   documentos: IArchivoDoc[];
@@ -38,6 +40,11 @@ export interface AnalisisMineralResponse {
   sin_lote?: boolean;
   log_cambios?: RES_CambiosLog[] | null;
   created_at: string;
+  empleado_registro_nombre?: string | null;
+  muestra_correlativo?: string | null;
+  muestra_codigo_cliente?: string | null;
+  muestra_proveedor_nombre?: string | null;
+  muestra_fecha_hora_ingreso?: string | null;
 }
 
 export interface GrupoAnalisisLoteResponse {
@@ -84,6 +91,7 @@ export interface MuestraExternaResponse {
   nombre: string;
   codigo_cliente?: string | null;
   correlativo?: string | null;
+  fecha_hora_ingreso?: string | null;
   id_proveedor?: number | null;
   proveedor_nombre?: string | null;
   numero_correlativo: number;
@@ -94,7 +102,9 @@ export interface MuestraExternaResponse {
 
 export interface MuestraAsociadaResponse {
   id_muestra_externa: number;
+  correlativo?: string | null;
   codigo_cliente?: string | null;
+  fecha_hora_ingreso?: string | null;
   proveedor_nombre?: string | null;
   id_laboratorio?: number | null;
   laboratorio_nombre?: string | null;

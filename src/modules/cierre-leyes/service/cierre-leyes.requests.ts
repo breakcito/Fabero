@@ -1,6 +1,24 @@
 import { EstadoLeyes } from "../../../shared/enums/_generic/estado-leyes";
 import { TipoOrigen } from "../../../shared/enums/_generic/tipo-origen";
 
+export interface AnalisisItemPayload {
+  id_laboratorio?: number;
+  asumido_por?: string;
+  numero_ensayo?: number;
+  tipo_origen?: TipoOrigen;
+  documentos?: File[];
+}
+
+export interface AnalisisDraftItem {
+  localId: string;
+  id_laboratorio: number;
+  laboratorio_nombre: string;
+  asumido_por: string;
+  numero_ensayo: number;
+  tipo_origen: TipoOrigen;
+  documentos: File[];
+}
+
 export interface CrearGrupoPayload {
   id_lote_mineral?: number;
   id_muestra_externa?: number;
@@ -10,6 +28,7 @@ export interface CrearGrupoPayload {
   numero_ensayo?: number;
   tipo_origen?: TipoOrigen;
   documentos?: File[];
+  analisis?: AnalisisItemPayload[];
 }
 
 export interface AgregarAnalisisGrupoPayload {
@@ -18,6 +37,7 @@ export interface AgregarAnalisisGrupoPayload {
   numero_ensayo?: number;
   tipo_origen?: TipoOrigen;
   documentos?: File[];
+  analisis?: AnalisisItemPayload[];
 }
 
 export interface GuardarValoresAnalisisPayload {
@@ -62,5 +82,5 @@ export interface IniciarMuestraPayload {
   asumido_por?: string;
   numero_ensayo?: number;
   documentos?: File[];
+  analisis?: AnalisisItemPayload[];
 }
-

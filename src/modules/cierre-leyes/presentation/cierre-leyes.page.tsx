@@ -36,16 +36,19 @@ export const CierreLeyesPage = () => {
   const ctrl = useCierreLeyes();
   const { notifyWarning } = useNotify();
 
-  // Modals state
   const [modalGrupoAbierto, setModalGrupoAbierto] = useState(false);
   const [idLoteParaGrupo, setIdLoteParaGrupo] = useState<number | null>(null);
 
   const [modalMuestraAbierto, setModalMuestraAbierto] = useState(false);
 
   const [modalAnalisisAbierto, setModalAnalisisAbierto] = useState(false);
-  const [grupoParaAnalisis, setGrupoParaAnalisis] = useState<{ id: number; nombre: string; esMuestra?: boolean } | null>(null);
+  const [grupoParaAnalisis, setGrupoParaAnalisis] = useState<{
+    id: number;
+    nombre: string;
+    esMuestra?: boolean;
+    maxEnsayoExistente?: number;
+  } | null>(null);
 
-  // Filtros
   const [fechaInicio, setFechaInicio] = useState<string | null>(defaultFechaInicio());
   const [fechaFin, setFechaFin] = useState<string | null>(defaultFechaFin());
   const [busqueda, setBusqueda] = useState("");
@@ -97,11 +100,34 @@ export const CierreLeyesPage = () => {
     return ctrl.lotes.filter((l) => l.correlativo.toLowerCase().includes(q));
   }, [ctrl.lotes, busqueda]);
 
+  const obtenerMaxEnsayoGrupo = (idGrupo: number): number => {
+    for (const lote of ctrl.lotes) {
+      const grupos =
+        lote.grupos_analisis && lote.grupos_analisis.length > 0
+          ? lote.grupos_analisis
+          : lote.grupo_analisis
+          ? [lote.grupo_analisis]
+          : [];
+      const encontrado = grupos.find((g) => g.id === idGrupo);
+      if (encontrado && encontrado.analisis.length > 0) {
+        return encontrado.analisis.reduce((max, a) => Math.max(max, a.numero_ensayo), 0);
+      }
+    }
+    return 0;
+  };
+
+  const obtenerMaxEnsayoMuestra = (idMuestra: number): number => {
+    const encontrada = ctrl.muestras.find((m) => m.id === idMuestra || m.id_muestra_externa === idMuestra);
+    if (encontrada && encontrada.analisis.length > 0) {
+      return encontrada.analisis.reduce((max, a) => Math.max(max, a.numero_ensayo), 0);
+    }
+    return 0;
+  };
+
   return (
     <div className="animate-fade-in space-y-6 pb-12">
       {/* Barra de Filtros y Acciones */}
       <div className="flex flex-col lg:flex-row gap-3 lg:items-end justify-between">
-        {/* Controles de Filtro */}
         <div className="flex items-end gap-2.5 flex-wrap flex-1">
           <div className="w-80 min-w-72">
             <DateRangeFilter
@@ -112,7 +138,6 @@ export const CierreLeyesPage = () => {
             />
           </div>
 
-          {/* Buscador */}
           <div className="w-48 min-w-40">
             <TextInput
               label="Buscar"
@@ -129,7 +154,6 @@ export const CierreLeyesPage = () => {
             />
           </div>
 
-          {/* Acciones de filtro */}
           <div className="flex items-center gap-1.5 pb-0.5">
             <Button
               variant="subtle"
@@ -152,7 +176,6 @@ export const CierreLeyesPage = () => {
           </div>
         </div>
 
-        {/* Botones de acción principales alineados */}
         <div className="flex items-center gap-2 shrink-0 pb-0.5 self-end lg:self-end">
           <Button
             leftSection={<PlusIcon className="w-4 h-4" />}
@@ -211,12 +234,18 @@ export const CierreLeyesPage = () => {
               onGuardarValoresAnalisis={ctrl.guardarValoresAnalisis}
               onGuardarLeyesCierreGrupo={ctrl.guardarLeyesCierreGrupo}
               onEliminarAnalisis={ctrl.eliminarAnalisis}
+              eliminandoAnalisis={ctrl.eliminandoAnalisis}
               onAbrirModalCrearGrupo={(idLote) => {
                 setIdLoteParaGrupo(idLote);
                 setModalGrupoAbierto(true);
               }}
               onAbrirModalAgregarAnalisis={(idGrupo, nombre) => {
-                setGrupoParaAnalisis({ id: idGrupo, nombre, esMuestra: false });
+                setGrupoParaAnalisis({
+                  id: idGrupo,
+                  nombre,
+                  esMuestra: false,
+                  maxEnsayoExistente: obtenerMaxEnsayoGrupo(idGrupo),
+                });
                 setModalAnalisisAbierto(true);
               }}
               onSubirDocumentos={ctrl.subirDocumentos}
@@ -230,7 +259,6 @@ export const CierreLeyesPage = () => {
             />
           </div>
 
-          {/* Tabla de Muestras Externas (solo si hay muestras) */}
           {ctrl.muestras.length > 0 && (
             <div className="space-y-2 pt-4">
               <Text fz="xs" fw={700} c="cyan.4" tt="uppercase" className="tracking-wider">
@@ -241,14 +269,20 @@ export const CierreLeyesPage = () => {
                 lotesDisponibles={ctrl.lotes}
                 onGuardarValoresAnalisis={ctrl.guardarValoresAnalisis}
                 onAbrirModalAgregarAnalisis={(idMuestra, nombre) => {
-                  setGrupoParaAnalisis({ id: idMuestra, nombre, esMuestra: true });
+                  setGrupoParaAnalisis({
+                    id: idMuestra,
+                    nombre,
+                    esMuestra: true,
+                    maxEnsayoExistente: obtenerMaxEnsayoMuestra(idMuestra),
+                  });
                   setModalAnalisisAbierto(true);
                 }}
                 onEliminarAnalisis={ctrl.eliminarAnalisis}
+                eliminandoAnalisis={ctrl.eliminandoAnalisis}
                 onAsociarAGrupo={ctrl.asociarMuestraAGrupo}
                 onAsociarMuestrasMultiples={ctrl.asociarMuestrasMultiplesAGrupo}
                 onSubirDocumentos={ctrl.subirDocumentos}
-                isAsociando={(id) => !!ctrl.asociandoMuestra[id]}
+                isAsociando={(id) => Boolean(ctrl.asociandoMuestra[id])}
                 onImprimirMuestra={(m) => printReporteMuestras([m])}
                 onImprimirMuestras={(ms) => printReporteMuestras(ms)}
               />
@@ -281,6 +315,7 @@ export const CierreLeyesPage = () => {
           idGrupo={grupoParaAnalisis.id}
           nombreGrupo={grupoParaAnalisis.nombre}
           esMuestra={grupoParaAnalisis.esMuestra}
+          maxEnsayoExistente={grupoParaAnalisis.maxEnsayoExistente}
           ctrl={ctrl}
         />
       )}

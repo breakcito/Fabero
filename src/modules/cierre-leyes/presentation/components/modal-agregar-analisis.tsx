@@ -1,21 +1,13 @@
 import { useEffect, useState } from "react";
-import {
-  Select,
-  NumberInput,
-  Button,
-  Stack,
-  Group,
-  ActionIcon,
-  Modal,
-} from "@mantine/core";
-import { IconPlus, IconTestPipe } from "@tabler/icons-react";
+import { Button, Stack, Group } from "@mantine/core";
+import { IconTestPipe } from "@tabler/icons-react";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
-import { FormLaboratorio } from "../../../../presentation/utils/form-laboratorio";
-import { MultiFilePicker } from "../../../../presentation/utils/archivo/multifile-picker";
-import type { useCierreLeyes } from "../../hooks/useCierreLeyes";
 import { TipoOrigen } from "../../../../shared/enums/_generic/tipo-origen";
-import type { RES_Laboratorio } from "../../../../service/responses/laboratorio";
 import { useNotify } from "../../../../hooks/useNotify";
+import type { useCierreLeyes } from "../../hooks/useCierreLeyes";
+import type { AnalisisDraftItem } from "../../service/cierre-leyes.requests";
+import { ListaAnalisisBorrador } from "./lista-analisis-borrador";
+import { ModalFormAnalisisItem } from "./modal-form-analisis-item";
 
 interface ModalAgregarAnalisisProps {
   opened: boolean;
@@ -23,6 +15,7 @@ interface ModalAgregarAnalisisProps {
   idGrupo: number;
   nombreGrupo?: string;
   esMuestra?: boolean;
+  maxEnsayoExistente?: number;
   ctrl: ReturnType<typeof useCierreLeyes>;
 }
 
@@ -32,43 +25,60 @@ export const ModalAgregarAnalisis = ({
   idGrupo,
   nombreGrupo,
   esMuestra,
+  maxEnsayoExistente = 0,
   ctrl,
 }: ModalAgregarAnalisisProps) => {
   const { notifyError } = useNotify();
-  const [idLaboratorio, setIdLaboratorio] = useState<string | null>(null);
-  const [asumidoPor, setAsumidoPor] = useState<string>("Proveedor");
-  const [numeroEnsayo, setNumeroEnsayo] = useState<number>(1);
-  const [tipoOrigen, setTipoOrigen] = useState<TipoOrigen>(esMuestra ? TipoOrigen.Externo : TipoOrigen.Interno);
-  const [archivos, setArchivos] = useState<File[]>([]);
 
-  const [modalLabAbierto, setModalLabAbierto] = useState(false);
-  const [nuevoLabNombre, setNuevoLabNombre] = useState("");
-  const [nuevoLabRuc, setNuevoLabRuc] = useState("");
+  const [analisisItems, setAnalisisItems] = useState<AnalisisDraftItem[]>([]);
+  const [modalItemAbierto, setModalItemAbierto] = useState(false);
+  const [itemEditar, setItemEditar] = useState<AnalisisDraftItem | null>(null);
+
+  const { cargarLaboratorios } = ctrl;
 
   useEffect(() => {
     if (opened) {
-      void ctrl.cargarLaboratorios();
-      setIdLaboratorio(null);
-      setAsumidoPor("Proveedor");
-      setNumeroEnsayo(1);
-      setTipoOrigen(esMuestra ? TipoOrigen.Externo : TipoOrigen.Interno);
-      setArchivos([]);
+      void cargarLaboratorios();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [opened, esMuestra]);
+  }, [opened, cargarLaboratorios]);
+
+  const guardando = Boolean(ctrl.agregandoAnalisis[idGrupo]);
+
+  const handleCerrar = () => {
+    setAnalisisItems([]);
+    setModalItemAbierto(false);
+    setItemEditar(null);
+    onClose();
+  };
+
+  const handleGuardarItem = (nuevo: AnalisisDraftItem) => {
+    setAnalisisItems((prev) => {
+      const existe = prev.some((it) => it.localId === nuevo.localId);
+      if (existe) {
+        return prev.map((it) => (it.localId === nuevo.localId ? nuevo : it));
+      }
+      return [...prev, nuevo];
+    });
+  };
+
+  const handleEliminarItem = (localId: string) => {
+    setAnalisisItems((prev) => prev.filter((it) => it.localId !== localId));
+  };
 
   const handleSubmit = async () => {
-    if (!idLaboratorio) {
-      notifyError("Selecciona el laboratorio para el análisis");
+    if (analisisItems.length === 0) {
+      notifyError("Añade al menos un análisis a la lista antes de guardar");
       return;
     }
 
     const payload = {
-      id_laboratorio: Number(idLaboratorio),
-      asumido_por: asumidoPor,
-      numero_ensayo: numeroEnsayo,
-      tipo_origen: tipoOrigen,
-      documentos: archivos.length > 0 ? archivos : undefined,
+      analisis: analisisItems.map((it) => ({
+        id_laboratorio: it.id_laboratorio,
+        asumido_por: it.asumido_por,
+        numero_ensayo: it.numero_ensayo,
+        tipo_origen: it.tipo_origen,
+        documentos: it.documentos.length > 0 ? it.documentos : undefined,
+      })),
     };
 
     const ok = esMuestra
@@ -76,162 +86,99 @@ export const ModalAgregarAnalisis = ({
       : await ctrl.agregarAnalisisGrupo(idGrupo, payload);
 
     if (ok) {
-      onClose();
+      handleCerrar();
     }
   };
 
-  const opcionesLaboratorios = ctrl.laboratorios.map((lab) => ({
-    value: String(lab.id),
-    label: lab.nombre,
-  }));
+  const siguienteNumeroEnsayo =
+    analisisItems.reduce((max, it) => Math.max(max, it.numero_ensayo), maxEnsayoExistente) + 1;
 
   return (
     <>
       <ModalEstandar
         opened={opened}
-        close={onClose}
+        close={handleCerrar}
+        validateClose={analisisItems.length > 0}
         title={
           <div className="flex items-center gap-2">
             <IconTestPipe size={18} className="text-cyan-400" />
             <span className="font-semibold text-sm">
-              Agregar Análisis — {esMuestra ? `Muestra ${nombreGrupo || `#${idGrupo}`}` : `Grupo ${nombreGrupo || `#${idGrupo}`}`}
+              Añadir Análisis
             </span>
           </div>
         }
         size="md"
       >
         <Stack gap="sm">
-          <div className="grid grid-cols-[1fr_auto] gap-2 items-end">
-            <Select
-              label="Laboratorio"
-              placeholder={ctrl.loadingLaboratorios ? "Cargando..." : "Selecciona laboratorio"}
-              data={opcionesLaboratorios}
-              value={idLaboratorio}
-              onChange={setIdLaboratorio}
-              searchable
-              clearable
-              required
-              size="xs"
-              radius="lg"
-              classNames={{
-                input: "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500",
-                label: "text-zinc-300 mb-1 font-medium text-xs",
-              }}
-            />
-            <ActionIcon
-              size="lg"
-              radius="lg"
-              variant="light"
-              color="indigo"
-              onClick={() => {
-                setNuevoLabNombre("");
-                setNuevoLabRuc("");
-                setModalLabAbierto(true);
-              }}
-              title="Registrar nuevo laboratorio"
-            >
-              <IconPlus size={16} />
-            </ActionIcon>
+          <div
+            className={`px-3 py-2 rounded-xl border text-xs flex items-center justify-between ${
+              esMuestra
+                ? "bg-cyan-950/25 border-cyan-800/50 text-cyan-200"
+                : "bg-indigo-950/30 border-indigo-800/50 text-indigo-200"
+            }`}
+          >
+            <span className="text-zinc-400">
+              {esMuestra ? "Muestra externa destino:" : "Grupo de análisis destino:"}
+            </span>
+            <strong className="font-bold text-white">
+              {nombreGrupo || `#${idGrupo}`}
+            </strong>
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
-            <Select
-              label="Origen"
-              data={[
-                { value: TipoOrigen.Interno, label: "Interno" },
-                { value: TipoOrigen.Externo, label: "Externo" },
-              ]}
-              value={tipoOrigen}
-              onChange={(val) => setTipoOrigen((val as TipoOrigen) || TipoOrigen.Interno)}
-              size="xs"
-              radius="lg"
-              classNames={{
-                input: "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500",
-                label: "text-zinc-300 mb-1 font-medium text-xs",
-              }}
-            />
-
-            <Select
-              label="Asumido Por"
-              data={[
-                { value: "Proveedor", label: "Proveedor" },
-                { value: "Fabero", label: "Fabero" },
-              ]}
-              value={asumidoPor}
-              onChange={(val) => setAsumidoPor(val || "Proveedor")}
-              size="xs"
-              radius="lg"
-              classNames={{
-                input: "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500",
-                label: "text-zinc-300 mb-1 font-medium text-xs",
-              }}
-            />
-
-            <NumberInput
-              label="N° Ensayo"
-              value={numeroEnsayo}
-              onChange={(val) => setNumeroEnsayo(typeof val === "number" ? val : 1)}
-              min={1}
-              size="xs"
-              radius="lg"
-              classNames={{
-                input: "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500",
-                label: "text-zinc-300 mb-1 font-medium text-xs",
-              }}
-            />
-          </div>
-
-          <MultiFilePicker
-            label="Documentos / Sustento de Análisis"
-            description="PDF, JPG, PNG u otros certificados (requerido para ingresar leyes en esta fila)"
-            files={archivos}
-            onFilesChange={setArchivos}
+          <ListaAnalisisBorrador
+            items={analisisItems}
+            disabled={guardando}
+            onAgregarClick={() => {
+              setItemEditar(null);
+              setModalItemAbierto(true);
+            }}
+            onEditarItem={(item) => {
+              setItemEditar(item);
+              setModalItemAbierto(true);
+            }}
+            onEliminarItem={handleEliminarItem}
           />
 
           <Group justify="flex-end" mt="md">
-            <Button variant="default" size="xs" radius="lg" onClick={onClose}>
+            <Button
+              variant="default"
+              size="xs"
+              radius="lg"
+              disabled={guardando}
+              onClick={handleCerrar}
+            >
               Cancelar
             </Button>
             <Button
               color="indigo"
               size="xs"
               radius="lg"
-              loading={ctrl.agregandoAnalisis[idGrupo]}
-              disabled={!idLaboratorio || ctrl.agregandoAnalisis[idGrupo]}
+              loading={guardando}
+              disabled={analisisItems.length === 0 || guardando}
               onClick={handleSubmit}
             >
-              Agregar Análisis
+              {analisisItems.length > 0
+                ? `Guardar Análisis (${analisisItems.length})`
+                : "Guardar Análisis"}
             </Button>
           </Group>
         </Stack>
       </ModalEstandar>
 
-      <Modal
-        opened={modalLabAbierto}
-        onClose={() => setModalLabAbierto(false)}
-        title="Nuevo Laboratorio"
-        centered
-        radius="lg"
-        size="sm"
-        overlayProps={{ backgroundOpacity: 0.65, blur: 5 }}
-        styles={{
-          content: { background: "#09090b", border: "1px solid #27272a" },
-          header: { background: "#09090b", color: "#fff" },
+      <ModalFormAnalisisItem
+        opened={modalItemAbierto}
+        onClose={() => {
+          setModalItemAbierto(false);
+          setItemEditar(null);
         }}
-      >
-        <FormLaboratorio
-          nombre={nuevoLabNombre}
-          setNombre={setNuevoLabNombre}
-          ruc={nuevoLabRuc}
-          setRuc={setNuevoLabRuc}
-          laboratoriosExistentes={ctrl.laboratorios}
-          onSuccess={(nuevo: RES_Laboratorio) => {
-            setModalLabAbierto(false);
-            void ctrl.cargarLaboratorios();
-            setIdLaboratorio(String(nuevo.id));
-          }}
-        />
-      </Modal>
+        itemEditar={itemEditar}
+        numeroEnsayoSugerido={siguienteNumeroEnsayo}
+        defaultOrigen={esMuestra ? TipoOrigen.Externo : TipoOrigen.Interno}
+        laboratorios={ctrl.laboratorios}
+        loadingLaboratorios={ctrl.loadingLaboratorios}
+        onRecargarLaboratorios={ctrl.cargarLaboratorios}
+        onGuardarItem={handleGuardarItem}
+      />
     </>
   );
 };
