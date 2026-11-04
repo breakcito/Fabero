@@ -100,12 +100,13 @@ export interface RES_ItemMineralDisponible {
   id: number;
   id_lote_mineral: number | null;
   id_particion_lote_mineral: number | null;
+  /** Unidad donde vive el item. Para una PARTICION puede ser una "recepción ficticia". */
   id_recepcion_unidad: number;
-  // Para LOTE: misma recepcion que `id_recepcion_unidad`.
-  // Para PARTICION: la recepcion_unidad del LOTE PADRE (la original con
-  // guia_remitente/transportista/documentos_programacion). Usar este campo
-  // para el autocompletado de inputs de guias; la recepcion ficticia de la
-  // particion no tiene esos datos.
+  // Unidad del LOTE PADRE: es donde se capturaron las guías del viaje
+  // (guia_remitente, guia_transportista y documentos_programacion). Es el campo
+  // que hay que usar para el autocompletado de los inputs de guías: la
+  // recepción ficticia de una partición no tiene esos datos.
+  // Para LOTE: la misma que `id_recepcion_unidad`.
   id_recepcion_unidad_padre?: number | null;
   id_proveedor_minero: number | null;
   tipo_item: TipoItem;

@@ -55,6 +55,14 @@ export const ValidacionDistribucionService = {
     idParticion: number
   ): Promise<RES_TicketBalanzaData> => {
     const { data } = await api.get(`${PATH}/particiones/${idParticion}/ticket-balanza`);
+    // El backend responde HTTP 200 con `{success:false, message}` cuando no
+    // encuentra la información: sin esta comprobación `data` sería `null` y
+    // el PDF se renderizaría con datos vacíos.
+    if (!data?.success || !data?.data) {
+      throw new Error(
+        data?.message || "No se encontró la información del ticket de balanza."
+      );
+    }
     return data.data;
   },
 
@@ -62,6 +70,11 @@ export const ValidacionDistribucionService = {
     idLote: number
   ): Promise<RES_TicketBalanzaData> => {
     const { data } = await api.get(`${PATH}/lotes/${idLote}/ticket-balanza`);
+    if (!data?.success || !data?.data) {
+      throw new Error(
+        data?.message || "No se encontró la información del ticket de balanza."
+      );
+    }
     return data.data;
   },
 

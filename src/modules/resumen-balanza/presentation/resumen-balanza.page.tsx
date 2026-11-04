@@ -438,9 +438,6 @@ export const ResumenBalanzaPage = () => {
                           </Tooltip>
                         )}
                       </div>
-                      <Text size="11px" className="text-zinc-400 font-mono leading-tight">
-                        {r.particion_correlativo || "—"}
-                      </Text>
                       {r.particiones_total != null && r.particiones_total > 0 && (
                         <Text
                           size="10px"

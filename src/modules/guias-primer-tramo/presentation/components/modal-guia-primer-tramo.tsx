@@ -473,6 +473,8 @@ export const ModalGuiaPrimerTramo = ({
       onConfirm: () => {
         setItems([]);
         setRecepcionesPorItem(new Map());
+        // Al limpiar los items se libera también el ancla de recepción.
+        setRecepcionActivaKey(null);
         setIdProveedor(newVal);
         void sincronizarGuiasPorRecepciones([]);
       },
@@ -1268,6 +1270,10 @@ export const ModalGuiaPrimerTramo = ({
     setDocumentoNotaNoConformidad(null);
     setItems([]);
     setRecepcionesPorItem(new Map());
+    // Liberar el ancla de recepción: sin items la guía no pertenece a ninguna
+    // recepción. Si queda pegada, el selector de items deshabilita todo lo que
+    // no sea de esa recepción (aunque la lista esté vacía).
+    setRecepcionActivaKey(null);
   };
 
   const handleClose = () => {
@@ -2659,6 +2665,16 @@ const ModalSeleccionarItem = ({
     return null;
   }, [items, seleccionados]);
 
+  // Cómo desbloquear la recepción: si hay items seleccionados en ESTE modal se
+  // desmarcan; si los items ya están agregados a la guía hay que volver atrás
+  // y eliminarlos.
+  const mensajeLiberarRecepcion = useMemo(() => {
+    if (seleccionados.size > 0) {
+      return "Desmarca los items seleccionados para cambiar de recepción.";
+    }
+    return "Cierra este selector y elimina los items ya agregados a la guía para cambiar de recepción.";
+  }, [seleccionados.size]);
+
   const isItemDisabled = (i: RES_ItemMineralDisponible): boolean => {
     // Si ya hay una recepcion elegida, cualquier item de otra recepcion queda disabled.
     if (recepcionAncla !== null && recepcionGroupKey(i) !== recepcionAncla) {
@@ -2992,7 +3008,7 @@ const ModalSeleccionarItem = ({
                           const tooltipLabel = disabled
                             ? recepcionAncla !== null &&
                               recepcionGroupKey(i) !== recepcionAncla
-                              ? `Solo puedes seleccionar items de la recepción elegida (${r.placa ? r.placa.toUpperCase() : "unidad actual"}). Desmarca los items seleccionados para cambiar de recepción.`
+                              ? `Solo puedes seleccionar items de la recepción elegida (${r.placa ? r.placa.toUpperCase() : "unidad actual"}). ${mensajeLiberarRecepcion}`
                               : idProveedorFijo !== null
                                 ? `Este item pertenece al proveedor "${i.proveedor_nombre ?? "sin nombre"}". Cambie el proveedor o limpie los items seleccionados para poder elegir este.`
                                 : `Este item pertenece al proveedor "${i.proveedor_nombre ?? "sin nombre"}". Solo puedes seleccionar items del mismo proveedor ("${proveedorAncla ?? g.key}").`
@@ -3027,7 +3043,7 @@ const ModalSeleccionarItem = ({
                                           isUnitDisabled
                                             ? recepcionAncla !== null &&
                                               r.key !== recepcionAncla
-                                              ? "Solo puedes seleccionar items de la recepción elegida"
+                                              ? `Solo puedes seleccionar items de la recepción elegida. ${mensajeLiberarRecepcion}`
                                               : "No hay items seleccionables para esta unidad"
                                             : isAllUnitSelected
                                               ? "Deseleccionar todos los items de esta unidad"

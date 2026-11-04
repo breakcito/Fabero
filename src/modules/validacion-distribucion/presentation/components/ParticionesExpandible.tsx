@@ -62,8 +62,14 @@ export const ParticionesExpandible = ({ lote }: Props) => {
           target: targetId,
         }
       );
-    } catch {
-      notifyError("No se pudo obtener la información para el ticket de balanza.");
+    } catch (e) {
+      const axiosLike = e as { response?: { data?: { message?: string } } };
+      notifyError(
+        axiosLike.response?.data?.message ??
+          (e instanceof Error && e.message
+            ? e.message
+            : "No se pudo obtener la información para el ticket de balanza.")
+      );
     } finally {
       setPrintingId(null);
     }
