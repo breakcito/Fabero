@@ -11,12 +11,14 @@ import {
   Loader,
   Badge,
   Box,
+  Alert,
 } from "@mantine/core";
 import {
   IconFileText,
   IconCoins,
   IconCheck,
   IconFlask,
+  IconInfoCircle,
 } from "@tabler/icons-react";
 import { ElementoQuimicoValorizacion } from "../../../../shared/enums/_generic/elemento-quimico-valorizacion";
 import { AuxService } from "../../../../service/auxiliar.service";
@@ -173,12 +175,6 @@ export const ModalAgregarLote = ({
       return;
     }
 
-    if (detalleEditar) {
-      setLotes([]);
-      setLoadingLotes(false);
-      return;
-    }
-
     if (!idProveedor) {
       setLotes([]);
       setSelectedLoteGuiaId(null);
@@ -193,24 +189,28 @@ export const ModalAgregarLote = ({
           idProveedor,
           idValorizacionEdicion,
         );
-        // Excluir lotes ya valorizados para ambos elementos
-        const disponibles = data.filter((l) => {
-          const tieneOro =
-            l.es_valorizado_oro ||
-            existingDetalles.some(
-              (d) =>
-                d.id_lote_guia === l.id_lote_guia &&
-                d.elemento_quimico === ElementoQuimicoValorizacion.Oro,
-            );
-          const tienePlata =
-            l.es_valorizado_plata ||
-            existingDetalles.some(
-              (d) =>
-                d.id_lote_guia === l.id_lote_guia &&
-                d.elemento_quimico === ElementoQuimicoValorizacion.Plata,
-            );
-          return !(tieneOro && tienePlata);
-        });
+        // Excluir lotes ya valorizados para ambos elementos.
+        // En EDICIÓN no se excluye nada: hacen falta los grupos de análisis
+        // reales del lote para poder cambiar de grupo.
+        const disponibles = detalleEditar
+          ? data
+          : data.filter((l) => {
+              const tieneOro =
+                l.es_valorizado_oro ||
+                existingDetalles.some(
+                  (d) =>
+                    d.id_lote_guia === l.id_lote_guia &&
+                    d.elemento_quimico === ElementoQuimicoValorizacion.Oro,
+                );
+              const tienePlata =
+                l.es_valorizado_plata ||
+                existingDetalles.some(
+                  (d) =>
+                    d.id_lote_guia === l.id_lote_guia &&
+                    d.elemento_quimico === ElementoQuimicoValorizacion.Plata,
+                );
+              return !(tieneOro && tienePlata);
+            });
         setLotes(disponibles);
       } catch (err) {
         notifyError(
@@ -379,34 +379,56 @@ export const ModalAgregarLote = ({
     }
   }, [loteSeleccionado, detalleEditar]);
 
+  // Grupos de análisis disponibles del lote.
+  // En EDICIÓN el `loteEnEdicion` expone un único grupo sintético (el que
+  // tenía el detalle), así que se recuperan los grupos REALES del lote para
+  // poder cambiar a otro.
+  const gruposDelLote = useMemo<GrupoAnalisisLote[]>(() => {
+    const actuales = loteSeleccionado?.grupos_analisis ?? [];
+    if (!detalleEditar) return actuales;
+
+    const loteReal = lotes.find(
+      (l) => String(l.id_lote_guia) === String(detalleEditar.req.id_lote_guia),
+    );
+    const reales = loteReal?.grupos_analisis ?? [];
+    if (reales.length === 0) return actuales;
+
+    const ids = new Set(reales.map((g) => g.id));
+    const faltantes = actuales.filter((g) => !ids.has(g.id));
+    return [...reales, ...faltantes];
+  }, [loteSeleccionado, detalleEditar, lotes]);
+
   const handleSelectGrupo = (grupoIdStr: string | null) => {
+    const anterior = selectedGrupoAnalisisId;
     setSelectedGrupoAnalisisId(grupoIdStr);
-    if (!grupoIdStr || !loteSeleccionado?.grupos_analisis) return;
-    const g = loteSeleccionado.grupos_analisis.find((item) => String(item.id) === grupoIdStr);
+    if (!grupoIdStr) return;
+    // En edición, si el grupo NO cambia, se conservan las leyes ajustadas a
+    // mano del detalle (no se reemplazan por las del grupo).
+    if (detalleEditar && anterior === grupoIdStr) return;
+    const g = gruposDelLote.find((item) => String(item.id) === grupoIdStr);
     if (g) {
       setLeyOro(g.ley_oro_cierre);
       setLeyPlata(g.ley_plata_cierre);
-      setLeyHumedad(g.ley_humedad_cierre > 0 ? g.ley_humedad_cierre : loteSeleccionado.ley_humedad);
+      setLeyHumedad(
+        g.ley_humedad_cierre > 0 ? g.ley_humedad_cierre : (loteSeleccionado?.ley_humedad ?? 0),
+      );
       setLeyRecuperacion(g.ley_recuperacion_cierre || 0);
     }
   };
 
   const opcionesGrupos = useMemo(() => {
-    if (!loteSeleccionado?.grupos_analisis) return [];
-    return loteSeleccionado.grupos_analisis.map((g) => ({
+    return gruposDelLote.map((g) => ({
       value: String(g.id),
       label: `${g.nombre} — Au: ${g.ley_oro_cierre} | Ag: ${g.ley_plata_cierre}`,
     }));
-  }, [loteSeleccionado]);
+  }, [gruposDelLote]);
 
   const grupoSeleccionadoObj = useMemo(() => {
-    if (!selectedGrupoAnalisisId || !loteSeleccionado?.grupos_analisis) return null;
+    if (!selectedGrupoAnalisisId) return null;
     return (
-      loteSeleccionado.grupos_analisis.find(
-        (g) => String(g.id) === selectedGrupoAnalisisId,
-      ) || null
+      gruposDelLote.find((g) => String(g.id) === selectedGrupoAnalisisId) || null
     );
-  }, [selectedGrupoAnalisisId, loteSeleccionado]);
+  }, [selectedGrupoAnalisisId, gruposDelLote]);
 
   // Opciones de elemento dinámicas según lo que ya se haya valorizado para el lote seleccionado
   const opcionesElementos = useMemo(() => {
@@ -866,6 +888,19 @@ export const ModalAgregarLote = ({
               )}
             </Group>
 
+            {detalleEditar && (
+              <Alert
+                variant="light"
+                color="yellow"
+                icon={<IconInfoCircle size={16} />}
+                className="text-xs"
+              >
+                Al cambiar el grupo de análisis, el grupo anterior queda libre
+                y el nuevo queda con propuesta: se bloqueará en el módulo de
+                Cierre de Leyes.
+              </Alert>
+            )}
+
             <Grid gutter="xs" align="flex-end">
               <Grid.Col span={{ base: 12, sm: 6 }}>
                 <Select
@@ -874,7 +909,6 @@ export const ModalAgregarLote = ({
                   data={opcionesGrupos}
                   value={selectedGrupoAnalisisId}
                   onChange={handleSelectGrupo}
-                  disabled={!!detalleEditar}
                   size="xs"
                   radius="lg"
                   classNames={fieldClasses}
