@@ -357,7 +357,11 @@ export const useCierreLeyes = () => {
       return true;
     } catch (err: unknown) {
       console.error(err);
-      notifyError("Error al asociar muestra");
+      notifyError(
+        err instanceof Error && err.message
+          ? err.message
+          : "Error al asociar muestra",
+      );
       return false;
     } finally {
       setAsociandoMuestra((prev) => ({ ...prev, [idMuestraExterna]: false }));
@@ -373,7 +377,11 @@ export const useCierreLeyes = () => {
       return true;
     } catch (err: unknown) {
       console.error(err);
-      notifyError("Error al asociar muestras");
+      notifyError(
+        err instanceof Error && err.message
+          ? err.message
+          : "Error al asociar muestras",
+      );
       return false;
     } finally {
       idsMuestraExterna.forEach((id) => setAsociandoMuestra((prev) => ({ ...prev, [id]: false })));

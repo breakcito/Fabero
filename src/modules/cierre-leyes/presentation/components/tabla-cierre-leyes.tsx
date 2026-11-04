@@ -32,6 +32,7 @@ import { CellInput } from "./cell-input";
 import { BotonEvidenciaAnalisis } from "./boton-evidencia-analisis";
 import { ModalDocumentosAnalisis } from "./modal-documentos-analisis";
 import { ModalDetalleAnalisis } from "./modal-detalle-analisis";
+import { useNotify } from "../../../../hooks/useNotify";
 
 interface TablaCierreLeyesProps {
   lotes: LoteCierreResponse[];
@@ -224,6 +225,7 @@ export const TablaCierreLeyes = ({
   onAsociarMuestrasMultiples,
   onAsociarAGrupo,
 }: TablaCierreLeyesProps) => {
+  const { notifyWarning } = useNotify();
   const [dragOverGrupoId, setDragOverGrupoId] = useState<number | null>(null);
 
   const [modalLogOpened, setModalLogOpened] = useState(false);
@@ -288,6 +290,25 @@ export const TablaCierreLeyes = ({
               codigo: `Muestra #${id}`,
               proveedor: data.proveedorNombre,
             }));
+
+      // Regla de negocio: la muestra y el grupo destino deben ser del MISMO
+      // proveedor. No se permite soltar sobre un grupo de otro proveedor.
+      const proveedorMuestra = data.idProveedor ?? null;
+      const proveedorGrupo = lote.id_proveedor_minero ?? null;
+      if (
+        proveedorMuestra !== null &&
+        proveedorGrupo !== null &&
+        Number(proveedorMuestra) !== Number(proveedorGrupo)
+      ) {
+        notifyWarning(
+          `No se puede asociar: la muestra es del proveedor "${
+            data.proveedorNombre || "Sin Proveedor"
+          }" y el grupo "${gaNombre}" pertenece al proveedor "${
+            lote.proveedor_razon_social || "Sin Proveedor"
+          }". Solo se pueden asociar muestras y grupos del mismo proveedor.`
+        );
+        return;
+      }
 
       setConfirmDropData({
         gaId,

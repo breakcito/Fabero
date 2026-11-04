@@ -29,6 +29,33 @@ export type {
   IniciarMuestraPayload,
 };
 
+/**
+ * POST de asociación de muestras externas a un grupo.
+ *
+ * El backend responde 4xx cuando la muestra y el grupo son de proveedores
+ * distintos (regla de negocio). Axios lanza en ese caso, así que el mensaje
+ * real hay que leerlo de `response.data.message`; si responde 200 con
+ * `success: false` se lee del body.
+ */
+async function postAsociarMuestras(
+  url: string,
+  payload: unknown,
+  fallback: string,
+): Promise<void> {
+  try {
+    const { data } = await api.post(url, payload);
+    if (data?.success === false) {
+      throw new Error(data?.message || fallback);
+    }
+  } catch (e) {
+    const axiosLike = e as { response?: { data?: { message?: string } } };
+    throw new Error(
+      axiosLike.response?.data?.message ??
+        (e instanceof Error && e.message ? e.message : fallback),
+    );
+  }
+}
+
 const appendAnalisisPayload = (
   formData: FormData,
   payload: {
@@ -189,16 +216,22 @@ export const CierreLeyesService = {
   },
 
   asociarMuestraAGrupo: async (idMuestraExterna: number, idGrupo: number): Promise<void> => {
-    await api.post(`/cierre-leyes/muestras-externas/${idMuestraExterna}/asociar`, {
-      id_grupo_analisis: idGrupo,
-    });
+    await postAsociarMuestras(
+      `/cierre-leyes/muestras-externas/${idMuestraExterna}/asociar`,
+      { id_grupo_analisis: idGrupo },
+      "No se pudo asociar la muestra al grupo."
+    );
   },
 
   asociarMuestrasMultiplesAGrupo: async (idsMuestraExterna: number[], idGrupo: number): Promise<void> => {
-    await api.post(`/cierre-leyes/muestras-externas/asociar-multiple`, {
-      ids_muestra_externa: idsMuestraExterna,
-      id_grupo_analisis: idGrupo,
-    });
+    await postAsociarMuestras(
+      `/cierre-leyes/muestras-externas/asociar-multiple`,
+      {
+        ids_muestra_externa: idsMuestraExterna,
+        id_grupo_analisis: idGrupo,
+      },
+      "No se pudieron asociar las muestras al grupo."
+    );
   },
 
   getMuestrasAsociadasPorGrupo: async (idGrupo: number): Promise<MuestraAsociadaResponse[]> => {

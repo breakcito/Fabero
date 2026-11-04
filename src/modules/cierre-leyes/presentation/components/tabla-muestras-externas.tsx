@@ -244,9 +244,12 @@ export const TablaMuestrasExternas = ({
   };
 
   const proveedorReferencia = muestrasParaAsociar[0]?.id_proveedor ?? proveedorSeleccionadoId;
+  // Regla de negocio: sólo se ofrecen grupos del MISMO proveedor que las
+  // muestras seleccionadas. Sin proveedor de referencia no se puede garantizar
+  // la regla, así que no se ofrece ningún grupo.
   const lotesMismoProveedor = proveedorReferencia
     ? lotesDisponibles.filter((l) => l.id_proveedor_minero === proveedorReferencia)
-    : lotesDisponibles;
+    : [];
 
   const opcionesGrupos = lotesMismoProveedor.flatMap((l) => {
     const grupos =
