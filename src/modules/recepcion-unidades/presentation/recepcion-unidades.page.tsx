@@ -1,4 +1,4 @@
-import { Stack, Button, Tooltip } from "@mantine/core";
+import { Stack, Button } from "@mantine/core";
 import { useTitlePage } from "../../../hooks/useTitlePage";
 import { useRecepciones } from "../hooks/useRecepciones";
 import { Filtros } from "./components/filtros";
@@ -7,8 +7,9 @@ import { ConfirmarProgramacionModal } from "./components/confirmar-programacion-
 import { ModalEditarObservacionEvidencias } from "./components/modal-editar-observacion-evidencias";
 import { ModalVerHistorial } from "./components/modal-ver-historial";
 import { RefreshButton } from "../../../presentation/utils/refresh-button";
+import { LimpiarFiltrosButton } from "../../../presentation/utils/limpiar-filtros-button";
 import { useEffect, useMemo, useState } from "react";
-import { IconPlus, IconX } from "@tabler/icons-react";
+import { IconPlus } from "@tabler/icons-react";
 import {
   defaultFechaInicio,
   defaultFechaFin,
@@ -119,24 +120,11 @@ export const RecepcionUnidadesPage = () => {
         </div>
 
         <div className="flex items-center gap-2 shrink-0 pb-0.5">
-          <Tooltip
-            label="Limpiar todos los filtros"
-            withArrow
+          <LimpiarFiltrosButton
+            onClick={clearFilters}
             disabled={!hasActiveFilters}
-          >
-            <Button
-              variant="subtle"
-              color="red"
-              radius="lg"
-              size="sm"
-              leftSection={<IconX size={16} />}
-              onClick={clearFilters}
-              disabled={!hasActiveFilters}
-              className="text-red-400 hover:bg-red-500/10 transition-colors h-9.5 disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              Limpiar
-            </Button>
-          </Tooltip>
+            label="Limpiar todos los filtros"
+          />
 
           <RefreshButton onClick={fetchRecepciones} loading={loading} label="Recargar recepciones" />
 

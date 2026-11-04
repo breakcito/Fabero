@@ -13,10 +13,13 @@ export const useTicketLiquidacionCompra = () => {
   const { print, prepare } = usePrint();
   const { notifyError, notifySuccess } = useNotify();
   const [loadingTicket, setLoadingTicket] = useState(false);
+  const [printingId, setPrintingId] = useState<number | null>(null);
 
   const printTicketLiquidacion = useCallback(
     async (idOrData: number | RES_ValorizacionCompra) => {
+      const targetId = typeof idOrData === "number" ? idOrData : idOrData.id;
       setLoadingTicket(true);
+      setPrintingId(targetId);
       try {
         let valorizacion: RES_ValorizacionCompra;
 
@@ -29,14 +32,13 @@ export const useTicketLiquidacionCompra = () => {
           }
           valorizacion = res.data;
           print(<TicketLiquidacionCompraPdf data={valorizacion} />, {
-            documentTitle: `Liquidación ${valorizacion.correlativo || `VAL-${valorizacion.id}`}`,
+            documentTitle: `Liquidación ${valorizacion.correlativo || `VAL-${valorizacion.id}`} - v${valorizacion.numero_version ?? 1}`,
             target,
           });
         } else {
           valorizacion = idOrData;
           const target = `ticket-liquidacion-${valorizacion.id}`;
           prepare(target);
-          // Si faltan campos enriquecidos como proveedor_direccion o guias, recargamos por ID
           if (!valorizacion.proveedor_direccion && !valorizacion.guia_remitente) {
             const res = await ValorizacionCompraService.obtenerValorizacion(valorizacion.id);
             if (res.data) {
@@ -44,7 +46,7 @@ export const useTicketLiquidacionCompra = () => {
             }
           }
           print(<TicketLiquidacionCompraPdf data={valorizacion} />, {
-            documentTitle: `Liquidación ${valorizacion.correlativo || `VAL-${valorizacion.id}`}`,
+            documentTitle: `Liquidación ${valorizacion.correlativo || `VAL-${valorizacion.id}`} - v${valorizacion.numero_version ?? 1}`,
             target,
           });
         }
@@ -56,6 +58,7 @@ export const useTicketLiquidacionCompra = () => {
         console.error("[TicketLiquidacionCompra] Error:", err);
       } finally {
         setLoadingTicket(false);
+        setPrintingId(null);
       }
     },
     [print, prepare, notifyError, notifySuccess],
@@ -65,7 +68,8 @@ export const useTicketLiquidacionCompra = () => {
     () => ({
       printTicketLiquidacion,
       loadingTicket,
+      printingId,
     }),
-    [printTicketLiquidacion, loadingTicket],
+    [printTicketLiquidacion, loadingTicket, printingId],
   );
 };

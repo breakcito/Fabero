@@ -3,32 +3,17 @@ import {
   Group,
   Button,
   Select,
-  Badge,
-  ActionIcon,
   Text,
   Stack,
-  Paper,
-  Box,
   Loader,
-  Tooltip,
 } from "@mantine/core";
 import {
   IconPlus,
-  IconEdit,
-  IconCheck,
-  IconBan,
-  IconFileText,
   IconHistory,
-  IconX,
-  IconFiles,
-  IconPrinter,
-  IconFileDescription,
-  IconShoppingCart,
 } from "@tabler/icons-react";
 import { useTitlePage } from "../../../hooks/useTitlePage";
 import { usePrint } from "../../../hooks/usePrint";
 import { useNotify } from "../../../hooks/useNotify";
-import { DataTableEstandar } from "../../../presentation/utils/datatable-estandar";
 import { AuxService } from "../../../service/auxiliar.service";
 import { ValorizacionCompraService } from "../service/valorizacion-compra.service";
 import { DeclaracionJuradaPdf } from "../../contabilidad/presentation/components/declaracion-jurada-pdf";
@@ -42,10 +27,17 @@ import {
 import { ModalFormValorizacionCompra } from "./components/modal-form-valorizacion-compra";
 import { ModalAnularValorizacion } from "./components/modal-anular-valorizacion";
 import { ModalAprobarValorizacion } from "./components/modal-aprobar-valorizacion";
+import { PanelDetallePropuesta } from "./components/panel-detalle-propuesta";
+import { PanelGruposVersiones } from "./components/panel-grupos-versiones";
+import {
+  obtenerCorrelativoDisplay,
+  type GrupoValorizacionCompra,
+} from "./utils/valorizacion-grupo.utils";
 import { CambiosLogViewer } from "../../../presentation/utils/cambios-log-viewer";
 import { ModalEstandar } from "../../../presentation/utils/modal-estandar";
 import { ArchivoCard } from "../../../presentation/utils/archivo/archivo-card";
 import { RefreshButton } from "../../../presentation/utils/refresh-button";
+import { LimpiarFiltrosButton } from "../../../presentation/utils/limpiar-filtros-button";
 import { mostrarConfirmacion } from "../../../presentation/utils/modal-confirmacion";
 import { EstadoValorizacionCompra } from "../../../shared/enums/valorizacion-compra/estado-valorizacion-compra";
 import { EstadoBase } from "../../../shared/enums/_generic/estado-base";
@@ -68,9 +60,9 @@ const getArchivoObj = (item: unknown): IArchivo => {
     }
     return {
       nombre_original: nombreOriginal,
-      extension: extension,
+      extension,
       path_relativo: pathRelativo,
-      url: url,
+      url,
     };
   }
 
@@ -93,10 +85,33 @@ const fieldClasses = {
   label: "text-zinc-400 mb-1 font-medium text-xs ml-1 flex items-center gap-1.5",
 };
 
+const elegirVersionPreferida = (
+  versiones: RES_ValorizacionCompra[],
+  filtroEstado: string,
+): RES_ValorizacionCompra => {
+  if (filtroEstado !== "Todos") {
+    const coincidente = [...versiones]
+      .reverse()
+      .find((v) => v.estado === filtroEstado);
+    if (coincidente) return coincidente;
+  }
+  const aprobada = versiones.find(
+    (v) => v.estado === EstadoValorizacionCompra.Aprobado,
+  );
+  if (aprobada) return aprobada;
+
+  const propuestas = versiones.filter(
+    (v) => v.estado === EstadoValorizacionCompra.Propuesta,
+  );
+  if (propuestas.length > 0) return propuestas[propuestas.length - 1];
+
+  return versiones[versiones.length - 1];
+};
+
 export const ValorizacionCompraPage = () => {
   useTitlePage("Valorizaciones de Compra", true, true);
 
-  const { printTicketLiquidacion, loadingTicket } = useTicketLiquidacionCompra();
+  const { printTicketLiquidacion, printingId } = useTicketLiquidacionCompra();
   const { print, prepare } = usePrint();
   const { notifySuccess, notifyError } = useNotify();
 
@@ -104,85 +119,22 @@ export const ValorizacionCompraPage = () => {
   const [proveedores, setProveedores] = useState<RES_Proveedor[]>([]);
   const [solicitandoOcId, setSolicitandoOcId] = useState<number | null>(null);
 
-  // Filtros adicionales UI con default 7-dóas-atrÃ�s â hoy
+  // Filtros UI (rango de 7 días atrás -> hoy)
   const [fechaInicio, setFechaInicio] = useState<string>(defaultFechaInicio());
   const [fechaFin, setFechaFin] = useState<string>(defaultFechaFin());
   const [filtroEstado, setFiltroEstado] = useState<string>("Todos");
 
+  // Selección activa de grupo (cabecera) y versión (propuesta)
+  const [selectedGrupoUuid, setSelectedGrupoUuid] = useState<string | null>(null);
+  const [selectedVersionId, setSelectedVersionId] = useState<number | null>(null);
+
   const [modalHistorialOpened, setModalHistorialOpened] = useState(false);
-  const [valorizacionHistorial, setValorizacionHistorial] = useState<RES_ValorizacionCompra | null>(null);
+  const [valorizacionHistorial, setValorizacionHistorial] =
+    useState<RES_ValorizacionCompra | null>(null);
   const [modalEvidenciasInfo, setModalEvidenciasInfo] = useState<{
     title: string;
     files: (IArchivo | string)[];
   } | null>(null);
-
-  const historialCambiosCombinados = useMemo(() => {
-    if (!valorizacionHistorial) return [];
-
-    type LogCrudo = Record<string, unknown>;
-    type LogProcesado = LogCrudo & { motivo: string };
-
-    // Filtra el item "estado: Pendiente â Aprobado" de la lista de cambios,
-    // manteniendo intactos los demÃ�s cambios del mismo log (si los hubiera).
-    const sinTransicionAprobado = (log: LogCrudo): LogCrudo => {
-      const cambios = Array.isArray(log.cambios) ? log.cambios : [];
-      const filtrados = (cambios as Array<Record<string, unknown>>).filter(
-        (c) =>
-          !(c.campo_bd === "estado" && String(c.valor_nuevo ?? "") === "Aprobado"),
-      );
-      return { ...log, cambios: filtrados };
-    };
-
-    const logsHeader: LogProcesado[] = (valorizacionHistorial.log_cambios || [])
-      .filter((log) => Array.isArray(log.cambios) && (log.cambios as unknown[]).length > 0)
-      .map((log) => ({
-        ...log,
-        motivo: String(log.motivo || "Edición de Valorización de Compra"),
-      }));
-
-    const logsDetalles: LogProcesado[] = (valorizacionHistorial.detalles || []).flatMap((d) => {
-      const loteNombre = d.lote_correlativo || `ID #${d.id_lote_guia}`;
-      const elem = (d.elemento_quimico || "Oro").toUpperCase();
-      return (d.log_cambios || [])
-        .filter((log) => Array.isArray(log.cambios) && (log.cambios as unknown[]).length > 0)
-        .map((log) => ({
-          ...log,
-          motivo: `Lote ${loteNombre} (${elem}) - Modificación de ParÃ�metros`,
-        }));
-    });
-
-    // Logs de las transacciones de anticipo (monto_retirado, saldo_actual, etc.).
-    // Se omite la transición "estado: Pendiente â Aprobado" porque esa se refleja
-    // en la aprobación de la valorización, no en cambios editables del usuario.
-    const logsTransacciones: LogProcesado[] = (valorizacionHistorial.transacciones_anticipo || []).flatMap(
-      (t) => {
-        const codigo = t.factura || `Anticipo #${t.id_anticipo_proveedor}`;
-        return (t.log_cambios || [])
-          .filter((log) => Array.isArray(log.cambios) && (log.cambios as unknown[]).length > 0)
-          .map((log) => sinTransicionAprobado(log))
-          .filter((log) => Array.isArray(log.cambios) && (log.cambios as unknown[]).length > 0)
-          .map((log) => ({
-            ...log,
-            motivo: `Transacción Anticipo ${codigo} â ${valorizacionHistorial.numero_correlativo?.replace(/^VAL/, "") ?? ""}`,
-          }));
-      },
-    );
-
-    const combinados: LogProcesado[] = [...logsHeader, ...logsDetalles, ...logsTransacciones];
-
-    combinados.sort((a, b) => {
-      const timeA = new Date(String(a.fecha_hora || a.update_at || 0)).getTime();
-      const timeB = new Date(String(b.fecha_hora || b.update_at || 0)).getTime();
-      return timeB - timeA;
-    });
-
-    return combinados;
-  }, [valorizacionHistorial]);
-
-  const handleVerHistorial = (r: RES_ValorizacionCompra) => {
-    setValorizacionHistorial(r);
-    setModalHistorialOpened(true);
-  };
 
   const {
     idProveedorFiltro,
@@ -196,78 +148,19 @@ export const ValorizacionCompraPage = () => {
     setModalAnularOpened,
     valorizacionAnular,
     togglingIds,
+    clonandoIds,
     cargarValorizaciones,
     handleNuevo,
     handleEditar,
+    handleClonar,
     handleAprobar,
     handleAbrirAnular,
     handleConfirmarAnular,
   } = useValorizacionesCompra();
 
   const [modalAprobarOpened, setModalAprobarOpened] = useState(false);
-  const [valorizacionAprobar, setValorizacionAprobar] = useState<RES_ValorizacionCompra | null>(null);
-
-  const handleAbrirAprobar = (r: RES_ValorizacionCompra) => {
-    setValorizacionAprobar(r);
-    setModalAprobarOpened(true);
-  };
-
-  const handleSolicitarOc = (r: RES_ValorizacionCompra) => {
-    const yaSolicitado = Boolean(r.id_empleado_solicita_oc);
-    mostrarConfirmacion({
-      title: yaSolicitado ? "Actualizar Solicitud de OC" : "Solicitar Orden de Compra",
-      message: (
-        <div className="space-y-2">
-          <p>
-            {yaSolicitado ? (
-              <>
-                Esta valorización ya fue solicitada por{" "}
-                <strong className="text-white">{r.empleado_solicita_oc || "Empleado"}</strong> el{" "}
-                <span className="text-zinc-300 font-mono">{r.fecha_hora_solicitud_oc}</span>.
-                <br />
-                ¿Desea volver a registrar la solicitud con su usuario actual?
-              </>
-            ) : (
-              <>
-                ¿Desea registrar la solicitud de Orden de Compra para la valorización{" "}
-                <strong className="text-white">
-                  {r.correlativo || (r.numero_correlativo ? `VAL-${r.numero_correlativo}` : `#${r.id}`)}
-                </strong>?
-              </>
-            )}
-          </p>
-          <p className="text-zinc-400 text-xs">
-            Su usuario y fecha/hora quedarán registrados como el solicitante de la Orden de Compra.
-          </p>
-        </div>
-      ),
-      confirmLabel: yaSolicitado ? "Sí, actualizar" : "Sí, solicitar OC",
-      cancelLabel: "Cancelar",
-      onConfirm: async () => {
-        setSolicitandoOcId(r.id);
-        try {
-          const res = await ValorizacionCompraService.solicitarOc(r.id);
-          notifySuccess(res.message || "Solicitud de Orden de Compra registrada exitosamente");
-          await cargarValorizaciones();
-        } catch (err) {
-          notifyError(err instanceof Error ? err.message : "Error al solicitar Orden de Compra");
-        } finally {
-          setSolicitandoOcId(null);
-        }
-      },
-    });
-  };
-
-  const handleImprimirDeclaracionJurada = (r: RES_ValorizacionCompra) => {
-    const target = `dj-val-${r.id}`;
-    prepare(target);
-    const docTitle = `Declaracion Jurada - ${r.correlativo || (r.numero_correlativo ? `VAL-${r.numero_correlativo}` : `#${r.id}`)}`;
-    print(<DeclaracionJuradaPdf valorizacion={r} />, {
-      documentTitle: docTitle,
-      target,
-    });
-    notifySuccess("Declaración Jurada generada exitosamente.");
-  };
+  const [valorizacionAprobar, setValorizacionAprobar] =
+    useState<RES_ValorizacionCompra | null>(null);
 
   useEffect(() => {
     const cargar = async () => {
@@ -283,11 +176,348 @@ export const ValorizacionCompraPage = () => {
         setLoadingProveedores(false);
       }
     };
-    cargar();
+    void cargar();
   }, []);
 
+  // Agrupación por uuid_grupo y filtrado manteniendo visibles todas las versiones del grupo
+  const gruposFiltrados = useMemo<GrupoValorizacionCompra[]>(() => {
+    const mapa = new Map<string, RES_ValorizacionCompra[]>();
+
+    for (const item of valorizaciones) {
+      const uuid = item.uuid_grupo || `legacy-${item.id}`;
+      const lista = mapa.get(uuid);
+      if (lista) {
+        lista.push(item);
+      } else {
+        mapa.set(uuid, [item]);
+      }
+    }
+
+    const cumpleFiltrosItem = (v: RES_ValorizacionCompra): boolean => {
+      if (filtroEstado !== "Todos" && v.estado !== filtroEstado) {
+        return false;
+      }
+      const itemFecha = v.created_at ? v.created_at.split(" ")[0] : "";
+      if (fechaInicio && itemFecha < fechaInicio) return false;
+      if (fechaFin && itemFecha > fechaFin) return false;
+      return true;
+    };
+
+    const resultado: GrupoValorizacionCompra[] = [];
+
+    for (const [uuidGrupo, itemsGrupo] of mapa.entries()) {
+      if (!itemsGrupo.some(cumpleFiltrosItem)) {
+        continue;
+      }
+
+      const versionesOrdenadas = [...itemsGrupo].sort((a, b) => {
+        const verDiff = (a.numero_version ?? 1) - (b.numero_version ?? 1);
+        if (verDiff !== 0) return verDiff;
+        return a.id - b.id;
+      });
+
+      const versionAprobada =
+        versionesOrdenadas.find(
+          (v) => v.estado === EstadoValorizacionCompra.Aprobado,
+        ) ?? null;
+
+      const propuestasActivas = versionesOrdenadas.filter(
+        (v) => v.estado === EstadoValorizacionCompra.Propuesta,
+      );
+
+      const versionActiva =
+        versionAprobada ??
+        (propuestasActivas.length > 0
+          ? propuestasActivas[propuestasActivas.length - 1]
+          : versionesOrdenadas[versionesOrdenadas.length - 1]);
+
+      let estadoGrupo: EstadoValorizacionCompra = EstadoValorizacionCompra.Anulado;
+      if (versionAprobada) {
+        estadoGrupo = EstadoValorizacionCompra.Aprobado;
+      } else if (propuestasActivas.length > 0) {
+        estadoGrupo = EstadoValorizacionCompra.Propuesta;
+      } else if (
+        versionesOrdenadas.some(
+          (v) => v.estado === EstadoValorizacionCompra.Desestimada,
+        )
+      ) {
+        estadoGrupo = EstadoValorizacionCompra.Desestimada;
+      }
+
+      const fechaReciente = versionesOrdenadas.reduce((maxF, curr) => {
+        const f = curr.created_at || "";
+        return f > maxF ? f : maxF;
+      }, "");
+
+      resultado.push({
+        uuidGrupo,
+        correlativo: obtenerCorrelativoDisplay(versionesOrdenadas[0]),
+        proveedorNombre: versionActiva.proveedor_nombre || "—",
+        proveedorRuc: versionActiva.proveedor_ruc || "—",
+        concesionNombre: versionActiva.concesion_nombre || "—",
+        versiones: versionesOrdenadas,
+        versionAprobada,
+        versionActiva,
+        estadoGrupo,
+        fechaReciente,
+      });
+    }
+
+    resultado.sort((a, b) => {
+      if (b.fechaReciente !== a.fechaReciente) {
+        return b.fechaReciente.localeCompare(a.fechaReciente);
+      }
+      const maxIdA = Math.max(...a.versiones.map((v) => v.id));
+      const maxIdB = Math.max(...b.versiones.map((v) => v.id));
+      return maxIdB - maxIdA;
+    });
+
+    return resultado;
+  }, [valorizaciones, filtroEstado, fechaInicio, fechaFin]);
+
+  // Selección efectiva derivada sin necesidad de efectos secundarios
+  const grupoEfectivo = useMemo<GrupoValorizacionCompra | null>(() => {
+    if (gruposFiltrados.length === 0) return null;
+    if (selectedGrupoUuid) {
+      const encontrado = gruposFiltrados.find(
+        (g) => g.uuidGrupo === selectedGrupoUuid,
+      );
+      if (encontrado) return encontrado;
+    }
+    return gruposFiltrados[0];
+  }, [gruposFiltrados, selectedGrupoUuid]);
+
+  const versionEfectiva = useMemo<RES_ValorizacionCompra | null>(() => {
+    if (!grupoEfectivo) return null;
+    if (selectedVersionId !== null) {
+      const encontrada = grupoEfectivo.versiones.find(
+        (v) => v.id === selectedVersionId,
+      );
+      if (encontrada) return encontrada;
+    }
+    return elegirVersionPreferida(grupoEfectivo.versiones, filtroEstado);
+  }, [grupoEfectivo, selectedVersionId, filtroEstado]);
+
+  const handleSelectGrupo = (uuidGrupo: string) => {
+    setSelectedGrupoUuid(uuidGrupo);
+    const grp = gruposFiltrados.find((g) => g.uuidGrupo === uuidGrupo);
+    if (grp) {
+      const preferida = elegirVersionPreferida(grp.versiones, filtroEstado);
+      setSelectedVersionId(preferida.id);
+    }
+  };
+
+  const handleSelectVersion = (idVersion: number, uuidGrupo: string) => {
+    setSelectedGrupoUuid(uuidGrupo);
+    setSelectedVersionId(idVersion);
+  };
+
+  const handleConfirmarClonar = (v: RES_ValorizacionCompra) => {
+    const corrStr = obtenerCorrelativoDisplay(v);
+    const verNum = v.numero_version ?? 1;
+
+    mostrarConfirmacion({
+      title: "Clonar Propuesta",
+      message: (
+        <div className="space-y-2">
+          <p>
+            ¿Desea generar una nueva propuesta a partir de{" "}
+            <strong className="text-white">
+              {corrStr} (#{verNum})
+            </strong>
+            ?
+          </p>
+          <p className="text-zinc-400 text-xs">
+            Se copiarán los datos de cabecera y sus lotes asociados en estado{" "}
+            <strong className="text-yellow-300">Propuesta</strong> (bancos y anticipos se definen al aprobar).
+          </p>
+        </div>
+      ),
+      confirmLabel: "Sí, clonar propuesta",
+      cancelLabel: "Cancelar",
+      onConfirm: async () => {
+        const clonada = await handleClonar(v);
+        if (clonada) {
+          setSelectedGrupoUuid(clonada.uuid_grupo);
+          setSelectedVersionId(clonada.id);
+        }
+      },
+    });
+  };
+
+  const handleAbrirAprobar = (r: RES_ValorizacionCompra) => {
+    setValorizacionAprobar(r);
+    setModalAprobarOpened(true);
+  };
+
+  const handleSolicitarOc = (r: RES_ValorizacionCompra) => {
+    const yaSolicitado = Boolean(r.id_empleado_solicita_oc);
+    const corrStr = obtenerCorrelativoDisplay(r);
+    const verNum = r.numero_version ?? 1;
+
+    mostrarConfirmacion({
+      title: yaSolicitado
+        ? "Actualizar Solicitud de OC"
+        : "Solicitar Orden de Compra",
+      message: (
+        <div className="space-y-2">
+          <p>
+            {yaSolicitado ? (
+              <>
+                Esta valorización (
+                <strong className="text-white">
+                  {corrStr} · #{verNum}
+                </strong>
+                ) ya fue solicitada por{" "}
+                <strong className="text-white">
+                  {r.empleado_solicita_oc || "Empleado"}
+                </strong>{" "}
+                el{" "}
+                <span className="text-zinc-300 font-mono">
+                  {r.fecha_hora_solicitud_oc}
+                </span>
+                .
+                <br />
+                ¿Desea volver a registrar la solicitud con su usuario actual?
+              </>
+            ) : (
+              <>
+                ¿Desea registrar la solicitud de Orden de Compra para{" "}
+                <strong className="text-white">
+                  {corrStr} (#{verNum})
+                </strong>
+                ?
+              </>
+            )}
+          </p>
+          <p className="text-zinc-400 text-xs">
+            Su usuario y fecha/hora quedarán registrados como el solicitante de la Orden de Compra.
+          </p>
+        </div>
+      ),
+      confirmLabel: yaSolicitado ? "Sí, actualizar" : "Sí, solicitar OC",
+      cancelLabel: "Cancelar",
+      onConfirm: async () => {
+        setSolicitandoOcId(r.id);
+        try {
+          const res = await ValorizacionCompraService.solicitarOc(r.id);
+          notifySuccess(
+            res.message || "Solicitud de Orden de Compra registrada exitosamente",
+          );
+          await cargarValorizaciones();
+        } catch (err) {
+          notifyError(
+            err instanceof Error
+              ? err.message
+              : "Error al solicitar Orden de Compra",
+          );
+        } finally {
+          setSolicitandoOcId(null);
+        }
+      },
+    });
+  };
+
+  const handleImprimirDeclaracionJurada = (r: RES_ValorizacionCompra) => {
+    const target = `dj-val-${r.id}`;
+    prepare(target);
+    const corrStr = obtenerCorrelativoDisplay(r);
+    const docTitle = `Declaracion Jurada - ${corrStr} - V${r.numero_version ?? 1}`;
+    print(<DeclaracionJuradaPdf valorizacion={r} />, {
+      documentTitle: docTitle,
+      target,
+    });
+    notifySuccess("Declaración Jurada generada exitosamente.");
+  };
+
+  const historialCambiosCombinados = useMemo(() => {
+    if (!valorizacionHistorial) return [];
+
+    type LogCrudo = Record<string, unknown>;
+    type LogProcesado = LogCrudo & { motivo: string };
+
+    const sinTransicionAprobado = (log: LogCrudo): LogCrudo => {
+      const cambios = Array.isArray(log.cambios) ? log.cambios : [];
+      const filtrados = (cambios as Array<Record<string, unknown>>).filter(
+        (c) =>
+          !(
+            c.campo_bd === "estado" && String(c.valor_nuevo ?? "") === "Aprobado"
+          ),
+      );
+      return { ...log, cambios: filtrados };
+    };
+
+    const logsHeader: LogProcesado[] = (valorizacionHistorial.log_cambios || [])
+      .filter(
+        (log) => Array.isArray(log.cambios) && (log.cambios as unknown[]).length > 0,
+      )
+      .map((log) => ({
+        ...log,
+        motivo: String(log.motivo || "Edición de Valorización de Compra"),
+      }));
+
+    const logsDetalles: LogProcesado[] = (
+      valorizacionHistorial.detalles || []
+    ).flatMap((d) => {
+      const loteNombre = d.lote_correlativo || `ID #${d.id_lote_guia}`;
+      const elem = (d.elemento_quimico || "Oro").toUpperCase();
+      return (d.log_cambios || [])
+        .filter(
+          (log) =>
+            Array.isArray(log.cambios) && (log.cambios as unknown[]).length > 0,
+        )
+        .map((log) => ({
+          ...log,
+          motivo: `Lote ${loteNombre} (${elem}) - Modificación de Parámetros`,
+        }));
+    });
+
+    const logsTransacciones: LogProcesado[] = (
+      valorizacionHistorial.transacciones_anticipo || []
+    ).flatMap((t) => {
+      const codigo = t.factura || `Anticipo #${t.id_anticipo_proveedor}`;
+      return (t.log_cambios || [])
+        .filter(
+          (log) =>
+            Array.isArray(log.cambios) && (log.cambios as unknown[]).length > 0,
+        )
+        .map((log) => sinTransicionAprobado(log))
+        .filter(
+          (log) =>
+            Array.isArray(log.cambios) && (log.cambios as unknown[]).length > 0,
+        )
+        .map((log) => ({
+          ...log,
+          motivo: `Transacción Anticipo ${codigo} — ${obtenerCorrelativoDisplay(valorizacionHistorial)}`,
+        }));
+    });
+
+    const combinados: LogProcesado[] = [
+      ...logsHeader,
+      ...logsDetalles,
+      ...logsTransacciones,
+    ];
+
+    combinados.sort((a, b) => {
+      const timeA = new Date(
+        String(a.fecha_hora || a.update_at || 0),
+      ).getTime();
+      const timeB = new Date(
+        String(b.fecha_hora || b.update_at || 0),
+      ).getTime();
+      return timeB - timeA;
+    });
+
+    return combinados;
+  }, [valorizacionHistorial]);
+
+  const handleVerHistorial = (r: RES_ValorizacionCompra) => {
+    setValorizacionHistorial(r);
+    setModalHistorialOpened(true);
+  };
+
   const hasActiveFilters =
-    !!idProveedorFiltro ||
+    Boolean(idProveedorFiltro) ||
     fechaInicio !== defaultFechaInicio() ||
     fechaFin !== defaultFechaFin() ||
     (filtroEstado && filtroEstado !== "Todos");
@@ -299,481 +529,9 @@ export const ValorizacionCompraPage = () => {
     setFiltroEstado("Todos");
   };
 
-  // Filtrado local por fecha y estado
-  const valorizacionesFiltradas = useMemo(() => {
-    return valorizaciones.filter((item) => {
-      if (filtroEstado !== "Todos" && item.estado !== filtroEstado) {
-        return false;
-      }
-      if (fechaInicio) {
-        const itemFecha = item.created_at ? item.created_at.split(" ")[0] : "";
-        if (itemFecha < fechaInicio) return false;
-      }
-      if (fechaFin) {
-        const itemFecha = item.created_at ? item.created_at.split(" ")[0] : "";
-        if (itemFecha > fechaFin) return false;
-      }
-      return true;
-    });
-  }, [valorizaciones, filtroEstado, fechaInicio, fechaFin]);
-
-  const getBadgeEstado = (estado: EstadoValorizacionCompra) => {
-    switch (estado) {
-      case EstadoValorizacionCompra.Propuesta:
-        return (
-          <Badge color="yellow" variant="light" size="sm">
-            Propuesta
-          </Badge>
-        );
-      case EstadoValorizacionCompra.Aprobado:
-        return (
-          <Badge color="emerald" variant="filled" size="sm">
-            Aprobado
-          </Badge>
-        );
-      case EstadoValorizacionCompra.Anulado:
-        return (
-          <Badge color="red" variant="light" size="sm">
-            Anulado
-          </Badge>
-        );
-      default:
-        return <Badge size="sm">{estado}</Badge>;
-    }
-  };
-
-  const columns = [
-    {
-      accessor: "index",
-      title: "#",
-      textAlign: "center" as const,
-      width: 50,
-    },
-    {
-      accessor: "correlativo",
-      title: "Correlativo",
-      textAlign: "center" as const,
-      render: (r: RES_ValorizacionCompra) => (
-        <Text fw={500} fz="xs" c="cyan.4" className="font-mono">
-          {r.correlativo || (r.numero_correlativo ? `VAL-${r.numero_correlativo}` : "-")}
-        </Text>
-      ),
-    },
-    {
-      accessor: "proveedor_nombre",
-      title: "Proveedor",
-      textAlign: "center" as const,
-      render: (r: RES_ValorizacionCompra) => (
-        <Stack gap={2} align="center">
-          <Text fw={600} fz="xs">
-            {r.proveedor_nombre}
-          </Text>
-          <Text fz={11} c="dimmed">
-            RUC: {r.proveedor_ruc}
-          </Text>
-        </Stack>
-      ),
-    },
-    {
-      accessor: "concesion_nombre",
-      title: "Concesión",
-      textAlign: "center" as const,
-      render: (r: RES_ValorizacionCompra) => (
-        <Text fz="xs">{r.concesion_nombre || "-"}</Text>
-      ),
-    },
-    {
-      accessor: "tipo_pago",
-      title: "Tipo Pago",
-      textAlign: "center" as const,
-      render: (r: RES_ValorizacionCompra) => (
-        <Badge variant="outline" color="blue" size="xs">
-          {(r.tipo_pago || "").toUpperCase()}
-        </Badge>
-      ),
-    },
-    {
-      accessor: "total_subtotal",
-      title: "Total Valorización",
-      textAlign: "center" as const,
-      render: (r: RES_ValorizacionCompra) => {
-        const esSinValor = Number(r.total_subtotal || 0) <= 0;
-        return (
-          <Stack gap={2} align="center">
-            <Text fw={700} c={esSinValor ? "dimmed" : "emerald.4"} fz="xs">
-              $ {r.total_subtotal.toFixed(2)}
-            </Text>
-            {esSinValor && (
-              <Badge variant="light" color="red" size="xs">
-                Sin Valor Comercial
-              </Badge>
-            )}
-          </Stack>
-        );
-      },
-    },
-    {
-      accessor: "created_at",
-      title: "Fecha Registro",
-      textAlign: "center" as const,
-      render: (r: RES_ValorizacionCompra) => (
-        <Text fz="xs">{r.created_at ? r.created_at.split(" ")[0] : "-"}</Text>
-      ),
-    },
-    {
-      accessor: "estado",
-      title: "Estado",
-      textAlign: "center" as const,
-      render: (r: RES_ValorizacionCompra) => getBadgeEstado(r.estado),
-    },
-    {
-      accessor: "acciones",
-      title: "Acciones",
-      textAlign: "center" as const,
-      render: (r: RES_ValorizacionCompra) => {
-        const isPropuesta = r.estado === EstadoValorizacionCompra.Propuesta;
-        const isAnulado = r.estado === EstadoValorizacionCompra.Anulado;
-        const isBusy = togglingIds[r.id];
-
-        return (
-          <Group gap={6} justify="center" wrap="nowrap">
-            <Tooltip label="Imprimir Liquidación" withArrow>
-              <ActionIcon
-                variant="light"
-                color="yellow"
-                radius="xl"
-                size="sm"
-                loading={loadingTicket}
-                onClick={() => printTicketLiquidacion(r)}
-                className="bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 border border-yellow-500/20"
-              >
-                <IconPrinter size={14} />
-              </ActionIcon>
-            </Tooltip>
-
-            <Tooltip label="Imprimir Declaración Jurada" withArrow>
-              <ActionIcon
-                variant="light"
-                color="cyan"
-                radius="xl"
-                size="sm"
-                onClick={() => handleImprimirDeclaracionJurada(r)}
-                className="bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/20"
-              >
-                <IconFileDescription size={14} />
-              </ActionIcon>
-            </Tooltip>
-
-            <Tooltip
-              label={
-                r.id_empleado_solicita_oc
-                  ? `OC Solicitada por: ${r.empleado_solicita_oc || "Empleado"} (${r.fecha_hora_solicitud_oc || ""})`
-                  : "Solicitar Orden de Compra"
-              }
-              withArrow
-            >
-              <ActionIcon
-                variant={r.id_empleado_solicita_oc ? "filled" : "light"}
-                color="indigo"
-                radius="xl"
-                size="sm"
-                loading={solicitandoOcId === r.id}
-                disabled={isAnulado || solicitandoOcId === r.id}
-                onClick={() => handleSolicitarOc(r)}
-                className={
-                  r.id_empleado_solicita_oc
-                    ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
-                    : "bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20"
-                }
-              >
-                <IconShoppingCart size={14} />
-              </ActionIcon>
-            </Tooltip>
-
-            {isPropuesta && (
-              <Tooltip label="Editar Propuesta">
-                <ActionIcon
-                  color="yellow"
-                  variant="light"
-                  size="sm"
-                  onClick={() => handleEditar(r)}
-                >
-                  <IconEdit size={14} />
-                </ActionIcon>
-              </Tooltip>
-            )}
-
-            {isPropuesta && (
-              <Tooltip label="Aprobar Propuesta">
-                <ActionIcon
-                  color="teal"
-                  variant="filled"
-                  size="sm"
-                  loading={isBusy}
-                  disabled={isBusy}
-                  onClick={() => handleAbrirAprobar(r)}
-                >
-                  <IconCheck size={14} />
-                </ActionIcon>
-              </Tooltip>
-            )}
-
-            {!isAnulado && (
-              <Tooltip label="Anular / Eliminar Valorización">
-                <ActionIcon
-                  color="red"
-                  variant="light"
-                  size="sm"
-                  loading={isBusy}
-                  disabled={isBusy}
-                  onClick={() => handleAbrirAnular(r)}
-                >
-                  <IconBan size={14} />
-                </ActionIcon>
-              </Tooltip>
-            )}
-
-            {r.evidencias && r.evidencias.length > 0 && (
-              <Tooltip label="Evidencias de Registro">
-                <ActionIcon
-                  variant="light"
-                  color="indigo"
-                  size="sm"
-                  onClick={() =>
-                    setModalEvidenciasInfo({
-                      title: `Evidencias de Registro (${r.correlativo || `VAL-${r.id}`})`,
-                      files: r.evidencias || [],
-                    })
-                  }
-                >
-                  <IconFiles size={14} />
-                </ActionIcon>
-              </Tooltip>
-            )}
-
-            {r.evidencias_anulacion && r.evidencias_anulacion.length > 0 && (
-              <Tooltip label="Evidencias de Anulación">
-                <ActionIcon
-                  variant="filled"
-                  color="red"
-                  size="sm"
-                  onClick={() =>
-                    setModalEvidenciasInfo({
-                      title: `Evidencias de Anulación (${r.correlativo || `VAL-${r.id}`})`,
-                      files: r.evidencias_anulacion || [],
-                    })
-                  }
-                >
-                  <IconFiles size={14} />
-                </ActionIcon>
-              </Tooltip>
-            )}
-
-            <Tooltip label="Historial de Cambios">
-              <ActionIcon
-                color="blue"
-                variant="light"
-                size="sm"
-                onClick={() => handleVerHistorial(r)}
-              >
-                <IconHistory size={14} />
-              </ActionIcon>
-            </Tooltip>
-          </Group>
-        );
-      },
-    },
-  ];
-
-  // Render expandible: cards compactas para sub-lista de lotes
-  const renderRowExpansion = ({ record }: { record: RES_ValorizacionCompra }) => {
-    const detallesList = record.detalles || [];
-
-    return (
-      <Box p="md" bg="#18181b">
-        {record.id_empleado_solicita_oc && (
-          <Paper p="xs" radius="md" bg="#1e1b4b/40" className="border border-indigo-800/60 mb-2.5">
-            <Group justify="space-between" wrap="wrap">
-              <Group gap="xs">
-                <IconShoppingCart size={15} className="text-indigo-400" />
-                <Text fz="xs" c="indigo.2">
-                  <span className="font-semibold">OC Solicitada por:</span>{" "}
-                  {record.empleado_solicita_oc || "Empleado"}
-                </Text>
-              </Group>
-              <Text fz={11} c="zinc.4" className="font-mono">
-                {record.fecha_hora_solicitud_oc}
-              </Text>
-            </Group>
-          </Paper>
-        )}
-
-        <Text fw={700} fz="xs" c="amber.4" mb="xs" className="flex items-center gap-1.5">
-          <IconFileText size={15} /> Lotes Valorizados ({detallesList.length})
-        </Text>
-
-        {detallesList.length === 0 ? (
-          <Box p="md" bg="#0f0f12" className="rounded-lg border border-dashed border-zinc-800 text-center">
-            <Text fz="xs" c="zinc.5" fs="italic">
-              Sin detalle de lotes
-            </Text>
-          </Box>
-        ) : (
-          <Stack gap="xs" className="max-h-95 overflow-y-auto pr-1">
-            {detallesList.map((d, idx) => {
-              const esOro = d.elemento_quimico === "Oro";
-              const accentBorder = esOro
-                ? "border-l-yellow-500/70"
-                : "border-l-slate-400/70";
-              return (
-                <Paper
-                  key={idx}
-                  p="xs"
-                  radius="md"
-                  bg="#18181b"
-                  className={`border border-zinc-800 border-l-2 ${accentBorder} hover:border-indigo-500/60 transition-all duration-200`}
-                >
-                  {/* Header: identificación + Subtotal */}
-                  <Group justify="space-between" align="center" wrap="nowrap">
-                    <Group gap="xs" wrap="nowrap" className="min-w-0">
-                      <Badge
-                        color={esOro ? "yellow" : "gray"}
-                        variant="filled"
-                        size="xs"
-                        fw={700}
-                      >
-                        {d.elemento_quimico}
-                      </Badge>
-                      <Text fw={700} fz="xs" c="white" className="font-mono truncate">
-                        Lote: {d.lote_correlativo || "-"}
-                      </Text>
-                      {Number(d.subtotal || 0) === 0 && Number(d.precio_por_tonelada || 0) === 0 && (
-                        <Badge variant="light" color="red" size="xs" fw={700}>
-                          Sin Valor Comercial
-                        </Badge>
-                      )}
-                      {d.grr && (
-                        <Badge variant="outline" color="cyan" size="xs">
-                          G.R.R: {d.grr}
-                        </Badge>
-                      )}
-                      {d.grt && (
-                        <Badge variant="outline" color="indigo" size="xs">
-                          G.R.T: {d.grt}
-                        </Badge>
-                      )}
-                    </Group>
-
-                    <Group gap={6} wrap="nowrap" className="shrink-0">
-                      <Text
-                        fz={9}
-                        c={Number(d.subtotal || 0) === 0 ? "dimmed" : "emerald.4"}
-                        tt="uppercase"
-                        fw={700}
-                      >
-                        Subtotal
-                      </Text>
-                      <Text
-                        fz="sm"
-                        fw={800}
-                        c={Number(d.subtotal || 0) === 0 ? "dimmed" : "emerald.3"}
-                        className="font-mono"
-                      >
-                        $ {d.subtotal.toFixed(2)}
-                      </Text>
-                    </Group>
-                  </Group>
-
-                  {/* Mótricas en una sola lónea con separadores */}
-                  <Box
-                    mt={6}
-                    p="xs"
-                    bg="#0f0f12"
-                    className="rounded border border-zinc-800"
-                  >
-                    <Group gap="md" wrap="wrap">
-                      <Group gap={4} wrap="nowrap">
-                        <Text fz={10} c="zinc.5" tt="uppercase" fw={600}>TMH (t):</Text>
-                        <Text fz={11} fw={700} c="white">{(d.tmh / 1000).toFixed(3)}</Text>
-                      </Group>
-                      <Text c="zinc.7">·</Text>
-                      <Group gap={4} wrap="nowrap">
-                        <Text fz={10} c="zinc.5" tt="uppercase" fw={600}>% H2O:</Text>
-                        <Text fz={11} fw={700} c="cyan.3">{d.ley_humedad.toFixed(2)}%</Text>
-                      </Group>
-                      <Text c="zinc.7">·</Text>
-                      <Group gap={4} wrap="nowrap">
-                        <Text fz={10} c="zinc.5" tt="uppercase" fw={600}>TMS (t):</Text>
-                        <Text fz={11} fw={700} c="emerald.3">{(d.tms / 1000).toFixed(3)}</Text>
-                      </Group>
-                      <Text c="zinc.7">·</Text>
-                      <Group gap={4} wrap="nowrap">
-                        <Text fz={10} c="zinc.5" tt="uppercase" fw={600}>Ley:</Text>
-                        <Text fz={11} fw={700} c="yellow.3">{d.ley.toFixed(4)}</Text>
-                      </Group>
-                      <Text c="zinc.7">·</Text>
-                      <Group gap={4} wrap="nowrap">
-                        <Text fz={10} c="zinc.5" tt="uppercase" fw={600}>REC:</Text>
-                        <Text fz={11} fw={700} c="amber.3">{d.recuperacion.toFixed(2)}%</Text>
-                      </Group>
-                      <Text c="zinc.7">·</Text>
-                      <Group gap={4} wrap="nowrap">
-                        <Text fz={10} c="zinc.5" tt="uppercase" fw={600}>Factor:</Text>
-                        <Text fz={11} fw={700} c="white">{d.factor.toFixed(4)}</Text>
-                      </Group>
-                      <Text c="zinc.7">·</Text>
-                      <Group gap={4} wrap="nowrap">
-                        <Text fz={10} c="zinc.5" tt="uppercase" fw={600}>Inter:</Text>
-                        <Text fz={11} fw={700} c="white">${d.inter.toFixed(2)}</Text>
-                      </Group>
-                      <Text c="zinc.7">·</Text>
-                      <Group gap={4} wrap="nowrap">
-                        <Text fz={10} c="zinc.5" tt="uppercase" fw={600}>Des.Inter:</Text>
-                        <Text fz={11} fw={700} c="white">${d.des_inter.toFixed(2)}</Text>
-                      </Group>
-                      <Text c="zinc.7">·</Text>
-                      <Group gap={4} wrap="nowrap">
-                        <Text fz={10} c="zinc.5" tt="uppercase" fw={600}>Maquila:</Text>
-                        <Text fz={11} fw={700} c="white">${d.maquila.toFixed(2)}</Text>
-                      </Group>
-                      <Text c="zinc.7">·</Text>
-                      <Group gap={4} wrap="nowrap">
-                        <Text fz={10} c="zinc.5" tt="uppercase" fw={600}>React:</Text>
-                        <Text fz={11} fw={700} c="white">${d.consumo.toFixed(2)}</Text>
-                      </Group>
-                      <Text c="zinc.7">·</Text>
-                      <Group gap={4} wrap="nowrap">
-                        <Text fz={10} c="zinc.5" tt="uppercase" fw={600}>Precio/TN:</Text>
-                        <Text fz={11} fw={700} c="white">${d.precio_por_tonelada.toFixed(2)}</Text>
-                      </Group>
-                      {((d.monto_penalidad ?? 0) > 0 || (d.monto_flete ?? 0) > 0) && (
-                        <>
-                          <Text c="zinc.7">·</Text>
-                          <Group gap={4} wrap="nowrap">
-                            <Text fz={10} c="amber.5" tt="uppercase" fw={600}>Penalidad:</Text>
-                            <Text fz={11} fw={700} c="amber.4">-${(d.monto_penalidad ?? 0).toFixed(2)}</Text>
-                          </Group>
-                          <Text c="zinc.7">·</Text>
-                          <Group gap={4} wrap="nowrap">
-                            <Text fz={10} c="cyan.5" tt="uppercase" fw={600}>Flete:</Text>
-                            <Text fz={11} fw={700} c="cyan.4">-${(d.monto_flete ?? 0).toFixed(2)}</Text>
-                          </Group>
-                        </>
-                      )}
-                    </Group>
-                  </Box>
-                </Paper>
-              );
-            })}
-          </Stack>
-        )}
-      </Box>
-    );
-  };
-
   return (
-    <div className="space-y-6 animate-fadeIn">
-      {/* Bar Superior de Filtros y Acción */}
+    <div className="space-y-5 animate-fadeIn">
+      {/* Barra Superior de Filtros y Acciones */}
       <div className="flex flex-col xl:flex-row gap-4 items-end justify-between w-full">
         <div className="flex flex-wrap items-end gap-3 flex-1 w-full">
           <DateRangeFilter
@@ -783,16 +541,21 @@ export const ValorizacionCompraPage = () => {
             onFechaFinChange={setFechaFin}
           />
 
-          {/* Proveedor */}
-          <div className="w-full sm:w-60">
+          <div className="w-full sm:w-64">
             <Select
               label="Proveedor"
-              placeholder={loadingProveedores ? "Cargando..." : "Todos los proveedores"}
+              placeholder={
+                loadingProveedores ? "Cargando..." : "Todos los proveedores"
+              }
               disabled={loadingProveedores}
-              rightSection={loadingProveedores ? <Loader size={16} /> : undefined}
+              rightSection={
+                loadingProveedores ? <Loader size={16} /> : undefined
+              }
               data={proveedores.map((p) => {
-                const idVal = p.id_proveedor ?? (p as unknown as { id: number }).id;
-                const doc = p.documento || (p as unknown as { ruc?: string }).ruc || "";
+                const idVal =
+                  p.id_proveedor ?? (p as unknown as { id: number }).id;
+                const doc =
+                  p.documento || (p as unknown as { ruc?: string }).ruc || "";
                 return {
                   value: String(idVal),
                   label: doc ? `${doc} - ${p.razon_social}` : p.razon_social,
@@ -809,14 +572,20 @@ export const ValorizacionCompraPage = () => {
             />
           </div>
 
-          {/* Estado */}
-          <div className="w-full sm:w-40">
+          <div className="w-full sm:w-44">
             <Select
               label="Estado"
               placeholder="Seleccionar estado"
-              data={["Todos", EstadoValorizacionCompra.Propuesta, EstadoValorizacionCompra.Aprobado, EstadoValorizacionCompra.Anulado]}
+              data={[
+                "Todos",
+                EstadoValorizacionCompra.Propuesta,
+                EstadoValorizacionCompra.Aprobado,
+                EstadoValorizacionCompra.Desestimada,
+                EstadoValorizacionCompra.Anulado,
+              ]}
               value={filtroEstado}
               onChange={(val) => setFiltroEstado(val || "Todos")}
+              searchable
               size="xs"
               radius="lg"
               classNames={fieldClasses}
@@ -825,20 +594,9 @@ export const ValorizacionCompraPage = () => {
           </div>
         </div>
 
-        {/* Botones de Acción: Limpiar, Recargar y Nueva Valorización */}
         <div className="flex items-center gap-2 shrink-0 pb-0.5">
           {hasActiveFilters && (
-            <Button
-              variant="subtle"
-              color="red"
-              radius="lg"
-              size="sm"
-              leftSection={<IconX size={16} />}
-              onClick={clearFilters}
-              className="text-red-400 hover:bg-red-500/10 transition-colors h-9.5"
-            >
-              Limpiar
-            </Button>
+            <LimpiarFiltrosButton onClick={clearFilters} />
           )}
 
           <RefreshButton
@@ -849,28 +607,53 @@ export const ValorizacionCompraPage = () => {
 
           <Button
             radius="lg"
-            size="sm"
-            leftSection={<IconPlus size={18} />}
+            size="xs"
+            leftSection={<IconPlus size={17} />}
             onClick={handleNuevo}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-900/20 shrink-0 h-9.5 px-6 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-900/20 shrink-0 h-9.5 px-5 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
           >
             Nueva Propuesta
           </Button>
         </div>
       </div>
 
-      {/* Tabla Principal */}
-      <Stack gap="md">
-        <DataTableEstandar
-          idAccessor="id"
-          columns={columns}
-          records={valorizacionesFiltradas}
-          loading={loading}
-          rowExpansion={{
-            content: renderRowExpansion,
-          }}
-        />
-      </Stack>
+      {/* Disposición Principal: Izquierda (Cabecera y Propuestas más angosta) + Derecha (Detalle y Lotes más ancha) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        {/* IZQUIERDA: Cards de Cabecera + Propuestas */}
+        <div className="lg:col-span-5 xl:col-span-4 min-w-0 lg:sticky lg:top-4">
+          <PanelGruposVersiones
+            grupos={gruposFiltrados}
+            selectedGrupoUuid={grupoEfectivo?.uuidGrupo ?? null}
+            selectedVersionId={versionEfectiva?.id ?? null}
+            loading={loading}
+            printingId={printingId}
+            solicitandoOcId={solicitandoOcId}
+            togglingIds={togglingIds}
+            clonandoIds={clonandoIds}
+            onSelectGrupo={handleSelectGrupo}
+            onSelectVersion={handleSelectVersion}
+            onDeclaracionJurada={handleImprimirDeclaracionJurada}
+            onSolicitarOc={handleSolicitarOc}
+            onClonarVersion={handleConfirmarClonar}
+            onImprimirValorizacion={(v) => void printTicketLiquidacion(v)}
+            onEditarVersion={handleEditar}
+            onAprobarVersion={handleAbrirAprobar}
+            onAnularVersion={handleAbrirAnular}
+            onVerHistorial={handleVerHistorial}
+            onVerEvidencias={(title, files) =>
+              setModalEvidenciasInfo({ title, files })
+            }
+          />
+        </div>
+
+        {/* DERECHA: Detalle económico, bancos/anticipos (si está aprobada) y lotes asociados */}
+        <div className="lg:col-span-7 xl:col-span-8 min-w-0">
+          <PanelDetallePropuesta
+            valorizacion={versionEfectiva}
+            loading={loading}
+          />
+        </div>
+      </div>
 
       {/* Modal Formulario de Creación / Edición */}
       <ModalFormValorizacionCompra
@@ -878,9 +661,13 @@ export const ValorizacionCompraPage = () => {
         onClose={() => setModalFormOpened(false)}
         valorizacionEditar={valorizacionEditar}
         onSuccess={(idGuardado?: number) => {
-          cargarValorizaciones();
+          void cargarValorizaciones();
           if (idGuardado) {
-            printTicketLiquidacion(idGuardado);
+            setSelectedVersionId(idGuardado);
+            if (!valorizacionEditar) {
+              setSelectedGrupoUuid(null);
+            }
+            void printTicketLiquidacion(idGuardado);
           }
         }}
       />
@@ -891,9 +678,12 @@ export const ValorizacionCompraPage = () => {
         close={() => setModalHistorialOpened(false)}
         title={
           <Group gap={6}>
-            <IconHistory size={20} className="text-amber-400" />
+            <IconHistory size={20} className="text-yellow-400" />
             <Text fw={700} fz="sm" c="white">
-              Historial de cambios: {valorizacionHistorial?.numero_correlativo?.replace(/^VAL/, "") ?? "-"}
+              Historial de cambios:{" "}
+              {valorizacionHistorial
+                ? `${obtenerCorrelativoDisplay(valorizacionHistorial)} (#${valorizacionHistorial.numero_version ?? 1})`
+                : "-"}
             </Text>
           </Group>
         }
@@ -901,19 +691,23 @@ export const ValorizacionCompraPage = () => {
         rightSection={
           valorizacionHistorial ? (
             <Text size="xs" c="dimmed" fw={600} className="font-mono">
-              VALORIZACIóN #{valorizacionHistorial.id}
+              VALORIZACIÓN #{valorizacionHistorial.id}
             </Text>
           ) : undefined
         }
       >
-        <CambiosLogViewer cambios={historialCambiosCombinados as unknown as RES_CambiosLog[]} />
+        <CambiosLogViewer
+          cambios={historialCambiosCombinados as unknown as RES_CambiosLog[]}
+        />
       </ModalEstandar>
 
       {/* Modal Evidencias */}
       <ModalEstandar
         opened={modalEvidenciasInfo !== null}
         close={() => setModalEvidenciasInfo(null)}
-        title={modalEvidenciasInfo?.title || "Evidencias / Documentos Adjuntos"}
+        title={
+          modalEvidenciasInfo?.title || "Evidencias / Documentos Adjuntos"
+        }
         size="md"
       >
         <Stack gap="xs">
@@ -935,7 +729,9 @@ export const ValorizacionCompraPage = () => {
         close={() => setModalAnularOpened(false)}
         valorizacion={valorizacionAnular}
         onConfirm={handleConfirmarAnular}
-        loading={valorizacionAnular ? !!togglingIds[valorizacionAnular.id] : false}
+        loading={
+          valorizacionAnular ? Boolean(togglingIds[valorizacionAnular.id]) : false
+        }
       />
 
       {/* Modal Aprobar Valorización */}
@@ -943,7 +739,13 @@ export const ValorizacionCompraPage = () => {
         opened={modalAprobarOpened}
         onClose={() => setModalAprobarOpened(false)}
         valorizacion={valorizacionAprobar}
-        onAprobar={handleAprobar}
+        onAprobar={async (id, payload) => {
+          const ok = await handleAprobar(id, payload);
+          if (ok) {
+            setSelectedVersionId(id);
+          }
+          return ok;
+        }}
       />
     </div>
   );

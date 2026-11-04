@@ -1,718 +1,588 @@
-import { useMemo } from "react";
-import { Badge, Group, SegmentedControl, Text } from "@mantine/core";
-import {
-  AreaChart,
-  BarChart,
-  DonutChart,
-  LineChart,
-} from "@mantine/charts";
-import "@mantine/charts/styles.css";
-import {
-  IconChartBar,
-  IconCoins,
-  IconDroplet,
-  IconScale,
-  IconTruck,
-  IconPackage,
-  IconRosetteDiscountCheck,
-  IconClockHour4,
-  IconAlertTriangle,
-  IconUsers,
-} from "@tabler/icons-react";
+import { useMemo, useState } from "react";
+import { Loader, SegmentedControl, Select } from "@mantine/core";
 
 import { useDashboard } from "../hooks/useDashboard";
-import { ChartPanel } from "./components/chart-panel";
-import { KpiCard } from "./components/kpi-card";
-import { useAuthUser } from "../../../hooks/useAuthUser";
+import { DashCard } from "./components/dash-card";
+import { DeltaPill } from "./components/delta-pill";
+import { DaysGauge } from "./components/days-gauge";
+import { CostRangeChart } from "./components/cost-range-chart";
+import { HeroCompareChart } from "./components/hero-compare-chart";
+import { KpiDeltaCard } from "./components/kpi-delta-card";
+import { LeyBars } from "./components/ley-bars";
+import { Numero, NumeroUnidad } from "./components/numero";
+import { SinComprobante } from "./components/sin-comprobante";
+import { SplitBar } from "./components/split-bar";
 import { useTitlePage } from "../../../hooks/useTitlePage";
-import { DateRangeFilter } from "../../../presentation/utils/filtro-rango-fechas";
 import { RefreshButton } from "../../../presentation/utils/refresh-button";
-import { formatNumber } from "../../../shared/functions/formatNumber";
-import { convertirMoneda, simboloMoneda } from "./utils/moneda";
-import type { MonedaDashboard } from "./utils/moneda";
-import type { RES_DashboardSerie } from "../service/dashboard.responses";
+import {
+  COLOR_AMBER,
+  COLOR_BLENDING,
+  COLOR_COMPRA,
+  COLOR_ROJO,
+  COLOR_VENTA,
+} from "./utils/colores";
+import { etiquetaMes, fmt, usd, variacion } from "./utils/format";
 
-const COLOR_FUNCION = [
-  "indigo.6",
-  "cyan.6",
-  "teal.6",
-  "yellow.6",
-  "violet.6",
-  "green.6",
-  "orange.6",
-] as const;
+type ModoHero = "tn" | "usd";
+type ElementoCosto = "Au+Ag" | "Au" | "Ag";
+type OrigenLey = "final" | "cliente";
+type BaseStock = "TMH" | "TMS";
+type SalidaDias = "all" | "b" | "d";
+type FlujoSinComprobante = "all" | "C" | "V";
 
-const COLOR_EMBUDO = [
-  "indigo",
-  "cyan",
-  "teal",
-  "yellow",
-  "violet",
-  "green",
-  "lime",
-  "orange",
-] as const;
-
-const COLOR_ESTADO_LOTE: Record<string, string> = {
-  Valorizado: "green.6",
-  "Con valor comercial": "teal.6",
-  "Sin valor comercial": "zinc.6",
+/** Estilo del selector tipo píldora (`.pill-sel` de `dash.html`). */
+const selectClasses = {
+  input:
+    "h-8 rounded-full border-zinc-700 bg-zinc-900/60 pl-3 pr-8 text-[12px] font-semibold text-zinc-200",
+  dropdown: "bg-zinc-900 border-zinc-700",
+  option: "text-[12px] text-zinc-300",
 };
 
-const COLOR_ESTADO_VALORIZACION: Record<string, string> = {
-  Propuesta: "yellow.6",
-  Aprobado: "green.6",
-  Anulado: "red.6",
-  Pendiente: "yellow.6",
+/** Variante compacta para los filtros secundarios de cada tarjeta. */
+const selectClassesSm = {
+  input:
+    "h-7 rounded-full border-zinc-700 bg-zinc-900/60 pl-3 pr-7 text-[11px] font-medium text-zinc-400",
+  dropdown: "bg-zinc-900 border-zinc-700",
+  option: "text-[11px] text-zinc-300",
 };
-
-const EmptyState = ({ texto }: { texto: string }) => (
-  <div className="flex h-full items-center justify-center rounded-xl border border-dashed border-zinc-800 bg-zinc-900/20">
-    <Text size="xs" className="text-zinc-600">
-      {texto}
-    </Text>
-  </div>
-);
 
 export const DashboardPage = () => {
-  useTitlePage("Dashboard");
-  const { usuario } = useAuthUser();
+  useTitlePage("Resumen");
 
   const {
     data,
     loading,
     load,
-    fechaInicio,
-    setFechaInicio,
-    fechaFin,
-    setFechaFin,
-    moneda,
-    setMoneda,
+    meses,
+    indice,
+    setMesIndex,
+    mes,
+    mesAnterior,
+    mismoMesAnioAnterior,
   } = useDashboard();
 
-  const kpis = data?.kpis;
-  const tipoCambio = data?.tipo_cambio ?? null;
+  // --- Controles locales de la vista -----------------------------------
+  const [modoHero, setModoHero] = useState<ModoHero>("tn");
+  const [elementoCosto, setElementoCosto] = useState<ElementoCosto>("Au+Ag");
+  const [origenLey, setOrigenLey] = useState<OrigenLey>("final");
+  const [baseStock, setBaseStock] = useState<BaseStock>("TMH");
+  const [salidaDias, setSalidaDias] = useState<SalidaDias>("all");
+  const [flujoSinComprobante, setFlujoSinComprobante] =
+    useState<FlujoSinComprobante>("all");
 
-  // --- Series diarias -------------------------------------------------
-  const serieToneladas = useMemo(
+  // --- Series del gráfico principal -------------------------------------
+  const esToneladas = modoHero === "tn";
+
+  const serieCompras = useMemo(
     () =>
-      (data?.serie ?? []).map((s: RES_DashboardSerie) => ({
-        fecha: s.fecha.slice(5),
-        toneladas: s.toneladas,
-      })),
-    [data],
+      meses.map((m) =>
+        esToneladas ? m.tn_compradas : m.monto_compra_usd,
+      ),
+    [meses, esToneladas],
+  );
+  const serieVentas = useMemo(
+    () => meses.map((m) => (esToneladas ? m.tn_vendidas : m.monto_venta_usd)),
+    [meses, esToneladas],
+  );
+  const etiquetasEje = useMemo(
+    () => meses.map((m) => etiquetaMes(m.anio, m.mes)),
+    [meses],
   );
 
-  const serieValorizacion = useMemo(
-    () =>
-      (data?.serie ?? []).map((s: RES_DashboardSerie) => ({
-        fecha: s.fecha.slice(5),
-        valor: s.valor_compra_usd,
-      })),
-    [data],
-  );
+  const tnReceptadas = mes?.tn_receptadas ?? 0;
+  const tnDespachadas = mes?.tn_despachadas ?? 0;
+  const montoCompra = mes?.monto_compra_usd ?? 0;
+  const montoVenta = mes?.monto_venta_usd ?? 0;
 
-  const serieLeyes = useMemo(
-    () =>
-      (data?.serie ?? []).map((s: RES_DashboardSerie) => ({
-        fecha: s.fecha.slice(5),
-        ley_oro: s.ley_oro,
-        ley_plata: s.ley_plata,
-      })),
-    [data],
-  );
+  // --- Costo promedio por tonelada --------------------------------------
+  const costoCompra =
+    elementoCosto === "Au+Ag"
+      ? (mes?.costo_compra_usd_t ?? 0)
+      : elementoCosto === "Au"
+        ? (mes?.costos.compra.Oro ?? 0)
+        : (mes?.costos.compra.Plata ?? 0);
+  const costoVenta =
+    elementoCosto === "Au+Ag"
+      ? (mes?.costo_venta_usd_t ?? 0)
+      : elementoCosto === "Au"
+        ? (mes?.costos.venta.Oro ?? 0)
+        : (mes?.costos.venta.Plata ?? 0);
 
-  // --- Conversión de moneda -------------------------------------------
-  const compra = convertirMoneda(
-    kpis?.valorizacion_compra_usd ?? 0,
-    "USD",
-    moneda,
-    tipoCambio,
-  );
-  const venta = convertirMoneda(
-    kpis?.valorizacion_venta_usd ?? 0,
-    "USD",
-    moneda,
-    tipoCambio,
-  );
-  const valorPorTonelada = convertirMoneda(
-    kpis?.valor_por_tonelada_usd ?? 0,
-    "USD",
-    moneda,
-    tipoCambio,
-  );
-  const anticipos = convertirMoneda(
-    data?.financiero?.saldo_anticipos_pen ?? 0,
-    "PEN",
-    moneda,
-    tipoCambio,
-  );
-  const deuda = convertirMoneda(
-    data?.financiero?.deuda_proveedores_pen ?? 0,
-    "PEN",
-    moneda,
-    tipoCambio,
-  );
+  // --- Leyes promedio ----------------------------------------------------
+  const leyesVenta =
+    origenLey === "final" ? mes?.leyes.venta_final : mes?.leyes.venta_cliente;
 
-  const notaConversion = (convertido: boolean) =>
-    convertido && tipoCambio
-      ? `convertido @ TC ${tipoCambio.fecha}`
-      : undefined;
+  // --- Stock en cancha ---------------------------------------------------
+  const stock = data?.cancha.stock;
+  const claveStock = baseStock === "TMH" ? "tmh" : "tms";
+  const tnLotes = stock?.lotes[claveStock] ?? 0;
+  const tnBlendings = stock?.blendings[claveStock] ?? 0;
+  const tnPorSalir = stock?.por_salir[claveStock] ?? 0;
 
-  // --- Distribuciones --------------------------------------------------
-  const porElemento = useMemo(
-    () =>
-      (data?.por_elemento ?? []).map((e, i) => ({
-        name: e.elemento,
-        value: convertirMoneda(e.valor_usd, "USD", moneda, tipoCambio).valor,
-        color: COLOR_FUNCION[i % COLOR_FUNCION.length],
-      })),
-    [data, moneda, tipoCambio],
-  );
+  // --- Días en cancha -----------------------------------------------------
+  const dias = data?.cancha.dias;
+  const diasPromedio =
+    salidaDias === "all"
+      ? (dias?.todo ?? 0)
+      : salidaDias === "b"
+        ? (dias?.blending ?? 0)
+        : (dias?.directo ?? 0);
 
-  const porEstadoLote = useMemo(
-    () =>
-      (data?.por_estado_lote ?? []).map((e) => ({
-        name: e.estado,
-        value: e.toneladas,
-        color: COLOR_ESTADO_LOTE[e.estado] ?? "zinc.6",
-      })),
-    [data],
-  );
+  // --- Cuentas por pagar / cobrar ----------------------------------------
+  const porPagar = data?.financiero.por_pagar;
+  const porCobrar = data?.financiero.por_cobrar;
 
-  const estadoValorizaciones = useMemo(
-    () =>
-      (data?.estado_valorizaciones ?? []).map((e) => ({
-        name: e.estado,
-        value: e.conteo,
-        color: COLOR_ESTADO_VALORIZACION[e.estado] ?? "zinc.6",
-      })),
-    [data],
-  );
-
-  const topProveedores = useMemo(
-    () =>
-      (data?.por_proveedor ?? []).map((p) => ({
-        proveedor: p.razon_social.length > 22 ? `${p.razon_social.slice(0, 22)}…` : p.razon_social,
-        valor: convertirMoneda(p.valor_usd, "USD", moneda, tipoCambio).valor,
-      })),
-    [data, moneda, tipoCambio],
-  );
-
-  const merma = useMemo(
-    () =>
-      (data?.merma ?? []).map((m) => ({
-        correlativo: m.correlativo,
-        merma_pct: m.merma_pct,
-      })),
-    [data],
-  );
-
-  const formatoMoneda = (valor: number) =>
-    `${simboloMoneda(moneda)} ${formatNumber(valor, 2)}`;
+  // --- Valorizaciones sin comprobante ------------------------------------
+  const sinComprobante = data?.sin_comprobante;
+  const detalleSinComprobante = useMemo(() => {
+    const lista = sinComprobante?.detalle ?? [];
+    if (flujoSinComprobante === "all") return lista;
+    return lista.filter((d) => d.tipo === flujoSinComprobante);
+  }, [sinComprobante, flujoSinComprobante]);
 
   return (
-    <div className="mx-auto w-full max-w-[1600px] space-y-5 px-4 py-5">
-      {/* Encabezado + filtros */}
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div className="min-w-0">
-          <h1 className="bg-linear-to-r from-white via-zinc-200 to-zinc-500 bg-clip-text text-2xl font-extrabold tracking-tight text-transparent md:text-3xl">
-            Hola, {usuario?.nombre || "Usuario"}
-          </h1>
-          <Text size="sm" className="mt-1 text-zinc-400">
-            Indicadores de la planta de beneficio ·{" "}
-            {data?.meta
-              ? `${data.meta.fecha_inicio} → ${data.meta.fecha_fin}`
-              : "cargando período…"}
-          </Text>
-        </div>
-
-        <Group gap="sm" wrap="wrap" align="flex-end">
-          <DateRangeFilter
-            fechaInicio={fechaInicio}
-            fechaFin={fechaFin}
-            onFechaInicioChange={setFechaInicio}
-            onFechaFinChange={setFechaFin}
-          />
-
-          <SegmentedControl
+    <div className="mx-auto w-full max-w-340 space-y-4 px-4">
+      {/* Encabezado */}
+      <header className="flex flex-wrap items-end justify-between gap-3">
+  
+        <div className="flex items-center gap-2">
+          <Select
+            aria-label="Período"
+            placeholder={loading ? "Cargando..." : "Seleccione"}
+            data={meses.map((m, i) => ({
+              value: String(i),
+              label: etiquetaMes(m.anio, m.mes),
+            }))}
+            value={String(indice)}
+            onChange={(v) => {
+              if (v !== null) setMesIndex(Number(v));
+            }}
+            disabled={loading}
+            rightSection={loading ? <Loader size={16} /> : undefined}
+            comboboxProps={{ withinPortal: true }}
             size="xs"
             radius="lg"
-            value={moneda}
-            onChange={(v) => setMoneda(v as MonedaDashboard)}
-            data={[
-              { label: "USD", value: "USD" },
-              { label: "PEN", value: "PEN" },
-            ]}
-            classNames={{
-              root: "bg-zinc-900/50 border border-zinc-800 rounded-lg",
-              label: "px-3 text-zinc-300 data-[active]:text-white",
-            }}
+            classNames={selectClasses}
+            w={150}
           />
-
           <RefreshButton onClick={load} loading={loading} />
-        </Group>
+        </div>
       </header>
 
-      {/* KPIs */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-        <KpiCard
-          label="Toneladas receptadas"
-          value={kpis?.toneladas_receptadas ?? 0}
+      {/* Grilla de tarjetas */}
+      <div className="grid grid-cols-12 gap-3.5">
+        {/* Fila 1 — resultados del mes */}
+        <KpiDeltaCard
+          className="col-span-12 md:col-span-6 xl:col-span-3"
+          titulo="TN receptadas"
+          dot={COLOR_COMPRA}
+          valor={tnReceptadas}
           unidad="t"
-          color="indigo"
-          icono={IconScale}
           loading={loading}
-          pie={`${formatNumber(kpis?.lotes_receptados ?? 0)} lotes`}
+          deltas={[
+            {
+              pct: variacion(
+                tnReceptadas,
+                mesAnterior?.tn_receptadas ?? 0,
+              ),
+              etiqueta: "vs mes ant.",
+            },
+            {
+              pct: variacion(
+                tnReceptadas,
+                mismoMesAnioAnterior?.tn_receptadas ?? 0,
+              ),
+              etiqueta: "vs año ant.",
+            },
+          ]}
         />
-        <KpiCard
-          label="Valorización de compra"
-          value={compra.valor}
-          simbolo={simboloMoneda(compra.moneda)}
-          color="teal"
-          icono={IconCoins}
-          loading={loading}
-          pie={notaConversion(compra.convertido)}
-        />
-        <KpiCard
-          label="Valor por tonelada"
-          value={valorPorTonelada.valor}
-          simbolo={simboloMoneda(valorPorTonelada.moneda)}
-          unidad="/t"
-          decimales={2}
-          color="green"
-          icono={IconChartBar}
-          loading={loading}
-          pie={notaConversion(valorPorTonelada.convertido)}
-        />
-        <KpiCard
-          label="Ley Au promedio"
-          value={kpis?.ley_oro_prom ?? 0}
-          unidad="g/t"
-          decimales={3}
-          color="yellow"
-          icono={IconRosetteDiscountCheck}
-          loading={loading}
-          pie={`${formatNumber(kpis?.lotes_aprobados ?? 0)} de ${formatNumber(kpis?.lotes_receptados ?? 0)} lotes con valorización aprobada`}
-        />
-        <KpiCard
-          label="Toneladas despachadas"
-          value={kpis?.toneladas_despachadas ?? 0}
+
+        <KpiDeltaCard
+          className="col-span-12 md:col-span-6 xl:col-span-3"
+          titulo="TN despachadas"
+          dot={COLOR_VENTA}
+          valor={tnDespachadas}
           unidad="t"
-          color="cyan"
-          icono={IconTruck}
           loading={loading}
-          pie={`${formatNumber(kpis?.despachos ?? 0)} despachos`}
+          deltas={[
+            {
+              pct: variacion(
+                tnDespachadas,
+                mesAnterior?.tn_despachadas ?? 0,
+              ),
+              etiqueta: "vs mes ant.",
+            },
+            {
+              pct: variacion(
+                tnDespachadas,
+                mismoMesAnioAnterior?.tn_despachadas ?? 0,
+              ),
+              etiqueta: "vs año ant.",
+            },
+          ]}
         />
-        <KpiCard
-          label="Saldo de anticipos"
-          value={anticipos.valor}
-          simbolo={simboloMoneda(anticipos.moneda)}
-          color="violet"
-          icono={IconPackage}
+
+        <KpiDeltaCard
+          className="col-span-12 md:col-span-6 xl:col-span-3"
+          titulo="Invertido en compras"
+          dot={COLOR_COMPRA}
+          valor={montoCompra}
+          formato={usd}
           loading={loading}
-          pie={notaConversion(anticipos.convertido)}
+          deltas={[
+            {
+              pct: variacion(montoCompra, mesAnterior?.monto_compra_usd ?? 0),
+              etiqueta: "vs mes ant.",
+            },
+          ]}
         />
-        <KpiCard
-          label="Deuda con proveedores"
-          value={deuda.valor}
-          simbolo={simboloMoneda(deuda.moneda)}
-          color="orange"
-          icono={IconAlertTriangle}
+
+        <KpiDeltaCard
+          className="col-span-12 md:col-span-6 xl:col-span-3"
+          titulo="Recaudado en ventas"
+          dot={COLOR_VENTA}
+          valor={montoVenta}
+          formato={usd}
           loading={loading}
-          pie={`${formatNumber(data?.financiero?.comprobantes_emitidos ?? 0)} comprobantes`}
+          deltas={[
+            {
+              pct: variacion(montoVenta, mesAnterior?.monto_venta_usd ?? 0),
+              etiqueta: "vs mes ant.",
+            },
+          ]}
+          extra={
+            <DeltaPill variante="neutral">
+              margen{" "}
+              {fmt(
+                montoVenta > 0
+                  ? ((montoVenta - montoCompra) / montoVenta) * 100
+                  : 0,
+                1,
+              )}
+              %
+            </DeltaPill>
+          }
         />
-        <KpiCard
-          label="Valorización de venta"
-          value={venta.valor}
-          simbolo={simboloMoneda(venta.moneda)}
-          color="teal"
-          icono={IconCoins}
-          loading={loading}
-          pie={notaConversion(venta.convertido)}
-        />
-        <KpiCard
-          label="Unidades en planta"
-          value={data?.operativo?.unidades_en_planta ?? 0}
-          color="green"
-          icono={IconTruck}
-          loading={loading}
-          pie={`${formatNumber(data?.operativo?.visitas_abiertas ?? 0)} visitas abiertas`}
-        />
-        <KpiCard
-          label="Lotes sin validar"
-          value={data?.operativo?.lotes_sin_validar ?? 0}
-          color="yellow"
-          icono={IconUsers}
-          loading={loading}
-          pie={`${formatNumber(data?.operativo?.valorizaciones_pendientes ?? 0)} valorizaciones por aprobar`}
-        />
-      </div>
 
-      {/* Series: producción y valorización */}
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <ChartPanel
-          titulo="Toneladas receptadas por día"
-          descripcion="Peso neto mineral pesado en planta"
-          loading={loading}
-          alto={250}
-        >
-          {serieToneladas.length ? (
-            <AreaChart
-              h={250}
-              data={serieToneladas}
-              dataKey="fecha"
-              series={[
-                { name: "toneladas", label: "Toneladas", color: "indigo.6" },
-              ]}
-              curveType="monotone"
-              withGradient
-              withDots
-              strokeWidth={2}
-              gridAxis="y"
-              tickLine="none"
-              valueFormatter={(v) => `${formatNumber(v, 0)} t`}
-            />
-          ) : (
-            <EmptyState texto="Sin recepción en el período seleccionado" />
-          )}
-        </ChartPanel>
-
-        <ChartPanel
-          titulo="Valorización de compra por día"
-          descripcion="Subtotal valorizado del mineral (sin anulados)"
-          loading={loading}
-          alto={250}
-        >
-          {serieValorizacion.length ? (
-            <BarChart
-              h={250}
-              data={serieValorizacion}
-              dataKey="fecha"
-              series={[
-                { name: "valor", label: "Valorización", color: "teal.6" },
-              ]}
-              maxBarWidth={56}
-              gridAxis="y"
-              tickLine="none"
-              valueFormatter={(v) => formatoMoneda(v)}
-            />
-          ) : (
-            <EmptyState texto="Sin valorizaciones en el período seleccionado" />
-          )}
-        </ChartPanel>
-      </div>
-
-      {/* Leyes y composición de la valorización */}
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-        <ChartPanel
-          titulo="Leyes Au / Ag por día"
-          descripcion="Promedio ponderado por peso"
-          loading={loading}
-          alto={250}
-          className="xl:col-span-2"
-        >
-          {serieLeyes.length ? (
-            <LineChart
-              h={250}
-              data={serieLeyes}
-              dataKey="fecha"
-              series={[
-                { name: "ley_oro", label: "Ley Au", color: "yellow.6" },
-                { name: "ley_plata", label: "Ley Ag", color: "violet.6" },
-              ]}
-              curveType="monotone"
-              withDots
-              withLegend
-              legendProps={{ verticalAlign: "bottom" }}
-              gridAxis="y"
-              tickLine="none"
-              unit=" g/t"
-              valueFormatter={(v) => `${formatNumber(v, 3)}`}
-            />
-          ) : (
-            <EmptyState texto="Sin leyes registradas en el período" />
-          )}
-        </ChartPanel>
-
-        <ChartPanel
-          titulo="Valorización por elemento"
-          descripcion="Distribución Oro / Plata"
-          loading={loading}
-          alto={250}
-        >
-          {porElemento.length ? (
-            <DonutChart
-              data={porElemento}
-              size={190}
-              thickness={26}
-              withLabels
-              labelColor="zinc.4"
-              tooltipDataSource="segment"
-            />
-          ) : (
-            <EmptyState texto="Sin valorización por elemento" />
-          )}
-        </ChartPanel>
-      </div>
-
-      {/* Proceso y estado */}
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-        <ChartPanel
-          titulo="Embudo operacional"
-          descripcion="Avance del mineral por etapa del proceso"
-          loading={loading}
-          alto={250}
-        >
-          {data?.embudo?.length ? (
-            <div className="space-y-3">
-              {data.embudo.map((e, i) => (
-                <div key={e.etapa}>
-                  <div className="mb-1 flex items-center justify-between text-xs">
-                    <span className="text-zinc-300">{e.etapa}</span>
-                    <span className="font-mono text-zinc-500">
-                      {formatNumber(e.conteo)} · {e.porcentaje}%
-                    </span>
-                  </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-zinc-800/70">
-                    <div
-                      className="h-full rounded-full transition-all duration-700"
-                      style={{
-                        width: `${Math.min(100, Math.max(0, e.porcentaje))}%`,
-                        background: `var(--mantine-color-${COLOR_EMBUDO[i % COLOR_EMBUDO.length]}-6)`,
-                      }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <EmptyState texto="Sin lotes para graficar el embudo" />
-          )}
-        </ChartPanel>
-
-        <ChartPanel
-          titulo="Estado de los lotes"
-          descripcion="Tonelaje según situación comercial"
-          loading={loading}
-          alto={250}
-        >
-          {porEstadoLote.length ? (
-            <DonutChart
-              data={porEstadoLote}
-              size={190}
-              thickness={26}
-              withLabels
-              labelColor="zinc.4"
-              tooltipDataSource="segment"
-            />
-          ) : (
-            <EmptyState texto="Sin lotes en el período" />
-          )}
-        </ChartPanel>
-
-        <ChartPanel
-          titulo="Estado de las valorizaciones"
-          descripcion="Cantidad de propuestas y aprobaciones"
-          loading={loading}
-          alto={250}
-        >
-          {estadoValorizaciones.length ? (
-            <DonutChart
-              data={estadoValorizaciones}
-              size={190}
-              thickness={26}
-              withLabels
-              labelColor="zinc.4"
-              tooltipDataSource="segment"
-            />
-          ) : (
-            <EmptyState texto="Sin valorizaciones en el período" />
-          )}
-        </ChartPanel>
-      </div>
-
-      {/* Comercial y calidad */}
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <ChartPanel
-          titulo="Top proveedores por valorización"
-          descripcion="Top 8 del período"
-          loading={loading}
-          alto={260}
-        >
-          {topProveedores.length ? (
-            <BarChart
-              h={260}
-              orientation="vertical"
-              data={topProveedores}
-              dataKey="proveedor"
-              series={[
-                { name: "valor", label: "Valorización", color: "indigo.6" },
-              ]}
-              maxBarWidth={28}
-              gridAxis="x"
-              tickLine="none"
-              valueFormatter={(v) => formatoMoneda(v)}
-            />
-          ) : (
-            <EmptyState texto="Sin valorizaciones por proveedor" />
-          )}
-        </ChartPanel>
-
-        <ChartPanel
-          titulo="Merma vs peso declarado en guía"
-          descripcion="Diferencia porcentual por lote"
-          loading={loading}
-          alto={260}
-        >
-          {merma.length ? (
-            <BarChart
-              h={260}
-              data={merma}
-              dataKey="correlativo"
-              series={[{ name: "merma_pct", label: "Merma %", color: "orange.6" }]}
-              maxBarWidth={48}
-              gridAxis="y"
-              tickLine="none"
-              valueFormatter={(v) => `${formatNumber(v, 2)} %`}
-            />
-          ) : (
-            <EmptyState texto="Sin guías con peso declarado en el período" />
-          )}
-        </ChartPanel>
-      </div>
-
-      {/* Calidad y tiempos */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <ChartPanel
-          titulo="No conformidad en guías"
-          descripcion="Guías marcadas con no conformidad"
-          loading={loading}
-          alto={130}
-        >
-          <div className="flex h-full items-center gap-4">
-            <div className="flex h-full min-h-[110px] w-full flex-col justify-center">
-              <Text size="xs" className="uppercase tracking-wider text-zinc-500">
-                Guías con no conformidad
-              </Text>
-              <div className="mt-1 flex items-baseline gap-2">
-                <span className="text-3xl font-bold text-white">
-                  {formatNumber(data?.no_conformidad?.guias_no_conformidad ?? 0)}
-                </span>
-                <span className="text-sm text-zinc-500">
-                  / {formatNumber(data?.no_conformidad?.guias_total ?? 0)} guías
-                </span>
-              </div>
-              <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-800/70">
-                <div
-                  className="h-full rounded-full bg-red-600 transition-all duration-700"
-                  style={{
-                    width: `${Math.min(100, Math.max(0, data?.no_conformidad?.porcentaje ?? 0))}%`,
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-        </ChartPanel>
-
-        <ChartPanel
-          titulo="Tiempo de permanencia"
-          descripcion="Promedio en horas por etapa"
-          loading={loading}
-          alto={130}
-        >
-          <div className="grid h-full grid-cols-2 gap-4">
-            <div className="flex flex-col justify-center">
-              <Group gap={6} mb={2}>
-                <IconClockHour4 size={14} className="text-zinc-500" />
-                <Text size="xs" className="uppercase tracking-wider text-zinc-500">
-                  Ingreso → Pesaje
-                </Text>
-              </Group>
-              <span className="text-2xl font-bold text-white">
-                {data?.tiempos?.ingreso_a_pesaje_h !== null &&
-                data?.tiempos?.ingreso_a_pesaje_h !== undefined
-                  ? formatNumber(data.tiempos.ingreso_a_pesaje_h, 1)
-                  : "—"}
-                <span className="ml-1 text-sm font-medium text-zinc-500">h</span>
-              </span>
-            </div>
-            <div className="flex flex-col justify-center">
-              <Group gap={6} mb={2}>
-                <IconDroplet size={14} className="text-zinc-500" />
-                <Text size="xs" className="uppercase tracking-wider text-zinc-500">
-                  Pesaje → Análisis
-                </Text>
-              </Group>
-              <span className="text-2xl font-bold text-white">
-                {data?.tiempos?.pesaje_a_analisis_h !== null &&
-                data?.tiempos?.pesaje_a_analisis_h !== undefined
-                  ? formatNumber(data.tiempos.pesaje_a_analisis_h, 1)
-                  : "—"}
-                <span className="ml-1 text-sm font-medium text-zinc-500">h</span>
-              </span>
-            </div>
-          </div>
-        </ChartPanel>
-
-        <ChartPanel
-          titulo="Operación en planta"
-          descripcion="Estado actual de la operación"
-          loading={loading}
-          alto={130}
+        {/* Fila 2 — comparativo y costo por tonelada */}
+        <DashCard
+          className="col-span-12 xl:col-span-8"
+          titulo="Compras vs ventas"
           rightSection={
-            <Badge variant="light" color="indigo" size="xs">
-              en vivo
-            </Badge>
+            <SegmentedControl
+              size="xs"
+              radius="lg"
+              value={modoHero}
+              onChange={(v) => setModoHero(v as ModoHero)}
+              data={[
+                { label: "Toneladas", value: "tn" },
+                { label: "Dólares", value: "usd" },
+              ]}
+              classNames={{
+                root: "rounded-full border border-zinc-700 bg-zinc-800/70",
+                label:
+                  "px-3 text-[11.5px] font-semibold text-zinc-400 data-[active]:bg-zinc-700 data-[active]:text-zinc-100",
+              }}
+            />
           }
         >
-          <div className="grid h-full grid-cols-2 gap-x-4 gap-y-3">
-            {[
-              {
-                label: "Unidades en planta",
-                value: data?.operativo?.unidades_en_planta ?? 0,
-              },
-              {
-                label: "Visitas abiertas",
-                value: data?.operativo?.visitas_abiertas ?? 0,
-              },
-              {
-                label: "Guías activas",
-                value: data?.operativo?.guias_activas ?? 0,
-              },
-              {
-                label: "Valorizaciones por aprobar",
-                value: data?.operativo?.valorizaciones_pendientes ?? 0,
-              },
-            ].map((item) => (
-              <div key={item.label} className="flex flex-col justify-center">
-                <Text size="xs" className="truncate text-zinc-500">
-                  {item.label}
-                </Text>
-                <span className="text-xl font-bold text-white">
-                  {formatNumber(item.value)}
-                </span>
-              </div>
-            ))}
+          <div className="flex flex-wrap items-center gap-x-7 gap-y-2">
+            <div>
+              <Numero color={COLOR_COMPRA}>
+                {esToneladas ? fmt(mes?.tn_compradas ?? 0) : usd(montoCompra)}
+                {esToneladas && <NumeroUnidad>t</NumeroUnidad>}
+              </Numero>
+              <div className="text-[11.5px] text-zinc-500">Comprado</div>
+            </div>
+            <div>
+              <Numero color={COLOR_VENTA}>
+                {esToneladas ? fmt(mes?.tn_vendidas ?? 0) : usd(montoVenta)}
+                {esToneladas && <NumeroUnidad>t</NumeroUnidad>}
+              </Numero>
+              <div className="text-[11.5px] text-zinc-500">Vendido</div>
+            </div>
+            <div>
+              {esToneladas ? (
+                <DeltaPill variante="up">
+                  {fmt(
+                    (mes?.tn_compradas ?? 0) > 0
+                      ? ((mes?.tn_vendidas ?? 0) / (mes?.tn_compradas ?? 1)) * 100
+                      : 0,
+                    1,
+                  )}{" "}
+                  % rotación
+                </DeltaPill>
+              ) : (
+                <DeltaPill variante="up">
+                  +{usd(montoVenta - montoCompra)} margen
+                </DeltaPill>
+              )}
+            </div>
           </div>
-        </ChartPanel>
-      </div>
 
-      {data?.meta && (
-        <footer className="pt-1 text-center text-xs text-zinc-600">
-          Período {data.meta.fecha_inicio} → {data.meta.fecha_fin} ·{" "}
-          {data.meta.id_sucursal
-            ? `Sucursal #${data.meta.id_sucursal}`
-            : "Todas las sucursales"}
-          {tipoCambio && (
-            <>
-              {" "}
-              · TC {tipoCambio.fecha}: compra {tipoCambio.valor_compra} / venta{" "}
-              {tipoCambio.valor_venta}
-            </>
-          )}
-        </footer>
-      )}
+          <HeroCompareChart
+            a={serieCompras}
+            b={serieVentas}
+            selected={indice}
+            labels={etiquetasEje}
+            format={esToneladas ? (v: number) => fmt(v) : usd}
+          />
+        </DashCard>
+
+        <DashCard
+          className="col-span-12 xl:col-span-4"
+          titulo="Costo promedio por tonelada"
+          rightSection={
+            <Select
+              aria-label="Elemento"
+              data={[
+                { value: "Au+Ag", label: "Au + Ag" },
+                { value: "Au", label: "Solo Au" },
+                { value: "Ag", label: "Solo Ag" },
+              ]}
+              value={elementoCosto}
+              onChange={(v) => {
+                if (v !== null) setElementoCosto(v as ElementoCosto);
+              }}
+              comboboxProps={{ withinPortal: true }}
+              size="xs"
+              radius="lg"
+              classNames={selectClassesSm}
+              w={110}
+            />
+          }
+        >
+          <div className="flex flex-1 flex-col justify-center gap-2.5">
+            <CostRangeChart
+              compra={costoCompra}
+              venta={costoVenta}
+              format={(v) => usd(v)}
+            />
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <DeltaPill variante="up">
+                +{usd(costoVenta - costoCompra)} por tonelada
+              </DeltaPill>
+              <DeltaPill variante="up">
+                +{fmt(variacion(costoVenta, costoCompra), 1)}%
+              </DeltaPill>
+            </div>
+          </div>
+        </DashCard>
+
+        {/* Fila 3 — calidad, stock y permanencia */}
+        <DashCard
+          className="col-span-12 xl:col-span-4"
+          titulo="Ley promedio (g/t)"
+          rightSection={
+            <Select
+              aria-label="Ley de venta"
+              data={[
+                { value: "final", label: "Ley final" },
+                { value: "cliente", label: "Ley cliente" },
+              ]}
+              value={origenLey}
+              onChange={(v) => {
+                if (v !== null) setOrigenLey(v as OrigenLey);
+              }}
+              comboboxProps={{ withinPortal: true }}
+              size="xs"
+              radius="lg"
+              classNames={selectClassesSm}
+              w={120}
+            />
+          }
+        >
+          <div className="flex flex-1 items-center">
+            <div className="w-full">
+              <LeyBars
+                items={[
+                  {
+                    nombre: "Oro (Au)",
+                    compra: mes?.leyes.compra.Oro ?? 0,
+                    venta: leyesVenta?.Oro ?? 0,
+                  },
+                  {
+                    nombre: "Plata (Ag)",
+                    compra: mes?.leyes.compra.Plata ?? 0,
+                    venta: leyesVenta?.Plata ?? 0,
+                  },
+                ]}
+              />
+            </div>
+          </div>
+        </DashCard>
+
+        <DashCard
+          className="col-span-12 xl:col-span-4"
+          titulo="Stock en cancha"
+          dot={COLOR_BLENDING}
+          rightSection={
+            <Select
+              aria-label="Base"
+              data={[
+                { value: "TMH", label: "TMH" },
+                { value: "TMS", label: "TMS" },
+              ]}
+              value={baseStock}
+              onChange={(v) => {
+                if (v !== null) setBaseStock(v as BaseStock);
+              }}
+              comboboxProps={{ withinPortal: true }}
+              size="xs"
+              radius="lg"
+              classNames={selectClassesSm}
+              w={90}
+            />
+          }
+        >
+          <Numero>
+            {fmt(tnLotes + tnBlendings + tnPorSalir, 1)}
+            <NumeroUnidad>t</NumeroUnidad>
+          </Numero>
+          <SplitBar
+            parts={[
+              { nombre: "Lotes", valor: tnLotes, color: COLOR_COMPRA },
+              {
+                nombre: "Blendings",
+                valor: tnBlendings,
+                color: COLOR_BLENDING,
+              },
+              {
+                nombre: "Por salir",
+                valor: tnPorSalir,
+                color: COLOR_AMBER,
+              },
+            ]}
+            format={(v) => `${fmt(v, 1)} t`}
+          />
+        </DashCard>
+
+        <DashCard
+          className="col-span-12 xl:col-span-4"
+          titulo="Días promedio en cancha"
+          dot={COLOR_BLENDING}
+          rightSection={
+            <Select
+              aria-label="Salida"
+              data={[
+                { value: "all", label: "Todo" },
+                { value: "b", label: "Blending" },
+                { value: "d", label: "Despacho directo" },
+              ]}
+              value={salidaDias}
+              onChange={(v) => {
+                if (v !== null) setSalidaDias(v as SalidaDias);
+              }}
+              comboboxProps={{ withinPortal: true }}
+              size="xs"
+              radius="lg"
+              classNames={selectClassesSm}
+              w={140}
+            />
+          }
+        >
+          <div className="flex flex-1 items-center">
+            <DaysGauge valor={diasPromedio} max={12} meta={6} />
+          </div>
+        </DashCard>
+
+        {/* Fila 4 — cuentas y pendientes */}
+        <DashCard
+          className="col-span-12 xl:col-span-4"
+          titulo="Por pagar"
+          dot={COLOR_COMPRA}
+        >
+          <Numero>{usd(porPagar?.total_usd ?? 0)}</Numero>
+          <SplitBar
+            parts={[
+              {
+                nombre: "Neto",
+                valor: porPagar?.neto_usd ?? 0,
+                color: COLOR_COMPRA,
+              },
+              {
+                nombre: "Detracción",
+                valor: porPagar?.detraccion_usd ?? 0,
+                color: COLOR_AMBER,
+              },
+            ]}
+            format={usd}
+          />
+          <div className="text-[11.5px] text-zinc-500">
+            Mayor deuda:{" "}
+            <b className="font-semibold text-zinc-100">
+              {porPagar?.mayor_deudor?.nombre ?? "—"}
+              {porPagar?.mayor_deudor
+                ? ` · ${usd(porPagar.mayor_deudor.monto_usd)}`
+                : ""}
+            </b>
+          </div>
+        </DashCard>
+
+        <DashCard
+          className="col-span-12 xl:col-span-4"
+          titulo="Por cobrar"
+          dot={COLOR_VENTA}
+        >
+          <Numero>{usd(porCobrar?.total_usd ?? 0)}</Numero>
+          <SplitBar
+            parts={[
+              {
+                nombre: "Neto",
+                valor: porCobrar?.neto_usd ?? 0,
+                color: COLOR_VENTA,
+              },
+              {
+                nombre: "Detracción",
+                valor: porCobrar?.detraccion_usd ?? 0,
+                color: COLOR_AMBER,
+              },
+            ]}
+            format={usd}
+          />
+          <div className="text-[11.5px] text-zinc-500">
+            Mayor saldo:{" "}
+            <b className="font-semibold text-zinc-100">
+              {porCobrar?.mayor_acreedor?.nombre ?? "—"}
+              {porCobrar?.mayor_acreedor
+                ? ` · ${usd(porCobrar.mayor_acreedor.monto_usd)}`
+                : ""}
+            </b>
+          </div>
+        </DashCard>
+
+        <DashCard
+          className="col-span-12 xl:col-span-4"
+          titulo="Aprobadas sin comprobante"
+          dot={COLOR_ROJO}
+          rightSection={
+            <Select
+              aria-label="Flujo"
+              data={[
+                { value: "all", label: "Todas" },
+                { value: "C", label: "Compras" },
+                { value: "V", label: "Ventas" },
+              ]}
+              value={flujoSinComprobante}
+              onChange={(v) => {
+                if (v !== null)
+                  setFlujoSinComprobante(v as FlujoSinComprobante);
+              }}
+              comboboxProps={{ withinPortal: true }}
+              size="xs"
+              radius="lg"
+              classNames={selectClassesSm}
+              w={110}
+            />
+          }
+        >
+          <SinComprobante
+            compras={sinComprobante?.compras ?? { conteo: 0, monto_usd: 0 }}
+            ventas={sinComprobante?.ventas ?? { conteo: 0, monto_usd: 0 }}
+            detalle={detalleSinComprobante}
+          />
+        </DashCard>
+      </div>
     </div>
   );
 };

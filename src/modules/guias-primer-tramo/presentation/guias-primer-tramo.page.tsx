@@ -10,7 +10,6 @@ import {
 import {
   IconHistory,
   IconPlus,
-  IconX,
   IconPencil,
   IconTrash,
   IconPrinter,
@@ -28,6 +27,7 @@ import {
   defaultFechaFin,
 } from "../../../presentation/utils/filtro-rango-fechas";
 import { RefreshButton } from "../../../presentation/utils/refresh-button";
+import { LimpiarFiltrosButton } from "../../../presentation/utils/limpiar-filtros-button";
 import type { DTO_CrearGuiaPrimerTramo, DTO_ActualizarGuiaPrimerTramo } from "../service/guias-primer-tramo.requests";
 import type { RES_GuiaPrimerTramo } from "../service/guias-primer-tramo.responses";
 import { MotivoTraslado } from "../../../shared/enums/_generic/motivo-traslado";
@@ -160,16 +160,7 @@ export const GuiasPrimerTramoPage = () => {
           />
         </div>
         <div className="flex gap-2 shrink-0">
-          <Button
-            leftSection={<IconX size={16} />}
-            variant="subtle"
-            color="red"
-            radius="lg"
-            size="sm"
-            onClick={handleLimpiar}
-          >
-            Limpiar
-          </Button>
+          <LimpiarFiltrosButton onClick={handleLimpiar} />
           <RefreshButton
             onClick={() => {
               if (idSucursal) {

@@ -1,5 +1,5 @@
 import { Button, Stack } from "@mantine/core";
-import { IconCalendarPlus, IconX } from "@tabler/icons-react";
+import { IconCalendarPlus } from "@tabler/icons-react";
 import { useState } from "react";
 import { useTitlePage } from "../../../hooks/useTitlePage";
 import { useProgramaciones } from "../hooks/useProgramaciones";
@@ -7,6 +7,7 @@ import { FiltrosProgramaciones } from "./components/filtros-programaciones";
 import { TablaProgramaciones } from "./components/tabla-programaciones";
 import { ProgramarRecepcionModal } from "./components/programar-modal";
 import { RefreshButton } from "../../../presentation/utils/refresh-button";
+import { LimpiarFiltrosButton } from "../../../presentation/utils/limpiar-filtros-button";
 import {
   defaultFechaInicio,
   defaultFechaFin,
@@ -57,17 +58,7 @@ export const ProgramarRecepcionPage = () => {
 
         <div className="flex items-center gap-2 shrink-0 pb-0.5">
           {hasActiveFilters && (
-            <Button
-              variant="subtle"
-              color="red"
-              radius="lg"
-              size="sm"
-              leftSection={<IconX size={16} />}
-              onClick={resetFilters}
-              className="text-red-400 hover:bg-red-500/10 transition-colors h-9.5 px-6"
-            >
-              Limpiar
-            </Button>
+            <LimpiarFiltrosButton onClick={resetFilters} />
           )}
 
           <RefreshButton

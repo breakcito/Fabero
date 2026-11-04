@@ -58,6 +58,8 @@ export interface RES_ValorizacionCompra {
   id: number;
   numero_correlativo: string;
   correlativo: string | null;
+  numero_version: number;
+  uuid_grupo: string;
   id_proveedor_minero: number;
   proveedor_nombre: string | null;
   proveedor_ruc: string | null;
@@ -70,6 +72,9 @@ export interface RES_ValorizacionCompra {
   cuenta_bancaria_info: string | null;
   id_cuenta_detraccion: number | null;
   cuenta_detraccion_info: string | null;
+  cuenta_detraccion_banco?: string | null;
+  cuenta_detraccion_numero?: string | null;
+  cuenta_detraccion_cci?: string | null;
   tipo_pago: TipoPagoValorizacionCompra;
   estado: EstadoValorizacionCompra;
   created_at: string;

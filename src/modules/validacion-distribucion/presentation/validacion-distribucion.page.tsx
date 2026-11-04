@@ -42,6 +42,7 @@ import type { DTO_CrearParticion } from "../service/validacion-distribucion.requ
 import { TicketBalanzaPdf } from "../../../presentation/utils/ticket-balanza-pdf";
 import { useUIStore } from "../../../stores/ui.store";
 import { RefreshButton } from "../../../presentation/utils/refresh-button";
+import { LimpiarFiltrosButton } from "../../../presentation/utils/limpiar-filtros-button";
 import { mostrarConfirmacion } from "../../../presentation/utils/modal-confirmacion";
 
 type Row = RES_LotePendiente;
@@ -536,17 +537,7 @@ export const ValidacionDistribucionPage = () => {
 
           {hasActiveFilters && (
             <div className="flex items-center gap-2 shrink-0 pb-0.5">
-              <Button
-                variant="subtle"
-                color="red"
-                radius="lg"
-                size="sm"
-                leftSection={<IconX size={16} />}
-                onClick={handleLimpiar}
-                className="text-red-400 hover:bg-red-500/10 transition-colors h-9.5 px-6"
-              >
-                Limpiar
-              </Button>
+              <LimpiarFiltrosButton onClick={handleLimpiar} />
             </div>
           )}
 

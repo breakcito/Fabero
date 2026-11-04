@@ -10,7 +10,7 @@ import {
   SegmentedControl,
   Box,
 } from "@mantine/core";
-import { IconPlus, IconX, IconReceipt } from "@tabler/icons-react";
+import { IconPlus, IconReceipt } from "@tabler/icons-react";
 import { useTitlePage } from "../../../hooks/useTitlePage";
 import { AuxService } from "../../../service/auxiliar.service";
 import { EstadoBase } from "../../../shared/enums/_generic/estado-base";
@@ -52,6 +52,7 @@ import {
   defaultFechaFin,
 } from "../../../presentation/utils/filtro-rango-fechas";
 import { RefreshButton } from "../../../presentation/utils/refresh-button";
+import { LimpiarFiltrosButton } from "../../../presentation/utils/limpiar-filtros-button";
 
 const fieldClasses = {
   input:
@@ -444,16 +445,7 @@ export default function ContabilidadPage() {
           {tipoContabilidad === "compra" ? (
             <>
               {hasActiveFiltersCompra && (
-                <Button
-                  variant="subtle"
-                  color="red"
-                  radius="lg"
-                  size="sm"
-                  leftSection={<IconX size={16} />}
-                  onClick={clearFiltersCompra}
-                >
-                  Limpiar
-                </Button>
+                <LimpiarFiltrosButton onClick={clearFiltersCompra} />
               )}
               <RefreshButton
                 onClick={() => void cargarComprobantesCompra(false)}
@@ -473,16 +465,7 @@ export default function ContabilidadPage() {
           ) : (
             <>
               {hasActiveFiltersVenta && (
-                <Button
-                  variant="subtle"
-                  color="red"
-                  radius="lg"
-                  size="sm"
-                  leftSection={<IconX size={16} />}
-                  onClick={clearFiltersVenta}
-                >
-                  Limpiar
-                </Button>
+                <LimpiarFiltrosButton onClick={clearFiltersVenta} />
               )}
               <RefreshButton
                 onClick={() => void cargarComprobantesVenta(false)}

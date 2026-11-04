@@ -3,7 +3,6 @@ import { Button, TextInput, Loader, Center, Text } from "@mantine/core";
 import {
   MagnifyingGlassIcon,
   PlusIcon,
-  XMarkIcon,
 } from "@heroicons/react/24/outline";
 
 import { useTitlePage } from "../../../hooks/useTitlePage";
@@ -18,6 +17,7 @@ import { ModalAgregarAnalisis } from "./components/modal-agregar-analisis";
 import type { FiltrosLotesSugeridos } from "../service/cierre-leyes.service";
 import type { LoteCierreResponse, GrupoAnalisisLoteResponse } from "../service/cierre-leyes.responses";
 import { RefreshButton } from "../../../presentation/utils/refresh-button";
+import { LimpiarFiltrosButton } from "../../../presentation/utils/limpiar-filtros-button";
 import {
   DateRangeFilter,
   defaultFechaInicio,
@@ -155,16 +155,7 @@ export const CierreLeyesPage = () => {
           </div>
 
           <div className="flex items-center gap-1.5 pb-0.5">
-            <Button
-              variant="subtle"
-              size="xs"
-              radius="lg"
-              leftSection={<XMarkIcon className="w-4 h-4" />}
-              onClick={handleLimpiarFiltros}
-              className="text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
-            >
-              Limpiar
-            </Button>
+            <LimpiarFiltrosButton onClick={handleLimpiarFiltros} />
             <RefreshButton
               onClick={() => {
                 void cargarLotes(filtrosActuales);

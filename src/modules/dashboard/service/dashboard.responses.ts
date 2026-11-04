@@ -1,120 +1,81 @@
 /**
  * Interfaces de respuesta del dashboard de indicadores.
- * Mapean 1:1 el payload de `GET /api/dashboard/indicadores`.
+ * Mapean 1:1 el payload de `GET /api/dashboard/resumen`.
+ *
+ * UNIDADES: todos los pesos de la base de datos están en KILOGRAMOS; la API
+ * los convierte a toneladas (÷1000) antes de exponerlos. Los montos están en
+ * dólares (USD) salvo `detraccion_usd`, que la API normaliza a USD con el
+ * tipo de cambio vigente.
  */
+
+/** Costos y leyes por elemento químico (`Oro` / `Plata`). */
+export interface RES_DashboardElemento {
+  Oro: number;
+  Plata: number;
+}
+
+/** Costo promedio por tonelada (USD/t) de compra y de venta. */
+export interface RES_DashboardCostos {
+  compra: RES_DashboardElemento;
+  venta: RES_DashboardElemento;
+}
 
 /**
- * Indicadores del dashboard.
- *
- * UNIDADES: todos los pesos de la base de datos están en KILOGRAMOS.
- * El API los convierte a toneladas (÷1000) antes de exponerlos, por eso
- * los campos que llevan "toneladas" o "_t" ya están en toneladas.
+ * Leyes promedio (g/t).
+ * - `compra`: cierre de leyes del grupo de análisis (o la del lote).
+ * - `venta_final`: la que calcula Fabero (`despacho_detalle`).
+ * - `venta_cliente`: la que reporta la planta receptora (`distribucion_detalle`).
  */
-export interface RES_DashboardKpis {
-  /** Toneladas (t) recepcionadas en el período. */
-  toneladas_receptadas: number;
-  lotes_receptados: number;
-  /**
-   * Leyes promedio ponderadas por peso de los lotes con valorización APROBADA.
-   * La ley se consolida en `lote_mineral` al aprobar la valorización, por eso
-   * estos indicadores siguen en 0 mientras no haya valorizaciones aprobadas.
-   */
-  ley_oro_prom: number;
-  ley_plata_prom: number;
-  ley_humedad_prom: number;
-  /** Lotes del período con valorización aprobada (base de las leyes). */
-  lotes_aprobados: number;
-  /** Valorización de compra en USD. */
-  valorizacion_compra_usd: number;
-  /** Precio por tonelada (USD/t) del mineral valorizado. */
-  valor_por_tonelada_usd: number;
-  /** Valorización de venta en USD. */
-  valorizacion_venta_usd: number;
-  /** Toneladas (t) despachadas. */
-  toneladas_despachadas: number;
-  despachos: number;
-  lotes_validados: number;
-  lotes_analizados: number;
-  lotes_con_cierre_leyes: number;
-  lotes_con_valor_comercial: number;
-  lotes_valorizados: number;
-  lotes_despachados: number;
+export interface RES_DashboardLeyes {
+  compra: RES_DashboardElemento;
+  venta_final: RES_DashboardElemento;
+  venta_cliente: RES_DashboardElemento;
 }
 
-export interface RES_DashboardSerie {
-  fecha: string;
-  toneladas: number;
-  lotes: number;
-  ley_oro: number;
-  ley_plata: number;
-  ley_humedad: number;
-  valor_compra_usd: number;
-  valor_venta_usd: number;
-  toneladas_despachadas: number;
+/** Un mes dentro de la serie de evolución. */
+export interface RES_DashboardMes {
+  anio: number;
+  /** 1-12 */
+  mes: number;
+  tn_receptadas: number;
+  tn_despachadas: number;
+  tn_compradas: number;
+  tn_vendidas: number;
+  monto_compra_usd: number;
+  monto_venta_usd: number;
+  /** Costo promedio ponderado por tonelada comprada (USD/t). */
+  costo_compra_usd_t: number;
+  /** Costo promedio ponderado por tonelada vendida (USD/t). */
+  costo_venta_usd_t: number;
+  costos: RES_DashboardCostos;
+  leyes: RES_DashboardLeyes;
 }
 
-export interface RES_DashboardEmbudo {
-  etapa: string;
-  conteo: number;
-  porcentaje: number;
+export interface RES_DashboardPeriodo {
+  /** `YYYY-MM` del último mes cerrado. */
+  mes_actual: string;
+  /** Últimos 12 meses cerrados. */
+  meses: RES_DashboardMes[];
+  /** Los mismos 12 meses del año anterior (comparativo interanual). */
+  meses_anio_anterior: RES_DashboardMes[];
 }
 
-export interface RES_DashboardProveedor {
-  razon_social: string;
-  valor_usd: number;
-  toneladas: number;
+/** Contraparte con mayor saldo pendiente. */
+export interface RES_DashboardContraparte {
+  nombre: string;
+  monto_usd: number;
 }
 
-export interface RES_DashboardElemento {
-  elemento: string;
-  valor_usd: number;
-}
-
-export interface RES_DashboardEstadoLote {
-  estado: string;
-  lotes: number;
-  toneladas: number;
-}
-
-export interface RES_DashboardEstadoValorizacion {
-  estado: string;
-  conteo: number;
-  valor_usd: number;
-}
-
-export interface RES_DashboardMerma {
-  correlativo: string;
-  guia_remitente: string | null;
-  /** Toneladas declaradas en la guía de remisión. */
-  peso_declarado_t: number;
-  /** Toneladas realmente pesadas en balanza. */
-  peso_real_t: number;
-  merma_pct: number;
-}
-
-export interface RES_DashboardNoConformidad {
-  guias_total: number;
-  guias_no_conformidad: number;
-  porcentaje: number;
-}
-
-export interface RES_DashboardTiempos {
-  ingreso_a_pesaje_h: number | null;
-  pesaje_a_analisis_h: number | null;
-}
-
-export interface RES_DashboardOperativo {
-  unidades_en_planta: number;
-  visitas_abiertas: number;
-  guias_activas: number;
-  lotes_sin_validar: number;
-  valorizaciones_pendientes: number;
-}
-
-export interface RES_DashboardFinanciero {
-  saldo_anticipos_pen: number;
-  deuda_proveedores_pen: number;
-  comprobantes_emitidos: number;
+/** Cuentas por pagar (compras) o por cobrar (ventas). */
+export interface RES_DashboardCuenta {
+  /** Saldo pendiente neto en USD. */
+  neto_usd: number;
+  /** Saldo pendiente de detracción, normalizado a USD. */
+  detraccion_usd: number;
+  /** neto + detracción. */
+  total_usd: number;
+  mayor_deudor?: RES_DashboardContraparte | null;
+  mayor_acreedor?: RES_DashboardContraparte | null;
 }
 
 export interface RES_DashboardTipoCambio {
@@ -123,29 +84,56 @@ export interface RES_DashboardTipoCambio {
   valor_venta: number;
 }
 
-export interface RES_DashboardMeta {
-  fecha_inicio: string;
-  fecha_fin: string;
-  id_sucursal: number | null;
-  monedas: {
-    valorizacion: string;
-    financiero: string;
+export interface RES_DashboardFinanciero {
+  por_pagar: RES_DashboardCuenta;
+  por_cobrar: RES_DashboardCuenta;
+  tipo_cambio: RES_DashboardTipoCambio | null;
+}
+
+/** Componentes del stock en cancha, en TMH y TMS. */
+export interface RES_DashboardStock {
+  tmh: number;
+  tms: number;
+}
+
+export interface RES_DashboardCancha {
+  stock: {
+    lotes: RES_DashboardStock;
+    blendings: RES_DashboardStock;
+    por_salir: RES_DashboardStock;
+  };
+  /** Días promedio entre la recepción y el despacho. */
+  dias: {
+    todo: number;
+    blending: number;
+    directo: number;
   };
 }
 
+/** Valorización aprobada sin comprobante registrado. */
+export interface RES_DashboardSinComprobante {
+  conteo: number;
+  monto_usd: number;
+}
+
+export interface RES_DashboardSinComprobanteDetalle {
+  /** `C` = compras, `V` = ventas. */
+  tipo: "C" | "V";
+  documento: string;
+  contraparte: string;
+  dias: number;
+  monto_usd: number;
+}
+
+export interface RES_DashboardSinComprobanteBloque {
+  compras: RES_DashboardSinComprobante;
+  ventas: RES_DashboardSinComprobante;
+  detalle: RES_DashboardSinComprobanteDetalle[];
+}
+
 export interface RES_Dashboard {
-  kpis: RES_DashboardKpis;
-  serie: RES_DashboardSerie[];
-  embudo: RES_DashboardEmbudo[];
-  por_proveedor: RES_DashboardProveedor[];
-  por_elemento: RES_DashboardElemento[];
-  por_estado_lote: RES_DashboardEstadoLote[];
-  estado_valorizaciones: RES_DashboardEstadoValorizacion[];
-  merma: RES_DashboardMerma[];
-  no_conformidad: RES_DashboardNoConformidad;
-  tiempos: RES_DashboardTiempos;
-  operativo: RES_DashboardOperativo;
+  periodo: RES_DashboardPeriodo;
   financiero: RES_DashboardFinanciero;
-  tipo_cambio: RES_DashboardTipoCambio;
-  meta: RES_DashboardMeta;
+  cancha: RES_DashboardCancha;
+  sin_comprobante: RES_DashboardSinComprobanteBloque;
 }

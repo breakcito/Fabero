@@ -15,15 +15,12 @@ import {
 import {
   IconNote,
   IconPaperclip,
-  IconX,
   IconPencil,
   IconBarcode,
   IconScale,
   IconHistory,
   IconSearch,
-  IconChevronDown,
-  IconChevronUp,
-  IconLayersLinked,
+  IconLock,
 } from "@tabler/icons-react";
 import { useTitlePage } from "../../../hooks/useTitlePage";
 import { useResumenBalanza } from "../hooks/useResumenBalanza";
@@ -35,9 +32,9 @@ import { ArchivoCard } from "../../../presentation/utils/archivo/archivo-card";
 import type { IArchivo } from "../../../shared/interfaces/archivo";
 import { TipoIngreso } from "../../../shared/enums/_generic/tipo-ingreso";
 import { ModalEditarResumenLote } from "./components/modal-editar-resumen-lote";
+import { ModalEditarParticion } from "./components/modal-editar-particion";
 import { useTicketLote } from "../../recepcion-mineral/hooks/useTicketLote";
 import { useTicketBalanza } from "../../recepcion-mineral/hooks/useTicketBalanza";
-import { DesplegableParticionesLote } from "./components/desplegable-particiones-lote";
 import { CambiosLogViewer } from "../../../presentation/utils/cambios-log-viewer";
 import {
   DateRangeFilter,
@@ -45,6 +42,7 @@ import {
   defaultFechaFin,
 } from "../../../presentation/utils/filtro-rango-fechas";
 import { RefreshButton } from "../../../presentation/utils/refresh-button";
+import { LimpiarFiltrosButton } from "../../../presentation/utils/limpiar-filtros-button";
 
 export const ResumenBalanzaPage = () => {
   useTitlePage("Resumen de Balanza", true);
@@ -103,27 +101,36 @@ export const ResumenBalanzaPage = () => {
 
   // Estados para visor de evidencias
   const [selectedEvidencias, setSelectedEvidencias] = useState<IArchivo[] | null>(null);
+  const [evidenciasTitulo, setEvidenciasTitulo] = useState("Evidencias Registradas");
   const [modalOpen, setModalOpen] = useState(false);
 
-  // Estados para fila expandida (lotes particionados en balanza)
-  const [expandedRowIds, setExpandedRowIds] = useState<(string | number)[]>([]);
-
-  const toggleExpand = (rowId: string | number) => {
-    setExpandedRowIds((prev) =>
-      prev.includes(rowId) ? prev.filter((id) => id !== rowId) : [...prev, rowId]
-    );
-  };
-
-  // Estados para edición de lote (sólo filas LOTE_RECEPCION)
+  // Estados para edición (lote regular y partición)
   const [editingLote, setEditingLote] = useState<RES_ResumenBalanzaItem | null>(null);
+  const [editingParticion, setEditingParticion] = useState<RES_ResumenBalanzaItem | null>(null);
 
   // Estados para historial de cambios
   const [loteHistorial, setLoteHistorial] = useState<RES_ResumenBalanzaItem | null>(null);
   const [historialModalOpen, setHistorialModalOpen] = useState(false);
 
-  const handleOpenEvidencias = (evidencias: IArchivo[]) => {
+  const handleOpenEvidencias = (evidencias: IArchivo[], titulo: string) => {
     setSelectedEvidencias(evidencias);
+    setEvidenciasTitulo(titulo);
     setModalOpen(true);
+  };
+
+  // ── Discriminadores de tipo de fila ───────────────────────────────────────
+  const esParticion = (r: RES_ResumenBalanzaItem) => r.tipo_pesaje === "PARTICION";
+  const esDespacho = (r: RES_ResumenBalanzaItem) =>
+    r.tipo_pesaje === "DISTRIBUCION_DETALLE";
+
+  /** Un lote con valorización viva (Propuesta/Aprobado) no es editable. */
+  const estaBloqueado = (r: RES_ResumenBalanzaItem) => Boolean(r.valorizacion);
+
+  const tooltipBloqueo = (r: RES_ResumenBalanzaItem) => {
+    const v = r.valorizacion;
+    if (!v) return "Editar";
+    const ref = v.correlativo ? ` ${v.correlativo}` : "";
+    return `Bloqueado: el lote tiene una valorización en estado "${v.estado}"${ref}`;
   };
 
   // Mapear datos para los selects
@@ -269,17 +276,7 @@ export const ResumenBalanzaPage = () => {
         {/* Botón de Recargar a la Derecha */}
         <div className="flex items-center gap-2 shrink-0 pb-0.5">
           {hasActiveFilters && (
-            <Button
-              variant="subtle"
-              color="red"
-              radius="lg"
-              size="sm"
-              leftSection={<IconX size={16} />}
-              onClick={resetFilters}
-              className="text-red-400 hover:bg-red-500/10 transition-colors h-9.5 px-6"
-            >
-              Limpiar
-            </Button>
+            <LimpiarFiltrosButton onClick={resetFilters} />
           )}
 
           <RefreshButton onClick={loadResumen} loading={loading} label="Recargar resumen" />
@@ -297,30 +294,12 @@ export const ResumenBalanzaPage = () => {
               ? "No se encontraron registros de balanza para los filtros aplicados."
               : "Debe seleccionar una sucursal en la parte superior para visualizar la información."
           }
-          expandedRecordIds={expandedRowIds}
-          onExpandedChange={(ids) => setExpandedRowIds(ids)}
-          renderExpandedRow={(r: RES_ResumenBalanzaItem) => {
-            if (!r.particionado_desde_balanza || !r.particiones || r.particiones.length === 0) {
-              return null;
-            }
-            return (
-              <DesplegableParticionesLote
-                lote={r}
-                particiones={r.particiones}
-                onPrintTicketParticion={printTicketBalanzaParticion}
-                onVerEvidencias={handleOpenEvidencias}
-                formatFecha={formatFecha}
-                formatTonelada={formatTonelada}
-              />
-            );
-          }}
           columns={[
             {
               accessor: "index",
               title: "#",
               textAlign: "center",
               width: 50,
-              render: (_: RES_ResumenBalanzaItem, index: number) => index + 1,
             },
             {
               accessor: "tickets",
@@ -328,10 +307,10 @@ export const ResumenBalanzaPage = () => {
               width: 110,
               textAlign: "center",
               render: (r: RES_ResumenBalanzaItem) => {
-                const esDespacho = r.tipo_pesaje === "DISTRIBUCION_DETALLE";
-                const esParticionado = Boolean(r.particionado_desde_balanza);
+                const despacho = esDespacho(r);
+                const particion = esParticion(r);
 
-                const loteTicketDto = esDespacho
+                const loteTicketDto = despacho
                   ? null
                   : {
                       id: r.id_lote ?? 0,
@@ -341,8 +320,8 @@ export const ResumenBalanzaPage = () => {
 
                 return (
                   <Group gap={6} justify="center" wrap="nowrap">
-                    {/* Ticket Humedad sólo para recepción */}
-                    {!esDespacho && loteTicketDto && (
+                    {/* Ticket Humedad (del lote) sólo para recepción */}
+                    {!despacho && loteTicketDto && (
                       <Tooltip label="Ticket Humedad (Código Barras)" withArrow>
                         <ActionIcon
                           variant="subtle"
@@ -356,122 +335,137 @@ export const ResumenBalanzaPage = () => {
                       </Tooltip>
                     )}
 
-                    {/* Ticket Balanza: si es particionado, abre/cierra el desplegable para imprimir de cada partición */}
-                    {esParticionado ? (
-                      <Tooltip
-                        label="Lote particionado: Ver tickets de balanza de cada partición"
-                        withArrow
-                      >
-                        <ActionIcon
-                          variant="subtle"
-                          color="cyan"
-                          radius="md"
-                          onClick={() => toggleExpand(r.id_row)}
-                          className="text-cyan-400 hover:bg-white/5"
-                        >
-                          <IconLayersLinked size={16} />
-                        </ActionIcon>
-                      </Tooltip>
-                    ) : (
-                      <Tooltip
-                        label={esDespacho ? "Ticket de Despacho" : "Ticket de Balanza"}
-                        withArrow
-                      >
-                        <ActionIcon
-                          variant="subtle"
-                          color={esDespacho ? "cyan" : "teal"}
-                          radius="md"
-                          onClick={() => {
-                            if (esDespacho && r.id_distribucion_detalle) {
-                              printTicketBalanzaByDistribucionDetalle(r.id_distribucion_detalle);
-                            } else if (r.id_lote) {
-                              printTicketBalanza(r.id_lote);
-                            }
-                          }}
-                          className={
-                            esDespacho
-                              ? "text-cyan-400 hover:bg-white/5"
-                              : "text-teal-400 hover:bg-white/5"
+                    {/* Ticket Balanza: el de la partición si es partición */}
+                    <Tooltip
+                      label={
+                        despacho
+                          ? "Ticket de Despacho"
+                          : particion
+                            ? "Ticket de Balanza de la Partición"
+                            : "Ticket de Balanza"
+                      }
+                      withArrow
+                    >
+                      <ActionIcon
+                        variant="subtle"
+                        color={despacho ? "cyan" : "teal"}
+                        radius="md"
+                        onClick={() => {
+                          if (despacho && r.id_distribucion_detalle) {
+                            printTicketBalanzaByDistribucionDetalle(
+                              r.id_distribucion_detalle
+                            );
+                          } else if (particion && r.id_particion) {
+                            printTicketBalanzaParticion(r.id_particion);
+                          } else if (r.id_lote) {
+                            printTicketBalanza(r.id_lote);
                           }
-                        >
-                          <IconScale size={16} />
-                        </ActionIcon>
-                      </Tooltip>
-                    )}
+                        }}
+                        className={
+                          despacho
+                            ? "text-cyan-400 hover:bg-white/5"
+                            : "text-teal-400 hover:bg-white/5"
+                        }
+                      >
+                        <IconScale size={16} />
+                      </ActionIcon>
+                    </Tooltip>
                   </Group>
                 );
               },
             },
-            // ── Correlativo consolidado (Lote o Despacho) ──
+            // ── Correlativo consolidado (Lote, Partición o Despacho) ──
             {
               accessor: "principal_correlativo",
               title: "Correlativo",
-              width: 220,
+              width: 240,
               textAlign: "center",
               render: (r: RES_ResumenBalanzaItem) => {
-                if (r.tipo_pesaje === "LOTE_RECEPCION") {
-                  const esParticionado = Boolean(r.particionado_desde_balanza);
-                  const isExpanded = expandedRowIds.includes(r.id_row);
-                  const countParticiones = r.particiones?.length ?? 0;
+                const bloqueado = estaBloqueado(r);
 
+                // Fila de despacho: origen + correlativo de despacho
+                if (esDespacho(r)) {
+                  const origenLine: string[] = [];
+                  if (r.origen_correlativo) {
+                    origenLine.push(r.origen_correlativo);
+                  }
+                  if (r.numero_particion != null) {
+                    origenLine.push(`P-${r.numero_particion}`);
+                  }
                   return (
-                    <div className="flex items-center justify-center gap-1.5">
-                      {esParticionado && countParticiones > 0 && (
-                        <Tooltip
-                          label={isExpanded ? "Ocultar particiones" : "Ver particiones de pesaje"}
-                          withArrow
+                    <div className="flex flex-col gap-0.5 items-center text-center">
+                      {origenLine.length > 0 && (
+                        <Text
+                          size="sm"
+                          fw={500}
+                          className="text-zinc-100 font-semibold  tracking-wider"
                         >
-                          <ActionIcon
-                            size="xs"
-                            variant="subtle"
-                            color="cyan"
-                            radius="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleExpand(r.id_row);
-                            }}
-                            className="text-cyan-400 hover:bg-white/5"
-                          >
-                            {isExpanded ? (
-                              <IconChevronUp size={14} />
-                            ) : (
-                              <IconChevronDown size={14} />
-                            )}
-                          </ActionIcon>
-                        </Tooltip>
+                          {origenLine.join(" · ")}
+                        </Text>
                       )}
-                      <Text size="sm" className="font-semibold text-zinc-200" fw={500} ta="center">
-                        {r.lote_correlativo}
+                      <Text size="11px" className="text-cyan-400 font-mono leading-tight">
+                        {r.despacho_correlativo || "—"}
                       </Text>
-                      {esParticionado && countParticiones > 0 && (
-                        <Badge size="xs" variant="light" color="cyan" radius="sm">
-                          {countParticiones}P
+                    </div>
+                  );
+                }
+
+                // Fila de partición: correlativo del lote padre + letra + total
+                if (esParticion(r)) {
+                  return (
+                    <div className="flex flex-col gap-0.5 items-center text-center">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <Text size="sm" className="font-semibold text-zinc-200" fw={500}>
+                          {r.lote_correlativo}
+                        </Text>
+                        <Badge
+                          size="xs"
+                          variant="filled"
+                          color="indigo"
+                          radius="sm"
+                          className="font-bold font-mono"
+                        >
+                          {r.particion_letra || "?"}
                         </Badge>
+                        {bloqueado && (
+                          <Tooltip
+                            label={tooltipBloqueo(r)}
+                            withArrow
+                            multiline
+                            w={260}
+                          >
+                            <IconLock size={14} className="text-amber-400" />
+                          </Tooltip>
+                        )}
+                      </div>
+                      <Text size="11px" className="text-zinc-400 font-mono leading-tight">
+                        {r.particion_correlativo || "—"}
+                      </Text>
+                      {r.particiones_total != null && r.particiones_total > 0 && (
+                        <Text
+                          size="10px"
+                          className="text-zinc-500 font-mono leading-tight"
+                          title={`Peso neto acumulado del lote ${r.lote_correlativo}`}
+                        >
+                          {r.particiones_total}P · Total{" "}
+                          {formatTonelada(r.lote_peso_neto_total)}
+                        </Text>
                       )}
                     </div>
                   );
                 }
-                const origenLine: string[] = [];
-                if (r.origen_correlativo) {
-                  origenLine.push(r.origen_correlativo);
-                }
-                if (r.numero_particion != null) {
-                  origenLine.push(`P-${r.numero_particion}`);
-                }
+
+                // Fila de lote regular
                 return (
-                  <div className="flex flex-col gap-0.5 items-center text-center">
-                    {origenLine.length > 0 && (
-                      <Text
-                        size="sm"
-                        fw={500}
-                        className="text-zinc-100 font-semibold  tracking-wider"
-                      >
-                        {origenLine.join(" · ")}
-                      </Text>
-                    )}
-                    <Text size="11px" className="text-cyan-400 font-mono leading-tight">
-                      {r.despacho_correlativo || "—"}
+                  <div className="flex items-center justify-center gap-1.5">
+                    <Text size="sm" className="font-semibold text-zinc-200" fw={500} ta="center">
+                      {r.lote_correlativo}
                     </Text>
+                    {bloqueado && (
+                      <Tooltip label={tooltipBloqueo(r)} withArrow multiline w={260}>
+                        <IconLock size={14} className="text-amber-400" />
+                      </Tooltip>
+                    )}
                   </div>
                 );
               },
@@ -482,16 +476,14 @@ export const ResumenBalanzaPage = () => {
               width: 240,
               textAlign: "center",
               render: (r: RES_ResumenBalanzaItem) => {
-                const esParticionado = Boolean(r.particionado_desde_balanza);
-                const esDespacho = r.tipo_pesaje === "DISTRIBUCION_DETALLE";
-                // Lotes particionados desde balanza no tienen pesaje directo en cabecera:
-                const fechaInicial =
-                  esParticionado ? null
-                  : esDespacho ? r.fecha_hora_peso_tara
+                const despacho = esDespacho(r);
+                // RECEPCIÓN: el camión llega cargado → Inicial=Bruto, Final=Tara.
+                // DESPACHO:  el camión llega vacío   → Inicial=Tara,  Final=Bruto.
+                const fechaInicial = despacho
+                  ? r.fecha_hora_peso_tara
                   : r.fecha_hora_peso_bruto;
-                const fechaFinal =
-                  esParticionado ? null
-                  : esDespacho ? r.fecha_hora_peso_bruto
+                const fechaFinal = despacho
+                  ? r.fecha_hora_peso_bruto
                   : r.fecha_hora_peso_tara;
                 return (
                   <div className="flex flex-col gap-1 text-[11px]">
@@ -522,7 +514,7 @@ export const ResumenBalanzaPage = () => {
                 // Condición garantizada para lotes de recepción de mineral
                 const condicion =
                   r.tipo_ingreso ||
-                  (r.particionado_desde_balanza ? TipoIngreso.RecepcionMineral : "—");
+                  (esParticion(r) ? TipoIngreso.RecepcionMineral : "—");
                 const colorBadge =
                   condicion === "Ficticio" ? "orange"
                   : condicion === TipoIngreso.DespachoMineral ? "cyan"
@@ -548,45 +540,6 @@ export const ResumenBalanzaPage = () => {
               width: 160,
               textAlign: "center",
               render: (r: RES_ResumenBalanzaItem) => {
-                if (r.particionado_desde_balanza) {
-                  const countParticiones = r.particiones?.length ?? 0;
-                  const resumenPlacas =
-                    r.particiones
-                      ?.map((p) => p.vehiculo_placa || "S/P")
-                      .filter(Boolean)
-                      .join(" · ") || "";
-                  return (
-                    <div className="flex flex-col gap-1 items-center">
-                      <Tooltip
-                        label={
-                          resumenPlacas
-                            ? `Placas: ${resumenPlacas}`
-                            : "Ver desglose en el desplegable"
-                        }
-                        withArrow
-                      >
-                        <div
-                          onClick={() => toggleExpand(r.id_row)}
-                          className="cursor-pointer inline-flex items-center justify-center bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 border border-cyan-500/30 px-2.5 py-0.5 rounded-md font-bold text-xs tracking-wider uppercase font-mono transition-colors"
-                        >
-                          {countParticiones > 0
-                            ? `${countParticiones} PARTICIONES`
-                            : "PARTICIONADO"}
-                        </div>
-                      </Tooltip>
-                      {resumenPlacas && (
-                        <Text
-                          size="10px"
-                          className="text-zinc-400 font-mono tracking-tight text-center max-w-37.5 truncate"
-                          title={resumenPlacas}
-                        >
-                          {resumenPlacas}
-                        </Text>
-                      )}
-                    </div>
-                  );
-                }
-
                 const fullPlaca = r.vehiculo_placa || "SIN PLACA";
                 return (
                   <div className="flex flex-col gap-1 items-center">
@@ -659,7 +612,7 @@ export const ResumenBalanzaPage = () => {
                 <Text size="sm" className="text-zinc-300 font-medium max-w-47.5 text-center" truncate title={r.proveedor_razon_social || ""}>
                   {r.proveedor_razon_social || (
                     <span className="text-zinc-600 italic">
-                      {r.tipo_pesaje === "DISTRIBUCION_DETALLE" && r.origen_tipo === "BLENDING"
+                      {esDespacho(r) && r.origen_tipo === "BLENDING"
                         ? "N/A (Blending)"
                         : "No registrado"}
                     </span>
@@ -709,20 +662,19 @@ export const ResumenBalanzaPage = () => {
               width: 230,
               textAlign: "center",
               render: (r: RES_ResumenBalanzaItem) => {
-                const esParticionado = Boolean(r.particionado_desde_balanza);
-                const esDespacho = r.tipo_pesaje === "DISTRIBUCION_DETALLE";
+                const despacho = esDespacho(r);
                 // Etiquetas siempre muestran el TIPO físico del pesaje (TARA o BRUTO),
                 // en el orden que corresponde al flujo:
                 //   - RECEPCIÓN: camión llega cargado  → Inicial=Bruto, Final=Tara.
                 //   - DESPACHO:  camión llega vacío    → Inicial=Tara,  Final=Bruto.
-                const label1 = esDespacho ? "Tara" : "Bruto";
-                const label2 = esDespacho ? "Bruto" : "Tara";
-                const valorLabel1 =
-                  esParticionado ? "—"
-                  : formatTonelada(esDespacho ? r.peso_tara : r.peso_bruto);
-                const valorLabel2 =
-                  esParticionado ? "—"
-                  : formatTonelada(esDespacho ? r.peso_bruto : r.peso_tara);
+                const label1 = despacho ? "Tara" : "Bruto";
+                const label2 = despacho ? "Bruto" : "Tara";
+                const valorLabel1 = formatTonelada(
+                  despacho ? r.peso_tara : r.peso_bruto
+                );
+                const valorLabel2 = formatTonelada(
+                  despacho ? r.peso_bruto : r.peso_tara
+                );
                 return (
                   <div className="flex flex-col gap-1.5 items-end">
                     <div className="flex items-center justify-between gap-3 w-full">
@@ -758,26 +710,62 @@ export const ResumenBalanzaPage = () => {
             {
               accessor: "evidencias",
               title: "Evidencias",
-              width: 140,
+              width: 160,
               textAlign: "center",
               render: (r: RES_ResumenBalanzaItem) => {
-                const evidencias = r.lote_evidencias ?? [];
-                if (!Array.isArray(evidencias) || evidencias.length === 0) {
+                const particion = esParticion(r);
+                const evidenciasParticion = particion
+                  ? (r.particion_evidencias ?? [])
+                  : [];
+                const evidenciasLote = r.lote_evidencias ?? [];
+
+                const tieneParticion =
+                  Array.isArray(evidenciasParticion) && evidenciasParticion.length > 0;
+                const tieneLote =
+                  Array.isArray(evidenciasLote) && evidenciasLote.length > 0;
+
+                if (!tieneParticion && !tieneLote) {
                   return <Text size="xs" className="text-zinc-500 italic text-center">Sin archivos</Text>;
                 }
+
                 return (
-                  <div className="flex justify-center">
-                    <Button
-                      size="xs"
-                      variant="light"
-                      color="indigo"
-                      radius="xl"
-                      leftSection={<IconPaperclip size={14} />}
-                      onClick={() => handleOpenEvidencias(evidencias)}
-                      className="bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 border border-indigo-500/10"
-                    >
-                      Ver ({evidencias.length})
-                    </Button>
+                  <div className="flex justify-center gap-1.5">
+                    {tieneParticion && (
+                      <Button
+                        size="xs"
+                        variant="light"
+                        color="indigo"
+                        radius="xl"
+                        leftSection={<IconPaperclip size={14} />}
+                        onClick={() =>
+                          handleOpenEvidencias(
+                            evidenciasParticion,
+                            `Evidencias · Partición ${r.particion_letra ?? ""}`.trim()
+                          )
+                        }
+                        className="bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 border border-indigo-500/10"
+                      >
+                        Ver ({evidenciasParticion.length})
+                      </Button>
+                    )}
+                    {tieneLote && (
+                      <Button
+                        size="xs"
+                        variant="light"
+                        color="zinc"
+                        radius="xl"
+                        leftSection={<IconPaperclip size={14} />}
+                        onClick={() =>
+                          handleOpenEvidencias(
+                            evidenciasLote,
+                            `Evidencias · Lote ${r.lote_correlativo ?? ""}`.trim()
+                          )
+                        }
+                        className="bg-zinc-500/10 hover:bg-zinc-500/20 text-zinc-300 border border-zinc-500/10"
+                      >
+                        Lote ({evidenciasLote.length})
+                      </Button>
+                    )}
                   </div>
                 );
               },
@@ -845,41 +833,43 @@ export const ResumenBalanzaPage = () => {
               width: 120,
               textAlign: "center",
               render: (r: RES_ResumenBalanzaItem) => {
-                const esDespacho = r.tipo_pesaje === "DISTRIBUCION_DETALLE";
-                const esParticionado = Boolean(r.particionado_desde_balanza);
-                const isExpanded = expandedRowIds.includes(r.id_row);
+                const despacho = esDespacho(r);
+                const particion = esParticion(r);
+                const bloqueado = estaBloqueado(r);
+
                 return (
                   <div className="flex justify-center gap-1.5">
-                    {/* Botón desplegable para ver particiones */}
-                    {esParticionado && (
+                    {/* Editar: sólo filas de recepción (lote o partición).
+                        Las filas DISTRIBUCION_DETALLE se editan desde Despachos. */}
+                    {!despacho && r.id_lote != null && (
                       <Tooltip
-                        label={isExpanded ? "Ocultar particiones" : "Ver particiones de pesaje"}
+                        label={bloqueado ? tooltipBloqueo(r) : particion ? "Editar Partición" : "Editar Lote"}
                         withArrow
+                        multiline
+                        w={280}
                       >
-                        <ActionIcon
-                          size="sm"
-                          variant="subtle"
-                          color="cyan"
-                          onClick={() => toggleExpand(r.id_row)}
-                          className="text-cyan-400 hover:bg-white/5 rounded-lg"
-                        >
-                          <IconLayersLinked size={16} />
-                        </ActionIcon>
-                      </Tooltip>
-                    )}
-                    {/* Editar Lote: sólo filas LOTE_RECEPCION. Las filas DISTRIBUCION_DETALLE
-                        se editan desde el módulo de Despachos. */}
-                    {!esDespacho && r.id_lote != null && (
-                      <Tooltip label="Editar Lote" withArrow>
-                        <ActionIcon
-                          size="sm"
-                          variant="subtle"
-                          color="amber"
-                          onClick={() => setEditingLote(r)}
-                          className="text-amber-500 hover:bg-white/5 rounded-lg"
-                        >
-                          <IconPencil size={16} />
-                        </ActionIcon>
+                        <span>
+                          <ActionIcon
+                            size="sm"
+                            variant="subtle"
+                            color={bloqueado ? "zinc" : "amber"}
+                            disabled={bloqueado}
+                            onClick={() => {
+                              if (particion) {
+                                setEditingParticion(r);
+                              } else {
+                                setEditingLote(r);
+                              }
+                            }}
+                            className={
+                              bloqueado
+                                ? "text-zinc-600 cursor-not-allowed"
+                                : "text-amber-500 hover:bg-white/5 rounded-lg"
+                            }
+                          >
+                            <IconPencil size={16} />
+                          </ActionIcon>
+                        </span>
                       </Tooltip>
                     )}
                     <Tooltip label="Historial de cambios" withArrow>
@@ -911,7 +901,7 @@ export const ResumenBalanzaPage = () => {
           setModalOpen(false);
           setSelectedEvidencias(null);
         }}
-        title="Evidencias Registradas"
+        title={evidenciasTitulo}
         size="md"
       >
         <div className="flex flex-col gap-3">
@@ -927,6 +917,16 @@ export const ResumenBalanzaPage = () => {
           opened={!!editingLote}
           lote={editingLote}
           onClose={() => setEditingLote(null)}
+          onSuccess={loadResumen}
+        />
+      )}
+
+      {/* Modal: Editar Partición (sólo filas PARTICION) */}
+      {editingParticion && (
+        <ModalEditarParticion
+          opened={!!editingParticion}
+          particion={editingParticion}
+          onClose={() => setEditingParticion(null)}
           onSuccess={loadResumen}
         />
       )}
@@ -948,9 +948,11 @@ export const ResumenBalanzaPage = () => {
         rightSection={
           loteHistorial ? (
             <Text size="xs" c="dimmed" fw={600} className="font-mono">
-              {loteHistorial.tipo_pesaje === "LOTE_RECEPCION"
-                ? `LOTE #${loteHistorial.lote_correlativo ?? ""}`
-                : `DESPACHO #${loteHistorial.despacho_correlativo ?? ""} / Part. #${loteHistorial.numero_particion ?? ""}`}
+              {esDespacho(loteHistorial)
+                ? `DESPACHO #${loteHistorial.despacho_correlativo ?? ""} / Part. #${loteHistorial.numero_particion ?? ""}`
+                : esParticion(loteHistorial)
+                  ? `LOTE #${loteHistorial.lote_correlativo ?? ""} / Part. ${loteHistorial.particion_letra ?? ""}`
+                  : `LOTE #${loteHistorial.lote_correlativo ?? ""}`}
             </Text>
           ) : undefined
         }

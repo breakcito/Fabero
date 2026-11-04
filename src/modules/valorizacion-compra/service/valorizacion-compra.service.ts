@@ -6,6 +6,7 @@ import type {
   REQ_CrearValorizacion,
   REQ_EditarValorizacion,
   REQ_AnularValorizacion,
+  REQ_AprobarValorizacion,
 } from "./valorizacion-compra.requests";
 
 const basePath = "/valorizacion-compra";
@@ -32,7 +33,7 @@ export const ValorizacionCompraService = {
 
   crearValorizacion: async (
     payload: REQ_CrearValorizacion,
-  ): Promise<IRespuesta<{ id_valorizacion: number; numero_correlativo: string }>> => {
+  ): Promise<IRespuesta<RES_ValorizacionCompra>> => {
     const formData = new FormData();
     formData.append("id_proveedor_minero", String(payload.id_proveedor_minero));
     formData.append("id_concesion", String(payload.id_concesion));
@@ -61,16 +62,29 @@ export const ValorizacionCompraService = {
     if (payload.fecha_hora_valorizacion) {
       formData.append("fecha_hora_valorizacion", payload.fecha_hora_valorizacion);
     }
-    const { data } = await api.post(`${basePath}`, formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    const { data } = await api.post<IRespuesta<RES_ValorizacionCompra>>(
+      `${basePath}`,
+      formData,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+      },
+    );
+    return data;
+  },
+
+  clonarValorizacion: async (
+    id: number,
+  ): Promise<IRespuesta<RES_ValorizacionCompra>> => {
+    const { data } = await api.post<IRespuesta<RES_ValorizacionCompra>>(
+      `${basePath}/${id}/clonar`,
+    );
     return data;
   },
 
   editarValorizacion: async (
     id: number,
     payload: REQ_EditarValorizacion,
-  ): Promise<IRespuesta<void>> => {
+  ): Promise<IRespuesta<RES_ValorizacionCompra>> => {
     const formData = new FormData();
     formData.append("_method", "PUT");
     formData.append("id_concesion", String(payload.id_concesion));
@@ -106,16 +120,20 @@ export const ValorizacionCompraService = {
     if (payload.fecha_hora_valorizacion) {
       formData.append("fecha_hora_valorizacion", payload.fecha_hora_valorizacion);
     }
-    const { data } = await api.post(`${basePath}/${id}`, formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    const { data } = await api.post<IRespuesta<RES_ValorizacionCompra>>(
+      `${basePath}/${id}`,
+      formData,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+      },
+    );
     return data;
   },
 
   aprobarValorizacion: async (
     id: number,
-    payload: import("./valorizacion-compra.requests").REQ_AprobarValorizacion,
-  ): Promise<IRespuesta<void>> => {
+    payload: REQ_AprobarValorizacion,
+  ): Promise<IRespuesta<RES_ValorizacionCompra>> => {
     const formData = new FormData();
     formData.append("id_cuenta_bancaria", String(payload.id_cuenta_bancaria));
     formData.append("id_cuenta_detraccion", String(payload.id_cuenta_detraccion));
@@ -126,21 +144,27 @@ export const ValorizacionCompraService = {
         formData.append("evidencias[]", file);
       });
     }
-    const { data } = await api.post(`${basePath}/${id}/aprobar`, formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    const { data } = await api.post<IRespuesta<RES_ValorizacionCompra>>(
+      `${basePath}/${id}/aprobar`,
+      formData,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+      },
+    );
     return data;
   },
 
   solicitarOc: async (id: number): Promise<IRespuesta<RES_ValorizacionCompra>> => {
-    const { data } = await api.post(`${basePath}/${id}/solicitar-oc`);
+    const { data } = await api.post<IRespuesta<RES_ValorizacionCompra>>(
+      `${basePath}/${id}/solicitar-oc`,
+    );
     return data;
   },
 
   anularValorizacion: async (
     id: number,
     payload: REQ_AnularValorizacion,
-  ): Promise<IRespuesta<void>> => {
+  ): Promise<IRespuesta<RES_ValorizacionCompra | null>> => {
     const formData = new FormData();
     formData.append("motivo_anulacion", payload.motivo_anulacion);
     formData.append("tipo_eliminacion", payload.tipo_eliminacion);
@@ -149,9 +173,13 @@ export const ValorizacionCompraService = {
         formData.append("evidencias_anulacion[]", file);
       });
     }
-    const { data } = await api.post(`${basePath}/${id}/anular`, formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    const { data } = await api.post<IRespuesta<RES_ValorizacionCompra | null>>(
+      `${basePath}/${id}/anular`,
+      formData,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+      },
+    );
     return data;
   },
 };

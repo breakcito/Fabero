@@ -22,7 +22,6 @@ import {
   IconFileText,
   IconFiles,
   IconHistory,
-  IconX,
 } from "@tabler/icons-react";
 import { useTitlePage } from "../../../hooks/useTitlePage";
 import { DataTableEstandar } from "../../../presentation/utils/datatable-estandar";
@@ -39,6 +38,7 @@ import { ModalEstandar } from "../../../presentation/utils/modal-estandar";
 import { ArchivoCard } from "../../../presentation/utils/archivo/archivo-card";
 import { CambiosLogViewer } from "../../../presentation/utils/cambios-log-viewer";
 import { RefreshButton } from "../../../presentation/utils/refresh-button";
+import { LimpiarFiltrosButton } from "../../../presentation/utils/limpiar-filtros-button";
 import { mostrarConfirmacion } from "../../../presentation/utils/modal-confirmacion";
 import { EstadoValorizacionVenta } from "../../../shared/enums/valorizacion-venta/estado-valorizacion-venta";
 import { formatNumber } from "../../../shared/functions/formatNumber";
@@ -731,17 +731,7 @@ export const ValorizacionVentaPage = () => {
 
         <div className="flex items-center gap-2 shrink-0 pb-0.5">
           {hasActiveFilters && (
-            <Button
-              variant="subtle"
-              color="red"
-              radius="lg"
-              size="sm"
-              leftSection={<IconX size={16} />}
-              onClick={clearFilters}
-              className="text-red-400 hover:bg-red-500/10 transition-colors h-9.5"
-            >
-              Limpiar
-            </Button>
+            <LimpiarFiltrosButton onClick={clearFilters} />
           )}
 
           <RefreshButton

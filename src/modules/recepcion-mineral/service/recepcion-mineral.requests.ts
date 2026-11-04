@@ -84,3 +84,21 @@ export interface DTO_PesoFinalParticion {
   tipo_producto?: string | null;
   tipo_mineral?: string | null;
 }
+
+/**
+ * Edición de una partición desde el Resumen de Balanza.
+ * Los campos no-peso se persisten en el LOTE PADRE (cascada) y los pesos en
+ * la propia partición. Las fechas de pesaje no se modifican.
+ */
+export interface DTO_ActualizarParticion {
+  peso_inicial?: number | null;
+  peso_final?: number | null;
+  evidencias?: File[];
+  evidencias_existentes?: IArchivo[];
+  id_proveedor_minero?: number | null;
+  id_zona_origen?: number | null;
+  numero_contacto?: string | null;
+  tipo_producto?: string | null;
+  tipo_mineral?: string | null;
+  motivo?: string;
+}

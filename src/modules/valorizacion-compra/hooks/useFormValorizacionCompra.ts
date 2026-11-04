@@ -228,6 +228,7 @@ export const useFormValorizacionCompra = ({
           req: {
             id_lote_guia: d.id_lote_guia,
             elemento_quimico: d.elemento_quimico,
+            id_grupo_analisis: d.id_grupo_analisis ?? null,
             id_condicion_comercial: d.id_condicion_comercial,
             id_valor_elemento_quimico: d.id_valor_elemento_quimico ?? null,
             inter: d.inter,
@@ -333,10 +334,10 @@ export const useFormValorizacionCompra = ({
             setIdConcesion(concRes[0].id);
           }
           if (ordinarias.length > 0) {
-            setIdCuentaBancaria(ordinarias[0].id);
+            setIdCuentaBancaria(null);
           }
           if (detracciones.length > 0) {
-            setIdCuentaDetraccion(detracciones[0].id);
+            setIdCuentaDetraccion(null);
           }
         }
       } catch (err) {
@@ -557,7 +558,7 @@ export const useFormValorizacionCompra = ({
           evidencias,
           fecha_hora_valorizacion: fechaHoraValorizacion,
         });
-        const dataResp = res.data as (Record<string, unknown> | undefined);
+        const dataResp = res.data as unknown as Record<string, unknown> | undefined;
         idGuardado =
           typeof dataResp?.id === "number"
             ? dataResp.id

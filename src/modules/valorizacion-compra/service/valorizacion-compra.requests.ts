@@ -55,7 +55,7 @@ export const Schema_EditarValorizacion = z.object({
   detalles: z.array(Schema_ValorizacionDetalleItem).min(1, "Debe agregar al menos un lote"),
   anticipos: z.array(Schema_ValorizacionAnticipoItem).optional(),
   evidencias: z.array(z.instanceof(File)).optional(),
-  evidencias_existentes: z.array(z.any()).optional(),
+  evidencias_existentes: z.array(z.unknown()).optional(),
   motivo_edicion: z.string().min(3, "Ingrese un motivo de edición").optional(),
   fecha_hora_valorizacion: z.string().nullable().optional(),
   monto_penalidad: z.number().min(0).optional(),

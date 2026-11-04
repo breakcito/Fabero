@@ -14,7 +14,6 @@ import {
   IconPlus,
   IconPencil,
   IconPaperclip,
-  IconX,
   IconChevronDown,
   IconChevronRight,
   IconHistory,
@@ -35,6 +34,7 @@ import {
 } from "../../../presentation/utils/filtro-rango-fechas";
 import { formatNumber } from "../../../shared/functions/formatNumber";
 import { RefreshButton } from "../../../presentation/utils/refresh-button";
+import { LimpiarFiltrosButton } from "../../../presentation/utils/limpiar-filtros-button";
 
 export const BlendingPage = () => {
   useTitlePage("Blending", true, true);
@@ -240,17 +240,7 @@ export const BlendingPage = () => {
 
         <div className="flex items-center gap-2 shrink-0 pb-0.5">
           {hasActiveFilters && (
-            <Button
-              variant="subtle"
-              color="red"
-              radius="lg"
-              size="sm"
-              leftSection={<IconX size={16} />}
-              onClick={clearFilters}
-              className="text-red-400 hover:bg-red-500/10 transition-colors h-9.5"
-            >
-              Limpiar
-            </Button>
+            <LimpiarFiltrosButton onClick={clearFilters} />
           )}
 
           <RefreshButton onClick={() => void refetch()} loading={loading} label="Recargar blendings" />

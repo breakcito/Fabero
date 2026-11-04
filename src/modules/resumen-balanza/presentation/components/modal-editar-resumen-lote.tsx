@@ -256,7 +256,6 @@ export const ModalEditarResumenLote = ({ opened, lote, onClose, onSuccess }: Pro
     shadow: "md",
     withinPortal: true,
   };
-
   const selectClassNames = {
     ...fieldClasses,
     dropdown: "bg-zinc-950 border-zinc-800 text-white rounded-lg shadow-2xl",

@@ -50,6 +50,7 @@ src/
 - **`DataTableEstandar`**: grilla maestra (envuelve `mantine-datatable`). Props: `columns`, `records`, `loading`, `idAccessor?`, `initialPageSize=25`, `columnGroups?`. Estilo dark consistente. **Única excepción al uso de `any` por diseño genérico.** Indexado automático con `{accessor: "index", title: "#"}`. Genera UUIDs estables para `id`/`accessor` omitidos.
 - **`ModalEstandar`**: wrapper de `Modal` con layout premium. Props: `opened`, `close`, `title`, `children`, `rightSection?`, `validateClose?` (abre confirmación al cerrar), `closeConfirmationTitle?`, `closeConfirmationMessage?`. Si `validateClose`, Enter se mantiene en "Cancelar".
 - **`JsonScanner`**: input compacto para códigos de barras.
+- **`limpiar-filtros-button.tsx`**: `LimpiarFiltrosButton` — botón de "Limpiar filtros" de la barra superior de los listados. X roja en círculo, gemelo del `RefreshButton`. **Úsalo en todos los módulos** (resumen-balanza, blending, valorizacion-compra/venta, cierre-leyes, guias-primer-tramo, recepcion-visitas, recepcion-unidades, programar-recepcion, programacion-despachos, validacion-distribucion, contabilidad): no reimplementar el botón "Limpiar" con texto. Las X sueltas dentro de los componentes de filtros (limpian un campo puntual) NO se sustituyen por este.
 - **`date-picker-input`**: selector de fechas unificado.
 - **`form-{marca,tipo-vehiculo,zona-origen,...}.tsx`**: formularios auto-contenidos para crear catálogos en procesos concurrentes.
 - **`archivo/`**: `archivo-card.tsx` (visualización + descarga) y `multifile-picker.tsx` (drag & drop con `File[]` nuevos + `IArchivo[]` existentes).
@@ -87,7 +88,7 @@ src/
 4. **Notificaciones**: SIEMPRE `useNotify()`. Prohibido `@mantine/notifications` directo.
 5. **Style Props de Mantine v8** (`c`, `bg`, `fz`, `fw`, `p`, `m`, `gap`, `justify`, `align`, etc.). NUNCA `sx` ni nombres CSS completos como prop.
 6. **Paleta válida Mantine v8**: `dark, gray, red, pink, grape, violet, indigo, blue, cyan, teal, green, lime, yellow, orange` con tinte `.0`–`.9` (default `.6`). `indigo` es primario; `yellow` reemplaza "amber" para advertencias; `teal` para PEN. Otros nombres (`amber`, `gold`, `crimson`, `silver`) se ignoran silenciosamente.
-7. **Inputs**: `size="xs"` y `radius="lg"` en `TextInput`, `Select`, `NumberInput`, `Button`. `Select`/`MultiSelect` con `searchable`; dentro de `Modal` añadir `popoverProps={{ withinPortal: true }}`. `NumberInput` con `hideControls` en tablas y `fixedDecimalScale` para montos.
+7. **Inputs**: `size="xs"` y `radius="lg"` en `TextInput`, `Select`, `NumberInput`, `Button`. `Select`/`MultiSelect` con `searchable`; dentro de `Modal` añadir `comboboxProps={{ withinPortal: true }}`. En Mantine v8 el `Combobox` **es** el `Popover` (`ComboboxProps extends __PopoverProps`): `Select` **no** expone `popoverProps` y usarlo rompe el `tsc`. `NumberInput` con `hideControls` en tablas y `fixedDecimalScale` para montos.
 8. **Estilo dark premium**: inputs `bg-zinc-900/50 border-zinc-800`, focus `border-zinc-300 ring-zinc-300`. Sombras suaves (`shadow-lg shadow-indigo-900/20`), `backdrop-blur`. Badges `variant="light"` o `filled"`.
 9. **DataTable `#` automático**: `{accessor: "index", title: "#"}`. NUNCA `render` para el número correlativo.
 10. **ActionIcon**: `size` controla el botón, NO el ícono. Para íconos visibles usar `size="md"`+ y tamaño manual del ícono (`className="w-4 h-4"` o `size={16}`).
@@ -150,6 +151,22 @@ Cualquier `<Select>` cuyo `data` provenga de un fetch asíncrono **debe** mostra
 - **Adjuntos**:
   - Formularios (registro/edición) → `MultiFilePicker` (soporta `File[]` nuevos + `IArchivo[]` existentes).
   - Visualización/descarga en modales o listas → `ArchivoCard` (preview de imágenes + descarga).
+
+## Módulo Resumen de Balanza (`src/modules/resumen-balanza`)
+
+El resumen lista **tres tipos de fila**, discriminados por `tipo_pesaje`:
+
+| `tipo_pesaje`        | Qué representa                                             | Editable                     |
+| -------------------- | ---------------------------------------------------------- | ---------------------------- |
+| `LOTE_RECEPCION`     | Lote mineral pesado en una recepción                       | Sí — modal de lote           |
+| `PARTICION`          | Partición de un lote pesado en balanza                     | Sí — modal de partición      |
+| `DISTRIBUCION_DETALLE` | Pesaje de un despacho (lote o blending)                  | No — se edita en Despachos   |
+
+- Las particiones se listan **como filas planas**: no hay fila por lote padre ni desplegable (`rowExpansion` desactivado). El peso neto agregado del padre se muestra como chip en la celda de Correlativo (`3P · Total 45.230 T`).
+- **Los datos no-peso son del lote padre** (proveedor, zona, contacto, producto, mineral). Editarlos desde una partición los escribe en el padre y el resto de particiones los hereda (cascada). El modal de partición lo advierte con un `Alert`.
+- **Los datos de transporte son de la unidad** (vehículo, empresa de transporte, conductor): cada partición tiene la suya. No se editan desde el resumen.
+- **Bloqueo por valorización**: un lote con valorización viva (`Propuesta` o `Aprobado`) no es editable. La fila muestra un candado, el botón Editar queda deshabilitado con tooltip del motivo y el backend rechaza la escritura. Si lo que se valorizó fue una partición, el bloqueo alcanza al lote padre completo.
+- Los pesos de una partición se editan con `PUT /recepcion-mineral/particiones/{id}/actualizar`, **no** con los endpoints de pesaje: el pesaje pisa las fechas de pesaje, que son el registro histórico.
 
 ## Catálogo Mantine v8 (instalado)
 

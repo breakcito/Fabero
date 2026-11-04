@@ -1,7 +1,4 @@
 export interface DTO_DashboardFiltros {
-  /** YYYY-MM-DD */
-  fecha_inicio?: string;
-  /** YYYY-MM-DD */
-  fecha_fin?: string;
+  /** Sucursal a la que se restringe la recepción de mineral. */
   id_sucursal?: number | null;
 }

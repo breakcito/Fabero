@@ -1,5 +1,5 @@
-import { Button, Stack, ActionIcon, Tooltip } from "@mantine/core";
-import { IconTruckDelivery, IconX } from "@tabler/icons-react";
+import { Button, Stack } from "@mantine/core";
+import { IconTruckDelivery } from "@tabler/icons-react";
 import { useState } from "react";
 import { useTitlePage } from "../../../hooks/useTitlePage";
 import { useNotify } from "../../../hooks/useNotify";
@@ -13,6 +13,7 @@ import type {
 } from "../service/programacion-despachos.responses";
 import { FiltrosDespachos } from "./components/filtros-despachos";
 import { RefreshButton } from "../../../presentation/utils/refresh-button";
+import { LimpiarFiltrosButton } from "../../../presentation/utils/limpiar-filtros-button";
 import { TablaDespachos } from "./components/tabla-despachos";
 import { RegistroDespachoModal } from "./components/registro-despacho-modal";
 import { LogCambiosModal } from "./components/log-cambios-modal";
@@ -125,20 +126,10 @@ export const ProgramacionDespachosPage = () => {
         />
 
         <div className="flex items-center gap-2 shrink-0">
-          <Tooltip label="Limpiar todos los filtros" withArrow>
-            <ActionIcon
-              type="button"
-              variant="light"
-              color="zinc"
-              radius="xl"
-              onClick={limpiarFiltros}
-              title="Limpiar todos los filtros"
-              aria-label="Limpiar filtros"
-              className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 h-9 w-9 min-h-9 min-w-9 shrink-0"
-            >
-              <IconX size={16} />
-            </ActionIcon>
-          </Tooltip>
+          <LimpiarFiltrosButton
+            onClick={limpiarFiltros}
+            label="Limpiar todos los filtros"
+          />
 
           <RefreshButton
             onClick={() => void recargar()}

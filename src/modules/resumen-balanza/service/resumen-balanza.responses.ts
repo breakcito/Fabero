@@ -4,12 +4,28 @@ import type { IArchivo } from "../../../shared/interfaces/archivo";
 /**
  * Discriminador del tipo de fila:
  * - `LOTE_RECEPCION` → fila de `lote_mineral` pesado en una recepción (Bloque A).
+ * - `PARTICION` → fila de `particion_lote_mineral` (partición de un lote pesado
+ *   en balanza). Hereda del lote padre los datos no-peso y usa los de su unidad.
  * - `DISTRIBUCION_DETALLE` → fila de `distribucion_detalle` pesada en un despacho (Bloque B).
  */
-export type TipoPesajeResumenBalanza = "LOTE_RECEPCION" | "DISTRIBUCION_DETALLE";
+export type TipoPesajeResumenBalanza =
+  | "LOTE_RECEPCION"
+  | "PARTICION"
+  | "DISTRIBUCION_DETALLE";
 
 /** Origen del despacho_detalle (sólo aplica al Bloque B). */
 export type OrigenTipoResumenBalanza = "LOTE" | "BLENDING" | null;
+
+/**
+ * Valorización viva (Propuesta / Aprobado) que bloquea la edición del lote.
+ * Si se valorizó una partición, el bloqueo alcanza a todo el lote padre.
+ */
+export interface RES_ValorizacionBloqueo {
+  id: number;
+  correlativo: string | null;
+  estado: string;
+  elemento_quimico: string | null;
+}
 
 export interface RES_ResumenBalanzaItem {
   /** Identificador sintético único para la fila ("L-<id_lote>" | "D-<id_dd>"). */
@@ -110,33 +126,27 @@ export interface RES_ResumenBalanzaItem {
   observacion_peso_inicial?: string | null;
   observacion_peso_final?: string | null;
 
-  // ── Particiones (Lotes particionados desde balanza) ──
+  // ── Particiones (filas tipo PARTICION) ──
+  /** El lote proviene de una partición creada desde balanza. */
   particionado_desde_balanza?: boolean;
+  /** El lote padre particionado ya fue finalizado (neto oficial sellado). */
   particion_finalizada?: boolean;
-  particiones?: RES_ParticionResumenItem[];
-}
+  /** Presentes sólo en filas PARTICION. */
+  id_particion?: number | null;
+  /** Letra de la partición (A, B, C...). */
+  particion_letra?: string | null;
+  /** Correlativo propio de la partición (`{correlativo_lote}-{letra}`). */
+  particion_correlativo?: string | null;
+  /** Evidencias propias de la partición. */
+  particion_evidencias?: IArchivo[] | null;
+  /** Peso neto agregado del lote padre (suma de sus particiones). */
+  lote_peso_neto_total?: number | null;
+  /** Cantidad de particiones activas del lote padre. */
+  particiones_total?: number | null;
 
-export interface RES_ParticionResumenItem {
-  id: number;
-  id_lote_mineral: number;
-  id_ticket_balanza: number | null;
-  ticket_correlativo: string | null;
-  id_recepcion_unidad: number | null;
-  recepcion_estado_pesaje: string | null;
-  vehiculo_placa: string | null;
-  vehiculo_carreta_placa: string | null;
-  empresa_transporte_razon_social: string | null;
-  conductor_nombre_completo: string | null;
-  conductor_dni: string | null;
-  conductor_licencia: string | null;
-  correlativo: string;
-  particion: number;
-  peso_inicial: number | null;
-  fecha_hora_peso_inicial: string | null;
-  peso_final: number | null;
-  fecha_hora_peso_final: string | null;
-  peso_neto: number | null;
-  evidencias?: IArchivo[] | null;
+  // ── Bloqueo por valorización ──
+  /** Valorización viva (Propuesta / Aprobado) del lote. Si existe, no es editable. */
+  valorizacion?: RES_ValorizacionBloqueo | null;
 }
 
 export interface RES_ResumenBalanzaFiltrosMetadata {

@@ -7,6 +7,7 @@ import type {
   DTO_UpdateCamposNoPeso,
   DTO_PesoInicialParticion,
   DTO_PesoFinalParticion,
+  DTO_ActualizarParticion,
 } from "./recepcion-mineral.requests";
 import type {
   RecepcionMineralResponse,
@@ -377,6 +378,47 @@ export const RecepcionMineralService = {
       dto,
     );
     return unwrapApiResponse<{ particiones: RES_ParticionBalanza[]; lote: RES_LoteMineral }>(
+      response,
+    );
+  },
+
+  /**
+   * Editar una partición: sus pesos y evidencias, más los campos no-peso del
+   * lote padre (que el resto de particiones heredan en cascada).
+   * No modifica las fechas de pesaje.
+   */
+  actualizar_particion: async (
+    idParticion: number,
+    dto: DTO_ActualizarParticion,
+  ): Promise<{ particion: RES_ParticionBalanza; lote: RES_LoteMineral }> => {
+    const formData = new FormData();
+    appendIfPresent(formData, "peso_inicial", dto.peso_inicial);
+    appendIfPresent(formData, "peso_final", dto.peso_final);
+    appendIfPresent(formData, "id_proveedor_minero", dto.id_proveedor_minero);
+    appendIfPresent(formData, "id_zona_origen", dto.id_zona_origen);
+    appendIfPresent(formData, "tipo_producto", dto.tipo_producto);
+    appendIfPresent(formData, "tipo_mineral", dto.tipo_mineral);
+    appendIfPresent(formData, "motivo", dto.motivo);
+    // El contacto se envía siempre (incluso vacío) para que se pueda limpiar.
+    if (dto.numero_contacto !== undefined && dto.numero_contacto !== null) {
+      formData.append("numero_contacto", dto.numero_contacto);
+    }
+
+    if (dto.evidencias_existentes !== undefined && dto.evidencias_existentes !== null) {
+      formData.append("evidencias_existentes", JSON.stringify(dto.evidencias_existentes));
+    }
+    if (dto.evidencias && dto.evidencias.length > 0) {
+      dto.evidencias.forEach((file) => {
+        formData.append("evidencias[]", file);
+      });
+    }
+
+    const response = await api.put(
+      `${PATH}/particiones/${idParticion}/actualizar`,
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" } },
+    );
+    return unwrapApiResponse<{ particion: RES_ParticionBalanza; lote: RES_LoteMineral }>(
       response,
     );
   },
