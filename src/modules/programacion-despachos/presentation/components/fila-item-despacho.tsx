@@ -14,11 +14,11 @@ import { IconAlertCircle, IconCheck, IconLock } from "@tabler/icons-react";
 import { formatNumber } from "../../../../shared/functions/formatNumber";
 import type { DespachoDetalleItem } from "../../service/programacion-despachos.responses";
 import { ProgramacionDespachosService } from "../../service/programacion-despachos.service";
+import { useDespachoDetalleStore } from "../../stores/despacho-detalle.store";
 import { useNotify } from "../../../../hooks/useNotify";
 
 interface Props {
   detalle: DespachoDetalleItem;
-  onRefresh: () => void;
 }
 
 interface CheckboxConfirmacionProps {
@@ -147,7 +147,7 @@ const CheckboxConfirmacionPopover = ({
   );
 };
 
-export const FilaItemDespacho = ({ detalle: d, onRefresh }: Props) => {
+export const FilaItemDespacho = ({ detalle: d }: Props) => {
   const { notifySuccess, notifyError } = useNotify();
 
   const total = d.peso_tomado ?? 0;
@@ -252,18 +252,25 @@ export const FilaItemDespacho = ({ detalle: d, onRefresh }: Props) => {
     else setLoadingPlata(true);
 
     try {
-      await ProgramacionDespachosService.actualizarLeyFinal(d.id, {
-        elemento,
-        ley_final: valor,
-        confirmada: nuevoConfirmado,
-      });
+      // La API devuelve el despacho COMPLETO ya actualizado: se vuelca en el
+      // store en vez de recargar el modal. Recargar pisaba los valores que el
+      // usuario acababa de escribir en las leyes de los demás ítems.
+      const despachoActualizado =
+        await ProgramacionDespachosService.actualizarLeyFinal(d.id, {
+          elemento,
+          ley_final: valor,
+          confirmada: nuevoConfirmado,
+        });
+
+      useDespachoDetalleStore
+        .getState()
+        .setDetalle(d.id_despacho, despachoActualizado);
 
       notifySuccess(
         nuevoConfirmado
           ? `Ley final de ${elemento} confirmada.`
           : `Ley final de ${elemento} desbloqueada para edición.`,
       );
-      onRefresh();
     } catch (err: unknown) {
       const errorMsg =
         (err as { response?: { data?: { message?: string } } })?.response?.data

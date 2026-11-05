@@ -228,11 +228,7 @@ export const ModalDetalleDespacho = ({
           </thead>
           <tbody className="divide-y divide-zinc-800/60">
             {detalles.map((d) => (
-              <FilaItemDespacho
-                key={d.id}
-                detalle={d}
-                onRefresh={refrescar}
-              />
+              <FilaItemDespacho key={d.id} detalle={d} />
             ))}
             <tr className="bg-zinc-900/70 border-t-2 border-zinc-700 font-bold">
               <td />
