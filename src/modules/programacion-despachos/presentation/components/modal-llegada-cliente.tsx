@@ -315,11 +315,11 @@ export const ModalLlegadaCliente = ({
                         <NumberInput
                           size="xs"
                           radius="md"
-                          decimalScale={2}
+                          decimalScale={3}
                           fixedDecimalScale
                           hideControls
                           min={0}
-                          placeholder="0.00"
+                          placeholder="0.000"
                           value={datos.ley_oro_cliente ?? ""}
                           onChange={(val) =>
                             setDato(
@@ -336,11 +336,11 @@ export const ModalLlegadaCliente = ({
                         <NumberInput
                           size="xs"
                           radius="md"
-                          decimalScale={2}
+                          decimalScale={3}
                           fixedDecimalScale
                           hideControls
                           min={0}
-                          placeholder="0.00"
+                          placeholder="0.000"
                           value={datos.ley_plata_cliente ?? ""}
                           onChange={(val) =>
                             setDato(
@@ -357,12 +357,12 @@ export const ModalLlegadaCliente = ({
                         <NumberInput
                           size="xs"
                           radius="md"
-                          decimalScale={2}
+                          decimalScale={3}
                           fixedDecimalScale
                           hideControls
                           min={0}
                           max={100}
-                          placeholder="0.00"
+                          placeholder="0.000"
                           value={datos.ley_humedad_cliente ?? ""}
                           onChange={(val) =>
                             setDato(
