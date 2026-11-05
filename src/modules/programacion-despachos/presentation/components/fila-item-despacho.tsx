@@ -172,26 +172,57 @@ export const FilaItemDespacho = ({ detalle: d, onRefresh }: Props) => {
     return 0;
   });
 
+  /**
+   * Marca si el usuario editó la ley a mano. Al refrescar la fila (por
+   * ejemplo al confirmar la ley del OTRO elemento) NO se debe pisar lo que
+   * escribió: el valor del servidor sólo manda si el campo está bloqueado
+   * (confirmado o ya valorizado).
+   */
+  const [leyOroEditada, setLeyOroEditada] = useState(false);
+  const [leyPlataEditada, setLeyPlataEditada] = useState(false);
+
   // Sincronizar si cambian los props desde el backend
   useEffect(() => {
-    if (d.ley_oro_final_confirmada || (d.ley_oro_final && d.ley_oro_final > 0)) {
-      setLeyOro(d.ley_oro_final ?? 0);
-    } else if (d.ley_oro_cliente_promedio !== null && d.ley_oro_cliente_promedio !== undefined) {
-      setLeyOro(d.ley_oro_cliente_promedio);
+    const bloqueadoOro =
+      Boolean(d.ley_oro_final_confirmada) || Boolean(d.esta_valorizado_oro);
+    if (!leyOroEditada || bloqueadoOro) {
+      if (bloqueadoOro) {
+        setLeyOro(d.ley_oro_final ?? 0);
+      } else if (d.ley_oro_final && d.ley_oro_final > 0) {
+        setLeyOro(d.ley_oro_final);
+      } else if (
+        d.ley_oro_cliente_promedio !== null &&
+        d.ley_oro_cliente_promedio !== undefined
+      ) {
+        setLeyOro(d.ley_oro_cliente_promedio);
+      }
     }
 
-    if (d.ley_plata_final_confirmada || (d.ley_plata_final && d.ley_plata_final > 0)) {
-      setLeyPlata(d.ley_plata_final ?? 0);
-    } else if (d.ley_plata_cliente_promedio !== null && d.ley_plata_cliente_promedio !== undefined) {
-      setLeyPlata(d.ley_plata_cliente_promedio);
+    const bloqueadoPlata =
+      Boolean(d.ley_plata_final_confirmada) || Boolean(d.esta_valorizado_plata);
+    if (!leyPlataEditada || bloqueadoPlata) {
+      if (bloqueadoPlata) {
+        setLeyPlata(d.ley_plata_final ?? 0);
+      } else if (d.ley_plata_final && d.ley_plata_final > 0) {
+        setLeyPlata(d.ley_plata_final);
+      } else if (
+        d.ley_plata_cliente_promedio !== null &&
+        d.ley_plata_cliente_promedio !== undefined
+      ) {
+        setLeyPlata(d.ley_plata_cliente_promedio);
+      }
     }
   }, [
     d.ley_oro_final,
     d.ley_oro_final_confirmada,
     d.ley_oro_cliente_promedio,
+    d.esta_valorizado_oro,
     d.ley_plata_final,
     d.ley_plata_final_confirmada,
     d.ley_plata_cliente_promedio,
+    d.esta_valorizado_plata,
+    leyOroEditada,
+    leyPlataEditada,
   ]);
 
   const [loadingOro, setLoadingOro] = useState(false);
@@ -411,7 +442,10 @@ export const FilaItemDespacho = ({ detalle: d, onRefresh }: Props) => {
               hideControls
               w={75}
               value={leyOro}
-              onChange={(val) => setLeyOro(val)}
+              onChange={(val) => {
+                setLeyOro(val);
+                setLeyOroEditada(true);
+              }}
               disabled={confirmadaOro || valorizadaOro || loadingOro}
               classNames={{
                 input:
@@ -441,7 +475,10 @@ export const FilaItemDespacho = ({ detalle: d, onRefresh }: Props) => {
               hideControls
               w={75}
               value={leyPlata}
-              onChange={(val) => setLeyPlata(val)}
+              onChange={(val) => {
+                setLeyPlata(val);
+                setLeyPlataEditada(true);
+              }}
               disabled={confirmadaPlata || valorizadaPlata || loadingPlata}
               classNames={{
                 input:
