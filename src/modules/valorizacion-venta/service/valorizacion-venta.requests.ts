@@ -40,6 +40,8 @@ export interface REQ_EditarValorizacionVenta {
   fecha_hora_valorizacion?: string | null;
   monto_penalidad?: number;
   monto_flete?: number;
+  /** Motivo u observación de la modificación (queda en el log_cambios). */
+  motivo_edicion?: string | null;
 }
 
 export interface REQ_AnularValorizacionVenta {

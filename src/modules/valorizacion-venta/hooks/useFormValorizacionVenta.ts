@@ -134,6 +134,8 @@ export const useFormValorizacionVenta = ({
   const [fechaHoraValorizacion, setFechaHoraValorizacion] = useState<string | null>(nowIsoDateTime());
   const [montoPenalidad, setMontoPenalidad] = useState<number>(0);
   const [montoFlete, setMontoFlete] = useState<number>(0);
+  /** Motivo u observación de la edición (queda registrado en el log_cambios). */
+  const [motivoEdicion, setMotivoEdicion] = useState<string>("");
 
   // Catalogs (la condición comercial se auto-encontrar por backend según rango de ley)
 
@@ -176,6 +178,7 @@ export const useFormValorizacionVenta = ({
       );
       setMontoPenalidad(valorizacionEditar.monto_penalidad ?? 0);
       setMontoFlete(valorizacionEditar.monto_flete ?? 0);
+      setMotivoEdicion("");
     } else {
       setIdPlanta(null);
       setIdEmpresa(null);
@@ -186,6 +189,7 @@ export const useFormValorizacionVenta = ({
       setFechaHoraValorizacion(nowIsoDateTime());
       setMontoPenalidad(0);
       setMontoFlete(0);
+      setMotivoEdicion("");
     }
   }, [opened, valorizacionEditar]);
 
@@ -216,7 +220,7 @@ export const useFormValorizacionVenta = ({
     );
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (motivo?: string) => {
     if (!idPlanta) {
       notifyError("Debe seleccionar una planta destino");
       return;
@@ -244,6 +248,7 @@ export const useFormValorizacionVenta = ({
           fecha_hora_valorizacion: fechaHoraValorizacion,
           monto_penalidad: montoPenalidad,
           monto_flete: montoFlete,
+          motivo_edicion: motivo?.trim() || null,
         });
       } else {
         await ValorizacionVentaService.crearValorizacion({
@@ -288,6 +293,8 @@ export const useFormValorizacionVenta = ({
     setMontoPenalidad,
     montoFlete,
     setMontoFlete,
+    motivoEdicion,
+    setMotivoEdicion,
     modalDetalleOpened,
     setModalDetalleOpened,
     handleAgregarDetalle,

@@ -169,14 +169,19 @@ export const ValorizacionVentaPage = () => {
     type LogProcesado = LogCrudo & { motivo: string };
 
     // Cabecera: aprobación / anulación / edición de campos globales.
+    // Se respeta el motivo que dejó el backend (incluye el motivo de
+    // edición del usuario); el prefijo sólo se usa como fallback.
     const logsCabecera: LogProcesado[] = (valorizacionHistorial.log_cambios || [])
       .filter((log) => Array.isArray(log.cambios) && (log.cambios as unknown[]).length > 0)
       .map((log) => ({
         ...log,
-        motivo: `Valorización ${valorizacionHistorial.codigo || `#${valorizacionHistorial.id}`} — ${String(log.accion || "Cambio en cabecera")}`,
+        motivo: String(
+          log.motivo ||
+            `Valorización ${valorizacionHistorial.codigo || `#${valorizacionHistorial.id}`} — ${String(log.accion || "Cambio en cabecera")}`,
+        ),
       }));
 
-    // Detalle: modificaciones de parámetros.
+    // Detalle: modificaciones de parámetros y altas de ítems.
     const logsDetalles: LogProcesado[] = (valorizacionHistorial.detalles || []).flatMap((d) => {
       // Identificador específico: preliminar / código + despacho + lote/blend
       const partes: string[] = [];
@@ -192,7 +197,9 @@ export const ValorizacionVentaPage = () => {
         .filter((log) => Array.isArray(log.cambios) && (log.cambios as unknown[]).length > 0)
         .map((log) => ({
           ...log,
-          motivo: `${identificador} (${elem}) — Modificación de parámetros`,
+          motivo: String(
+            log.motivo || `${identificador} (${elem}) — Modificación de parámetros`,
+          ),
         }));
     });
 

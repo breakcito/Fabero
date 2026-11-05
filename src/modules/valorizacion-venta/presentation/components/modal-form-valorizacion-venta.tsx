@@ -24,6 +24,7 @@ import {
   IconBuildingFactory,
 } from "@tabler/icons-react";
 import { useFormValorizacionVenta } from "../../hooks/useFormValorizacionVenta";
+import { useNotify } from "../../../../hooks/useNotify";
 import { ModalAgregarDespachoDetalle } from "./modal-agregar-despacho-detalle";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
 import { MultiFilePicker } from "../../../../presentation/utils/archivo/multifile-picker";
@@ -69,6 +70,8 @@ export const ModalFormValorizacionVenta = ({
   const [plantas, setPlantas] = useState<PlantaDisponible[]>([]);
   const [loadingEmpresas, setLoadingEmpresas] = useState(false);
   const [empresas, setEmpresas] = useState<RES_Empresa[]>([]);
+  const [modalMotivoOpened, setModalMotivoOpened] = useState(false);
+  const [motivoEdicion, setMotivoEdicion] = useState("");
   const [detalleEditando, setDetalleEditando] = useState<{
     req: REQ_ValorizacionVentaDetalleItem;
     display: RES_ValorizacionVentaDetalle;
@@ -148,6 +151,30 @@ export const ModalFormValorizacionVenta = ({
   }, [opened, valorizacionEditar, idEmpresa, setIdEmpresa]);
 
   const isEdit = !!valorizacionEditar;
+  const { notifyError } = useNotify();
+
+  /**
+   * Al editar se pide el motivo de la modificación: queda registrado en el
+   * log_cambios de la valorización (igual que en Valorización de Compra).
+   */
+  const handlePresionarGuardar = () => {
+    if (isEdit) {
+      setMotivoEdicion("");
+      setModalMotivoOpened(true);
+    } else {
+      void handleSubmit();
+    }
+  };
+
+  const handleConfirmarMotivo = async () => {
+    const motivo = motivoEdicion.trim();
+    if (motivo.length > 0 && motivo.length < 3) {
+      notifyError("El motivo debe tener al menos 3 caracteres.");
+      return;
+    }
+    setModalMotivoOpened(false);
+    await handleSubmit(motivo);
+  };
 
   const plantaSeleccionada = useMemo(() => {
     if (!idPlanta) return null;
@@ -677,10 +704,54 @@ export const ModalFormValorizacionVenta = ({
               radius="lg"
               type="submit"
               loading={loadingSubmit}
-              onClick={() => handleSubmit()}
+              onClick={handlePresionarGuardar}
               className="bg-indigo-600 hover:bg-indigo-700 text-white"
             >
               {isEdit ? "Guardar Cambios" : "Crear Valorización"}
+            </Button>
+          </Group>
+        </Stack>
+      </ModalEstandar>
+
+      {/* Modal Motivo de Edición */}
+      <ModalEstandar
+        opened={modalMotivoOpened}
+        close={() => setModalMotivoOpened(false)}
+        title="Motivo de la Modificación"
+        size="sm"
+      >
+        <Stack gap="sm">
+          <Text size="xs" c="dimmed">
+            Ingrese un motivo u observación para esta modificación (opcional). Si
+            lo deja en blanco, se guardará con la descripción por defecto.
+          </Text>
+          <TextInput
+            label="Motivo o Justificación del Cambio"
+            placeholder="Ej: Corrección de precio / actualización de parámetros..."
+            value={motivoEdicion}
+            onChange={(e) => setMotivoEdicion(e.currentTarget.value)}
+            classNames={fieldClasses}
+            data-autofocus
+          />
+          <Group justify="end" gap="xs" mt="xs">
+            <Button
+              variant="subtle"
+              color="gray"
+              onClick={() => setModalMotivoOpened(false)}
+              size="xs"
+              radius="lg"
+            >
+              Cancelar
+            </Button>
+            <Button
+              color="indigo"
+              onClick={handleConfirmarMotivo}
+              loading={loadingSubmit}
+              size="xs"
+              radius="lg"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white"
+            >
+              Guardar Cambios
             </Button>
           </Group>
         </Stack>
