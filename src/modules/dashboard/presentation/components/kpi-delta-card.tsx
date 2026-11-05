@@ -60,7 +60,7 @@ export const KpiDeltaCard = ({
           >
             {d.pct > 0 ? "↑" : d.pct < 0 ? "↓" : "→"} {fmt(Math.abs(d.pct), 1)}%
           </DeltaPill>
-          <span className="text-[11.5px] text-zinc-500">{d.etiqueta}</span>
+          <span className="text-[13.5px] text-zinc-300">{d.etiqueta}</span>
         </span>
       ))}
       {extra}

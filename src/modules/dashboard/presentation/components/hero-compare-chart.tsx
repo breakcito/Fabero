@@ -16,12 +16,20 @@ export interface HeroCompareChartProps {
   colorB?: string;
 }
 
-const W = 640;
-const H = 180;
-const L = 40;
-const R = 34;
+const W = 720;
+const H = 246;
+/** Margen izquierdo (eje Y). */
+const L = 44;
+/** Margen derecho. */
+const R = 40;
+/** Margen superior: cabe el globo de valor sobre el punto más alto. */
 const T = 34;
-const B = 24;
+/**
+ * Margen inferior: deja sitio al globo de valor que cuelga POR DEBAJO del
+ * punto más bajo y a las dos líneas de etiquetas (mes arriba, año abajo),
+ * sin que nada se solape.
+ */
+const B = 82;
 
 /** Trazo suave (Bézier) que pasa por todos los puntos. */
 const smooth = (pts: [number, number][]): string =>
@@ -93,8 +101,8 @@ export const HeroCompareChart = ({
           x={px}
           y={below ? py + 23.5 : py - 16.5}
           textAnchor="middle"
-          fontSize={10.5}
-          fontWeight={600}
+          fontSize={12}
+          fontWeight={700}
           fill="#fafafa"
         >
           {t}
@@ -129,10 +137,10 @@ export const HeroCompareChart = ({
           />
           <text
             x={L - 8}
-            y={g.yy + 3}
+            y={g.yy + 4}
             textAnchor="end"
-            fontSize={10}
-            fill="#71717a"
+            fontSize={12}
+            fill="#a1a1aa"
           >
             {format(g.v)}
           </text>
@@ -171,19 +179,39 @@ export const HeroCompareChart = ({
       {globo(x(sel), pa[sel][1], a[sel], colorA, !aboveA)}
       {globo(x(sel), pb[sel][1], b[sel], colorB, aboveA)}
 
-      {labels.map((label, i) => (
-        <text
-          key={`${label}-${i}`}
-          x={x(i)}
-          y={H - 6}
-          textAnchor="middle"
-          fontSize={10}
-          fill={i === sel ? "#e4e4e7" : "#71717a"}
-          fontWeight={i === sel ? 700 : 400}
-        >
-          {label}
-        </text>
-      ))}
+      {labels.map((label, i) => {
+        // "Dic 2025" -> mes "Dic" (arriba) + año "2025" (abajo). Dos líneas
+        // para que las etiquetas no se pisen entre sí y se lean de lejos.
+        const corte = label.lastIndexOf(" ");
+        const mes = corte > 0 ? label.slice(0, corte) : label;
+        const anio = corte > 0 ? label.slice(corte + 1) : "";
+        const esSel = i === sel;
+
+        return (
+          <g key={`${label}-${i}`}>
+            <text
+              x={x(i)}
+              y={H - 36}
+              textAnchor="middle"
+              fontSize={13}
+              fontWeight={600}
+              fill={esSel ? "#fafafa" : "#d4d4d8"}
+            >
+              {mes}
+            </text>
+            <text
+              x={x(i)}
+              y={H - 14}
+              textAnchor="middle"
+              fontSize={12}
+              fontWeight={esSel ? 700 : 500}
+              fill={esSel ? "#e4e4e7" : "#a1a1aa"}
+            >
+              {anio}
+            </text>
+          </g>
+        );
+      })}
     </svg>
   );
 };

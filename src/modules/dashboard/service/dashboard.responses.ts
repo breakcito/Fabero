@@ -52,9 +52,9 @@ export interface RES_DashboardMes {
 }
 
 export interface RES_DashboardPeriodo {
-  /** `YYYY-MM` del último mes cerrado. */
+  /** `YYYY-MM` del mes en curso (último de la ventana). */
   mes_actual: string;
-  /** Últimos 12 meses cerrados. */
+  /** Últimos 12 meses, incluyendo el mes en curso (datos parciales). */
   meses: RES_DashboardMes[];
   /** Los mismos 12 meses del año anterior (comparativo interanual). */
   meses_anio_anterior: RES_DashboardMes[];

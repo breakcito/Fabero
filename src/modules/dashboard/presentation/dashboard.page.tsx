@@ -12,6 +12,7 @@ import { LeyBars } from "./components/ley-bars";
 import { Numero, NumeroUnidad } from "./components/numero";
 import { SinComprobante } from "./components/sin-comprobante";
 import { SplitBar } from "./components/split-bar";
+import { StockColumn } from "./components/stock-column";
 import { useTitlePage } from "../../../hooks/useTitlePage";
 import { RefreshButton } from "../../../presentation/utils/refresh-button";
 import {
@@ -33,17 +34,17 @@ type FlujoSinComprobante = "all" | "C" | "V";
 /** Estilo del selector tipo píldora (`.pill-sel` de `dash.html`). */
 const selectClasses = {
   input:
-    "h-8 rounded-full border-zinc-700 bg-zinc-900/60 pl-3 pr-8 text-[12px] font-semibold text-zinc-200",
+    "h-8 rounded-full border-zinc-700 bg-zinc-900/60 pl-3 pr-8 text-[13px] font-semibold text-zinc-100",
   dropdown: "bg-zinc-900 border-zinc-700",
-  option: "text-[12px] text-zinc-300",
+  option: "text-[13px] text-zinc-200",
 };
 
 /** Variante compacta para los filtros secundarios de cada tarjeta. */
 const selectClassesSm = {
   input:
-    "h-7 rounded-full border-zinc-700 bg-zinc-900/60 pl-3 pr-7 text-[11px] font-medium text-zinc-400",
+    "h-8 rounded-full border-zinc-700 bg-zinc-900/60 pl-3 pr-7 text-[12px] font-semibold text-zinc-300",
   dropdown: "bg-zinc-900 border-zinc-700",
-  option: "text-[11px] text-zinc-300",
+  option: "text-[12px] text-zinc-200",
 };
 
 export const DashboardPage = () => {
@@ -57,6 +58,7 @@ export const DashboardPage = () => {
     indice,
     setMesIndex,
     mes,
+    mesActual,
     mesAnterior,
     mismoMesAnioAnterior,
   } = useDashboard();
@@ -149,10 +151,16 @@ export const DashboardPage = () => {
           <Select
             aria-label="Período"
             placeholder={loading ? "Cargando..." : "Seleccione"}
-            data={meses.map((m, i) => ({
-              value: String(i),
-              label: etiquetaMes(m.anio, m.mes),
-            }))}
+            data={meses.map((m, i) => {
+              const clave = `${m.anio}-${String(m.mes).padStart(2, "0")}`;
+              const enCurso = clave === mesActual;
+              return {
+                value: String(i),
+                label: enCurso
+                  ? `${etiquetaMes(m.anio, m.mes)} (en curso)`
+                  : etiquetaMes(m.anio, m.mes),
+              };
+            })}
             value={String(indice)}
             onChange={(v) => {
               if (v !== null) setMesIndex(Number(v));
@@ -163,7 +171,7 @@ export const DashboardPage = () => {
             size="xs"
             radius="lg"
             classNames={selectClasses}
-            w={150}
+            w={175}
           />
           <RefreshButton onClick={load} loading={loading} />
         </div>
@@ -174,7 +182,7 @@ export const DashboardPage = () => {
         {/* Fila 1 — resultados del mes */}
         <KpiDeltaCard
           className="col-span-12 md:col-span-6 xl:col-span-3"
-          titulo="TN receptadas"
+          titulo="TN recepcionadas"
           dot={COLOR_COMPRA}
           valor={tnReceptadas}
           unidad="t"
@@ -264,7 +272,7 @@ export const DashboardPage = () => {
           }
         />
 
-        {/* Fila 2 — comparativo y costo por tonelada */}
+        {/* Fila 2 — comparativo y stock en cancha */}
         <DashCard
           className="col-span-12 xl:col-span-8"
           titulo="Compras vs ventas"
@@ -281,7 +289,7 @@ export const DashboardPage = () => {
               classNames={{
                 root: "rounded-full border border-zinc-700 bg-zinc-800/70",
                 label:
-                  "px-3 text-[11.5px] font-semibold text-zinc-400 data-[active]:bg-zinc-700 data-[active]:text-zinc-100",
+                  "px-3 text-[12.5px] font-semibold text-zinc-300 data-[active]:bg-zinc-700 data-[active]:text-zinc-50",
               }}
             />
           }
@@ -292,14 +300,14 @@ export const DashboardPage = () => {
                 {esToneladas ? fmt(mes?.tn_compradas ?? 0) : usd(montoCompra)}
                 {esToneladas && <NumeroUnidad>t</NumeroUnidad>}
               </Numero>
-              <div className="text-[11.5px] text-zinc-500">Comprado</div>
+              <div className="text-[13px] text-zinc-400">Comprado</div>
             </div>
             <div>
               <Numero color={COLOR_VENTA}>
                 {esToneladas ? fmt(mes?.tn_vendidas ?? 0) : usd(montoVenta)}
                 {esToneladas && <NumeroUnidad>t</NumeroUnidad>}
               </Numero>
-              <div className="text-[11.5px] text-zinc-500">Vendido</div>
+              <div className="text-[13px] text-zinc-400">Vendido</div>
             </div>
             <div>
               {esToneladas ? (
@@ -327,6 +335,118 @@ export const DashboardPage = () => {
             labels={etiquetasEje}
             format={esToneladas ? (v: number) => fmt(v) : usd}
           />
+        </DashCard>
+
+        <DashCard
+          className="col-span-12 xl:col-span-4"
+          titulo="Stock en cancha"
+          dot={COLOR_BLENDING}
+          rightSection={
+            <Select
+              aria-label="Base"
+              data={[
+                { value: "TMH", label: "TMH" },
+                { value: "TMS", label: "TMS" },
+              ]}
+              value={baseStock}
+              onChange={(v) => {
+                if (v !== null) setBaseStock(v as BaseStock);
+              }}
+              comboboxProps={{ withinPortal: true }}
+              size="xs"
+              radius="lg"
+              classNames={selectClassesSm}
+              w={90}
+            />
+          }
+        >
+          <Numero>
+            {fmt(tnLotes + tnBlendings + tnPorSalir, 1)}
+            <NumeroUnidad>t</NumeroUnidad>
+          </Numero>
+          <div className="flex flex-1 items-center">
+            <StockColumn
+              parts={[
+                { nombre: "Lotes", valor: tnLotes, color: COLOR_COMPRA },
+                {
+                  nombre: "Blendings",
+                  valor: tnBlendings,
+                  color: COLOR_BLENDING,
+                },
+                {
+                  nombre: "Por salir",
+                  valor: tnPorSalir,
+                  color: COLOR_AMBER,
+                },
+              ]}
+              format={(v) => `${fmt(v, 1)} t`}
+            />
+          </div>
+        </DashCard>
+
+        {/* Fila 3 — cuentas y costo por tonelada */}
+        <DashCard
+          className="col-span-12 xl:col-span-4"
+          titulo="Por pagar"
+          dot={COLOR_COMPRA}
+        >
+          <Numero>{usd(porPagar?.total_usd ?? 0)}</Numero>
+          <SplitBar
+            parts={[
+              {
+                nombre: "Neto",
+                valor: porPagar?.neto_usd ?? 0,
+                color: COLOR_COMPRA,
+              },
+              {
+                nombre: "Detracción",
+                valor: porPagar?.detraccion_usd ?? 0,
+                color: COLOR_AMBER,
+              },
+            ]}
+            format={usd}
+          />
+          <div className="text-[13px] text-zinc-400">
+            Mayor deuda:{" "}
+            <b className="font-semibold text-zinc-100">
+              {porPagar?.mayor_deudor?.nombre ?? "—"}
+              {porPagar?.mayor_deudor
+                ? ` · ${usd(porPagar.mayor_deudor.monto_usd)}`
+                : ""}
+            </b>
+          </div>
+        </DashCard>
+
+        <DashCard
+          className="col-span-12 xl:col-span-4"
+          titulo="Por cobrar"
+          dot={COLOR_VENTA}
+        >
+          <Numero>{usd(porCobrar?.total_usd ?? 0)}</Numero>
+          <SplitBar
+            parts={[
+              {
+                nombre: "Neto",
+                valor: porCobrar?.neto_usd ?? 0,
+                color: COLOR_VENTA,
+              },
+              {
+                nombre: "Detracción",
+                valor: porCobrar?.detraccion_usd ?? 0,
+                color: COLOR_AMBER,
+              },
+            ]}
+            format={usd}
+          />
+          <div className="text-[13px] text-zinc-400">
+            Mayor saldo:{" "}
+            <b className="font-semibold text-zinc-100">
+              {porCobrar?.mayor_acreedor?.nombre ?? "—"}
+              {porCobrar?.mayor_acreedor
+                ? ` · ${usd(porCobrar.mayor_acreedor.monto_usd)}`
+                : ""}
+            </b>
+          </div>
         </DashCard>
 
         <DashCard
@@ -369,7 +489,7 @@ export const DashboardPage = () => {
           </div>
         </DashCard>
 
-        {/* Fila 3 — calidad, stock y permanencia */}
+        {/* Fila 4 — calidad, permanencia y pendientes */}
         <DashCard
           className="col-span-12 xl:col-span-4"
           titulo="Ley promedio (g/t)"
@@ -414,51 +534,6 @@ export const DashboardPage = () => {
 
         <DashCard
           className="col-span-12 xl:col-span-4"
-          titulo="Stock en cancha"
-          dot={COLOR_BLENDING}
-          rightSection={
-            <Select
-              aria-label="Base"
-              data={[
-                { value: "TMH", label: "TMH" },
-                { value: "TMS", label: "TMS" },
-              ]}
-              value={baseStock}
-              onChange={(v) => {
-                if (v !== null) setBaseStock(v as BaseStock);
-              }}
-              comboboxProps={{ withinPortal: true }}
-              size="xs"
-              radius="lg"
-              classNames={selectClassesSm}
-              w={90}
-            />
-          }
-        >
-          <Numero>
-            {fmt(tnLotes + tnBlendings + tnPorSalir, 1)}
-            <NumeroUnidad>t</NumeroUnidad>
-          </Numero>
-          <SplitBar
-            parts={[
-              { nombre: "Lotes", valor: tnLotes, color: COLOR_COMPRA },
-              {
-                nombre: "Blendings",
-                valor: tnBlendings,
-                color: COLOR_BLENDING,
-              },
-              {
-                nombre: "Por salir",
-                valor: tnPorSalir,
-                color: COLOR_AMBER,
-              },
-            ]}
-            format={(v) => `${fmt(v, 1)} t`}
-          />
-        </DashCard>
-
-        <DashCard
-          className="col-span-12 xl:col-span-4"
           titulo="Días promedio en cancha"
           dot={COLOR_BLENDING}
           rightSection={
@@ -486,74 +561,9 @@ export const DashboardPage = () => {
           </div>
         </DashCard>
 
-        {/* Fila 4 — cuentas y pendientes */}
         <DashCard
           className="col-span-12 xl:col-span-4"
-          titulo="Por pagar"
-          dot={COLOR_COMPRA}
-        >
-          <Numero>{usd(porPagar?.total_usd ?? 0)}</Numero>
-          <SplitBar
-            parts={[
-              {
-                nombre: "Neto",
-                valor: porPagar?.neto_usd ?? 0,
-                color: COLOR_COMPRA,
-              },
-              {
-                nombre: "Detracción",
-                valor: porPagar?.detraccion_usd ?? 0,
-                color: COLOR_AMBER,
-              },
-            ]}
-            format={usd}
-          />
-          <div className="text-[11.5px] text-zinc-500">
-            Mayor deuda:{" "}
-            <b className="font-semibold text-zinc-100">
-              {porPagar?.mayor_deudor?.nombre ?? "—"}
-              {porPagar?.mayor_deudor
-                ? ` · ${usd(porPagar.mayor_deudor.monto_usd)}`
-                : ""}
-            </b>
-          </div>
-        </DashCard>
-
-        <DashCard
-          className="col-span-12 xl:col-span-4"
-          titulo="Por cobrar"
-          dot={COLOR_VENTA}
-        >
-          <Numero>{usd(porCobrar?.total_usd ?? 0)}</Numero>
-          <SplitBar
-            parts={[
-              {
-                nombre: "Neto",
-                valor: porCobrar?.neto_usd ?? 0,
-                color: COLOR_VENTA,
-              },
-              {
-                nombre: "Detracción",
-                valor: porCobrar?.detraccion_usd ?? 0,
-                color: COLOR_AMBER,
-              },
-            ]}
-            format={usd}
-          />
-          <div className="text-[11.5px] text-zinc-500">
-            Mayor saldo:{" "}
-            <b className="font-semibold text-zinc-100">
-              {porCobrar?.mayor_acreedor?.nombre ?? "—"}
-              {porCobrar?.mayor_acreedor
-                ? ` · ${usd(porCobrar.mayor_acreedor.monto_usd)}`
-                : ""}
-            </b>
-          </div>
-        </DashCard>
-
-        <DashCard
-          className="col-span-12 xl:col-span-4"
-          titulo="Aprobadas sin comprobante"
+          titulo="Valorizaciones sin comprobante"
           dot={COLOR_ROJO}
           rightSection={
             <Select

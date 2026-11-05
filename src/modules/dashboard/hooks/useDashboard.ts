@@ -4,17 +4,22 @@ import type { RES_Dashboard, RES_DashboardMes } from "../service/dashboard.respo
 import { useUIStore } from "../../../stores/ui.store";
 import { useNotify } from "../../../hooks/useNotify";
 
-/** Cantidad de meses de la ventana de análisis (12 meses cerrados). */
-const MESES_VENTANA = 12;
-
+/**
+ * La ventana de análisis son los últimos 12 meses **incluyendo el mes en
+ * curso**; el filtro arranca en el mes actual y permite consultar hacia atrás.
+ */
 export const useDashboard = () => {
   const sucursal = useUIStore((state) => state.sucursal_elegida);
   const { notifyError } = useNotify();
 
   const [data, setData] = useState<RES_Dashboard | null>(null);
   const [loading, setLoading] = useState(false);
-  /** Índice del mes seleccionado dentro de la ventana (0 = el más antiguo). */
-  const [mesIndex, setMesIndex] = useState(MESES_VENTANA - 1);
+  /**
+   * Índice del mes seleccionado dentro de la ventana (0 = el más antiguo).
+   * `null` = sin selección explícita → se usa el último índice, que
+   * corresponde al mes en curso.
+   */
+  const [mesIndex, setMesIndex] = useState<number | null>(null);
 
   const idSucursal = sucursal?.id_sucursal ?? null;
 
@@ -50,7 +55,12 @@ export const useDashboard = () => {
     [data],
   );
 
-  const indice = meses.length > 0 ? Math.min(mesIndex, meses.length - 1) : 0;
+  // Por defecto se muestra el ÚLTIMO mes de la ventana (el mes en curso);
+  // el usuario puede consultar los meses anteriores desde el filtro.
+  const indice =
+    meses.length > 0
+      ? Math.min(mesIndex ?? meses.length - 1, meses.length - 1)
+      : 0;
 
   /** Mes seleccionado dentro de la ventana actual. */
   const mes = meses[indice] ?? null;
@@ -65,6 +75,9 @@ export const useDashboard = () => {
   /** Mismo mes del año anterior (comparativo interanual). */
   const mismoMesAnioAnterior = mesesAnioAnterior[indice] ?? null;
 
+  /** `YYYY-MM` del mes en curso (último de la ventana). */
+  const mesActual = data?.periodo.mes_actual ?? null;
+
   return {
     data,
     loading,
@@ -74,6 +87,7 @@ export const useDashboard = () => {
     indice,
     setMesIndex,
     mes,
+    mesActual,
     mesAnterior,
     mismoMesAnioAnterior,
   };

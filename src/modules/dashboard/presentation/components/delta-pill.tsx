@@ -9,10 +9,10 @@ export interface DeltaPillProps {
 }
 
 const VARIANTES: Record<DeltaVariante, string> = {
-  up: "bg-emerald-500/15 text-emerald-400",
-  down: "bg-red-500/15 text-red-400",
-  neutral: "bg-zinc-800/70 text-zinc-400",
-  warn: "bg-amber-500/15 text-amber-400",
+  up: "bg-emerald-500/20 text-emerald-300",
+  down: "bg-red-500/20 text-red-300",
+  neutral: "bg-zinc-700/60 text-zinc-200",
+  warn: "bg-amber-500/20 text-amber-300",
 };
 
 /**
@@ -25,7 +25,7 @@ export const DeltaPill = ({
 }: DeltaPillProps) => (
   <span
     title={title}
-    className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums ${VARIANTES[variante]}`}
+    className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-[14px] font-semibold tabular-nums ${VARIANTES[variante]}`}
   >
     {children}
   </span>

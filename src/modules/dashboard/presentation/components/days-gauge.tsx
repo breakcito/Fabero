@@ -66,7 +66,14 @@ export const DaysGauge = ({ valor, max, meta }: DaysGaugeProps) => {
       >
         {fmt(valor, 1)}
       </text>
-      <text x={100} y={106} textAnchor="middle" fontSize={11} fill="#71717a">
+      <text
+        x={100}
+        y={110}
+        textAnchor="middle"
+        fontSize={13}
+        fontWeight={600}
+        fill="#a1a1aa"
+      >
         días · meta ≤ {meta}
       </text>
     </svg>

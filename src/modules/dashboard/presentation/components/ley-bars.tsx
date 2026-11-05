@@ -40,14 +40,14 @@ export const LeyBars = ({ items }: LeyBarsProps) => (
               style={{ height: `${altura}%`, background: color }}
             />
           </div>
-          <span className="text-[11.5px] text-zinc-500">{etiqueta}</span>
+          <span className="text-[13px] text-zinc-400">{etiqueta}</span>
         </div>
       );
 
       return (
         <div key={item.nombre}>
           <div className="mb-2 flex items-center justify-between gap-2">
-            <b className="truncate text-[12.5px] font-semibold text-zinc-100">
+            <b className="truncate text-[13px] font-semibold text-zinc-100">
               {item.nombre}
             </b>
             <DeltaPill

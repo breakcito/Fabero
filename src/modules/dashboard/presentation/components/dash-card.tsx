@@ -26,7 +26,7 @@ export const DashCard = ({
     className={`flex min-w-0 flex-col gap-3 rounded-2xl border border-zinc-800/60 bg-zinc-900/40 p-5 backdrop-blur-md ${className}`}
   >
     <header className="flex items-center justify-between gap-2">
-      <h2 className="flex items-center gap-2 text-[13px] font-semibold text-zinc-400">
+      <h2 className="flex min-w-0 items-center gap-2 text-[15px] font-semibold text-zinc-200">
         {dot && (
           <i
             className="block size-2 shrink-0 rounded-full"
@@ -35,7 +35,7 @@ export const DashCard = ({
         )}
         {titulo}
       </h2>
-      {rightSection}
+      {rightSection && <div className="shrink-0">{rightSection}</div>}
     </header>
     {children}
   </section>
