@@ -48,7 +48,7 @@ interface CardDistribucionBalanzaProps {
 const fieldClasses = {
   input:
     "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all h-[30px] text-xs",
-  label: "text-zinc-500 mb-0.5 font-medium text-[10px] ml-0.5",
+  label: "text-zinc-300 mb-1 font-semibold text-xs ml-0.5",
 };
 
 const formatPlacaInput = (val: string): string => {
@@ -439,7 +439,7 @@ const DetallePesajeItem = ({ detalle, onSaved }: DetallePesajeItemProps) => {
           classNames={{
             input:
               "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 transition-all",
-            label: "text-zinc-400 font-medium text-xs mb-1",
+            label: "text-zinc-300 font-semibold text-xs mb-1",
           }}
           autoFocus
         />

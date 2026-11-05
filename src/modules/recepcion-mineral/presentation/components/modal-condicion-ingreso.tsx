@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { Select, Button, Checkbox, TextInput, Stack } from "@mantine/core";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
 import { CondicionIngreso } from "../../../../shared/enums/_generic/condicion-ingreso";
@@ -44,15 +44,46 @@ export const ModalCondicionIngreso = ({
     [empresasTitulares],
   );
 
-  useEffect(() => {
-    if (opened) {
-      setCondicion(CondicionIngreso.Comercializacion);
-      setIdEmpresa(faberoEmpresa ? String(faberoEmpresa.id_empresa) : null);
-      setConCodigoManual(false);
-      setCodigoManual("");
-      setParticionar(false);
+  /**
+   * Al abrir el modal se reinicia el formulario con sus valores por defecto.
+   *
+   * Se ajusta el estado DURANTE el render (comparando con el valor previo)
+   * en vez de dentro de un efecto: es el patrón que recomienda React para
+   * "resetear estado cuando cambia una prop", evita el render extra y no
+   * dispara la cascada de renders que marca la regla de hooks.
+   */
+  const idFabero = faberoEmpresa?.id_empresa ?? null;
+  const [prevAbierto, setPrevAbierto] = useState(opened);
+  const [prevIdFabero, setPrevIdFabero] = useState(idFabero);
+
+  const seAbrio = opened !== prevAbierto;
+  const cambioFabero = idFabero !== prevIdFabero;
+
+  if (seAbrio || cambioFabero) {
+    setPrevAbierto(opened);
+    setPrevIdFabero(idFabero);
+
+    if (seAbrio) {
+      if (opened) {
+        // El modal se acaba de abrir: formulario en blanco con los valores
+        // por defecto.
+        setCondicion(CondicionIngreso.Comercializacion);
+        setIdEmpresa(idFabero !== null ? String(idFabero) : null);
+        setConCodigoManual(false);
+        setCodigoManual("");
+        setParticionar(false);
+      }
+    } else if (opened) {
+      // Llegó (o cambió) la empresa Fabero mientras el modal está abierto:
+      // se selecciona, pero sin pisar lo que el usuario ya eligió o escribió.
+      setIdEmpresa((actual) => {
+        const previo = prevIdFabero !== null ? String(prevIdFabero) : null;
+        const usuarioEligio = actual !== null && actual !== previo;
+        if (usuarioEligio) return actual;
+        return idFabero !== null ? String(idFabero) : null;
+      });
     }
-  }, [opened, faberoEmpresa]);
+  }
 
   const handleConfirm = () => {
     if (!idEmpresa) return;
@@ -81,7 +112,7 @@ export const ModalCondicionIngreso = ({
 
   const fieldClasses = {
     input: "bg-zinc-900/50 border-zinc-800 text-white focus:border-indigo-500",
-    label: "text-zinc-300 mb-1 font-medium text-xs",
+    label: "text-zinc-300 mb-1 font-semibold text-xs",
   };
 
   return (

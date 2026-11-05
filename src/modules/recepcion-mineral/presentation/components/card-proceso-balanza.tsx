@@ -298,7 +298,7 @@ export const CardProcesoBalanza = ({
   const fieldClasses = {
     input:
       "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all h-[30px] text-xs",
-    label: "text-zinc-500 mb-0.5 font-medium text-[10px] ml-0.5",
+    label: "text-zinc-300 mb-1 font-semibold text-xs ml-0.5",
   };
 
   const selectInputClasses = {

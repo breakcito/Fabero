@@ -178,7 +178,7 @@ export const ModalPesoFinal = ({ lote, onCancel, onSubmit, targetIdOverride }: P
   const fieldClasses = {
     input:
       "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 transition-all",
-    label: "text-zinc-400 font-medium text-xs mb-1",
+    label: "text-zinc-300 font-semibold text-xs mb-1",
   };
 
   return (
