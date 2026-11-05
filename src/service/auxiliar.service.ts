@@ -486,6 +486,7 @@ export const AuxService = {
     ley_plata: number;
     es_valorizado_oro?: boolean;
     es_valorizado_plata?: boolean;
+    con_valor_comercial?: boolean | null;
     condicion_oro: {
       id_condicion_comercial: number;
       recuperacion: number;

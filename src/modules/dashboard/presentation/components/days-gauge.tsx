@@ -31,7 +31,7 @@ export const DaysGauge = ({ valor, max, meta }: DaysGaugeProps) => {
       viewBox="0 0 200 118"
       role="img"
       aria-label="Días promedio en cancha"
-      className="mx-auto block h-auto w-full max-w-[230px]"
+      className="mx-auto block h-auto w-full max-w-57.5"
     >
       <path
         d="M28,96 A72,72 0 0 1 172,96"

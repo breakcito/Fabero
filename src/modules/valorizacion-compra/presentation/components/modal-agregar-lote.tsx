@@ -69,7 +69,7 @@ interface LoteDisponible {
   condiciones_comerciales?: CondicionComercialItem[];
   es_valorizado_oro?: boolean;
   es_valorizado_plata?: boolean;
-  con_valor_comercial?: boolean;
+  con_valor_comercial?: boolean | null;
   condicion_oro: {
     id_condicion_comercial: number;
     recuperacion: number;
@@ -192,9 +192,16 @@ export const ModalAgregarLote = ({
         // Excluir lotes ya valorizados para ambos elementos.
         // En EDICIÓN no se excluye nada: hacen falta los grupos de análisis
         // reales del lote para poder cambiar de grupo.
-        const disponibles = detalleEditar
-          ? data
-          : data.filter((l) => {
+        //
+        // Además se descartan los lotes SIN "valor comercial" definido
+        // (con_valor_comercial === null): deben clasificarse primero en el
+        // módulo de Cierre de Leyes ("Definir Valor Comercial").
+        const disponibles = data.filter(
+          (l) => l.con_valor_comercial !== null && l.con_valor_comercial !== undefined,
+        );
+        const disponiblesFinal = detalleEditar
+          ? disponibles
+          : disponibles.filter((l) => {
               const tieneOro =
                 l.es_valorizado_oro ||
                 existingDetalles.some(
@@ -211,7 +218,7 @@ export const ModalAgregarLote = ({
                 );
               return !(tieneOro && tienePlata);
             });
-        setLotes(disponibles);
+        setLotes(disponiblesFinal);
       } catch (err) {
         notifyError(
           err instanceof Error ? err.message : "Error al cargar lotes disponibles",

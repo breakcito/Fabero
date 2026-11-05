@@ -468,7 +468,9 @@ export const ValorizacionCompraPage = () => {
         )
         .map((log) => ({
           ...log,
-          motivo: `Lote ${loteNombre} (${elem}) - Modificación de Parámetros`,
+          motivo: String(
+            log.motivo || `Lote ${loteNombre} (${elem}) - Modificación de Parámetros`,
+          ),
         }));
     });
 
