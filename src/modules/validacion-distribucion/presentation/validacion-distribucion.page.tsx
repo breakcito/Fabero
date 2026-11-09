@@ -8,7 +8,6 @@ import {
   Group,
   Menu,
   Paper,
-  SegmentedControl,
   Stack,
   Switch,
   Text,
@@ -46,7 +45,6 @@ import { LimpiarFiltrosButton } from "../../../presentation/utils/limpiar-filtro
 import { mostrarConfirmacion } from "../../../presentation/utils/modal-confirmacion";
 
 type Row = RES_LotePendiente;
-type EstadoParticion = "TODOS" | "CON" | "SIN";
 
 export const ValidacionDistribucionPage = () => {
   useTitlePage("Validación y Distribución", true);
@@ -84,7 +82,6 @@ export const ValidacionDistribucionPage = () => {
 
   const [placa, setPlaca] = useState("");
   const [soloExcedente, setSoloExcedente] = useState(false);
-  const [estadoParticion, setEstadoParticion] = useState<EstadoParticion>("TODOS");
 
   // Selección múltiple de lotes para validación masiva.
   const [selectedLotes, setSelectedLotes] = useState<RES_LotePendiente[]>([]);
@@ -150,15 +147,9 @@ export const ValidacionDistribucionPage = () => {
       if (soloExcedente && !(r.excedente != null && r.excedente > 0)) {
         return false;
       }
-      if (estadoParticion === "CON" && r.tiene_particion !== 1) {
-        return false;
-      }
-      if (estadoParticion === "SIN" && r.tiene_particion !== 0) {
-        return false;
-      }
       return true;
     });
-  }, [records, placa, soloExcedente, estadoParticion]);
+  }, [records, placa, soloExcedente]);
 
   // Lotes que actualmente están visibles y listos para validar
   const lotesSeleccionables = useMemo(() => {
@@ -195,18 +186,12 @@ export const ValidacionDistribucionPage = () => {
     }
   };
 
-  const hasActiveFilters =
-    !!fechaInicio ||
-    !!fechaFin ||
-    !!placa ||
-    soloExcedente ||
-    estadoParticion !== "TODOS";
+  const hasActiveFilters = !!fechaInicio || !!fechaFin || !!placa || soloExcedente;
 
   const handleLimpiar = () => {
     resetFilters();
     setPlaca("");
     setSoloExcedente(false);
-    setEstadoParticion("TODOS");
     setSelectedLotes([]);
   };
 
@@ -520,34 +505,10 @@ export const ValidacionDistribucionPage = () => {
                 color="indigo"
               />
             </Box>
-
-            <Box className="w-56">
-              <Text size="xs" fw={500} className="text-zinc-400 mb-1 ml-1">
-                Estado Partición
-              </Text>
-              <SegmentedControl
-                value={estadoParticion}
-                onChange={(v) => setEstadoParticion(v as EstadoParticion)}
-                data={[
-                  { label: "Todos", value: "TODOS" },
-                  { label: "Con", value: "CON" },
-                  { label: "Sin", value: "SIN" },
-                ]}
-                size="xs"
-                radius="lg"
-                color="indigo"
-                fullWidth
-              />
-            </Box>
           </div>
 
-          {hasActiveFilters && (
-            <div className="flex items-center gap-2 shrink-0 pb-0.5">
-              <LimpiarFiltrosButton onClick={handleLimpiar} />
-            </div>
-          )}
-
           <div className="flex items-center gap-2 shrink-0 pb-0.5">
+            {hasActiveFilters && <LimpiarFiltrosButton onClick={handleLimpiar} />}
             <RefreshButton
               onClick={() => void cargar()}
               loading={loading}

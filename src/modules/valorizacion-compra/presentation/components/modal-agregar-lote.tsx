@@ -430,6 +430,26 @@ export const ModalAgregarLote = ({
     }));
   }, [gruposDelLote]);
 
+  /**
+   * Cambiar el elemento (Oro <-> Plata) re-sincroniza las leyes con el grupo de
+   * análisis seleccionado: el ajuste manual hecho sobre el elemento anterior ya
+   * no aplica a este detalle.
+   */
+  const handleSelectElemento = (valor: string | null) => {
+    const nuevoElemento = valor as ElementoQuimicoValorizacion | null;
+    if (!nuevoElemento || nuevoElemento === elemento) return;
+
+    setElemento(nuevoElemento);
+
+    const g = gruposDelLote.find(
+      (item) => String(item.id) === selectedGrupoAnalisisId,
+    );
+    if (g) {
+      setLeyOro(g.ley_oro_cierre);
+      setLeyPlata(g.ley_plata_cierre);
+    }
+  };
+
   const grupoSeleccionadoObj = useMemo(() => {
     if (!selectedGrupoAnalisisId) return null;
     return (
@@ -513,6 +533,7 @@ export const ModalAgregarLote = ({
     }
   }, [loteSeleccionado, existingDetalles, elemento, detalleEditar]);
 
+  const esOro = elemento === ElementoQuimicoValorizacion.Oro;
   const numHum = typeof leyHumedad === "number" ? leyHumedad : parseFloat(String(leyHumedad)) || 0;
   const numOro = typeof leyOro === "number" ? leyOro : parseFloat(String(leyOro)) || 0;
   const numPlata = typeof leyPlata === "number" ? leyPlata : parseFloat(String(leyPlata)) || 0;
@@ -675,6 +696,9 @@ export const ModalAgregarLote = ({
       factor: esSinValorComercial ? 1 : numFac,
       monto_penalidad: numPen,
       monto_flete: numFle,
+      // Se envían ambas leyes: el backend solo usa la del elemento valorizado
+      // (`ley_oro_manual` para Oro, `ley_plata_manual` para Plata), y la del
+      // otro elemento se necesita para reconstruir el grupo en modo edición.
       ley_oro_manual: numOro,
       ley_plata_manual: numPlata,
       ley_humedad_manual: numHum,
@@ -790,7 +814,7 @@ export const ModalAgregarLote = ({
               disabled={!!detalleEditar}
               data={opcionesElementos}
               value={elemento}
-              onChange={(val) => setElemento(val as ElementoQuimicoValorizacion)}
+              onChange={handleSelectElemento}
               size="xs"
               radius="lg"
               classNames={fieldClasses}
@@ -909,7 +933,7 @@ export const ModalAgregarLote = ({
             )}
 
             <Grid gutter="xs" align="flex-end">
-              <Grid.Col span={{ base: 12, sm: 6 }}>
+              <Grid.Col span={{ base: 12, sm: 8 }}>
                 <Select
                   label="Seleccionar Grupo de Análisis:"
                   placeholder="[Seleccione Grupo de Análisis]"
@@ -921,27 +945,15 @@ export const ModalAgregarLote = ({
                   classNames={fieldClasses}
                 />
               </Grid.Col>
-              <Grid.Col span={{ base: 6, sm: 3 }}>
+              <Grid.Col span={{ base: 12, sm: 4 }}>
                 <NumberInput
-                  label="Ley Oro:"
-                  value={leyOro}
-                  onChange={(val) => setLeyOro(val ?? 0)}
-                  min={0}
-                  step={0.001}
-                  decimalScale={3}
-                  size="xs"
-                  radius="lg"
-                  hideControls
-                  rightSection={<Text fz={10} c="zinc.5" mr={6}>oz/tc</Text>}
-                  rightSectionWidth={46}
-                  classNames={fieldClasses}
-                />
-              </Grid.Col>
-              <Grid.Col span={{ base: 6, sm: 3 }}>
-                <NumberInput
-                  label="Ley Plata:"
-                  value={leyPlata}
-                  onChange={(val) => setLeyPlata(val ?? 0)}
+                  label={!elemento ? "Ley:" : esOro ? "Ley Oro:" : "Ley Plata:"}
+                  description="Editable: ajusta la ley del elemento valorizado"
+                  value={!elemento ? 0 : esOro ? leyOro : leyPlata}
+                  onChange={(val) => {
+                    if (esOro) setLeyOro(val ?? 0);
+                    else setLeyPlata(val ?? 0);
+                  }}
                   min={0}
                   step={0.001}
                   decimalScale={3}
