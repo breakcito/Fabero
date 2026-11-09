@@ -336,8 +336,8 @@ export const ComprobanteCard = ({
                   <>
                     <Tooltip
                       label={
-                        tieneNotaCredito
-                          ? "El comprobante ya tiene una Nota de Crédito vigente. No se pueden registrar ambos tipos en el mismo comprobante."
+                        tieneNotaDebito
+                          ? "El comprobante ya tiene una Nota de Débito vigente. No se pueden registrar notas de crédito y de débito en el mismo comprobante."
                           : "Emitir Nota de Crédito (disminuye el monto a pagar)"
                       }
                       withArrow
@@ -351,7 +351,7 @@ export const ComprobanteCard = ({
                           color={TIPO_NOTA_COLOR[TipoNotaComprobante.Credito]}
                           radius="md"
                           leftSection={<IconFileMinus size={12} />}
-                          disabled={tieneNotaCredito}
+                          disabled={tieneNotaDebito}
                           onClick={() => onEmitirNota(TipoNotaComprobante.Credito)}
                         >
                           NC
@@ -361,8 +361,8 @@ export const ComprobanteCard = ({
 
                     <Tooltip
                       label={
-                        tieneNotaDebito
-                          ? "El comprobante ya tiene una Nota de Débito vigente. No se pueden registrar ambos tipos en el mismo comprobante."
+                        tieneNotaCredito
+                          ? "El comprobante ya tiene una Nota de Crédito vigente. No se pueden registrar notas de crédito y de débito en el mismo comprobante."
                           : "Emitir Nota de Débito (aumenta el monto a pagar)"
                       }
                       withArrow
@@ -376,7 +376,7 @@ export const ComprobanteCard = ({
                           color={TIPO_NOTA_COLOR[TipoNotaComprobante.Debito]}
                           radius="md"
                           leftSection={<IconFilePlus size={12} />}
-                          disabled={tieneNotaDebito}
+                          disabled={tieneNotaCredito}
                           onClick={() => onEmitirNota(TipoNotaComprobante.Debito)}
                         >
                           ND
