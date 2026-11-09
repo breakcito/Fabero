@@ -483,10 +483,7 @@ export const ComprobanteCard = ({
           <Text fz="lg" fw={800} c="white" className="font-mono">$ {montoNetoPagar.toFixed(2)}</Text>
           {tieneNotas && (
             <Text fz={10} c="zinc.4" fw={600}>
-              Comprobante: $ {montoNetoReal.toFixed(2)} · Ajuste:{" "}
-              <span className={deltaNeto < 0 ? "text-teal-400" : "text-orange-400"}>
-                {deltaNeto < 0 ? "−" : "+"}${Math.abs(deltaNeto).toFixed(2)}
-              </span>
+              Comprobante: $ {montoNetoReal.toFixed(2)}
             </Text>
           )}
           <Text fz={11} c="white">Equiv: S/ {(montoNetoPagar * comprobante.tipo_cambio_venta).toFixed(2)}</Text>
@@ -727,6 +724,33 @@ export const ComprobanteCard = ({
                             {n.motivo_descripcion ?? n.motivo ?? "—"} ·{" "}
                             {formatFecha(n.fecha_emision)}
                           </Text>
+                          {n.documentos && n.documentos.length > 0 && (
+                            <Tooltip
+                              label={n.documentos
+                                .map((d) => d.nombre_original)
+                                .join(", ")}
+                              withArrow
+                              multiline
+                              w={260}
+                            >
+                              <Group gap={4} wrap="nowrap" className="min-w-0">
+                                <IconPaperclip
+                                  size={11}
+                                  className="text-indigo-400 shrink-0"
+                                />
+                                <Text
+                                  fz={10}
+                                  c="indigo.3"
+                                  className="truncate"
+                                  maw={150}
+                                >
+                                  {n.documentos.length === 1
+                                    ? n.documentos[0].nombre_original
+                                    : `${n.documentos.length} documentos`}
+                                </Text>
+                              </Group>
+                            </Tooltip>
+                          )}
                         </Stack>
                       </Group>
                       <Group gap={8} wrap="nowrap">

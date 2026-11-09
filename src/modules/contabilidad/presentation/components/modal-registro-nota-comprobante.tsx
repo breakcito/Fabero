@@ -282,7 +282,7 @@ export const ModalRegistroNotaComprobante = ({
               "bg-zinc-900/50 border-zinc-800 focus:border-zinc-300 focus:ring-1 focus:ring-zinc-300 text-white",
             label: "text-zinc-300 mb-1 font-medium",
           }}
-          />
+        />
 
           <TextInput
             label="Código"
