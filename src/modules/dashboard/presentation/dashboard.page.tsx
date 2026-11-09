@@ -26,7 +26,6 @@ import { etiquetaMes, fmt, usd, variacion } from "./utils/format";
 
 type ModoHero = "tn" | "usd";
 type ElementoCosto = "Au+Ag" | "Au" | "Ag";
-type OrigenLey = "final" | "cliente";
 type BaseStock = "TMH" | "TMS";
 type SalidaDias = "all" | "b" | "d";
 type FlujoSinComprobante = "all" | "C" | "V";
@@ -66,7 +65,6 @@ export const DashboardPage = () => {
   // --- Controles locales de la vista -----------------------------------
   const [modoHero, setModoHero] = useState<ModoHero>("tn");
   const [elementoCosto, setElementoCosto] = useState<ElementoCosto>("Au+Ag");
-  const [origenLey, setOrigenLey] = useState<OrigenLey>("final");
   const [baseStock, setBaseStock] = useState<BaseStock>("TMH");
   const [salidaDias, setSalidaDias] = useState<SalidaDias>("all");
   const [flujoSinComprobante, setFlujoSinComprobante] =
@@ -111,8 +109,9 @@ export const DashboardPage = () => {
         : (mes?.costos.venta.Plata ?? 0);
 
   // --- Leyes promedio ----------------------------------------------------
-  const leyesVenta =
-    origenLey === "final" ? mes?.leyes.venta_final : mes?.leyes.venta_cliente;
+  // El card es una comparación directa entre la ley de COMPRA y la ley de
+  // VENTA (la ley final de Fabero). No hay selector de origen.
+  const leyesVenta = mes?.leyes.venta_final;
 
   // --- Stock en cancha ---------------------------------------------------
   const stock = data?.cancha.stock;
@@ -300,14 +299,14 @@ export const DashboardPage = () => {
                 {esToneladas ? fmt(mes?.tn_compradas ?? 0) : usd(montoCompra)}
                 {esToneladas && <NumeroUnidad>t</NumeroUnidad>}
               </Numero>
-              <div className="text-[13px] text-zinc-400">Comprado</div>
+              <div className="text-[13px] text-zinc-300">Comprado</div>
             </div>
             <div>
               <Numero color={COLOR_VENTA}>
                 {esToneladas ? fmt(mes?.tn_vendidas ?? 0) : usd(montoVenta)}
                 {esToneladas && <NumeroUnidad>t</NumeroUnidad>}
               </Numero>
-              <div className="text-[13px] text-zinc-400">Vendido</div>
+              <div className="text-[13px] text-zinc-300">Vendido</div>
             </div>
             <div>
               {esToneladas ? (
@@ -406,7 +405,7 @@ export const DashboardPage = () => {
             ]}
             format={usd}
           />
-          <div className="text-[13px] text-zinc-400">
+          <div className="text-[13px] text-zinc-300">
             Mayor deuda:{" "}
             <b className="font-semibold text-zinc-100">
               {porPagar?.mayor_deudor?.nombre ?? "—"}
@@ -438,7 +437,7 @@ export const DashboardPage = () => {
             ]}
             format={usd}
           />
-          <div className="text-[13px] text-zinc-400">
+          <div className="text-[13px] text-zinc-300">
             Mayor saldo:{" "}
             <b className="font-semibold text-zinc-100">
               {porCobrar?.mayor_acreedor?.nombre ?? "—"}
@@ -493,24 +492,6 @@ export const DashboardPage = () => {
         <DashCard
           className="col-span-12 xl:col-span-4"
           titulo="Ley promedio (g/t)"
-          rightSection={
-            <Select
-              aria-label="Ley de venta"
-              data={[
-                { value: "final", label: "Ley final" },
-                { value: "cliente", label: "Ley cliente" },
-              ]}
-              value={origenLey}
-              onChange={(v) => {
-                if (v !== null) setOrigenLey(v as OrigenLey);
-              }}
-              comboboxProps={{ withinPortal: true }}
-              size="xs"
-              radius="lg"
-              classNames={selectClassesSm}
-              w={120}
-            />
-          }
         >
           <div className="flex flex-1 items-center">
             <div className="w-full">

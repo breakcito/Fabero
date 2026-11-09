@@ -1,5 +1,6 @@
 import type { EstadoComprobanteCompra } from "../../../shared/enums/contabilidad-compra/estado-comprobante-compra";
 import type { TipoAprobacionComprobante } from "../../../shared/enums/contabilidad-compra/tipo-aprobacion-comprobante";
+import type { TipoNotaComprobante } from "../../../shared/enums/contabilidad-compra/tipo-nota-comprobante";
 import type { IArchivo } from "../../../shared/interfaces/archivo";
 
 export interface RES_AprobacionComprobante {
@@ -56,10 +57,32 @@ export interface RES_PagoComprobante {
   proveedor_moneda: string | null;
 }
 
+export interface RES_ComprobanteNota {
+  id: number;
+  id_comprobante_compra: number;
+  id_empleado_registro: number | null;
+  id_empleado_anulacion: number | null;
+  tipo: TipoNotaComprobante;
+  fecha_emision: string;
+  codigo_nota: string | null;
+  motivo: string | null;
+  motivo_descripcion: string | null;
+  monto: number;
+  es_anulado: boolean;
+  fecha_hora_anulacion: string | null;
+  motivo_anulacion: string | null;
+  created_at: string;
+  empleado_registro_nombre: string | null;
+  empleado_anulacion_nombre: string | null;
+  documentos?: IArchivo[];
+}
+
 export interface RES_ComprobanteCompra {
   id: number;
   id_valorizacion_compra: number;
   valorizacion_correlativo: string;
+  valorizacion_correlativo_dirimencia?: string | null;
+  valorizacion_con_dirimencia?: boolean;
   id_tipo_cambio: number;
   tipo_cambio_fecha: string;
   id_empleado_registro: number;
@@ -80,6 +103,22 @@ export interface RES_ComprobanteCompra {
   monto_detraccion: number;
   monto_detraccion_soles: number;
   monto_neto: number;
+  /** Snapshot del monto neto ajustado por notas de crédito/débito. */
+  monto_neto_final: number;
+  /** Snapshot de la detracción ajustada por notas de crédito/débito. */
+  monto_detraccion_soles_final: number;
+  /** Monto neto realmente pagable (con notas vigentes rige el snapshot). */
+  monto_neto_efectivo: number;
+  /** Detracción realmente pagable (con notas vigentes rige el snapshot). */
+  monto_detraccion_soles_efectivo: number;
+  /** Saldo a favor: lo pagado que supera el neto ajustado (tras notas de crédito). */
+  saldo_a_favor_neto: number;
+  /** Saldo a favor de la detracción (lo retenido que supera el monto ajustado). */
+  saldo_a_favor_detraccion: number;
+  /** Cantidad de notas de crédito/débito vigentes. */
+  notas_count: number;
+  /** Efecto firmado de las notas vigentes sobre el monto neto (USD). */
+  delta_neto: number;
   avance_pago_neto: number;
   avance_pago_detraccion: number;
   id_cuenta_bancaria_proveedor_sugerida: number | null;
@@ -108,4 +147,5 @@ export interface RES_ComprobanteCompra {
   evidencias?: IArchivo[];
   lotes_valorizados?: RES_LoteValorizadoComprobante[];
   pagos?: RES_PagoComprobante[];
+  notas?: RES_ComprobanteNota[];
 }

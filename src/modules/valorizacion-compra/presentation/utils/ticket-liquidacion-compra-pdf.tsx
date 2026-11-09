@@ -294,10 +294,22 @@ const fmtNum = (n: number | null | undefined, decimals = 2): string => {
 
 export interface TicketLiquidacionCompraPdfProps {
   data: RES_ValorizacionCompra;
+  /** Ticket por dirimencia: cambia el título y usa el correlativo de dirimencia. */
+  esDirimencia?: boolean;
 }
 
-export const TicketLiquidacionCompraPdf = ({ data }: TicketLiquidacionCompraPdfProps) => {
-  const displayCorrelativo = dash(data.correlativo || (data.numero_correlativo ? `VAL-${data.numero_correlativo}` : null));
+export const TicketLiquidacionCompraPdf = ({
+  data,
+  esDirimencia = false,
+}: TicketLiquidacionCompraPdfProps) => {
+  const correlativoDirimencia = data.correlativo_dirimencia ?? null;
+  const displayCorrelativo = esDirimencia
+    ? dash(correlativoDirimencia || (data.numero_correlativo_dirimencia ? `DRD-${data.numero_correlativo_dirimencia}` : null))
+    : dash(data.correlativo || (data.numero_correlativo ? `VAL-${data.numero_correlativo}` : null));
+  const correlativoOriginal = dash(data.correlativo || (data.numero_correlativo ? `VAL-${data.numero_correlativo}` : null));
+  const notasDirimencia = (data.notas_comprobante ?? []).filter(
+    (n) => !n.es_anulado,
+  );
 
   // Fecha legible
   const displayFecha = (() => {
@@ -434,7 +446,7 @@ export const TicketLiquidacionCompraPdf = ({ data }: TicketLiquidacionCompraPdfP
   };
 
   return (
-    <Document title={`Liquidación ${displayCorrelativo}`}>
+    <Document title={`${esDirimencia ? "Liquidación por Dirimencia" : "Liquidación"} ${displayCorrelativo}`}>
       <Page size="A4" orientation="landscape" style={styles.page}>
         {/* ========== ENCABEZADO SUPERIOR ========== */}
         <View style={styles.headerBar}>
@@ -444,21 +456,96 @@ export const TicketLiquidacionCompraPdf = ({ data }: TicketLiquidacionCompraPdfP
 
           <View style={styles.titleContainer}>
             <Text style={styles.titleText}>
-              VALORIZACION MINERAL
+              {esDirimencia ? "VALORIZACION MINERAL - POR DIRIMENCIA" : "VALORIZACION MINERAL"}
             </Text>
           </View>
 
           <View style={styles.headerMeta}>
             <View style={styles.liqNumberRow}>
-              <Text style={styles.liqNumberLabel}>N°  DE LIQ.:</Text>
+              <Text style={styles.liqNumberLabel}>
+                {esDirimencia ? "N°  DE DIRIMENCIA:" : "N°  DE LIQ.:"}
+              </Text>
               <Text style={styles.liqNumberValue}>{displayCorrelativo}</Text>
             </View>
+            {esDirimencia && (
+              <View style={styles.fechaRow}>
+                <Text style={styles.fechaLabel}>REF. VALORIZACION:</Text>
+                <Text style={styles.fechaValue}>{correlativoOriginal}</Text>
+              </View>
+            )}
             <View style={styles.fechaRow}>
               <Text style={styles.fechaLabel}>FECHA:</Text>
               <Text style={styles.fechaValue}>{displayFecha}</Text>
             </View>
           </View>
         </View>
+
+        {/* ========== BLOQUE DE NOTAS DE DIRIMENCIA ========== */}
+        {esDirimencia && (
+          <View style={styles.infoSection}>
+            <View style={styles.infoColumn}>
+              <Text style={styles.sectionTitle}>NOTAS DE DIRIMENCIA</Text>
+
+              {notasDirimencia.length === 0 ? (
+                <Text style={styles.infoValue}>Sin notas vigentes</Text>
+              ) : (
+                notasDirimencia.map((n) => (
+                  <View key={`nota-${n.id}`} style={styles.infoRow}>
+                    <Text style={[styles.infoLabel, { width: 95 }]}>
+                      {n.tipo_descripcion?.toUpperCase() ?? "NOTA"}:
+                    </Text>
+                    <Text style={styles.infoValue}>
+                      {`${dash(n.codigo_nota)} · ${dash(n.motivo_descripcion ?? n.motivo)} · $ ${fmtNum(n.monto)}`}
+                    </Text>
+                  </View>
+                ))
+              )}
+
+              <View style={styles.infoRow}>
+                <Text style={[styles.infoLabel, { width: 95 }]}>NETO COMPROBANTE:</Text>
+                <Text style={styles.infoValue}>
+                  $ {fmtNum(data.monto_neto_comprobante ?? 0)}
+                </Text>
+              </View>
+
+              <View style={styles.infoRow}>
+                <Text style={[styles.infoLabel, { width: 95 }]}>NETO A PAGAR:</Text>
+                <Text style={styles.infoValue}>
+                  $ {fmtNum(data.monto_neto_comprobante_efectivo ?? 0)}
+                </Text>
+              </View>
+
+              <View style={styles.infoRow}>
+                <Text style={[styles.infoLabel, { width: 95 }]}>DETRACCIÓN (S/):</Text>
+                <Text style={styles.infoValue}>
+                  S/ {fmtNum(data.monto_detraccion_soles_comprobante_efectivo ?? 0)}
+                </Text>
+              </View>
+
+              {(data.saldo_a_favor_neto ?? 0) > 0 && (
+                <View style={styles.infoRow}>
+                  <Text style={[styles.infoLabel, { width: 95 }]}>
+                    SALDO A FAVOR NETO:
+                  </Text>
+                  <Text style={styles.infoValue}>
+                    $ {fmtNum(data.saldo_a_favor_neto ?? 0)}
+                  </Text>
+                </View>
+              )}
+
+              {(data.saldo_a_favor_detraccion ?? 0) > 0 && (
+                <View style={styles.infoRow}>
+                  <Text style={[styles.infoLabel, { width: 95 }]}>
+                    SALDO A FAVOR DETRACCIÓN:
+                  </Text>
+                  <Text style={styles.infoValue}>
+                    S/ {fmtNum(data.saldo_a_favor_detraccion ?? 0)}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </View>
+        )}
 
         {/* ========== BLOQUES DE INFORMACIÓN ========== */}
         <View style={styles.infoSection}>

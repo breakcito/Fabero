@@ -123,10 +123,10 @@ export const CostRangeChart = ({
       >
         {tVenta}
       </text>
-      <text x={xTextoC} y={Y + 32} textAnchor="middle" fontSize={13} fontWeight={600} fill="#a1a1aa">
+      <text x={xTextoC} y={Y + 32} textAnchor="middle" fontSize={13} fontWeight={600} fill="#d4d4d8">
         Compra
       </text>
-      <text x={xTextoV} y={Y + 32} textAnchor="middle" fontSize={13} fontWeight={600} fill="#a1a1aa">
+      <text x={xTextoV} y={Y + 32} textAnchor="middle" fontSize={13} fontWeight={600} fill="#d4d4d8">
         Venta
       </text>
     </svg>

@@ -140,7 +140,7 @@ export const HeroCompareChart = ({
             y={g.yy + 4}
             textAnchor="end"
             fontSize={12}
-            fill="#a1a1aa"
+            fill="#d4d4d8"
           >
             {format(g.v)}
           </text>
@@ -205,7 +205,7 @@ export const HeroCompareChart = ({
               textAnchor="middle"
               fontSize={12}
               fontWeight={esSel ? 700 : 500}
-              fill={esSel ? "#e4e4e7" : "#a1a1aa"}
+              fill={esSel ? "#fafafa" : "#d4d4d8"}
             >
               {anio}
             </text>

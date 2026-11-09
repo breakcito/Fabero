@@ -2,14 +2,17 @@ import { api } from "../../../service/_api";
 import type { IRespuesta } from "../../../shared/interfaces/_response";
 import type {
   REQ_AnularComprobante,
+  REQ_AnularNotaComprobante,
   REQ_AnularPago,
   REQ_AprobarComprobante,
   REQ_CrearComprobante,
   REQ_FiltroComprobantes,
+  REQ_RegistrarNotaComprobante,
   REQ_RegistrarPago,
 } from "./contabilidad-compra.requests";
 import type {
   RES_ComprobanteCompra,
+  RES_ComprobanteNota,
   RES_PagoComprobante,
 } from "./contabilidad-compra.responses";
 
@@ -163,6 +166,50 @@ export const ContabilidadCompraService = {
       formData,
       { headers: { "Content-Type": "multipart/form-data" } },
     );
+    return data;
+  },
+
+  listarNotas: async (
+    idComprobante: number,
+  ): Promise<IRespuesta<RES_ComprobanteNota[]>> => {
+    const { data } = await api.get<IRespuesta<RES_ComprobanteNota[]>>(
+      `${basePath}/comprobantes/${idComprobante}/notas`,
+    );
+    return data;
+  },
+
+  registrarNota: async (
+    idComprobante: number,
+    payload: REQ_RegistrarNotaComprobante,
+  ): Promise<IRespuesta<{ nota: RES_ComprobanteNota; comprobante: RES_ComprobanteCompra }>> => {
+    const formData = new FormData();
+    formData.append("tipo", payload.tipo);
+    formData.append("monto", String(payload.monto));
+    formData.append("motivo", payload.motivo);
+    formData.append("fecha_emision", payload.fecha_emision);
+    if (payload.codigo_nota) {
+      formData.append("codigo_nota", payload.codigo_nota);
+    }
+    if (payload.documentos && payload.documentos.length > 0) {
+      payload.documentos.forEach((file) => {
+        formData.append("documentos[]", file);
+      });
+    }
+    const { data } = await api.post<
+      IRespuesta<{ nota: RES_ComprobanteNota; comprobante: RES_ComprobanteCompra }>
+    >(`${basePath}/comprobantes/${idComprobante}/notas`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return data;
+  },
+
+  anularNota: async (
+    idNota: number,
+    payload: REQ_AnularNotaComprobante,
+  ): Promise<IRespuesta<{ nota: RES_ComprobanteNota; comprobante: RES_ComprobanteCompra }>> => {
+    const { data } = await api.post<
+      IRespuesta<{ nota: RES_ComprobanteNota; comprobante: RES_ComprobanteCompra }>
+    >(`${basePath}/notas/${idNota}/anular`, payload);
     return data;
   },
 };

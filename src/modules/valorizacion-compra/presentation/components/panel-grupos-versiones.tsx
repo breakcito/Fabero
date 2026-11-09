@@ -19,6 +19,7 @@ import {
   IconFiles,
   IconHistory,
   IconPrinter,
+  IconScale,
   IconShoppingCart,
 } from "@tabler/icons-react";
 import { EstadoValorizacionCompra } from "../../../../shared/enums/valorizacion-compra/estado-valorizacion-compra";
@@ -46,6 +47,7 @@ interface Props {
   onSolicitarOc: (v: RES_ValorizacionCompra) => void;
   onClonarVersion: (v: RES_ValorizacionCompra) => void;
   onImprimirValorizacion: (v: RES_ValorizacionCompra) => void;
+  onImprimirDirimencia: (v: RES_ValorizacionCompra) => void;
   onEditarVersion: (v: RES_ValorizacionCompra) => void;
   onAprobarVersion: (v: RES_ValorizacionCompra) => void;
   onAnularVersion: (v: RES_ValorizacionCompra) => void;
@@ -68,6 +70,7 @@ export const PanelGruposVersiones = ({
   onSolicitarOc,
   onClonarVersion,
   onImprimirValorizacion,
+  onImprimirDirimencia,
   onEditarVersion,
   onAprobarVersion,
   onAnularVersion,
@@ -287,6 +290,25 @@ export const PanelGruposVersiones = ({
                           #{numProp}
                         </Badge>
                         <BadgeEstadoValorizacion estado={v.estado} size="xs" />
+                        {v.con_dirimencia && (
+                          <Tooltip
+                            label={`Dirimencia ${v.correlativo_dirimencia ?? ""} — la valorización tiene notas de crédito/débito.`}
+                            withArrow
+                            multiline
+                            w={240}
+                          >
+                            <Badge
+                              color="cyan"
+                              variant="light"
+                              size="xs"
+                              radius="sm"
+                              fw={700}
+                              leftSection={<IconScale size={10} />}
+                            >
+                              {v.correlativo_dirimencia ?? "Dirimencia"}
+                            </Badge>
+                          </Tooltip>
+                        )}
                         <Text fz={11} c="dimmed" className="truncate">
                           {lotesFisicos}{" "}
                           {lotesFisicos === 1 ? "lote" : "lotes"}
@@ -378,6 +400,26 @@ export const PanelGruposVersiones = ({
                             <IconPrinter size={14} />
                           </ActionIcon>
                         </Tooltip>
+
+                        {/* Imprimir Ticket por Dirimencia (solo si tiene notas de crédito/débito) */}
+                        {v.con_dirimencia && (
+                          <Tooltip
+                            label={`Imprimir Ticket por Dirimencia (${v.correlativo_dirimencia ?? "DRD"})`}
+                            withArrow
+                          >
+                            <ActionIcon
+                              size="sm"
+                              radius="md"
+                              variant="light"
+                              color="cyan"
+                              loading={isPrinting}
+                              disabled={isPrinting}
+                              onClick={() => onImprimirDirimencia(v)}
+                            >
+                              <IconScale size={14} />
+                            </ActionIcon>
+                          </Tooltip>
+                        )}
 
                         {/* Editar (solo Propuesta) */}
                         {isPropuesta && (

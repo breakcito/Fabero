@@ -54,6 +54,18 @@ export interface RES_TransaccionAnticipoValorizacion {
   log_cambios?: Record<string, unknown>[];
 }
 
+export interface RES_NotaComprobanteValorizacion {
+  id: number;
+  tipo: string;
+  tipo_descripcion: string;
+  codigo_nota: string | null;
+  motivo: string | null;
+  motivo_descripcion: string | null;
+  monto: number;
+  fecha_emision: string;
+  es_anulado: boolean;
+}
+
 export interface RES_ValorizacionCompra {
   id: number;
   numero_correlativo: string;
@@ -109,6 +121,20 @@ export interface RES_ValorizacionCompra {
   factura_asociada?: string | null;
   fecha_factura?: string | null;
   tiene_factura?: boolean;
+  /** Dirimencia: la valorización tiene al menos una nota de crédito/débito. */
+  con_dirimencia?: boolean;
+  correlativo_dirimencia?: string | null;
+  numero_correlativo_dirimencia?: number | null;
+  fecha_hora_dirimencia?: string | null;
+  comprobante_id?: number | null;
+  notas_comprobante?: RES_NotaComprobanteValorizacion[];
+  tiene_notas?: boolean;
+  monto_neto_comprobante?: number;
+  monto_neto_comprobante_efectivo?: number;
+  monto_detraccion_soles_comprobante?: number;
+  monto_detraccion_soles_comprobante_efectivo?: number;
+  saldo_a_favor_neto?: number;
+  saldo_a_favor_detraccion?: number;
   igv?: number | null;
   total_con_igv?: number | null;
   monto_detraccion?: number | null;

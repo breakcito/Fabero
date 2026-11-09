@@ -111,7 +111,7 @@ const elegirVersionPreferida = (
 export const ValorizacionCompraPage = () => {
   useTitlePage("Valorizaciones de Compra", true, true);
 
-  const { printTicketLiquidacion, printingId } = useTicketLiquidacionCompra();
+  const { printTicketLiquidacion, printTicketDirimencia, printingId } = useTicketLiquidacionCompra();
   const { print, prepare } = usePrint();
   const { notifySuccess, notifyError } = useNotify();
 
@@ -638,6 +638,7 @@ export const ValorizacionCompraPage = () => {
             onSolicitarOc={handleSolicitarOc}
             onClonarVersion={handleConfirmarClonar}
             onImprimirValorizacion={(v) => void printTicketLiquidacion(v)}
+            onImprimirDirimencia={(v) => void printTicketDirimencia(v)}
             onEditarVersion={handleEditar}
             onAprobarVersion={handleAbrirAprobar}
             onAnularVersion={handleAbrirAnular}

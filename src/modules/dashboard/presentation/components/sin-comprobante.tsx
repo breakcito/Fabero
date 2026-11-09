@@ -26,7 +26,7 @@ export const SinComprobante = ({
   ) => (
     <div>
       <Numero color={color}>{datos.conteo}</Numero>
-      <div className="text-[13px] text-zinc-400">
+      <div className="text-[13px] text-zinc-300">
         {etiqueta} · {usd(datos.monto_usd)}
       </div>
     </div>
@@ -49,7 +49,7 @@ export const SinComprobante = ({
               <b className="truncate font-semibold text-zinc-100">
                 {item.documento}
               </b>
-              <small className="truncate text-[12.5px] text-zinc-400">
+              <small className="truncate text-[12.5px] text-zinc-300">
                 {item.contraparte}
               </small>
             </span>

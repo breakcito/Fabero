@@ -31,8 +31,8 @@ export const LeyBars = ({ items }: LeyBarsProps) => (
 
       const barra = (altura: number, color: string, valor: number, etiqueta: string) => (
         <div className="flex min-w-0 flex-1 flex-col items-center gap-1.5">
-          <b className="text-[13px] font-semibold text-zinc-100">
-            {fmt(valor, 1)}
+          <b className="text-[13px] font-semibold tabular-nums text-zinc-100">
+            {fmt(valor, 3)}
           </b>
           <div className="flex h-[86px] w-full items-end overflow-hidden rounded-xl bg-zinc-800/50">
             <div
@@ -40,7 +40,7 @@ export const LeyBars = ({ items }: LeyBarsProps) => (
               style={{ height: `${altura}%`, background: color }}
             />
           </div>
-          <span className="text-[13px] text-zinc-400">{etiqueta}</span>
+          <span className="text-[13px] text-zinc-300">{etiqueta}</span>
         </div>
       );
 

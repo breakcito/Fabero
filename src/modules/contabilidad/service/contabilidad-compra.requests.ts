@@ -1,5 +1,7 @@
+import { z } from "zod";
 import type { MedioPagoComprobante } from "../../../shared/enums/contabilidad-compra/medio-pago-comprobante";
 import type { TipoAprobacionComprobante } from "../../../shared/enums/contabilidad-compra/tipo-aprobacion-comprobante";
+import type { TipoNotaComprobante } from "../../../shared/enums/contabilidad-compra/tipo-nota-comprobante";
 
 export interface REQ_FiltroComprobantes {
   id_proveedor?: number;
@@ -53,4 +55,41 @@ export interface REQ_RegistrarPago {
 export interface REQ_AnularPago {
   motivo: string;
   evidencias_anulacion?: File[];
+}
+
+/**
+ * Nota de crédito / débito sobre un comprobante de compra.
+ * El monto se registra en USD (moneda operativa del comprobante).
+ */
+export const Schema_RegistrarNotaComprobante = z.object({
+  tipo: z.enum(["Credito", "Debito"], {
+    error: "Seleccione el tipo de nota",
+  }),
+  monto: z
+    .number({ error: "Ingrese el monto de la nota" })
+    .positive("El monto debe ser mayor a 0")
+    .max(9_999_999.99, "El monto es demasiado grande"),
+  codigo_nota: z
+    .string()
+    .max(50, "El código es demasiado largo")
+    .optional()
+    .or(z.literal("")),
+  motivo: z
+    .string({ error: "Seleccione el motivo SUNAT" })
+    .min(1, "Seleccione el motivo SUNAT"),
+  fecha_emision: z
+    .string({ error: "Ingrese la fecha de emisión" })
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "La fecha debe tener formato YYYY-MM-DD"),
+});
+
+export type REQ_RegistrarNotaComprobante = Omit<
+  z.infer<typeof Schema_RegistrarNotaComprobante>,
+  "tipo"
+> & {
+  tipo: TipoNotaComprobante;
+  documentos?: File[];
+};
+
+export interface REQ_AnularNotaComprobante {
+  motivo: string;
 }

@@ -72,7 +72,7 @@ export const DaysGauge = ({ valor, max, meta }: DaysGaugeProps) => {
         textAnchor="middle"
         fontSize={13}
         fontWeight={600}
-        fill="#a1a1aa"
+        fill="#d4d4d8"
       >
         días · meta ≤ {meta}
       </text>

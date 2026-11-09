@@ -23,9 +23,12 @@ import type { IArchivo } from "../../../shared/interfaces/archivo";
 import { useComprobantesCompra } from "../hooks/useComprobantesCompra";
 import { usePagosComprobante } from "../hooks/usePagosComprobante";
 import { useDocumentosCompraPdf } from "../hooks/useDocumentosCompraPdf";
+import { useNotasComprobante } from "../hooks/useNotasComprobante";
 import { ContabilidadCompraService } from "../service/contabilidad-compra.service";
+import type { REQ_RegistrarNotaComprobante } from "../service/contabilidad-compra.requests";
 import type { TipoAprobacionComprobante } from "../../../shared/enums/contabilidad-compra/tipo-aprobacion-comprobante";
-import type { RES_ComprobanteCompra } from "../service/contabilidad-compra.responses";
+import { TipoNotaComprobante } from "../../../shared/enums/contabilidad-compra/tipo-nota-comprobante";
+import type { RES_ComprobanteCompra, RES_ComprobanteNota } from "../service/contabilidad-compra.responses";
 
 // Hooks & Services - Venta
 import { useComprobantesVenta } from "../hooks/useComprobantesVenta";
@@ -39,6 +42,8 @@ import { ModalHistorialPagos } from "./components/modal-historial-pagos";
 import { ModalRegistroPago } from "./components/modal-registro-pago";
 import { ModalAnularComprobante } from "./components/modal-anular-comprobante";
 import { ModalRegistroComprobante } from "./components/modal-registro-comprobante";
+import { ModalRegistroNotaComprobante } from "./components/modal-registro-nota-comprobante";
+import { ModalAnularNotaComprobante } from "./components/modal-anular-nota-comprobante";
 
 // Único componente nuevo exclusivo para Contabilidad Venta
 import { ModalRegistroComprobanteVenta } from "./components/modal-registro-comprobante-venta";
@@ -152,9 +157,25 @@ export default function ContabilidadPage() {
   const [comprobanteAAnular, setComprobanteAAnular] =
     useState<RES_ComprobanteCompra | RES_ComprobanteVenta | null>(null);
 
+  // Notas de crédito / débito (solo Contabilidad Compra)
+  const { registrandoPorId, anulandoPorId, registrarNota, anularNota } =
+    useNotasComprobante();
+  const [comprobanteNota, setComprobanteNota] =
+    useState<RES_ComprobanteCompra | null>(null);
+  const [tipoNota, setTipoNota] = useState<TipoNotaComprobante>(
+    TipoNotaComprobante.Credito,
+  );
+  const [notaAAnular, setNotaAAnular] = useState<RES_ComprobanteNota | null>(
+    null,
+  );
+  const [notaIdAnulando, setNotaIdAnulando] = useState<number | null>(null);
+
   // Modal Evidencias
   const [evidenceModalOpen, setEvidenceModalOpen] = useState(false);
   const [selectedEvidencias, setSelectedEvidencias] = useState<IArchivo[] | null>(null);
+  const [tituloEvidencias, setTituloEvidencias] = useState<string>(
+    "Evidencias del Comprobante",
+  );
 
   // Cargar Catálogos Auxiliares
   useEffect(() => {
@@ -196,6 +217,36 @@ export default function ContabilidadPage() {
     } else {
       const ok = await anularComprobanteCompra(comprobanteAAnular.id, { motivo });
       if (ok) setComprobanteAAnular(null);
+    }
+  };
+
+  // Notas de crédito / débito
+  const handleAbrirNota = (
+    comprobante: RES_ComprobanteCompra,
+    tipo: TipoNotaComprobante,
+  ) => {
+    setComprobanteNota(comprobante);
+    setTipoNota(tipo);
+  };
+
+  const handleRegistrarNota = async (
+    payload: REQ_RegistrarNotaComprobante,
+  ): Promise<boolean> => {
+    if (!comprobanteNota) return false;
+    const ok = await registrarNota(comprobanteNota.id, payload);
+    if (ok) {
+      await cargarComprobantesCompra(false);
+    }
+    return ok;
+  };
+
+  const handleConfirmarAnularNota = async (motivo: string) => {
+    if (!notaAAnular) return;
+    const ok = await anularNota(notaAAnular.id, { motivo });
+    if (ok) {
+      setNotaAAnular(null);
+      setNotaIdAnulando(null);
+      await cargarComprobantesCompra(false);
     }
   };
 
@@ -511,9 +562,22 @@ export default function ContabilidadPage() {
                 onAnular={() => setComprobanteAAnular(c)}
                 onVerPagos={() => void handleVerHistorial(c.id, false)}
                 onVerEvidencias={() => {
+                  setTituloEvidencias("Evidencias del Comprobante");
                   setSelectedEvidencias(c.evidencias ?? []);
                   setEvidenceModalOpen(true);
                 }}
+                onEmitirNota={(tipo) => handleAbrirNota(c, tipo)}
+                onAnularNota={(idNota) => {
+                  const nota = (c.notas ?? []).find((n) => n.id === idNota) ?? null;
+                  setNotaIdAnulando(idNota);
+                  setNotaAAnular(nota);
+                }}
+                onVerDocumentosNota={(docs) => {
+                  setTituloEvidencias("Documentos de la Nota");
+                  setSelectedEvidencias(docs);
+                  setEvidenceModalOpen(true);
+                }}
+                anulandoNotaId={notaIdAnulando}
               />
             ))}
           </SimpleGrid>
@@ -598,6 +662,28 @@ export default function ContabilidadPage() {
         loading={anulandoIdCompra !== null || anulandoIdVenta !== null}
       />
 
+      {/* --- MODAL: EMITIR NOTA DE CRÉDITO / DÉBITO (COMPRA) --- */}
+      <ModalRegistroNotaComprobante
+        opened={comprobanteNota !== null}
+        close={() => setComprobanteNota(null)}
+        comprobante={comprobanteNota}
+        tipo={tipoNota}
+        loading={comprobanteNota ? (registrandoPorId[comprobanteNota.id] ?? false) : false}
+        onSubmit={handleRegistrarNota}
+      />
+
+      {/* --- MODAL: ANULAR NOTA DE CRÉDITO / DÉBITO (COMPRA) --- */}
+      <ModalAnularNotaComprobante
+        opened={notaAAnular !== null}
+        onClose={() => {
+          setNotaAAnular(null);
+          setNotaIdAnulando(null);
+        }}
+        nota={notaAAnular}
+        onConfirm={handleConfirmarAnularNota}
+        loading={notaIdAnulando !== null && (anulandoPorId[notaIdAnulando] ?? false)}
+      />
+
       {/* Modal Evidencias Compartido */}
       <ModalEstandar
         opened={evidenceModalOpen}
@@ -605,7 +691,7 @@ export default function ContabilidadPage() {
           setEvidenceModalOpen(false);
           setSelectedEvidencias(null);
         }}
-        title="Evidencias del Comprobante"
+        title={tituloEvidencias}
         size="md"
       >
         <div className="flex flex-col gap-3">

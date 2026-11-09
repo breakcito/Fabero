@@ -10,12 +10,20 @@ import {
   IconPaperclip,
   IconFileDescription,
   IconShoppingCart,
+  IconFileMinus,
+  IconFilePlus,
+  IconScale,
 } from "@tabler/icons-react";
 import { EstadoComprobanteCompra } from "../../../../shared/enums/contabilidad-compra/estado-comprobante-compra";
 import { TipoAprobacionComprobante } from "../../../../shared/enums/contabilidad-compra/tipo-aprobacion-comprobante";
+import {
+  TipoNotaComprobante,
+  TIPO_NOTA_COLOR,
+} from "../../../../shared/enums/contabilidad-compra/tipo-nota-comprobante";
 import type { RES_AprobacionComprobante } from "../../service/contabilidad-compra.responses";
 import type { RES_ComprobanteCompra } from "../../service/contabilidad-compra.responses";
 import type { RES_ComprobanteVenta } from "../../service/contabilidad-venta.responses";
+import type { IArchivo } from "../../../../shared/interfaces/archivo";
 import { useDocumentosCompraPdf } from "../../hooks/useDocumentosCompraPdf";
 
 interface ComprobanteCardProps {
@@ -26,6 +34,10 @@ interface ComprobanteCardProps {
   onAnular: () => void;
   onVerPagos: () => void;
   onVerEvidencias: () => void;
+  onEmitirNota?: (tipo: TipoNotaComprobante) => void;
+  onAnularNota?: (idNota: number) => void;
+  onVerDocumentosNota?: (documentos: IArchivo[]) => void;
+  anulandoNotaId?: number | null;
 }
 
 const COLOR_BY_TIPO: Record<TipoAprobacionComprobante, string> = {
@@ -129,29 +141,64 @@ export const ComprobanteCard = ({
   onAnular,
   onVerPagos,
   onVerEvidencias,
+  onEmitirNota,
+  onAnularNota,
+  onVerDocumentosNota,
+  anulandoNotaId = null,
 }: ComprobanteCardProps) => {
   const { imprimirDocumento, loadingDoc } = useDocumentosCompraPdf();
   const isCompra = "aprobaciones" in comprobante;
   const isAnulado = comprobante.estado === EstadoComprobanteCompra.Anulado || comprobante.estado === "Anulado";
   const numEvidencias = Array.isArray(comprobante.evidencias) ? comprobante.evidencias.length : 0;
 
-  const saldoPendienteNeto = Math.max(comprobante.monto_neto - comprobante.avance_pago_neto, 0);
+  // Notas de crédito / débito (solo comprobantes de compra)
+  const notas = isCompra ? (comprobante as RES_ComprobanteCompra).notas ?? [] : [];
+  const notasVigentes = notas.filter((n) => !n.es_anulado);
+  const tieneNotas = notasVigentes.length > 0;
+  const deltaNeto = isCompra ? (comprobante as RES_ComprobanteCompra).delta_neto ?? 0 : 0;
+
+  // Un comprobante no puede tener notas de crédito y de débito vigentes a la vez.
+  const tieneNotaCredito = notasVigentes.some(
+    (n) => n.tipo === TipoNotaComprobante.Credito,
+  );
+  const tieneNotaDebito = notasVigentes.some(
+    (n) => n.tipo === TipoNotaComprobante.Debito,
+  );
+
+  // Monto real del comprobante vs. monto pagable (con notas rige el ajustado)
+  const montoNetoReal = comprobante.monto_neto;
+  const montoNetoPagar = isCompra
+    ? (comprobante as RES_ComprobanteCompra).monto_neto_efectivo ?? montoNetoReal
+    : montoNetoReal;
+  const detraccionSolesReal = comprobante.monto_detraccion_soles;
+  const detraccionSolesPagar = isCompra
+    ? (comprobante as RES_ComprobanteCompra).monto_detraccion_soles_efectivo ?? detraccionSolesReal
+    : detraccionSolesReal;
+
+  // Saldo a favor: lo ya pagado que supera el neto ajustado (tras notas de crédito)
+  const saldoAFavor =
+    isCompra ? ((comprobante as RES_ComprobanteCompra).saldo_a_favor_neto ?? 0) : 0;
+  const saldoAFavorDetraccion = isCompra
+    ? ((comprobante as RES_ComprobanteCompra).saldo_a_favor_detraccion ?? 0)
+    : 0;
+
+  const saldoPendienteNeto = Math.max(montoNetoPagar - comprobante.avance_pago_neto, 0);
   const saldoPendienteDetraccion = Math.max(
-    comprobante.monto_detraccion_soles - comprobante.avance_pago_detraccion,
+    detraccionSolesPagar - comprobante.avance_pago_detraccion,
     0,
   );
 
   const pctPagadoNeto =
     !isAnulado
-      ? comprobante.monto_neto > 0
-        ? Math.min(100, (comprobante.avance_pago_neto / comprobante.monto_neto) * 100)
+      ? montoNetoPagar > 0
+        ? Math.min(100, (comprobante.avance_pago_neto / montoNetoPagar) * 100)
         : 100
       : 0;
 
   const pctPagadoDetraccion =
     !isAnulado
-      ? comprobante.monto_detraccion_soles > 0
-        ? Math.min(100, (comprobante.avance_pago_detraccion / comprobante.monto_detraccion_soles) * 100)
+      ? detraccionSolesPagar > 0
+        ? Math.min(100, (comprobante.avance_pago_detraccion / detraccionSolesPagar) * 100)
         : 100
       : 0;
 
@@ -167,6 +214,10 @@ export const ComprobanteCard = ({
     ? ((comprobante as RES_ComprobanteCompra).total ?? 0)
     : ((comprobante as RES_ComprobanteVenta).total_dolares ?? 0);
 
+  // Comprobantes de valorizaciones sin valor comercial: no admiten notas
+  // (no hay monto que ajustar). Se ocultan los botones y el desplegable.
+  const esSinValorComercial = isCompra && totalDolares <= 0;
+
   const pctPagadoTotal =
     !isAnulado && totalDolares > 0
       ? Math.min(100, (totalPagadoUsd / totalDolares) * 100)
@@ -174,11 +225,11 @@ export const ComprobanteCard = ({
 
   const isDetraccionSaldado =
     !isAnulado &&
-    (comprobante.monto_detraccion_soles <= 0.001 || saldoPendienteDetraccion <= 0.01);
+    (detraccionSolesPagar <= 0.001 || saldoPendienteDetraccion <= 0.01);
 
   const isNetoSaldado =
     !isAnulado &&
-    (comprobante.monto_neto <= 0.001 || saldoPendienteNeto <= 0.01);
+    (montoNetoPagar <= 0.001 || saldoPendienteNeto <= 0.01);
 
   const isTotalSaldado =
     !isAnulado &&
@@ -222,6 +273,25 @@ export const ComprobanteCard = ({
                 Sin Valor Comercial
               </Badge>
             )}
+            {tieneNotas && (
+              <Tooltip
+                label={`Dirimencia: ${notasVigentes.length} nota(s) de crédito/débito. El saldo pagable está ajustado.`}
+                withArrow
+                multiline
+                w={260}
+              >
+                <Badge
+                  variant="light"
+                  color="cyan"
+                  size="sm"
+                  radius="md"
+                  fw={700}
+                  leftSection={<IconScale size={11} />}
+                >
+                  Dirimencia ({notasVigentes.length})
+                </Badge>
+              </Tooltip>
+            )}
             {!isCompra &&
               "tipo_pago" in comprobante &&
               badgeTipoPago((comprobante as RES_ComprobanteVenta).tipo_pago)}
@@ -261,6 +331,60 @@ export const ComprobanteCard = ({
                     OC
                   </Button>
                 </Tooltip>
+
+                {onEmitirNota && !esSinValorComercial && (
+                  <>
+                    <Tooltip
+                      label={
+                        tieneNotaCredito
+                          ? "El comprobante ya tiene una Nota de Crédito vigente. No se pueden registrar ambos tipos en el mismo comprobante."
+                          : "Emitir Nota de Crédito (disminuye el monto a pagar)"
+                      }
+                      withArrow
+                      multiline
+                      w={260}
+                    >
+                      <span className="inline-flex">
+                        <Button
+                          size="compact-xs"
+                          variant="light"
+                          color={TIPO_NOTA_COLOR[TipoNotaComprobante.Credito]}
+                          radius="md"
+                          leftSection={<IconFileMinus size={12} />}
+                          disabled={tieneNotaCredito}
+                          onClick={() => onEmitirNota(TipoNotaComprobante.Credito)}
+                        >
+                          NC
+                        </Button>
+                      </span>
+                    </Tooltip>
+
+                    <Tooltip
+                      label={
+                        tieneNotaDebito
+                          ? "El comprobante ya tiene una Nota de Débito vigente. No se pueden registrar ambos tipos en el mismo comprobante."
+                          : "Emitir Nota de Débito (aumenta el monto a pagar)"
+                      }
+                      withArrow
+                      multiline
+                      w={260}
+                    >
+                      <span className="inline-flex">
+                        <Button
+                          size="compact-xs"
+                          variant="light"
+                          color={TIPO_NOTA_COLOR[TipoNotaComprobante.Debito]}
+                          radius="md"
+                          leftSection={<IconFilePlus size={12} />}
+                          disabled={tieneNotaDebito}
+                          onClick={() => onEmitirNota(TipoNotaComprobante.Debito)}
+                        >
+                          ND
+                        </Button>
+                      </span>
+                    </Tooltip>
+                  </>
+                )}
               </Group>
             )}
           </Group>
@@ -356,12 +480,25 @@ export const ComprobanteCard = ({
             <Text fz={11} tt="uppercase" c={isAnulado ? "red.4" : "teal.4"} fw={700}>Saldo Neto</Text>
             {renderBadgeEstadoPago(isNetoSaldado)}
           </Group>
-          <Text fz="lg" fw={800} c="white" className="font-mono">$ {comprobante.monto_neto.toFixed(2)}</Text>
-          <Text fz={11} c="white">Equiv: S/ {(comprobante.monto_neto * comprobante.tipo_cambio_venta).toFixed(2)}</Text>
+          <Text fz="lg" fw={800} c="white" className="font-mono">$ {montoNetoPagar.toFixed(2)}</Text>
+          {tieneNotas && (
+            <Text fz={10} c="zinc.4" fw={600}>
+              Comprobante: $ {montoNetoReal.toFixed(2)} · Ajuste:{" "}
+              <span className={deltaNeto < 0 ? "text-teal-400" : "text-orange-400"}>
+                {deltaNeto < 0 ? "−" : "+"}${Math.abs(deltaNeto).toFixed(2)}
+              </span>
+            </Text>
+          )}
+          <Text fz={11} c="white">Equiv: S/ {(montoNetoPagar * comprobante.tipo_cambio_venta).toFixed(2)}</Text>
           <Text fz={11} c="white">TC: {comprobante.tipo_cambio_venta.toFixed(3)}</Text>
+          {saldoAFavor > 0 && (
+            <Text fz={10} c="yellow.4" fw={700} mt={2}>
+              Saldo a favor: $ {saldoAFavor.toFixed(2)}
+            </Text>
+          )}
           <Progress value={pctPagadoNeto} color={isAnulado ? "red" : "teal"} size="xs" mt={6} />
           <Text fz={11} c="white" mt={4} fw={500}>
-            Pagado: $ {(isAnulado ? 0 : comprobante.avance_pago_neto).toFixed(2)} / $ {comprobante.monto_neto.toFixed(2)}
+            Pagado: $ {(isAnulado ? 0 : comprobante.avance_pago_neto).toFixed(2)} / $ {montoNetoPagar.toFixed(2)}
           </Text>
         </div>
 
@@ -370,12 +507,17 @@ export const ComprobanteCard = ({
             <Text fz={11} tt="uppercase" c={isAnulado ? "red.4" : "yellow.4"} fw={700}>Detracción (S/)</Text>
             {renderBadgeEstadoPago(isDetraccionSaldado)}
           </Group>
-          <Text fz="lg" fw={800} c="white" className="font-mono">S/ {comprobante.monto_detraccion_soles.toFixed(2)}</Text>
+          <Text fz="lg" fw={800} c="white" className="font-mono">S/ {detraccionSolesPagar.toFixed(2)}</Text>
           <Text fz={11} c="white">Equiv: $ {comprobante.monto_detraccion.toFixed(2)}</Text>
           <Text fz={11} c="white">TC: {comprobante.tipo_cambio_venta.toFixed(3)} · {(comprobante.porcentaje_detraccion * 100).toFixed(0)}%</Text>
+          {saldoAFavorDetraccion > 0 && (
+            <Text fz={10} c="yellow.4" fw={700} mt={2}>
+              Saldo a favor: S/ {saldoAFavorDetraccion.toFixed(2)}
+            </Text>
+          )}
           <Progress value={pctPagadoDetraccion} color={isAnulado ? "red" : "yellow"} size="xs" mt={6} />
           <Text fz={11} c="white" mt={4} fw={500}>
-            Pagado: S/ {(isAnulado ? 0 : comprobante.avance_pago_detraccion).toFixed(2)} / S/ {comprobante.monto_detraccion_soles.toFixed(2)}
+            Pagado: S/ {(isAnulado ? 0 : comprobante.avance_pago_detraccion).toFixed(2)} / S/ {detraccionSolesPagar.toFixed(2)}
           </Text>
         </div>
       </Group>
@@ -523,6 +665,147 @@ export const ComprobanteCard = ({
             )}
           </Accordion.Panel>
         </Accordion.Item>
+
+        {isCompra && !esSinValorComercial && (
+          <Accordion.Item value="notas">
+            <Accordion.Control className="bg-zinc-900/40! border! border-zinc-800! hover:bg-zinc-900/60!">
+              <Group justify="space-between" w="100%">
+                <Group gap={6}>
+                  <IconScale size={14} className="text-cyan-400" />
+                  <Text fz="xs" fw={700} c="cyan.4">
+                    Notas de Crédito / Débito ({notas.length})
+                  </Text>
+                </Group>
+                {tieneNotas && (
+                  <Badge variant="light" color="cyan" size="xs" fw={700}>
+                    Saldo ajustado
+                  </Badge>
+                )}
+              </Group>
+            </Accordion.Control>
+            <Accordion.Panel className="bg-zinc-900/40! border-zinc-800!">
+              {notas.length === 0 ? (
+                <Text fz="xs" c="dimmed" fs="italic" ta="center" py="sm">
+                  No se han emitido notas sobre este comprobante.
+                </Text>
+              ) : (
+                <Stack gap={6}>
+                  {notas.map((n) => (
+                    <Group
+                      key={n.id}
+                      justify="space-between"
+                      p="xs"
+                      className={`rounded-md bg-zinc-950/50 border border-zinc-800 border-l-4 ${
+                        n.es_anulado
+                          ? "border-l-zinc-700 opacity-60"
+                          : n.tipo === TipoNotaComprobante.Credito
+                            ? "border-l-teal-500"
+                            : "border-l-orange-500"
+                      }`}
+                    >
+                      <Group gap={6} wrap="nowrap">
+                        <Badge
+                          color={TIPO_NOTA_COLOR[n.tipo]}
+                          variant="filled"
+                          size="xs"
+                          className="shrink-0"
+                        >
+                          {n.tipo === TipoNotaComprobante.Credito ? "NC" : "ND"}
+                        </Badge>
+                        <Stack gap={0}>
+                          <Group gap={6}>
+                            <Text fz={11} fw={700} className="font-mono">
+                              {n.codigo_nota ?? "—"}
+                            </Text>
+                            {n.es_anulado && (
+                              <Badge variant="light" color="red" size="xs" fw={700}>
+                                Anulada
+                              </Badge>
+                            )}
+                          </Group>
+                          <Text fz={10} c="zinc.4">
+                            {n.motivo_descripcion ?? n.motivo ?? "—"} ·{" "}
+                            {formatFecha(n.fecha_emision)}
+                          </Text>
+                        </Stack>
+                      </Group>
+                      <Group gap={8} wrap="nowrap">
+                        <Text
+                          fz="xs"
+                          fw={800}
+                          c={
+                            n.tipo === TipoNotaComprobante.Credito
+                              ? "teal.4"
+                              : "orange.4"
+                          }
+                          className="font-mono"
+                        >
+                          {n.tipo === TipoNotaComprobante.Credito ? "−" : "+"}$
+                          {n.monto.toFixed(2)}
+                        </Text>
+                        {n.documentos && n.documentos.length > 0 && onVerDocumentosNota && (
+                          <Tooltip
+                            label={`${n.documentos.length} documento(s) adjunto(s)`}
+                            withArrow
+                          >
+                            <ActionIcon
+                              size="md"
+                              variant="light"
+                              color="indigo"
+                              radius="md"
+                              onClick={() => onVerDocumentosNota(n.documentos ?? [])}
+                            >
+                              <IconPaperclip size={16} />
+                            </ActionIcon>
+                          </Tooltip>
+                        )}
+                        {onAnularNota && !n.es_anulado && !isAnulado && (
+                          <Tooltip label="Anular esta nota">
+                            <ActionIcon
+                              size="md"
+                              variant="light"
+                              color="red"
+                              radius="md"
+                              loading={anulandoNotaId === n.id}
+                              disabled={anulandoNotaId === n.id}
+                              onClick={() => onAnularNota(n.id)}
+                            >
+                              <IconBan size={16} />
+                            </ActionIcon>
+                          </Tooltip>
+                        )}
+                      </Group>
+                    </Group>
+                  ))}
+                  <Box className="border-t border-zinc-800 pt-2 mt-1">
+                    <Group justify="space-between">
+                      <Text fz={10} c="zinc.5" tt="uppercase" fw={600}>
+                        Efecto total en el neto
+                      </Text>
+                      <Text
+                        fz={11}
+                        fw={700}
+                        c={deltaNeto < 0 ? "teal.4" : deltaNeto > 0 ? "orange.4" : "zinc.3"}
+                        className="font-mono"
+                      >
+                        {deltaNeto < 0 ? "−" : deltaNeto > 0 ? "+" : ""}$
+                        {Math.abs(deltaNeto).toFixed(2)}
+                      </Text>
+                    </Group>
+                    <Group justify="space-between">
+                      <Text fz={10} c="zinc.5" tt="uppercase" fw={600}>
+                        Neto a pagar (ajustado)
+                      </Text>
+                      <Text fz={11} fw={700} c="white" className="font-mono">
+                        $ {montoNetoPagar.toFixed(2)}
+                      </Text>
+                    </Group>
+                  </Box>
+                </Stack>
+              )}
+            </Accordion.Panel>
+          </Accordion.Item>
+        )}
       </Accordion>
 
       {isCompra && onAprobar && (

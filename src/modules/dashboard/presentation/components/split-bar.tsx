@@ -27,7 +27,7 @@ export const SplitBar = ({ parts, format }: SplitBarProps) => (
       {parts.map((p) => (
         <div
           key={p.nombre}
-          className="flex items-center justify-between gap-2 text-[13px] text-zinc-400"
+          className="flex items-center justify-between gap-2 text-[13px] text-zinc-300"
         >
           <span className="inline-flex min-w-0 items-center">
             <i

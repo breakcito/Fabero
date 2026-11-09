@@ -25,7 +25,7 @@ export const Numero = ({ children, color, className = "" }: NumeroProps) => (
 
 /** Sufijo de unidad dentro de una cifra grande (`<small>` de `dash.html`). */
 export const NumeroUnidad = ({ children }: { children: ReactNode }) => (
-  <small className="ml-1 text-[0.6em] font-semibold tracking-normal text-zinc-400">
+  <small className="ml-1 text-[0.6em] font-semibold tracking-normal text-zinc-300">
     {children}
   </small>
 );
