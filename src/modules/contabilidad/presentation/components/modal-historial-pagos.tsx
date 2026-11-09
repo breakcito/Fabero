@@ -103,13 +103,29 @@ export const ModalHistorialPagos = ({
         ? comprobante.avance_pago_detraccion / comprobante.tipo_cambio_venta
         : 0);
 
+  // Saldo pendiente: con notas de crédito/débito vigentes rige el snapshot
+  // ajustado (`*_efectivo`), que es el mismo contra el que valida el backend.
   const saldoPendienteNeto = isAnulado
     ? 0
-    : Math.max(comprobante.monto_neto - comprobante.avance_pago_neto, 0);
+    : Math.max(
+        (isVenta
+          ? comprobante.monto_neto
+          : ((comprobante as RES_ComprobanteCompra).monto_neto_efectivo ??
+            comprobante.monto_neto)) -
+          comprobante.avance_pago_neto,
+        0,
+      );
 
   const saldoPendienteDetraccion = isAnulado
     ? 0
-    : Math.max(comprobante.monto_detraccion_soles - comprobante.avance_pago_detraccion, 0);
+    : Math.max(
+        (isVenta
+          ? comprobante.monto_detraccion_soles
+          : ((comprobante as RES_ComprobanteCompra)
+              .monto_detraccion_soles_efectivo ?? comprobante.monto_detraccion_soles)) -
+          comprobante.avance_pago_detraccion,
+        0,
+      );
 
   const todasAprobadas = !isVenta
     ? (comprobante as RES_ComprobanteCompra).aprobaciones.every((a) => a.esta_aprobado)
@@ -146,7 +162,9 @@ export const ModalHistorialPagos = ({
           <Group gap="xs" align="center">
             <div className="bg-zinc-900/60 border border-zinc-800 rounded-lg px-2.5 py-1 text-center">
               <Text fz={9} tt="uppercase" c="dimmed" fw={700}>Total ($)</Text>
-              <Text fz="xs" fw={800} c="white">$ {('total' in comprobante && (comprobante as any).total !== undefined ? Number((comprobante as any).total) : Number((comprobante as any).total_dolares || 0)).toFixed(2)}</Text>
+              <Text fz="xs" fw={800} c="white">
+                $ {(comprobante as RES_ComprobanteCompra).total.toFixed(2)}
+              </Text>
             </div>
             <div className="bg-zinc-900/60 border border-emerald-500/40 rounded-lg px-2.5 py-1 text-center">
               <Text fz={9} tt="uppercase" c="emerald.4" fw={700}>Total Pagado ($)</Text>

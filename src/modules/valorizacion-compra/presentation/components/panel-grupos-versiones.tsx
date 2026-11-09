@@ -295,11 +295,11 @@ export const PanelGruposVersiones = ({
                             label={`Dirimencia ${v.correlativo_dirimencia ?? ""} — la valorización tiene notas de crédito/débito.`}
                             withArrow
                             multiline
-                            w={240}
+                            w={260}
                           >
                             <Badge
                               color="cyan"
-                              variant="light"
+                              variant="filled"
                               size="xs"
                               radius="sm"
                               fw={700}
@@ -383,40 +383,45 @@ export const PanelGruposVersiones = ({
                           </ActionIcon>
                         </Tooltip>
 
-                        {/* Imprimir Valorización */}
-                        <Tooltip
-                          label={`Imprimir Valorización (#${numProp})`}
-                          withArrow
-                        >
-                          <ActionIcon
-                            size="sm"
-                            radius="md"
-                            variant="light"
-                            color="yellow"
-                            loading={isPrinting}
-                            disabled={isPrinting}
-                            onClick={() => onImprimirValorizacion(v)}
-                          >
-                            <IconPrinter size={14} />
-                          </ActionIcon>
-                        </Tooltip>
-
-                        {/* Imprimir Ticket por Dirimencia (solo si tiene notas de crédito/débito) */}
-                        {v.con_dirimencia && (
+                        {/* Imprimir: un solo botón. Si la valorización tiene
+                            dirimencia (nota de crédito/débito) imprime el ticket
+                            "Valorización mineral por dirimencia, reintegro o
+                            descuento" con su correlativo propio; si no, la
+                            liquidación normal. */}
+                        {v.con_dirimencia ? (
                           <Tooltip
-                            label={`Imprimir Ticket por Dirimencia (${v.correlativo_dirimencia ?? "DRD"})`}
+                            label={`Imprimir Valorización por Dirimencia, Reintegro o Descuento (${v.correlativo_dirimencia ?? "DRD"})`}
                             withArrow
+                            multiline
+                            w={280}
                           >
                             <ActionIcon
                               size="sm"
                               radius="md"
-                              variant="light"
+                              variant="filled"
                               color="cyan"
                               loading={isPrinting}
                               disabled={isPrinting}
                               onClick={() => onImprimirDirimencia(v)}
                             >
                               <IconScale size={14} />
+                            </ActionIcon>
+                          </Tooltip>
+                        ) : (
+                          <Tooltip
+                            label={`Imprimir Valorización (#${numProp})`}
+                            withArrow
+                          >
+                            <ActionIcon
+                              size="sm"
+                              radius="md"
+                              variant="light"
+                              color="yellow"
+                              loading={isPrinting}
+                              disabled={isPrinting}
+                              onClick={() => onImprimirValorizacion(v)}
+                            >
+                              <IconPrinter size={14} />
                             </ActionIcon>
                           </Tooltip>
                         )}

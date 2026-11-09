@@ -31,6 +31,16 @@ export const useTicketLiquidacionCompra = () => {
       try {
         let valorizacion: RES_ValorizacionCompra;
 
+        const tituloDocumento = esDirimencia
+          ? "Valorización por Dirimencia, Reintegro o Descuento"
+          : "Liquidación";
+        const etiquetaDocumento = (valorizacion: RES_ValorizacionCompra) =>
+          `${
+            esDirimencia
+              ? valorizacion.correlativo_dirimencia
+              : valorizacion.correlativo
+          } || \`VAL-\${valorizacion.id}\` - v${valorizacion.numero_version ?? 1}`;
+
         if (typeof idOrData === "number") {
           const target = `ticket-liquidacion-${idOrData}${esDirimencia ? "-dir" : ""}`;
           prepare(target);
@@ -40,7 +50,7 @@ export const useTicketLiquidacionCompra = () => {
           }
           valorizacion = res.data;
           print(<TicketLiquidacionCompraPdf data={valorizacion} esDirimencia={esDirimencia} />, {
-            documentTitle: `${esDirimencia ? "Dirimencia" : "Liquidación"} ${valorizacion.correlativo_dirimencia || valorizacion.correlativo || `VAL-${valorizacion.id}`} - v${valorizacion.numero_version ?? 1}`,
+            documentTitle: `${tituloDocumento} ${etiquetaDocumento(valorizacion)}`,
             target,
           });
         } else {
@@ -54,7 +64,7 @@ export const useTicketLiquidacionCompra = () => {
             }
           }
           print(<TicketLiquidacionCompraPdf data={valorizacion} esDirimencia={esDirimencia} />, {
-            documentTitle: `${esDirimencia ? "Dirimencia" : "Liquidación"} ${valorizacion.correlativo_dirimencia || valorizacion.correlativo || `VAL-${valorizacion.id}`} - v${valorizacion.numero_version ?? 1}`,
+            documentTitle: `${tituloDocumento} ${etiquetaDocumento(valorizacion)}`,
             target,
           });
         }

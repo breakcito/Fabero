@@ -307,9 +307,6 @@ export const TicketLiquidacionCompraPdf = ({
     ? dash(correlativoDirimencia || (data.numero_correlativo_dirimencia ? `DRD-${data.numero_correlativo_dirimencia}` : null))
     : dash(data.correlativo || (data.numero_correlativo ? `VAL-${data.numero_correlativo}` : null));
   const correlativoOriginal = dash(data.correlativo || (data.numero_correlativo ? `VAL-${data.numero_correlativo}` : null));
-  const notasDirimencia = (data.notas_comprobante ?? []).filter(
-    (n) => !n.es_anulado,
-  );
 
   // Fecha legible
   const displayFecha = (() => {
@@ -446,7 +443,13 @@ export const TicketLiquidacionCompraPdf = ({
   };
 
   return (
-    <Document title={`${esDirimencia ? "Liquidación por Dirimencia" : "Liquidación"} ${displayCorrelativo}`}>
+    <Document
+      title={`${
+        esDirimencia
+          ? "Valorización por Dirimencia, Reintegro o Descuento"
+          : "Liquidación"
+      } ${displayCorrelativo}`}
+    >
       <Page size="A4" orientation="landscape" style={styles.page}>
         {/* ========== ENCABEZADO SUPERIOR ========== */}
         <View style={styles.headerBar}>
@@ -456,7 +459,9 @@ export const TicketLiquidacionCompraPdf = ({
 
           <View style={styles.titleContainer}>
             <Text style={styles.titleText}>
-              {esDirimencia ? "VALORIZACION MINERAL - POR DIRIMENCIA" : "VALORIZACION MINERAL"}
+              {esDirimencia
+                ? "VALORIZACION MINERAL POR DIRIMENCIA, REINTEGRO O DESCUENTO"
+                : "VALORIZACION MINERAL"}
             </Text>
           </View>
 
@@ -479,73 +484,6 @@ export const TicketLiquidacionCompraPdf = ({
             </View>
           </View>
         </View>
-
-        {/* ========== BLOQUE DE NOTAS DE DIRIMENCIA ========== */}
-        {esDirimencia && (
-          <View style={styles.infoSection}>
-            <View style={styles.infoColumn}>
-              <Text style={styles.sectionTitle}>NOTAS DE DIRIMENCIA</Text>
-
-              {notasDirimencia.length === 0 ? (
-                <Text style={styles.infoValue}>Sin notas vigentes</Text>
-              ) : (
-                notasDirimencia.map((n) => (
-                  <View key={`nota-${n.id}`} style={styles.infoRow}>
-                    <Text style={[styles.infoLabel, { width: 95 }]}>
-                      {n.tipo_descripcion?.toUpperCase() ?? "NOTA"}:
-                    </Text>
-                    <Text style={styles.infoValue}>
-                      {`${dash(n.codigo_nota)} · ${dash(n.motivo_descripcion ?? n.motivo)} · $ ${fmtNum(n.monto)}`}
-                    </Text>
-                  </View>
-                ))
-              )}
-
-              <View style={styles.infoRow}>
-                <Text style={[styles.infoLabel, { width: 95 }]}>NETO COMPROBANTE:</Text>
-                <Text style={styles.infoValue}>
-                  $ {fmtNum(data.monto_neto_comprobante ?? 0)}
-                </Text>
-              </View>
-
-              <View style={styles.infoRow}>
-                <Text style={[styles.infoLabel, { width: 95 }]}>NETO A PAGAR:</Text>
-                <Text style={styles.infoValue}>
-                  $ {fmtNum(data.monto_neto_comprobante_efectivo ?? 0)}
-                </Text>
-              </View>
-
-              <View style={styles.infoRow}>
-                <Text style={[styles.infoLabel, { width: 95 }]}>DETRACCIÓN (S/):</Text>
-                <Text style={styles.infoValue}>
-                  S/ {fmtNum(data.monto_detraccion_soles_comprobante_efectivo ?? 0)}
-                </Text>
-              </View>
-
-              {(data.saldo_a_favor_neto ?? 0) > 0 && (
-                <View style={styles.infoRow}>
-                  <Text style={[styles.infoLabel, { width: 95 }]}>
-                    SALDO A FAVOR NETO:
-                  </Text>
-                  <Text style={styles.infoValue}>
-                    $ {fmtNum(data.saldo_a_favor_neto ?? 0)}
-                  </Text>
-                </View>
-              )}
-
-              {(data.saldo_a_favor_detraccion ?? 0) > 0 && (
-                <View style={styles.infoRow}>
-                  <Text style={[styles.infoLabel, { width: 95 }]}>
-                    SALDO A FAVOR DETRACCIÓN:
-                  </Text>
-                  <Text style={styles.infoValue}>
-                    S/ {fmtNum(data.saldo_a_favor_detraccion ?? 0)}
-                  </Text>
-                </View>
-              )}
-            </View>
-          </View>
-        )}
 
         {/* ========== BLOQUES DE INFORMACIÓN ========== */}
         <View style={styles.infoSection}>

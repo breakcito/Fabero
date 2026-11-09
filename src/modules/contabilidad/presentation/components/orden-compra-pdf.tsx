@@ -300,10 +300,14 @@ export const OrdenCompraPdf = ({ comprobante, valorizacion }: Props) => {
       ? comprobante.monto_detraccion
       : total * pctDetraccion;
 
+  // Neto a pagar: con notas de crédito/débito vigentes en el comprobante rige el
+  // snapshot ajustado (lo que realmente se paga).
   const netoAPagar =
-    comprobante.monto_neto != null
-      ? comprobante.monto_neto
-      : total - detraccion;
+    comprobante.monto_neto_efectivo != null
+      ? comprobante.monto_neto_efectivo
+      : comprobante.monto_neto != null
+        ? comprobante.monto_neto
+        : total - detraccion;
 
   const sonTexto = numeroALetras(total);
 

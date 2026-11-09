@@ -68,11 +68,25 @@ export const ModalRegistroPago = ({
 
   const isVenta = "id_planta_destino" in comprobante;
 
+  /**
+   * Monto realmente pagable. Con notas de crédito/débito vigentes en el
+   * comprobante rige el snapshot ajustado (`*_efectivo`); sin notas, el monto
+   * real de la factura. El backend valida contra estos mismos valores.
+   */
+  const montoNetoPagar = isVenta
+    ? comprobante.monto_neto
+    : ((comprobante as RES_ComprobanteCompra).monto_neto_efectivo ??
+      comprobante.monto_neto);
+  const montoDetraccionSolesPagar = isVenta
+    ? comprobante.monto_detraccion_soles
+    : ((comprobante as RES_ComprobanteCompra).monto_detraccion_soles_efectivo ??
+      comprobante.monto_detraccion_soles);
+
   const [esParaDetraccion, setEsParaDetraccion] = useState(() => {
     const netoSaldadoInit =
-      (comprobante.monto_neto - comprobante.avance_pago_neto) <= 0.01;
+      (montoNetoPagar - comprobante.avance_pago_neto) <= 0.01;
     const detraccionSaldadaInit =
-      (comprobante.monto_detraccion_soles - comprobante.avance_pago_detraccion) <= 0.01;
+      (montoDetraccionSolesPagar - comprobante.avance_pago_detraccion) <= 0.01;
     if (netoSaldadoInit && !detraccionSaldadaInit) return true;
     if (detraccionSaldadaInit && !netoSaldadoInit) return false;
     return false;
@@ -103,14 +117,14 @@ export const ModalRegistroPago = ({
     (esDetraccion: boolean): number =>
       Math.max(
         esDetraccion
-          ? comprobante.monto_detraccion_soles - comprobante.avance_pago_detraccion
-          : comprobante.monto_neto - comprobante.avance_pago_neto,
+          ? montoDetraccionSolesPagar - comprobante.avance_pago_detraccion
+          : montoNetoPagar - comprobante.avance_pago_neto,
         0,
       ),
     [
-      comprobante.monto_detraccion_soles,
+      montoDetraccionSolesPagar,
       comprobante.avance_pago_detraccion,
-      comprobante.monto_neto,
+      montoNetoPagar,
       comprobante.avance_pago_neto,
     ],
   );
@@ -133,9 +147,9 @@ export const ModalRegistroPago = ({
       wasOpenedRef.current = true;
       queueMicrotask(() => {
         const netoSaldadoInit =
-          (comprobante.monto_neto - comprobante.avance_pago_neto) <= 0.01;
+          (montoNetoPagar - comprobante.avance_pago_neto) <= 0.01;
         const detraccionSaldadaInit =
-          (comprobante.monto_detraccion_soles - comprobante.avance_pago_detraccion) <= 0.01;
+          (montoDetraccionSolesPagar - comprobante.avance_pago_detraccion) <= 0.01;
         const initDetraccion = netoSaldadoInit && !detraccionSaldadaInit;
 
         setEsParaDetraccion(initDetraccion);
@@ -154,9 +168,9 @@ export const ModalRegistroPago = ({
   }, [
     opened,
     calcPorPagar,
-    comprobante.monto_neto,
+    montoNetoPagar,
     comprobante.avance_pago_neto,
-    comprobante.monto_detraccion_soles,
+    montoDetraccionSolesPagar,
     comprobante.avance_pago_detraccion,
   ]);
 
@@ -386,17 +400,16 @@ export const ModalRegistroPago = ({
   }, [idBancoDestino, cuentasDestinoFiltradas, opened, idCuentaDestino]);
 
   const porPagar = esParaDetraccion
-    ? (comprobante.monto_detraccion_soles - comprobante.avance_pago_detraccion)
-    : (comprobante.monto_neto - comprobante.avance_pago_neto);
+    ? montoDetraccionSolesPagar - comprobante.avance_pago_detraccion
+    : montoNetoPagar - comprobante.avance_pago_neto;
 
   const equivSoles = esParaDetraccion
-    ? (comprobante.monto_detraccion_soles - comprobante.avance_pago_detraccion)
-    : (comprobante.monto_neto - comprobante.avance_pago_neto) * comprobante.tipo_cambio_venta;
+    ? montoDetraccionSolesPagar - comprobante.avance_pago_detraccion
+    : (montoNetoPagar - comprobante.avance_pago_neto) * comprobante.tipo_cambio_venta;
 
-  const netoSaldado =
-    (comprobante.monto_neto - comprobante.avance_pago_neto) <= 0.01;
+  const netoSaldado = (montoNetoPagar - comprobante.avance_pago_neto) <= 0.01;
   const detraccionSaldada =
-    (comprobante.monto_detraccion_soles - comprobante.avance_pago_detraccion) <= 0.01;
+    (montoDetraccionSolesPagar - comprobante.avance_pago_detraccion) <= 0.01;
 
   useEffect(() => {
     if (!opened) return;
