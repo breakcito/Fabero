@@ -95,9 +95,12 @@ export const ModalHistorialPagos = ({
 
   const isAnulado = comprobante.estado === EstadoComprobanteCompra.Anulado || comprobante.estado === "Anulado";
 
+  // Mismo criterio que el comprobante-card: en COMPRA el total del comprobante ya
+  // tiene el anticipo descontado (ContabilidadCompraData::calcular_importes), asi que
+  // sumarlo al pagado lo contaria dos veces. En VENTA el total es bruto y si suma.
   const totalPagadoUsd = isAnulado
     ? 0
-    : comprobante.monto_pagado_anticipos +
+    : (isVenta ? comprobante.monto_pagado_anticipos : 0) +
       comprobante.avance_pago_neto +
       (comprobante.tipo_cambio_venta > 0
         ? comprobante.avance_pago_detraccion / comprobante.tipo_cambio_venta

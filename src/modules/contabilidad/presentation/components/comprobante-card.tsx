@@ -202,9 +202,18 @@ export const ComprobanteCard = ({
         : 100
       : 0;
 
+  // El anticipo NO se suma al pagado de los comprobantes de COMPRA: el backend ya lo
+  // resta del valor de venta al calcular el total
+  // (ContabilidadCompraData::calcular_importes -> valor_venta = subtotal - descuento -
+  // monto_pagado_anticipos, y total = valor_venta + IGV). Sumarlo aqui lo contaria dos
+  // veces y la barra de avance se descuadraria (llegaria a 100% con el anticipo solo y
+  // el texto "Pagado: $X / $Y" mostraria X > Y). El anticipo ya se muestra en el
+  // desplegable de Lotes Valorizados.
+  // En los comprobantes de VENTA el total es bruto (aun no descuenta el anticipo), asi
+  // que ahi si debe sumar.
   const totalPagadoUsd = isAnulado
     ? 0
-    : comprobante.monto_pagado_anticipos +
+    : (isCompra ? 0 : comprobante.monto_pagado_anticipos) +
       comprobante.avance_pago_neto +
       (comprobante.tipo_cambio_venta > 0
         ? comprobante.avance_pago_detraccion / comprobante.tipo_cambio_venta

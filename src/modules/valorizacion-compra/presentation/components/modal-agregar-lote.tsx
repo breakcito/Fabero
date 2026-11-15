@@ -948,7 +948,6 @@ export const ModalAgregarLote = ({
               <Grid.Col span={{ base: 12, sm: 4 }}>
                 <NumberInput
                   label={!elemento ? "Ley:" : esOro ? "Ley Oro:" : "Ley Plata:"}
-                  description="Editable: ajusta la ley del elemento valorizado"
                   value={!elemento ? 0 : esOro ? leyOro : leyPlata}
                   onChange={(val) => {
                     if (esOro) setLeyOro(val ?? 0);
