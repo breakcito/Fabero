@@ -96,7 +96,8 @@ const DEFINICION_MODULOS: IModuloDefinido[] = [
       { numero: 1, archivo: "recepcion de unidad registro", titulo: "Recepción de unidad para recepción de mineral" },
       { numero: 2, archivo: "recepcion de unidad confirmacion", titulo: "Recepción de unidad confirmación de programación" },
       { numero: 3, archivo: "recepcion de unidad despacho", titulo: "Recepción de unidad para despacho de mineral" },
-      { numero: 4,  titulo: "Registro de salida del vehículo" },
+      { numero: 4, archivo:"recepcion de unidad edicion", titulo: "Edición de unidades" },      
+      { numero: 5, archivo:"recepcion de unidad registro salida", titulo: "Registro de salida del vehículo" },
     ],
   },
   {
@@ -107,6 +108,7 @@ const DEFINICION_MODULOS: IModuloDefinido[] = [
     icono: IconScale,
     videos: [
       { numero: 1, archivo: "balanza pesaje de lotes", titulo: "Pesaje de lotes" },
+      {numero:2,archivo:"balanza particion de lotes",titulo:"Partición de lotes"}
     ],
   },
   {
@@ -116,9 +118,8 @@ const DEFINICION_MODULOS: IModuloDefinido[] = [
     descripcion: "Evaluar un lote y distribuirlo entre las plantas de destino.",
     icono: IconArrowsExchange,
     videos: [
-      { numero: 1, titulo: "Validar un lote para despacho" },
-      { numero: 2, titulo: "Crear las particiones de la distribución" },
-      { numero: 3, titulo: "Registrar el peso y el ticket de la distribución" },
+      { numero: 1, archivo:"validacion y distribucion",titulo: "Validar y/o crear particiones para un lote" },
+      
     ],
   },
   {
@@ -129,6 +130,8 @@ const DEFINICION_MODULOS: IModuloDefinido[] = [
     icono: IconFileDescription,
     videos: [
       { numero: 1, archivo: "guias primer tramo registro", titulo: "Registrar la guía del primer tramo" },
+      { numero: 2, archivo: "guias primer tramo edicion", titulo: "Edición de guía del primer tramo" },
+    
     ],
   },
   {
@@ -152,6 +155,8 @@ const DEFINICION_MODULOS: IModuloDefinido[] = [
       { numero: 1, archivo: "valorizacion de compra registro de propuesta", titulo: "Crear una propuesta de valorización" },
       { numero: 2, archivo: "valorizacion de compra clonar propuesta", titulo: "Clonar y editar una valorización" },
       { numero: 3, archivo: "valorizacion de compra aprobar propuesta", titulo: "Aprobar la propuesta del lote" },
+      { numero: 4, archivo: "valorizacion de compra uso de anticipos", titulo: "Uso de anticipos" },
+      
      
     ],
   },
@@ -175,7 +180,7 @@ const DEFINICION_MODULOS: IModuloDefinido[] = [
     descripcion: "Combinar lotes para obtener la ley objetivo de una planta.",
     icono: IconAdjustmentsHorizontal,
     videos: [
-      { numero: 1, titulo: "Crear un blending con su ley objetivo" },
+      { numero: 1, archivo:"blending registro", titulo: "Crear un blending" },
      
     ],
   },
@@ -188,6 +193,7 @@ const DEFINICION_MODULOS: IModuloDefinido[] = [
     videos: [
       { numero: 1, archivo: "programacion de despacho registro de despacho", titulo: "Programar un despacho a la planta destino" },
       { numero: 2, archivo: "programacion de despacho registro de distribucion",titulo: "Crear distribuciones" },
+      { numero: 3, archivo: "despacho registro de llegada al cliente",titulo: "Registro de llegada al cliente" },
       
     ],
   },
@@ -220,8 +226,9 @@ const DEFINICION_MODULOS: IModuloDefinido[] = [
     descripcion: "Calcular y aprobar el monto a cobrar a la planta destino.",
     icono: IconCoins,
     videos: [
-      { numero: 1, titulo: "Crear la valorización de venta" },
-      { numero: 2, titulo: "Aprobar la valorización de venta" },
+      { numero: 1, archivo:"valorizacion venta registro",titulo: "Crear la valorización de venta" },
+      { numero: 2, archivo:"valorizacion venta edicion",titulo: "Editar una valorización de venta" },
+       { numero: 3,archivo:"valorizacion venta aprobar", titulo: "Aprobar la valorización de venta" },
     ],
   },
   {
@@ -231,9 +238,9 @@ const DEFINICION_MODULOS: IModuloDefinido[] = [
     descripcion: "Comprobantes de venta, anticipos de planta y pagos.",
     icono: IconCoin,
     videos: [
-      { numero: 1, titulo: "Registrar el comprobante de venta" },
-      { numero: 2, titulo: "Aplicar anticipos de planta" },
-      { numero: 3, titulo: "Registrar los pagos del comprobante" },
+      { numero: 1, archivo:"contabilidad venta registro",titulo: "Registrar el comprobante de venta" },
+      { numero: 2,archivo:"contabilidad venta uso anticipos", titulo: "Aplicar anticipos de planta" },
+      { numero: 3,archivo:"contabilidad venta registro de pagos", titulo: "Registrar los pagos del comprobante" },
     ],
   },
 ];
