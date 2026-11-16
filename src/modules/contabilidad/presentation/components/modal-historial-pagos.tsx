@@ -134,6 +134,16 @@ export const ModalHistorialPagos = ({
     ? (comprobante as RES_ComprobanteCompra).aprobaciones.every((a) => a.esta_aprobado)
     : true;
 
+  /**
+   * Total del comprobante. Cada tipo lo expone en un campo distinto: en COMPRA
+   * es `total` y en VENTA es `total_dolares`. Leer el campo equivocado dejaba
+   * `undefined` y reventaba con "Cannot read properties of undefined (reading
+   * 'toFixed')" al abrir el historial de pagos de un comprobante de venta.
+   */
+  const totalComprobante = isVenta
+    ? (comprobante as RES_ComprobanteVenta).total_dolares
+    : (comprobante as RES_ComprobanteCompra).total;
+
   const todoPagado =
     comprobante.estado === "Pagado" ||
     (saldoPendienteNeto <= 0.01 && saldoPendienteDetraccion <= 0.01);
@@ -166,7 +176,7 @@ export const ModalHistorialPagos = ({
             <div className="bg-zinc-900/60 border border-zinc-800 rounded-lg px-2.5 py-1 text-center">
               <Text fz={9} tt="uppercase" c="dimmed" fw={700}>Total ($)</Text>
               <Text fz="xs" fw={800} c="white">
-                $ {(comprobante as RES_ComprobanteCompra).total.toFixed(2)}
+                $ {Number(totalComprobante ?? 0).toFixed(2)}
               </Text>
             </div>
             <div className="bg-zinc-900/60 border border-emerald-500/40 rounded-lg px-2.5 py-1 text-center">
