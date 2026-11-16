@@ -113,7 +113,7 @@ export const PanelGruposVersiones = ({
         className="bg-zinc-950/80 border border-zinc-800/90 shadow-lg flex flex-col items-center justify-center gap-2 min-h-65"
       >
         <Loader size="sm" color="indigo" />
-        <Text fz="xs" c="dimmed">
+        <Text fz="xs" c="zinc.300">
           Cargando valorizaciones...
         </Text>
       </Paper>
@@ -127,7 +127,7 @@ export const PanelGruposVersiones = ({
         radius="lg"
         className="bg-zinc-950/80 border border-dashed border-zinc-800 text-center"
       >
-        <Text fz="xs" c="dimmed">
+        <Text fz="xs" c="zinc.300">
           No se encontraron valorizaciones con los filtros aplicados.
         </Text>
       </Paper>
@@ -177,7 +177,7 @@ export const PanelGruposVersiones = ({
                 <Text fw={700} fz="xs" c="white" lineClamp={1}>
                   {grupo.proveedorNombre}
                 </Text>
-                <Text fz={11} c="dimmed" lineClamp={1}>
+                <Text fz="xs" c="zinc.300" lineClamp={1}>
                   RUC: {grupo.proveedorRuc} · {grupo.concesionNombre}
                 </Text>
               </div>
@@ -309,7 +309,7 @@ export const PanelGruposVersiones = ({
                             </Badge>
                           </Tooltip>
                         )}
-                        <Text fz={11} c="dimmed" className="truncate">
+                        <Text fz="xs" c="zinc.300" className="truncate">
                           {lotesFisicos}{" "}
                           {lotesFisicos === 1 ? "lote" : "lotes"}
                         </Text>
@@ -321,7 +321,7 @@ export const PanelGruposVersiones = ({
                         c={
                           Number(v.total_subtotal || 0) > 0
                             ? "teal.3"
-                            : "dimmed"
+                            : "zinc.300"
                         }
                         className="font-mono shrink-0"
                       >
@@ -339,7 +339,7 @@ export const PanelGruposVersiones = ({
                       className="border-t border-zinc-800/60"
                     >
                       <Group gap={5} wrap="wrap">
-                        <Text fz={10.5} c="dimmed" className="font-mono">
+                        <Text fz={11} c="zinc.300" className="font-mono">
                           {v.created_at ? v.created_at.slice(0, 16) : "—"}
                         </Text>
                         {v.id_empleado_solicita_oc && (

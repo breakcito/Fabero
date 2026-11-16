@@ -30,7 +30,9 @@ export const useAuthUser = () => {
     // Rutas universalmente permitidas.
     // /system es una ruta OCULTA: solo se accede por URL directa y no
     // requiere ningun permiso del menu (igual que en BlackSilver).
-    const universallyAllowed = ["/", "/home", "/perfil", "/system"];
+    // /centro-ayuda es el Centro de Ayuda: no es un modulo del menu, es una
+    // vista global de tutoriales, asi que cualquier usuario autenticado entra.
+    const universallyAllowed = ["/", "/home", "/perfil", "/system", "/centro-ayuda"];
     if (universallyAllowed.includes(location.pathname)) return true;
 
     // Si el menú aún no carga pero está autenticado, permitimos el paso inicial.

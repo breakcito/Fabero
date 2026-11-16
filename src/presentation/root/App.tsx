@@ -42,6 +42,7 @@ import BlendingPage from "../../modules/blending/presentation/blending.page.tsx"
 import ProgramacionDespachosPage from "../../modules/programacion-despachos/presentation/programacion-despachos.page.tsx";
 import ProgramarRecepcionPage from "../../modules/programar-recepcion/presentation/programar-recepcion.page.tsx";
 import { ValorizacionesVentaPage } from "../../modules/valorizacion-venta/presentation/valorizacion-venta.page.tsx";
+import CentroAyudaPage from "../../modules/centro-ayuda/presentation/centro-ayuda.page.tsx";
 import SystemPage from "../../modules/system/presentation/system.page.tsx";
 import { RUTAS_LEGACY } from "../../shared/variables/rutas-legacy";
 
@@ -185,6 +186,9 @@ export const App = () => {
 
         {/* Modulo System: configuracion del arbol de navegacion */}
         <Route path="/system" element={<SystemPage />} />
+
+        {/* Centro de ayuda: tutoriales en video de cada modulo */}
+        <Route path="/centro-ayuda" element={<CentroAyudaPage />} />
 
         {/* Redirecciones de rutas legacy (arbol anidado) */}
         {RUTAS_LEGACY_ENTRADAS.map(([desde, hacia]) => (

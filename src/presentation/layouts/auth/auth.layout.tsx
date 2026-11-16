@@ -14,6 +14,10 @@ export const AuthLayout = () => {
   const { open, setOpen } = useAuthLayout();
   const { pathname } = useLocation();
 
+  // El Centro de Ayuda es una vista independiente (se abre en otra pestaña):
+  // sin header ni menu lateral, ocupa toda la pantalla.
+  const esCentroAyuda = pathname === "/centro-ayuda";
+
   return (
     <div className="relative min-h-screen w-full bg-[#030303] text-zinc-100 flex flex-col overflow-hidden">
       <style>
@@ -49,13 +53,17 @@ export const AuthLayout = () => {
       {/* Capa de contenido */}
       <div className="relative z-10 flex flex-col flex-1">
         <ModuleAIContextBridge />
-        <Header onMenuToggle={() => setOpen(true)} />
-        {open && <Navbar onClose={() => setOpen(false)} />}
+        {!esCentroAyuda && <Header onMenuToggle={() => setOpen(true)} />}
+        {!esCentroAyuda && open && <Navbar onClose={() => setOpen(false)} />}
         <GlobalNotification />
         <GlobalBlackcito />
         <AIAssistantPanel />
 
-        <main className="flex-1 mx-auto w-full pt-22 px-4 pb-10 overflow-hidden relative">
+        <main
+          className={`flex-1 mx-auto w-full px-4 pb-10 overflow-hidden relative ${
+            esCentroAyuda ? "pt-5" : "pt-22"
+          }`}
+        >
           <motion.div
             key={pathname}
             initial={{ opacity: 0, y: 10 }}

@@ -32,6 +32,13 @@ import { ModalMejorCombinacion } from "./modal-mejor-combinacion";
 import type { ItemDisponibleResponse } from "../../service/blending.responses";
 import { formatNumber } from "../../../../shared/functions/formatNumber";
 
+/**
+ * La valorizacion comercial estimada y el boton "Mejor Combinacion" estan
+ * ocultos a pedido del usuario. Se dejan el codigo y la logica listos: basta
+ * poner en `true` esta bandera para volver a mostrarlos.
+ */
+const MOSTRAR_VALORIZACION_ESTIMADA = false;
+
 interface ModalEditarBlendingProps {
   blending: import("../../service/blending.responses").BlendingResponse | null;
   opened: boolean;
@@ -455,17 +462,19 @@ export const ModalEditarBlending: React.FC<ModalEditarBlendingProps> = ({
                 <Text fw={700} fz="xs" c="zinc.4" className="uppercase tracking-wider">
                   PROMEDIOS FÍSICOS Y LEYES DE MEZCLA
                 </Text>
-                <Button
-                  color="amber"
-                  variant="light"
-                  size="xs"
-                  radius="lg"
-                  leftSection={<IconSparkles size={16} />}
-                  onClick={() => setModalOptimizacionAbierto(true)}
-                  disabled={nuevosPendientes.length === 0}
-                >
-                  Mejor Combinación
-                </Button>
+                {MOSTRAR_VALORIZACION_ESTIMADA && (
+                  <Button
+                    color="amber"
+                    variant="light"
+                    size="xs"
+                    radius="lg"
+                    leftSection={<IconSparkles size={16} />}
+                    onClick={() => setModalOptimizacionAbierto(true)}
+                    disabled={nuevosPendientes.length === 0}
+                  >
+                    Mejor Combinación
+                  </Button>
+                )}
               </Group>
 
               <Group justify="space-around" align="center" className="py-1">
@@ -523,91 +532,93 @@ export const ModalEditarBlending: React.FC<ModalEditarBlendingProps> = ({
           </Paper>
 
           {/* VALORIZACIÓN COMERCIAL ESTIMADA */}
-          <Paper className="bg-zinc-900/80 border border-zinc-800 p-4 rounded-xl">
-            <Stack gap="sm">
-              <Text fw={700} fz="xs" c="zinc.4" className="uppercase tracking-wider">
-                VALORIZACIÓN COMERCIAL ESTIMADA (OPCIONAL)
-              </Text>
+          {MOSTRAR_VALORIZACION_ESTIMADA && (
+            <Paper className="bg-zinc-900/80 border border-zinc-800 p-4 rounded-xl">
+              <Stack gap="sm">
+                <Text fw={700} fz="xs" c="zinc.4" className="uppercase tracking-wider">
+                  VALORIZACIÓN COMERCIAL ESTIMADA (OPCIONAL)
+                </Text>
 
-              <Group justify="space-between" align="center" gap="md" wrap="nowrap">
-                {/* ORO */}
-                <Paper className="bg-zinc-950/60 border border-amber-900/30 p-3 rounded-lg flex-1">
-                  <Stack gap="xs">
-                    <Text fw={700} fz="xs" c="amber.4" className="uppercase">
-                      Oro (Au)
-                    </Text>
-                    <Group justify="space-between" align="flex-end">
-                      <Box className="w-40">
-                        <NumberInput
-                          label="Precio Oro ($/oz)"
-                          placeholder="0.00"
-                          value={precioOro}
-                          onChange={(val) => setPrecioOro(typeof val === "number" ? val : 0)}
-                          decimalScale={2}
-                          min={0}
-                          size="xs"
-                          radius="md"
-                          classNames={fieldClasses}
-                        />
-                      </Box>
-                      <Stack gap={0} align="flex-end">
-                        <Text fz={10} c="zinc.5" fw={600} className="uppercase">
-                          Subtotal Oro:
-                        </Text>
-                        <Text fw={800} fz="sm" className="text-amber-400">
-                          $ {formatNumber(valoresEstimados.valorAuEstimado, 2)} USD
-                        </Text>
-                      </Stack>
-                    </Group>
-                  </Stack>
-                </Paper>
+                <Group justify="space-between" align="center" gap="md" wrap="nowrap">
+                  {/* ORO */}
+                  <Paper className="bg-zinc-950/60 border border-amber-900/30 p-3 rounded-lg flex-1">
+                    <Stack gap="xs">
+                      <Text fw={700} fz="xs" c="amber.4" className="uppercase">
+                        Oro (Au)
+                      </Text>
+                      <Group justify="space-between" align="flex-end">
+                        <Box className="w-40">
+                          <NumberInput
+                            label="Precio Oro ($/oz)"
+                            placeholder="0.00"
+                            value={precioOro}
+                            onChange={(val) => setPrecioOro(typeof val === "number" ? val : 0)}
+                            decimalScale={2}
+                            min={0}
+                            size="xs"
+                            radius="md"
+                            classNames={fieldClasses}
+                          />
+                        </Box>
+                        <Stack gap={0} align="flex-end">
+                          <Text fz={10} c="zinc.5" fw={600} className="uppercase">
+                            Subtotal Oro:
+                          </Text>
+                          <Text fw={800} fz="sm" className="text-amber-400">
+                            $ {formatNumber(valoresEstimados.valorAuEstimado, 2)} USD
+                          </Text>
+                        </Stack>
+                      </Group>
+                    </Stack>
+                  </Paper>
 
-                {/* PLATA */}
-                <Paper className="bg-zinc-950/60 border border-zinc-800 p-3 rounded-lg flex-1">
-                  <Stack gap="xs">
-                    <Text fw={700} fz="xs" c="zinc.3" className="uppercase">
-                      Plata (Ag)
-                    </Text>
-                    <Group justify="space-between" align="flex-end">
-                      <Box className="w-40">
-                        <NumberInput
-                          label="Precio Plata ($/oz)"
-                          placeholder="0.00"
-                          value={precioPlata}
-                          onChange={(val) => setPrecioPlata(typeof val === "number" ? val : 0)}
-                          decimalScale={2}
-                          min={0}
-                          size="xs"
-                          radius="md"
-                          classNames={fieldClasses}
-                        />
-                      </Box>
-                      <Stack gap={0} align="flex-end">
-                        <Text fz={10} c="zinc.5" fw={600} className="uppercase">
-                          Subtotal Plata:
-                        </Text>
-                        <Text fw={800} fz="sm" className="text-zinc-200">
-                          $ {formatNumber(valoresEstimados.valorAgEstimado, 2)} USD
-                        </Text>
-                      </Stack>
-                    </Group>
-                  </Stack>
-                </Paper>
+                  {/* PLATA */}
+                  <Paper className="bg-zinc-950/60 border border-zinc-800 p-3 rounded-lg flex-1">
+                    <Stack gap="xs">
+                      <Text fw={700} fz="xs" c="zinc.3" className="uppercase">
+                        Plata (Ag)
+                      </Text>
+                      <Group justify="space-between" align="flex-end">
+                        <Box className="w-40">
+                          <NumberInput
+                            label="Precio Plata ($/oz)"
+                            placeholder="0.00"
+                            value={precioPlata}
+                            onChange={(val) => setPrecioPlata(typeof val === "number" ? val : 0)}
+                            decimalScale={2}
+                            min={0}
+                            size="xs"
+                            radius="md"
+                            classNames={fieldClasses}
+                          />
+                        </Box>
+                        <Stack gap={0} align="flex-end">
+                          <Text fz={10} c="zinc.5" fw={600} className="uppercase">
+                            Subtotal Plata:
+                          </Text>
+                          <Text fw={800} fz="sm" className="text-zinc-200">
+                            $ {formatNumber(valoresEstimados.valorAgEstimado, 2)} USD
+                          </Text>
+                        </Stack>
+                      </Group>
+                    </Stack>
+                  </Paper>
 
-                {/* TOTAL COMERCIAL */}
-                <Paper className="bg-emerald-950/30 border border-emerald-800/40 p-3.5 rounded-lg w-64 text-right">
-                  <Stack gap={2} align="flex-end" justify="center">
-                    <Text fz={10} c="emerald.4" fw={700} className="uppercase tracking-wider">
-                      VALOR COMERCIAL TOTAL ESTIMADO:
-                    </Text>
-                    <Text fw={800} fz="1.25rem" className="text-emerald-400">
-                      $ {formatNumber(valoresEstimados.valorTotalEstimado, 2)} USD
-                    </Text>
-                  </Stack>
-                </Paper>
-              </Group>
-            </Stack>
-          </Paper>
+                  {/* TOTAL COMERCIAL */}
+                  <Paper className="bg-emerald-950/30 border border-emerald-800/40 p-3.5 rounded-lg w-64 text-right">
+                    <Stack gap={2} align="flex-end" justify="center">
+                      <Text fz={10} c="emerald.4" fw={700} className="uppercase tracking-wider">
+                        VALOR COMERCIAL TOTAL ESTIMADO:
+                      </Text>
+                      <Text fw={800} fz="1.25rem" className="text-emerald-400">
+                        $ {formatNumber(valoresEstimados.valorTotalEstimado, 2)} USD
+                      </Text>
+                    </Stack>
+                  </Paper>
+                </Group>
+              </Stack>
+            </Paper>
+          )}
 
           {/* Observación */}
           <Textarea

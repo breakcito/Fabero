@@ -4,7 +4,34 @@ Frontend del ERP para una planta de beneficio de mineral de oro y plata. Maneja 
 
 ## Módulos
 
-Empresas, Sucursales, Bancos, Marcas, Organigrama, Personal, Roles, Cuentas, Perfil, Login, Modo Auditoría, Proveedores Mineros, Concesiones, Condiciones Comerciales Proveedor, Anticipos Proveedor, Cuentas Bancarias (Proveedor / Empresa / Planta Destino), Empresas Transporte, Vehículos, Conductores, Recepción Visitas, Programar Recepción, Guías Primer Tramo, Recepción Mineral, Recepción Unidades, Resumen Balanza, Gestión de Leyes, Cierre de Leyes, Blending, Validación Distribución, Programación Despachos, Condiciones Comerciales Planta, Anticipos Planta, Valorización Compra, Valorización Venta, Contabilidad Compra, Plantas Destino, Tipo de Cambio, Ubigeo.
+Empresas, Sucursales, Bancos, Marcas, Organigrama, Personal, Roles, Cuentas, Perfil, Login, Modo Auditoría, Proveedores Mineros, Concesiones, Condiciones Comerciales Proveedor, Anticipos Proveedor, Cuentas Bancarias (Proveedor / Empresa / Planta Destino), Empresas Transporte, Vehículos, Conductores, Recepción Visitas, Programar Recepción, Guías Primer Tramo, Recepción Mineral, Recepción Unidades, Resumen Balanza, Gestión de Leyes, Cierre de Leyes, Blending, Validación Distribución, Programación Despachos, Condiciones Comerciales Planta, Anticipos Planta, Valorización Compra, Valorización Venta, Contabilidad Compra, Plantas Destino, Tipo de Cambio, Ubigeo, **Centro de Ayuda**.
+
+## Centro de Ayuda (`src/modules/centro-ayuda`)
+
+Tutoriales en video de cada módulo del ERP. Ruta: `/centro-ayuda`.
+
+- **Acceso**: botón con icono de auriculares en el header. Abre en una **pestaña
+  nueva** (`target="_blank"`), para no perder el módulo en el que se está
+  trabajando.
+- **Sin chrome de la app**: en esta ruta el `AuthLayout` no renderiza el header
+  ni el menú lateral (`auth.layout.tsx`), y el contenido sube al borde superior.
+  Es una vista independiente, de pantalla completa.
+
+- **Videos**: viven en `public/videos/ayuda/<carpeta-del-modulo>/` y se sirven
+  como archivos estáticos (`/videos/ayuda/...`), fuera del bundle. Para agregar
+  uno: se suelta el archivo en la carpeta del módulo y se reinicia `npm run dev`
+  (el plugin `fabero:ayuda-videos` de `vite.config.ts` arma el manifiesto
+  `virtual:ayuda-videos` con lo que hay en disco). Thumbnail opcional con el
+  mismo nombre base y extensión `.jpg` / `.png` / `.webp`; si no existe, se usa
+  el primer frame del video. Las 14 carpetas ya están creadas (con su `.gitkeep`).
+- **Catálogo**: `src/modules/centro-ayuda/service/ayuda.catalogo.ts` mapea cada
+  módulo a su carpeta y a los títulos de sus videos. El título se resuelve por
+  nombre de archivo exacto y, si no coincide, por posición dentro de la carpeta.
+- **Reproducción fluida**: los MP4 deben tener el `moov` al principio (faststart)
+  para que se reproduzcan en streaming sin frenarse. `npm run ayuda:faststart`
+  (script `scripts/ayuda-faststart.mjs`) reordena los videos de la carpeta; se
+  ejecuta solo en `predev` y `prebuild`.
+
 
 ## Stack
 

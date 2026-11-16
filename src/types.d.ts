@@ -1,3 +1,22 @@
+/**
+ * Modulo virtual generado por el plugin `fabero:ayuda-videos` (ver
+ * `vite.config.ts`). Lista los videos del Centro de Ayuda que hay en
+ * `public/videos/ayuda/<carpeta>/`.
+ */
+declare module "virtual:ayuda-videos" {
+  export interface IArchivoAyuda {
+    /** Nombre base del archivo (sin extension). */
+    base: string;
+    /** URL publica del video. */
+    url: string;
+    /** URL publica del thumbnail, o null si el modulo no trae imagen. */
+    poster: string | null;
+  }
+  /** Archivos por carpeta normalizada: `{ "programacion-de-recepcion": [...] }` */
+  const manifiesto: Record<string, IArchivoAyuda[]>;
+  export default manifiesto;
+}
+
 declare module "uuid" {
   export const NIL: string;
   export const MAX: string;

@@ -77,7 +77,7 @@ export const PanelDetallePropuesta = ({ valorizacion, loading }: Props) => {
         className="bg-zinc-950/70 border border-zinc-800/80 min-h-125 flex flex-col items-center justify-center gap-3"
       >
         <Loader color="indigo" size="md" />
-        <Text fz="xs" c="dimmed">
+        <Text fz="xs" c="zinc.300">
           Cargando detalle de propuesta...
         </Text>
       </Paper>
@@ -97,7 +97,7 @@ export const PanelDetallePropuesta = ({ valorizacion, loading }: Props) => {
         <Text fw={700} fz="sm" c="white">
           Seleccione una propuesta de valorización
         </Text>
-        <Text fz="xs" c="dimmed" maw={360}>
+        <Text fz="xs" c="zinc.300" maw={360}>
           Haga clic sobre una propuesta en la columna izquierda para visualizar su resumen económico y el detalle de sus lotes asociados.
         </Text>
       </Paper>
@@ -168,7 +168,7 @@ export const PanelDetallePropuesta = ({ valorizacion, loading }: Props) => {
                 {valorizacion.proveedor_nombre || "—"}
               </Text>
               {valorizacion.proveedor_ruc && (
-                <Text fz={11} c="dimmed" className="font-mono">
+                <Text fz="xs" c="zinc.300" className="font-mono">
                   (RUC: {valorizacion.proveedor_ruc})
                 </Text>
               )}
@@ -176,7 +176,7 @@ export const PanelDetallePropuesta = ({ valorizacion, loading }: Props) => {
 
             <Group gap={5} wrap="nowrap">
               <IconMapPin size={14} className="text-cyan-400 shrink-0" />
-              <Text fz="xs" c="gray.3">
+              <Text fz="xs" c="zinc.200">
                 {valorizacion.concesion_nombre || "Sin concesión"}
                 {valorizacion.concesion_codigo_reinfo
                   ? ` · REINFO ${valorizacion.concesion_codigo_reinfo}`
@@ -187,14 +187,14 @@ export const PanelDetallePropuesta = ({ valorizacion, loading }: Props) => {
         </div>
 
         <div className="flex flex-col sm:items-end gap-0.5 shrink-0 text-right">
-          <Text fz={11} c="dimmed">
+          <Text fz="xs" c="zinc.300">
             Registro:{" "}
             <span className="text-zinc-300 font-mono">
               {valorizacion.created_at || "—"}
             </span>
           </Text>
           {valorizacion.empleado_registro && (
-            <Text fz={11} c="dimmed">
+            <Text fz="xs" c="zinc.300">
               Por:{" "}
               <span className="text-zinc-300">
                 {valorizacion.empleado_registro}
@@ -202,7 +202,7 @@ export const PanelDetallePropuesta = ({ valorizacion, loading }: Props) => {
             </Text>
           )}
           {valorizacion.fecha_hora_aprobacion && (
-            <Text fz={11} c="teal.4">
+            <Text fz="xs" c="teal.4">
               Aprobado:{" "}
               <span className="font-mono">
                 {valorizacion.fecha_hora_aprobacion}
@@ -222,7 +222,7 @@ export const PanelDetallePropuesta = ({ valorizacion, loading }: Props) => {
           className="rounded-lg bg-zinc-900/80 border border-zinc-700/70 flex items-center gap-2.5"
         >
           <IconInfoCircle size={16} className="text-zinc-400 shrink-0" />
-          <Text fz="xs" c="gray.4">
+          <Text fz="xs" c="zinc.300">
             Esta propuesta quedó{" "}
             <strong className="text-zinc-200">Desestimada</strong> porque otra
             propuesta del mismo grupo fue aprobada. Se mantiene visible para
@@ -248,7 +248,7 @@ export const PanelDetallePropuesta = ({ valorizacion, loading }: Props) => {
                 : ""}
             </Text>
             {valorizacion.motivo_anulacion && (
-              <Text fz="xs" c="gray.3">
+              <Text fz="xs" c="zinc.200">
                 Motivo: {valorizacion.motivo_anulacion}
               </Text>
             )}
@@ -270,7 +270,7 @@ export const PanelDetallePropuesta = ({ valorizacion, loading }: Props) => {
               {valorizacion.empleado_solicita_oc || "Empleado"}
             </Text>
           </Group>
-          <Text fz={11} c="gray.4" className="font-mono">
+          <Text fz="xs" c="zinc.300" className="font-mono">
             {valorizacion.fecha_hora_solicitud_oc}
           </Text>
         </Box>
@@ -286,7 +286,7 @@ export const PanelDetallePropuesta = ({ valorizacion, loading }: Props) => {
           py={8}
           className="rounded-xl bg-zinc-900/70 border border-zinc-800/80"
         >
-          <Text fz={10} tt="uppercase" fw={700} c="dimmed">
+          <Text fz={11} tt="uppercase" fw={700} c="zinc.300">
             Subtotal Lotes
           </Text>
           <Text fz="sm" fw={800} c="teal.3" className="font-mono mt-0.5">
@@ -300,7 +300,7 @@ export const PanelDetallePropuesta = ({ valorizacion, loading }: Props) => {
             py={8}
             className="rounded-xl bg-zinc-900/70 border border-zinc-800/80"
           >
-            <Text fz={10} tt="uppercase" fw={700} c="dimmed">
+            <Text fz={11} tt="uppercase" fw={700} c="zinc.300">
               Anticipos
             </Text>
             <Text
@@ -321,7 +321,7 @@ export const PanelDetallePropuesta = ({ valorizacion, loading }: Props) => {
           py={8}
           className="rounded-xl bg-zinc-900/70 border border-zinc-800/80"
         >
-          <Text fz={10} tt="uppercase" fw={700} c="dimmed">
+          <Text fz={11} tt="uppercase" fw={700} c="zinc.300">
             IGV ({Number(valorizacion.porcentaje_igv ?? 18).toFixed(0)}%)
           </Text>
           <Text fz="sm" fw={700} c="white" className="font-mono mt-0.5">
@@ -334,7 +334,7 @@ export const PanelDetallePropuesta = ({ valorizacion, loading }: Props) => {
           py={8}
           className="rounded-xl bg-zinc-900/70 border border-zinc-800/80"
         >
-          <Text fz={10} tt="uppercase" fw={700} c="dimmed">
+          <Text fz={11} tt="uppercase" fw={700} c="zinc.300">
             Total c/ IGV
           </Text>
           <Text fz="sm" fw={700} c="white" className="font-mono mt-0.5">
@@ -347,7 +347,7 @@ export const PanelDetallePropuesta = ({ valorizacion, loading }: Props) => {
           py={8}
           className="rounded-xl bg-zinc-900/70 border border-zinc-800/80"
         >
-          <Text fz={10} tt="uppercase" fw={700} c="dimmed">
+          <Text fz={11} tt="uppercase" fw={700} c="zinc.300">
             Detracción (
             {Number(valorizacion.porcentaje_detraccion ?? 10).toFixed(0)}%)
           </Text>
@@ -361,7 +361,7 @@ export const PanelDetallePropuesta = ({ valorizacion, loading }: Props) => {
           py={8}
           className="rounded-xl bg-indigo-950/40 border border-indigo-500/40"
         >
-          <Text fz={10} tt="uppercase" fw={700} c="indigo.3">
+          <Text fz={11} tt="uppercase" fw={700} c="indigo.3">
             {fueAprobada ? "Neto a Pagar" : "Neto Estimado"}
           </Text>
           <Text fz="sm" fw={800} c="white" className="font-mono mt-0.5">
@@ -397,14 +397,14 @@ export const PanelDetallePropuesta = ({ valorizacion, loading }: Props) => {
               py={6}
               className="rounded-lg bg-zinc-950/75 border border-zinc-800/80"
             >
-              <Text fz={10} tt="uppercase" fw={700} c="dimmed">
+              <Text fz={11} tt="uppercase" fw={700} c="zinc.300">
                 Cuenta Bancaria Principal
               </Text>
               <Text fz="xs" fw={600} c="white" className="font-mono mt-0.5">
                 {valorizacion.cuenta_bancaria_info || "No asignada"}
               </Text>
               {valorizacion.cuenta_bancaria_cci && (
-                <Text fz={10.5} c="dimmed" className="font-mono">
+                <Text fz={11} c="zinc.300" className="font-mono">
                   CCI: {valorizacion.cuenta_bancaria_cci}
                 </Text>
               )}
@@ -416,10 +416,10 @@ export const PanelDetallePropuesta = ({ valorizacion, loading }: Props) => {
               className="rounded-lg bg-zinc-950/75 border border-zinc-800/80"
             >
               <Group gap={6} justify="space-between" wrap="nowrap">
-                <Text fz={10} tt="uppercase" fw={700} c="dimmed">
+                <Text fz={11} tt="uppercase" fw={700} c="zinc.300">
                   Cuenta de Detracción
                 </Text>
-                <Text fz={10} tt="uppercase" fw={700} c="yellow.4">
+                <Text fz={11} tt="uppercase" fw={700} c="yellow.4">
                   {Number(valorizacion.porcentaje_detraccion ?? 10).toFixed(0)}%
                 </Text>
               </Group>
@@ -427,7 +427,7 @@ export const PanelDetallePropuesta = ({ valorizacion, loading }: Props) => {
                 {valorizacion.cuenta_detraccion_info || "No asignada"}
               </Text>
               {valorizacion.cuenta_detraccion_cci && (
-                <Text fz={10.5} c="dimmed" className="font-mono">
+                <Text fz={11} c="zinc.300" className="font-mono">
                   CCI: {valorizacion.cuenta_detraccion_cci}
                 </Text>
               )}
@@ -437,10 +437,10 @@ export const PanelDetallePropuesta = ({ valorizacion, loading }: Props) => {
           {transaccionesAnticipo.length > 0 && (
             <div className="pt-1.5 border-t border-zinc-800/70 space-y-1">
               <Group justify="space-between">
-                <Text fz={11} fw={700} c="orange.3">
+                <Text fz="xs" fw={700} c="orange.3">
                   Anticipos descontados ({transaccionesAnticipo.length}):
                 </Text>
-                <Text fz={11} fw={800} c="orange.4" className="font-mono">
+                <Text fz="xs" fw={800} c="orange.4" className="font-mono">
                   Total: - {fmtMonedaUsd(valorizacion.total_anticipos)}
                 </Text>
               </Group>
@@ -503,7 +503,7 @@ export const PanelDetallePropuesta = ({ valorizacion, loading }: Props) => {
           p="xl"
           className="rounded-xl bg-zinc-900/40 border border-dashed border-zinc-800 text-center"
         >
-          <Text fz="xs" c="dimmed">
+          <Text fz="xs" c="zinc.300">
             Esta propuesta no tiene lotes asociados.
           </Text>
         </Box>
@@ -529,7 +529,7 @@ export const PanelDetallePropuesta = ({ valorizacion, loading }: Props) => {
                 {/* Fila superior compacta del lote: Identificación + Guías + Precio/TN y Subtotal en línea */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <Group gap={6} wrap="wrap">
-                    <Text fz={11} fw={700} c="dimmed" className="font-mono">
+                    <Text fz="xs" fw={700} c="zinc.300" className="font-mono">
                       #{idx + 1}
                     </Text>
 
@@ -575,7 +575,7 @@ export const PanelDetallePropuesta = ({ valorizacion, loading }: Props) => {
                     )}
 
                     {d.fecha_ingreso && (
-                      <Text fz={11} c="dimmed" className="font-mono">
+                      <Text fz="xs" c="zinc.300" className="font-mono">
                         Ingreso: {d.fecha_ingreso}
                       </Text>
                     )}
@@ -605,10 +605,10 @@ export const PanelDetallePropuesta = ({ valorizacion, loading }: Props) => {
                     className="shrink-0 self-end sm:self-center"
                   >
                     <Group gap={5} wrap="nowrap">
-                      <Text fz={10} tt="uppercase" c="dimmed" fw={700}>
+                      <Text fz={11} tt="uppercase" c="zinc.300" fw={700}>
                         Precio/TN:
                       </Text>
-                      <Text fz="xs" fw={700} c="gray.2" className="font-mono">
+                      <Text fz="xs" fw={700} c="zinc.200" className="font-mono">
                         {fmtMonedaUsd(d.precio_por_tonelada)}
                       </Text>
                     </Group>
@@ -619,9 +619,9 @@ export const PanelDetallePropuesta = ({ valorizacion, loading }: Props) => {
                       className="pl-2.5 border-l border-zinc-800"
                     >
                       <Text
-                        fz={10}
+                        fz={11}
                         tt="uppercase"
-                        c={sinValorLote ? "dimmed" : "teal.4"}
+                        c={sinValorLote ? "zinc.300" : "teal.4"}
                         fw={700}
                       >
                         Subtotal:
@@ -629,7 +629,7 @@ export const PanelDetallePropuesta = ({ valorizacion, loading }: Props) => {
                       <Text
                         fz="sm"
                         fw={800}
-                        c={sinValorLote ? "dimmed" : "teal.3"}
+                        c={sinValorLote ? "zinc.300" : "teal.3"}
                         className="font-mono"
                       >
                         {fmtMonedaUsd(d.subtotal)}
@@ -644,7 +644,7 @@ export const PanelDetallePropuesta = ({ valorizacion, loading }: Props) => {
                   <div className="md:col-span-4 rounded-lg bg-zinc-950/80 border border-zinc-800/80 px-2.5 py-1.5">
                     <div className="grid grid-cols-3 gap-2">
                       <div>
-                        <Text fz={10} c="dimmed">
+                        <Text fz={11} c="zinc.300">
                           TMH (t)
                         </Text>
                         <Text fz="xs" fw={700} c="white" className="font-mono">
@@ -652,7 +652,7 @@ export const PanelDetallePropuesta = ({ valorizacion, loading }: Props) => {
                         </Text>
                       </div>
                       <div>
-                        <Text fz={10} c="dimmed">
+                        <Text fz={11} c="zinc.300">
                           % H2O
                         </Text>
                         <Text fz="xs" fw={700} c="cyan.3" className="font-mono">
@@ -660,7 +660,7 @@ export const PanelDetallePropuesta = ({ valorizacion, loading }: Props) => {
                         </Text>
                       </div>
                       <div>
-                        <Text fz={10} c="dimmed">
+                        <Text fz={11} c="zinc.300">
                           TMS (t)
                         </Text>
                         <Text fz="xs" fw={700} c="teal.3" className="font-mono">
@@ -674,7 +674,7 @@ export const PanelDetallePropuesta = ({ valorizacion, loading }: Props) => {
                   <div className="md:col-span-3 rounded-lg bg-zinc-950/80 border border-zinc-800/80 px-2.5 py-1.5">
                     <div className="grid grid-cols-3 gap-2">
                       <div>
-                        <Text fz={10} c="dimmed">
+                        <Text fz={11} c="zinc.300">
                           Ley ({esOro ? "Au" : "Ag"})
                         </Text>
                         <Text
@@ -687,7 +687,7 @@ export const PanelDetallePropuesta = ({ valorizacion, loading }: Props) => {
                         </Text>
                       </div>
                       <div>
-                        <Text fz={10} c="dimmed">
+                        <Text fz={11} c="zinc.300">
                           Recup.
                         </Text>
                         <Text
@@ -700,10 +700,10 @@ export const PanelDetallePropuesta = ({ valorizacion, loading }: Props) => {
                         </Text>
                       </div>
                       <div>
-                        <Text fz={10} c="dimmed">
+                        <Text fz={11} c="zinc.300">
                           Factor
                         </Text>
-                        <Text fz="xs" fw={700} c="gray.2" className="font-mono">
+                        <Text fz="xs" fw={700} c="zinc.200" className="font-mono">
                           {Number(d.factor || 0).toFixed(4)}
                         </Text>
                       </div>
@@ -714,7 +714,7 @@ export const PanelDetallePropuesta = ({ valorizacion, loading }: Props) => {
                   <div className="md:col-span-5 rounded-lg bg-zinc-950/80 border border-zinc-800/80 px-2.5 py-1.5">
                     <div className="grid grid-cols-4 gap-2">
                       <div>
-                        <Text fz={10} c="dimmed">
+                        <Text fz={11} c="zinc.300">
                           Inter
                         </Text>
                         <Text fz="xs" fw={700} c="white" className="font-mono">
@@ -722,26 +722,26 @@ export const PanelDetallePropuesta = ({ valorizacion, loading }: Props) => {
                         </Text>
                       </div>
                       <div>
-                        <Text fz={10} c="dimmed">
+                        <Text fz={11} c="zinc.300">
                           Des. Inter
                         </Text>
-                        <Text fz="xs" fw={700} c="gray.3" className="font-mono">
+                        <Text fz="xs" fw={700} c="zinc.200" className="font-mono">
                           ${Number(d.des_inter || 0).toFixed(2)}
                         </Text>
                       </div>
                       <div>
-                        <Text fz={10} c="dimmed">
+                        <Text fz={11} c="zinc.300">
                           Maquila
                         </Text>
-                        <Text fz="xs" fw={700} c="gray.3" className="font-mono">
+                        <Text fz="xs" fw={700} c="zinc.200" className="font-mono">
                           ${Number(d.maquila || 0).toFixed(2)}
                         </Text>
                       </div>
                       <div>
-                        <Text fz={10} c="dimmed">
+                        <Text fz={11} c="zinc.300">
                           Reactivo
                         </Text>
-                        <Text fz="xs" fw={700} c="gray.3" className="font-mono">
+                        <Text fz="xs" fw={700} c="zinc.200" className="font-mono">
                           ${Number(d.consumo || 0).toFixed(2)}
                         </Text>
                       </div>

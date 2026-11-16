@@ -7,7 +7,10 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "ayuda:faststart": "node scripts/ayuda-faststart.mjs",
+    "predev": "npm run ayuda:faststart",
+    "prebuild": "npm run ayuda:faststart"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",

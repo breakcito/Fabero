@@ -1,6 +1,7 @@
 import { useEffect } from "react";
-import { Select } from "@mantine/core";
+import { ActionIcon, Select, Tooltip } from "@mantine/core";
 import { Bars3Icon } from "@heroicons/react/24/outline";
+import { IconHeadset } from "@tabler/icons-react";
 import { UserMenu } from "./user-menu";
 import { IndicadorTipoCambio } from "./header-indicadores/indicador-tipo-cambio";
 import { IndicadorPrecioInter } from "./header-indicadores/indicador-precio-inter";
@@ -112,6 +113,26 @@ export const Header = ({ onMenuToggle }: HeaderProps) => {
             <IndicadorPrecioInter />
           </>
         )}
+
+        {/* Acceso al Centro de Ayuda (tutoriales en video). Se abre en una
+            pestaña aparte para no perder el módulo en el que se está trabajando. */}
+        <Tooltip label="Centro de Ayuda" withArrow position="bottom">
+          <ActionIcon
+            component="a"
+            href="/centro-ayuda"
+            target="_blank"
+            rel="noopener noreferrer"
+            variant="subtle"
+            color="yellow"
+            radius="xl"
+            size="md"
+            aria-label="Abrir centro de ayuda en otra pestaña"
+            className="text-yellow-300 hover:text-yellow-200 hover:bg-yellow-500/10 transition-all"
+          >
+            <IconHeadset size={18} />
+          </ActionIcon>
+        </Tooltip>
+
         <UserMenu />
       </div>
 
