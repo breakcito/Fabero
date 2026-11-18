@@ -17,6 +17,15 @@ interface ModalAgregarAnalisisProps {
   esMuestra?: boolean;
   maxEnsayoExistente?: number;
   ctrl: ReturnType<typeof useCierreLeyes>;
+  /** Ley de humedad/recuperación heredada (cierre del grupo o análisis previo). */
+  leyHumedadHeredada?: number | null;
+  leyRecuperacionHeredada?: number | null;
+  /** Si es false, el valor lo impone el cierre del grupo (campo bloqueado). */
+  leyHumedadEditable?: boolean;
+  leyRecuperacionEditable?: boolean;
+  /** El grupo está en propuesta de valorización: no admite leyes de Au/Ag. */
+  bloqueadoOro?: boolean;
+  bloqueadoPlata?: boolean;
 }
 
 export const ModalAgregarAnalisis = ({
@@ -27,6 +36,12 @@ export const ModalAgregarAnalisis = ({
   esMuestra,
   maxEnsayoExistente = 0,
   ctrl,
+  leyHumedadHeredada = 0,
+  leyRecuperacionHeredada = 0,
+  leyHumedadEditable = true,
+  leyRecuperacionEditable = true,
+  bloqueadoOro = false,
+  bloqueadoPlata = false,
 }: ModalAgregarAnalisisProps) => {
   const { notifyError } = useNotify();
 
@@ -77,6 +92,10 @@ export const ModalAgregarAnalisis = ({
         asumido_por: it.asumido_por,
         numero_ensayo: it.numero_ensayo,
         tipo_origen: it.tipo_origen,
+        ley_oro: it.ley_oro ?? undefined,
+        ley_plata: it.ley_plata ?? undefined,
+        ley_humedad: it.ley_humedad ?? undefined,
+        ley_recuperacion: it.ley_recuperacion ?? undefined,
         documentos: it.documentos.length > 0 ? it.documentos : undefined,
       })),
     };
@@ -178,6 +197,12 @@ export const ModalAgregarAnalisis = ({
         loadingLaboratorios={ctrl.loadingLaboratorios}
         onRecargarLaboratorios={ctrl.cargarLaboratorios}
         onGuardarItem={handleGuardarItem}
+        leyHumedadHeredada={leyHumedadHeredada}
+        leyRecuperacionHeredada={leyRecuperacionHeredada}
+        leyHumedadEditable={leyHumedadEditable}
+        leyRecuperacionEditable={leyRecuperacionEditable}
+        bloqueadoOro={bloqueadoOro}
+        bloqueadoPlata={bloqueadoPlata}
       />
     </>
   );

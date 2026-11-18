@@ -47,6 +47,12 @@ export const CierreLeyesPage = () => {
     nombre: string;
     esMuestra?: boolean;
     maxEnsayoExistente?: number;
+    leyHumedadHeredada?: number;
+    leyRecuperacionHeredada?: number;
+    leyHumedadEditable?: boolean;
+    leyRecuperacionEditable?: boolean;
+    bloqueadoOro?: boolean;
+    bloqueadoPlata?: boolean;
   } | null>(null);
 
   const [fechaInicio, setFechaInicio] = useState<string | null>(defaultFechaInicio());
@@ -230,12 +236,13 @@ export const CierreLeyesPage = () => {
                 setIdLoteParaGrupo(idLote);
                 setModalGrupoAbierto(true);
               }}
-              onAbrirModalAgregarAnalisis={(idGrupo, nombre) => {
+              onAbrirModalAgregarAnalisis={(idGrupo, nombre, reglas) => {
                 setGrupoParaAnalisis({
                   id: idGrupo,
                   nombre,
                   esMuestra: false,
                   maxEnsayoExistente: obtenerMaxEnsayoGrupo(idGrupo),
+                  ...reglas,
                 });
                 setModalAnalisisAbierto(true);
               }}
@@ -259,12 +266,13 @@ export const CierreLeyesPage = () => {
                 muestras={ctrl.muestras}
                 lotesDisponibles={ctrl.lotes}
                 onGuardarValoresAnalisis={ctrl.guardarValoresAnalisis}
-                onAbrirModalAgregarAnalisis={(idMuestra, nombre) => {
+                onAbrirModalAgregarAnalisis={(idMuestra, nombre, reglas) => {
                   setGrupoParaAnalisis({
                     id: idMuestra,
                     nombre,
                     esMuestra: true,
                     maxEnsayoExistente: obtenerMaxEnsayoMuestra(idMuestra),
+                    ...reglas,
                   });
                   setModalAnalisisAbierto(true);
                 }}
@@ -307,6 +315,12 @@ export const CierreLeyesPage = () => {
           nombreGrupo={grupoParaAnalisis.nombre}
           esMuestra={grupoParaAnalisis.esMuestra}
           maxEnsayoExistente={grupoParaAnalisis.maxEnsayoExistente}
+          leyHumedadHeredada={grupoParaAnalisis.leyHumedadHeredada}
+          leyRecuperacionHeredada={grupoParaAnalisis.leyRecuperacionHeredada}
+          leyHumedadEditable={grupoParaAnalisis.leyHumedadEditable}
+          leyRecuperacionEditable={grupoParaAnalisis.leyRecuperacionEditable}
+          bloqueadoOro={grupoParaAnalisis.bloqueadoOro}
+          bloqueadoPlata={grupoParaAnalisis.bloqueadoPlata}
           ctrl={ctrl}
         />
       )}

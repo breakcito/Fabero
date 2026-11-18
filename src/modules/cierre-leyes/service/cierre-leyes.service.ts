@@ -59,7 +59,7 @@ async function postAsociarMuestras(
 const appendAnalisisPayload = (
   formData: FormData,
   payload: {
-    id_laboratorio?: number;
+    id_laboratorio?: number | null;
     asumido_por?: string;
     numero_ensayo?: number;
     tipo_origen?: TipoOrigen;
@@ -80,6 +80,18 @@ const appendAnalisisPayload = (
       }
       if (item.tipo_origen) {
         formData.append(`analisis[${idx}][tipo_origen]`, item.tipo_origen);
+      }
+      if (item.ley_oro !== null && item.ley_oro !== undefined) {
+        formData.append(`analisis[${idx}][ley_oro]`, String(item.ley_oro));
+      }
+      if (item.ley_plata !== null && item.ley_plata !== undefined) {
+        formData.append(`analisis[${idx}][ley_plata]`, String(item.ley_plata));
+      }
+      if (item.ley_humedad !== null && item.ley_humedad !== undefined) {
+        formData.append(`analisis[${idx}][ley_humedad]`, String(item.ley_humedad));
+      }
+      if (item.ley_recuperacion !== null && item.ley_recuperacion !== undefined) {
+        formData.append(`analisis[${idx}][ley_recuperacion]`, String(item.ley_recuperacion));
       }
       if (item.documentos && item.documentos.length > 0) {
         item.documentos.forEach((file) => {

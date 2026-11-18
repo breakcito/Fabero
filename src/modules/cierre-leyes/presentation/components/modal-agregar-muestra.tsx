@@ -110,6 +110,10 @@ export const ModalAgregarMuestra = ({
         asumido_por: it.asumido_por,
         numero_ensayo: it.numero_ensayo,
         tipo_origen: it.tipo_origen,
+        ley_oro: it.ley_oro ?? undefined,
+        ley_plata: it.ley_plata ?? undefined,
+        ley_humedad: it.ley_humedad ?? undefined,
+        ley_recuperacion: it.ley_recuperacion ?? undefined,
         documentos: it.documentos.length > 0 ? it.documentos : undefined,
       })),
     });

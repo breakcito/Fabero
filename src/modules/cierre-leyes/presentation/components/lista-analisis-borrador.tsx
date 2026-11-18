@@ -65,6 +65,17 @@ export const ListaAnalisisBorrador = ({
             const cantDocs = item.documentos.length;
             const esExterno = item.tipo_origen === TipoOrigen.Externo;
 
+            const leyes = [
+              { etiqueta: "Au", valor: item.ley_oro },
+              { etiqueta: "Ag", valor: item.ley_plata },
+              { etiqueta: "H₂O", valor: item.ley_humedad },
+              { etiqueta: "REC", valor: item.ley_recuperacion },
+            ].filter(
+              (l): l is { etiqueta: string; valor: number } =>
+                typeof l.valor === "number" && !Number.isNaN(l.valor),
+            );
+            const tieneLeyes = leyes.length > 0;
+
             return (
               <div
                 key={item.localId}
@@ -76,7 +87,11 @@ export const ListaAnalisisBorrador = ({
                       #{item.numero_ensayo}
                     </span>
                     <span className="text-xs font-semibold text-white truncate">
-                      {item.laboratorio_nombre}
+                      {item.laboratorio_nombre || (
+                        <span className="text-zinc-500 italic font-normal">
+                          Sin laboratorio
+                        </span>
+                      )}
                     </span>
                     <Badge
                       size="xs"
@@ -100,6 +115,19 @@ export const ListaAnalisisBorrador = ({
                       {cantDocs} {cantDocs === 1 ? "archivo" : "archivos"}
                     </span>
                   </div>
+
+                  {tieneLeyes && (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {leyes.map((l) => (
+                        <span
+                          key={l.etiqueta}
+                          className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-zinc-800/80 border border-zinc-700 text-zinc-300"
+                        >
+                          {l.etiqueta}: <strong className="text-white">{l.valor}</strong>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-1 shrink-0">

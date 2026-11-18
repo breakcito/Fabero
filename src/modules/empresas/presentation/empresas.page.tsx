@@ -74,7 +74,7 @@ export const EmpresasPage = () => {
         <div className="flex flex-1 gap-4 w-full">
           <TextInput
             label="Buscar Empresa"
-            placeholder="Buscar empresas por nombre o RUC..."
+            placeholder="Buscar por nombre, RUC, ubicación o domicilio..."
             leftSection={
               <MagnifyingGlassIcon className="w-4 h-4 text-zinc-400" />
             }
@@ -110,16 +110,40 @@ export const EmpresasPage = () => {
               className="bg-zinc-900/40 border border-zinc-800/60 rounded-4xl p-5 space-y-4"
             >
               {/* Badge Skeleton */}
-              <div className="flex justify-start">
-                <Skeleton height={18} width={90} radius="md" />
+              <div className="flex justify-between">
+                <Skeleton height={22} width={150} radius="md" />
+                <div className="flex gap-2">
+                  <Skeleton height={22} width={90} radius="xl" />
+                  <Skeleton height={22} width={22} radius="xl" />
+                  <Skeleton height={22} width={22} radius="xl" />
+                </div>
               </div>
 
               {/* Content Skeleton (Horizontal) */}
-              <div className="flex items-center gap-5">
-                <Skeleton height={80} width={80} circle />
+              <div className="flex items-center gap-4">
+                <Skeleton height={72} width={72} circle />
                 <div className="flex-1 space-y-2">
-                  <Skeleton height={16} width="80%" radius="md" />
-                  <Skeleton height={12} width="50%" radius="md" />
+                  <Skeleton height={18} width="70%" radius="md" />
+                  <Skeleton height={12} width="40%" radius="md" />
+                </div>
+              </div>
+
+              {/* Separador */}
+              <Skeleton height={1} radius="md" />
+
+              {/* Métricas Skeleton */}
+              <div className="flex items-center gap-3">
+                <Skeleton height={32} width={32} radius="md" />
+                <div className="flex-1 space-y-1.5">
+                  <Skeleton height={8} width="30%" radius="md" />
+                  <Skeleton height={12} width="75%" radius="md" />
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <Skeleton height={32} width={32} radius="md" />
+                <div className="flex-1 space-y-1.5">
+                  <Skeleton height={8} width="35%" radius="md" />
+                  <Skeleton height={12} width="60%" radius="md" />
                 </div>
               </div>
             </div>

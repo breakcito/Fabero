@@ -32,7 +32,18 @@ interface TablaMuestrasExternasProps {
   muestras: MuestraExternaResponse[];
   lotesDisponibles: LoteCierreResponse[];
   onGuardarValoresAnalisis: (idAnalisis: number, payload: GuardarValoresAnalisisPayload) => Promise<boolean>;
-  onAbrirModalAgregarAnalisis: (idGrupo: number, nombre: string) => void;
+  onAbrirModalAgregarAnalisis: (
+    idGrupo: number,
+    nombre: string,
+    reglas: {
+      leyHumedadHeredada: number;
+      leyRecuperacionHeredada: number;
+      leyHumedadEditable: boolean;
+      leyRecuperacionEditable: boolean;
+      bloqueadoOro: boolean;
+      bloqueadoPlata: boolean;
+    },
+  ) => void;
   onEliminarAnalisis: (idAnalisis: number) => Promise<boolean>;
   eliminandoAnalisis?: Record<number, boolean>;
   onAsociarAGrupo: (idMuestraExterna: number, idGrupo: number) => Promise<boolean>;
@@ -393,7 +404,21 @@ export const TablaMuestrasExternas = ({
 
                       <button
                         type="button"
-                        onClick={() => onAbrirModalAgregarAnalisis(muestra.id, muestra.nombre)}
+                        onClick={() => {
+                          // Sin grupo: la humedad/recuperación se heredan del
+                          // último análisis de la muestra y sí se pueden editar.
+                          const previo = muestra.analisis.find(
+                            (a) => a.ley_humedad > 0 || a.ley_recuperacion > 0,
+                          );
+                          onAbrirModalAgregarAnalisis(muestra.id, muestra.nombre, {
+                            leyHumedadHeredada: previo?.ley_humedad ?? 0,
+                            leyRecuperacionHeredada: previo?.ley_recuperacion ?? 0,
+                            leyHumedadEditable: true,
+                            leyRecuperacionEditable: true,
+                            bloqueadoOro: false,
+                            bloqueadoPlata: false,
+                          });
+                        }}
                         className="mt-0.5 text-[10px] font-semibold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 px-2.5 py-1 rounded-lg border border-cyan-800/60 bg-cyan-950/40 hover:bg-cyan-900/40 transition-all cursor-pointer"
                       >
                         <IconPlus size={11} /> Añadir Análisis

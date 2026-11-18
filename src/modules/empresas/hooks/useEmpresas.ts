@@ -39,12 +39,16 @@ export const useEmpresas = () => {
   }, [listar]);
 
   const empresasFiltradas = useMemo(() => {
-    const q = busqueda.toLowerCase();
+    const q = busqueda.toLowerCase().trim();
     return empresas.filter(
       (emp) =>
         !q ||
         emp.razon_social.toLowerCase().includes(q) ||
-        emp.ruc.includes(q),
+        emp.ruc.includes(q) ||
+        (emp.departamento_nombre?.toLowerCase().includes(q) ?? false) ||
+        (emp.provincia_nombre?.toLowerCase().includes(q) ?? false) ||
+        (emp.distrito_nombre?.toLowerCase().includes(q) ?? false) ||
+        (emp.domicilio_fiscal?.toLowerCase().includes(q) ?? false),
     );
   }, [empresas, busqueda]);
 

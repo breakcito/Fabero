@@ -8,15 +8,19 @@ import {
   ActionIcon,
   Modal,
   Loader,
+  Text,
 } from "@mantine/core";
 import { IconPlus, IconTestPipe } from "@tabler/icons-react";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
 import { FormLaboratorio } from "../../../../presentation/utils/form-laboratorio";
 import { MultiFilePicker } from "../../../../presentation/utils/archivo/multifile-picker";
 import { TipoOrigen } from "../../../../shared/enums/_generic/tipo-origen";
-import { useNotify } from "../../../../hooks/useNotify";
 import type { RES_Laboratorio } from "../../../../service/responses/laboratorio";
-import type { AnalisisDraftItem } from "../../service/cierre-leyes.requests";
+import {
+  ASUMIDO_POR_FABERO,
+  ASUMIDO_POR_PROVEEDOR,
+  type AnalisisDraftItem,
+} from "../../service/cierre-leyes.requests";
 
 interface ModalFormAnalisisItemProps {
   opened: boolean;
@@ -28,18 +32,30 @@ interface ModalFormAnalisisItemProps {
   loadingLaboratorios: boolean;
   onRecargarLaboratorios: () => Promise<void>;
   onGuardarItem: (item: AnalisisDraftItem) => void;
+  /**
+   * Ley de humedad/recuperación heredada (cierre del grupo o análisis previo).
+   * Si `editable` es false, el grupo impone el valor y el campo se bloquea.
+   */
+  leyHumedadHeredada?: number | null;
+  leyHumedadEditable?: boolean;
+  leyRecuperacionHeredada?: number | null;
+  leyRecuperacionEditable?: boolean;
+  /** El grupo está en propuesta de valorización: no se pueden ingresar leyes de Au/Ag. */
+  bloqueadoOro?: boolean;
+  bloqueadoPlata?: boolean;
 }
 
-interface FormBodyProps {
-  itemEditar: AnalisisDraftItem | null;
-  numeroEnsayoSugerido: number;
-  defaultOrigen: TipoOrigen;
-  laboratorios: RES_Laboratorio[];
-  loadingLaboratorios: boolean;
-  onRecargarLaboratorios: () => Promise<void>;
-  onGuardarItem: (item: AnalisisDraftItem) => void;
-  onClose: () => void;
-}
+type FormBodyProps = Omit<ModalFormAnalisisItemProps, "opened">;
+
+const FIELD_INPUT =
+  "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500";
+const FIELD_LABEL = "text-zinc-300 mb-1 font-medium text-xs";
+
+/** El origen determina por defecto quién asume el análisis; siempre editable. */
+const asumidoPorPorOrigen = (origen: TipoOrigen) =>
+  origen === TipoOrigen.Interno
+    ? ASUMIDO_POR_FABERO
+    : ASUMIDO_POR_PROVEEDOR;
 
 const FormAnalisisItemBody = ({
   itemEditar,
@@ -50,14 +66,19 @@ const FormAnalisisItemBody = ({
   onRecargarLaboratorios,
   onGuardarItem,
   onClose,
+  leyHumedadHeredada = 0,
+  leyHumedadEditable = true,
+  leyRecuperacionHeredada = 0,
+  leyRecuperacionEditable = true,
+  bloqueadoOro = false,
+  bloqueadoPlata = false,
 }: FormBodyProps) => {
-  const { notifyError } = useNotify();
-
   const [idLaboratorio, setIdLaboratorio] = useState<string | null>(() => {
     if (itemEditar?.id_laboratorio) return String(itemEditar.id_laboratorio);
-    if (laboratorios.length > 0) return String(laboratorios[0].id);
     return null;
   });
+  /** El laboratorio es opcional: si el usuario lo limpia, no se vuelve a sugerir. */
+  const [laboratorioElegido, setLaboratorioElegido] = useState(false);
   const [nombreLabManual, setNombreLabManual] = useState<string | null>(
     itemEditar?.laboratorio_nombre ?? null,
   );
@@ -65,7 +86,7 @@ const FormAnalisisItemBody = ({
     itemEditar?.tipo_origen ?? defaultOrigen,
   );
   const [asumidoPor, setAsumidoPor] = useState<string>(
-    itemEditar?.asumido_por ?? "Proveedor",
+    itemEditar?.asumido_por ?? asumidoPorPorOrigen(defaultOrigen),
   );
   const [numeroEnsayo, setNumeroEnsayo] = useState<number>(
     itemEditar?.numero_ensayo ?? numeroEnsayoSugerido,
@@ -74,36 +95,74 @@ const FormAnalisisItemBody = ({
     itemEditar?.documentos ?? [],
   );
 
+  const [leyOro, setLeyOro] = useState<number | string>(
+    itemEditar?.ley_oro ?? "",
+  );
+  const [leyPlata, setLeyPlata] = useState<number | string>(
+    itemEditar?.ley_plata ?? "",
+  );
+  const [leyHumedad, setLeyHumedad] = useState<number | string>(() => {
+    if (typeof itemEditar?.ley_humedad === "number") return itemEditar.ley_humedad;
+    const heredada = leyHumedadHeredada ?? 0;
+    return heredada > 0 ? heredada : "";
+  });
+  const [leyRecuperacion, setLeyRecuperacion] = useState<number | string>(() => {
+    if (typeof itemEditar?.ley_recuperacion === "number")
+      return itemEditar.ley_recuperacion;
+    const heredada = leyRecuperacionHeredada ?? 0;
+    return heredada > 0 ? heredada : "";
+  });
+
   const [modalLabAbierto, setModalLabAbierto] = useState(false);
   const [nuevoLabNombre, setNuevoLabNombre] = useState("");
   const [nuevoLabRuc, setNuevoLabRuc] = useState("");
 
-  const resolvedIdLab =
-    idLaboratorio ?? (laboratorios.length > 0 ? String(laboratorios[0].id) : null);
+  // El laboratorio es opcional: se sugiere el primero disponible mientras el
+  // usuario no lo haya elegido ni lo haya limpiado explícitamente.
+  const resolvedIdLab = laboratorioElegido
+    ? idLaboratorio
+    : (idLaboratorio ??
+      (laboratorios.length > 0 ? String(laboratorios[0].id) : null));
 
   const opcionesLaboratorios = laboratorios.map((lab) => ({
     value: String(lab.id),
     label: lab.nombre,
   }));
 
-  const handleGuardar = () => {
-    if (!resolvedIdLab) {
-      notifyError("Selecciona un laboratorio para el análisis");
-      return;
-    }
+  /**
+   * Al cambiar el origen se reasigna por defecto quién asume el análisis.
+   * El usuario puede volver a cambiarlo manualmente.
+   */
+  const handleCambioOrigen = (valor: string | null) => {
+    const nuevoOrigen = (valor as TipoOrigen) || defaultOrigen;
+    setTipoOrigen(nuevoOrigen);
+    setAsumidoPor(asumidoPorPorOrigen(nuevoOrigen));
+  };
 
+  const humedadImpuesta = !leyHumedadEditable;
+  const recuperacionImpuesta = !leyRecuperacionEditable;
+
+  const handleGuardar = () => {
     const labEncontrado = laboratorios.find((l) => String(l.id) === resolvedIdLab);
-    const laboratorioNombre =
-      labEncontrado?.nombre || nombreLabManual || `Laboratorio #${resolvedIdLab}`;
+    const laboratorioNombre = resolvedIdLab
+      ? labEncontrado?.nombre || nombreLabManual || `Laboratorio #${resolvedIdLab}`
+      : "";
+
+    const aNumero = (v: number | string) =>
+      typeof v === "number" && !Number.isNaN(v) ? v : null;
 
     onGuardarItem({
       localId: itemEditar?.localId ?? `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      id_laboratorio: Number(resolvedIdLab),
+      id_laboratorio: resolvedIdLab ? Number(resolvedIdLab) : null,
       laboratorio_nombre: laboratorioNombre,
       asumido_por: asumidoPor,
       numero_ensayo: numeroEnsayo > 0 ? numeroEnsayo : 1,
       tipo_origen: tipoOrigen,
       documentos: archivos,
+      ley_oro: bloqueadoOro ? null : aNumero(leyOro),
+      ley_plata: bloqueadoPlata ? null : aNumero(leyPlata),
+      ley_humedad: humedadImpuesta ? null : aNumero(leyHumedad),
+      ley_recuperacion: recuperacionImpuesta ? null : aNumero(leyRecuperacion),
     });
     onClose();
   };
@@ -114,23 +173,30 @@ const FormAnalisisItemBody = ({
         <div className="grid grid-cols-[1fr_auto] gap-2 items-end">
           <Select
             label="Laboratorio"
-            placeholder={loadingLaboratorios ? "Cargando..." : "Selecciona laboratorio"}
+            placeholder={
+              loadingLaboratorios
+                ? "Cargando..."
+                : resolvedIdLab
+                  ? "Selecciona laboratorio"
+                  : "Opcional"
+            }
             data={opcionesLaboratorios}
             value={resolvedIdLab}
             onChange={(val) => {
               setIdLaboratorio(val);
+              setLaboratorioElegido(true);
               setNombreLabManual(null);
             }}
             searchable
-            required
+            clearable
             disabled={loadingLaboratorios}
             rightSection={loadingLaboratorios ? <Loader size={14} /> : undefined}
             comboboxProps={{ zIndex: 400 }}
             size="xs"
             radius="lg"
             classNames={{
-              input: "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500",
-              label: "text-zinc-300 mb-1 font-medium text-xs",
+              input: FIELD_INPUT,
+              label: FIELD_LABEL,
             }}
           />
           <ActionIcon
@@ -157,30 +223,30 @@ const FormAnalisisItemBody = ({
               { value: TipoOrigen.Externo, label: "Externo" },
             ]}
             value={tipoOrigen}
-            onChange={(val) => setTipoOrigen((val as TipoOrigen) || defaultOrigen)}
+            onChange={handleCambioOrigen}
             comboboxProps={{ zIndex: 400 }}
             size="xs"
             radius="lg"
             classNames={{
-              input: "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500",
-              label: "text-zinc-300 mb-1 font-medium text-xs",
+              input: FIELD_INPUT,
+              label: FIELD_LABEL,
             }}
           />
 
           <Select
             label="Asumido Por"
             data={[
-              { value: "Proveedor", label: "Proveedor" },
-              { value: "Fabero", label: "Fabero" },
+              { value: ASUMIDO_POR_PROVEEDOR, label: ASUMIDO_POR_PROVEEDOR },
+              { value: ASUMIDO_POR_FABERO, label: ASUMIDO_POR_FABERO },
             ]}
             value={asumidoPor}
-            onChange={(val) => setAsumidoPor(val || "Proveedor")}
+            onChange={(val) => setAsumidoPor(val || ASUMIDO_POR_PROVEEDOR)}
             comboboxProps={{ zIndex: 400 }}
             size="xs"
             radius="lg"
             classNames={{
-              input: "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500",
-              label: "text-zinc-300 mb-1 font-medium text-xs",
+              input: FIELD_INPUT,
+              label: FIELD_LABEL,
             }}
           />
 
@@ -192,11 +258,111 @@ const FormAnalisisItemBody = ({
             size="xs"
             radius="lg"
             classNames={{
-              input: "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500",
-              label: "text-zinc-300 mb-1 font-medium text-xs",
+              input: FIELD_INPUT,
+              label: FIELD_LABEL,
             }}
           />
         </div>
+
+        {/* Leyes del ensayo (opcionales) */}
+        <div className="grid grid-cols-4 gap-2.5">
+          <NumberInput
+            label="Ley Au"
+            placeholder="0.000"
+            value={leyOro}
+            onChange={setLeyOro}
+            min={0}
+            decimalScale={3}
+            fixedDecimalScale
+            hideControls
+            disabled={bloqueadoOro}
+            size="xs"
+            radius="lg"
+            classNames={{
+              input: FIELD_INPUT,
+              label: FIELD_LABEL,
+            }}
+          />
+          <NumberInput
+            label="Ley Ag"
+            placeholder="0.000"
+            value={leyPlata}
+            onChange={setLeyPlata}
+            min={0}
+            decimalScale={3}
+            fixedDecimalScale
+            hideControls
+            disabled={bloqueadoPlata}
+            size="xs"
+            radius="lg"
+            classNames={{
+              input: FIELD_INPUT,
+              label: FIELD_LABEL,
+            }}
+          />
+          <NumberInput
+            label="Humedad"
+            placeholder="0.000"
+            value={leyHumedad}
+            onChange={setLeyHumedad}
+            min={0}
+            decimalScale={3}
+            fixedDecimalScale
+            hideControls
+            disabled={humedadImpuesta}
+            size="xs"
+            radius="lg"
+            classNames={{
+              input: FIELD_INPUT,
+              label: FIELD_LABEL,
+            }}
+          />
+          <NumberInput
+            label="Recuperación"
+            placeholder="0.000"
+            value={leyRecuperacion}
+            onChange={setLeyRecuperacion}
+            min={0}
+            decimalScale={3}
+            fixedDecimalScale
+            hideControls
+            disabled={recuperacionImpuesta}
+            size="xs"
+            radius="lg"
+            classNames={{
+              input: FIELD_INPUT,
+              label: FIELD_LABEL,
+            }}
+          />
+        </div>
+
+        {(bloqueadoOro || bloqueadoPlata || humedadImpuesta || recuperacionImpuesta) && (
+          <Text size="10px" className="text-zinc-400 leading-snug">
+            {humedadImpuesta || recuperacionImpuesta ? (
+              <>
+                La ley de{" "}
+                {humedadImpuesta && recuperacionImpuesta
+                  ? "humedad y recuperación"
+                  : humedadImpuesta
+                    ? "humedad"
+                    : "recuperación"}{" "}
+                la impone el cierre vigente del grupo y no se puede modificar desde
+                aquí.
+              </>
+            ) : (
+              <>
+                El grupo está en una propuesta de valorización, por lo que no se
+                pueden ingresar leyes de{" "}
+                {bloqueadoOro && bloqueadoPlata
+                  ? "oro y plata"
+                  : bloqueadoOro
+                    ? "oro"
+                    : "plata"}
+                .
+              </>
+            )}
+          </Text>
+        )}
 
         <MultiFilePicker
           label="Documentos / Sustento de Análisis"
@@ -213,7 +379,6 @@ const FormAnalisisItemBody = ({
             color="cyan"
             size="xs"
             radius="lg"
-            disabled={!resolvedIdLab}
             onClick={handleGuardar}
           >
             {itemEditar ? "Guardar Cambios" : "Añadir a la Lista"}
@@ -263,6 +428,12 @@ export const ModalFormAnalisisItem = ({
   loadingLaboratorios,
   onRecargarLaboratorios,
   onGuardarItem,
+  leyHumedadHeredada,
+  leyHumedadEditable,
+  leyRecuperacionHeredada,
+  leyRecuperacionEditable,
+  bloqueadoOro,
+  bloqueadoPlata,
 }: ModalFormAnalisisItemProps) => {
   return (
     <ModalEstandar
@@ -291,9 +462,14 @@ export const ModalFormAnalisisItem = ({
           onRecargarLaboratorios={onRecargarLaboratorios}
           onGuardarItem={onGuardarItem}
           onClose={onClose}
+          leyHumedadHeredada={leyHumedadHeredada}
+          leyHumedadEditable={leyHumedadEditable}
+          leyRecuperacionHeredada={leyRecuperacionHeredada}
+          leyRecuperacionEditable={leyRecuperacionEditable}
+          bloqueadoOro={bloqueadoOro}
+          bloqueadoPlata={bloqueadoPlata}
         />
       )}
     </ModalEstandar>
   );
 };
-

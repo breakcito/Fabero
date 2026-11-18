@@ -41,7 +41,18 @@ interface TablaCierreLeyesProps {
   onEliminarAnalisis: (idAnalisis: number) => Promise<boolean>;
   eliminandoAnalisis?: Record<number, boolean>;
   onAbrirModalCrearGrupo: (idLote: number) => void;
-  onAbrirModalAgregarAnalisis: (idGrupo: number, nombreGrupo: string) => void;
+  onAbrirModalAgregarAnalisis: (
+    idGrupo: number,
+    nombreGrupo: string,
+    reglas: {
+      leyHumedadHeredada: number;
+      leyRecuperacionHeredada: number;
+      leyHumedadEditable: boolean;
+      leyRecuperacionEditable: boolean;
+      bloqueadoOro: boolean;
+      bloqueadoPlata: boolean;
+    },
+  ) => void;
   onSubirDocumentos: (idAnalisis: number, archivos: File[]) => Promise<IArchivoDoc[] | boolean | null>;
   muestrasAsociadasPorGrupo?: Record<number, MuestraAsociadaResponse[]>;
   onCargarMuestrasAsociadas?: (idGrupo: number) => Promise<MuestraAsociadaResponse[]>;
@@ -592,7 +603,16 @@ export const TablaCierreLeyes = ({
                             {!ga.tiene_propuesta_oro && !ga.tiene_propuesta_plata ? (
                               <button
                                 type="button"
-                                onClick={() => onAbrirModalAgregarAnalisis(ga.id, ga.nombre)}
+                                onClick={() =>
+                                  onAbrirModalAgregarAnalisis(ga.id, ga.nombre, {
+                                    leyHumedadHeredada: ga.ley_humedad_cierre,
+                                    leyRecuperacionHeredada: ga.ley_recuperacion_cierre,
+                                    leyHumedadEditable: !(ga.ley_humedad_cierre > 0),
+                                    leyRecuperacionEditable: !(ga.ley_recuperacion_cierre > 0),
+                                    bloqueadoOro: ga.tiene_propuesta_oro,
+                                    bloqueadoPlata: ga.tiene_propuesta_plata,
+                                  })
+                                }
                                 className="mt-1 text-[10px] font-semibold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 px-2 py-0.5 rounded-lg border border-cyan-800/60 bg-cyan-950/40 hover:bg-cyan-900/40 transition-all cursor-pointer"
                               >
                                 <IconPlus size={11} /> Añadir Análisis

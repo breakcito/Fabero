@@ -1,17 +1,31 @@
 import { EstadoLeyes } from "../../../shared/enums/_generic/estado-leyes";
 import { TipoOrigen } from "../../../shared/enums/_generic/tipo-origen";
 
-export interface AnalisisItemPayload {
-  id_laboratorio?: number;
+/** Quién asume el análisis. El valor se almacena tal cual en `asumido_por`. */
+export const ASUMIDO_POR_FABERO = "Fabero";
+export const ASUMIDO_POR_PROVEEDOR = "Proveedor";
+export type AsumidoPor = typeof ASUMIDO_POR_FABERO | typeof ASUMIDO_POR_PROVEEDOR;
+
+/** Leyes opcionales que se pueden registrar junto al análisis. */
+export interface LeyesAnalisis {
+  ley_oro?: number | null;
+  ley_plata?: number | null;
+  ley_humedad?: number | null;
+  ley_recuperacion?: number | null;
+}
+
+export interface AnalisisItemPayload extends LeyesAnalisis {
+  id_laboratorio?: number | null;
   asumido_por?: string;
   numero_ensayo?: number;
   tipo_origen?: TipoOrigen;
   documentos?: File[];
 }
 
-export interface AnalisisDraftItem {
+export interface AnalisisDraftItem extends LeyesAnalisis {
   localId: string;
-  id_laboratorio: number;
+  /** El laboratorio es opcional. */
+  id_laboratorio: number | null;
   laboratorio_nombre: string;
   asumido_por: string;
   numero_ensayo: number;
