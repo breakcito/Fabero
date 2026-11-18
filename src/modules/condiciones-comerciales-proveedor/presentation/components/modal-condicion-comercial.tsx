@@ -126,6 +126,7 @@ export const ModalCondicionComercial = ({
       close={onClose}
       title={isEdit ? "Editar condición comercial" : "Registrar condición comercial"}
       size="md"
+      validateClose
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Proveedor */}

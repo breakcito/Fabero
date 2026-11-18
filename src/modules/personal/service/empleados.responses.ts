@@ -2,10 +2,10 @@ export interface RES_EmpleadoResumen {
   id_empleado: number;
   id_empresa: number;
   empresa: string;
-  id_cargo: number;
-  cargo: string;
-  id_area: number;
-  area: string;
+  id_area: number | null;
+  area: string | null;
+  id_cargo: number | null;
+  cargo: string | null;
   nombre: string;
   apellido: string;
   dni: string | null;
@@ -15,7 +15,6 @@ export interface RES_EmpleadoResumen {
   fecha_nacimiento: string | null;
   path_foto: string | null;
   estado: string;
-  autoriza_ingreso_unidades: boolean;
 }
 
 export interface RES_Area {

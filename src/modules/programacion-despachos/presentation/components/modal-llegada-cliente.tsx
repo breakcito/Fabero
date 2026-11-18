@@ -203,6 +203,7 @@ export const ModalLlegadaCliente = ({
       }
       size="70%"
       rightSection={headerRightSection}
+      validateClose
     >
       <Stack gap="md" className="max-h-[80vh] overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
         <Box className="rounded-xl border border-zinc-800/80 bg-zinc-950/40 overflow-hidden">

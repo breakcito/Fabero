@@ -6,6 +6,8 @@ import {
   FileButton,
   Stack,
   Loader,
+  ActionIcon,
+  Tooltip,
 } from "@mantine/core";
 import {
   PencilSquareIcon,
@@ -21,9 +23,10 @@ import { CompanyGroupCard } from "./empleados-components/company-group-card";
 
 interface TabEmpleadosProps {
   controller: ReturnType<typeof useEmpleados>;
+  onEditar: (empleado: RES_EmpleadoResumen) => void;
 }
 
-export const TabEmpleados = ({ controller }: TabEmpleadosProps) => {
+export const TabEmpleados = ({ controller, onEditar }: TabEmpleadosProps) => {
   const { notifySuccess, notifyError } = useNotify();
 
   const { loading, groupedByCompany, actualizarFoto, idActualizandoFoto } =
@@ -78,8 +81,7 @@ export const TabEmpleados = ({ controller }: TabEmpleadosProps) => {
                       variant="light"
                       className="w-full h-full"
                     >
-                      {r.nombre[0]}
-                      {r.apellido[0]}
+                      {`${r.nombre?.[0] ?? ""}${r.apellido?.[0] ?? ""}`}
                     </Avatar>
                     {!isUpdatingFoto && (
                       <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -90,37 +92,52 @@ export const TabEmpleados = ({ controller }: TabEmpleadosProps) => {
                 )}
               </FileButton>
             </div>
-            <div>
-              <Text size="sm" fw={500} className="text-zinc-200">
-                {r.nombre} {r.apellido}
-              </Text>
-              <Text size="11px" className="text-zinc-500 font-mono">
-                DNI: {r.dni || "---"}
-              </Text>
-            </div>
+            <Text size="sm" fw={500} className="text-zinc-200">
+              {r.nombre} {r.apellido}
+            </Text>
           </Group>
         );
       },
     },
     {
-      accessor: "ubicacion",
-      title: "Área / Cargo",
-      width: 200,
+      accessor: "dni",
+      title: "DNI",
+      width: 150,
       render: (r) => (
-        <Stack gap={4}>
-          <Text size="sm" fw={700} className="text-zinc-100 leading-tight">
-            {r.cargo}
-          </Text>
+        <Text size="md" fw={600} className="text-white font-mono">
+          {r.dni || "---"}
+        </Text>
+      ),
+    },
+    {
+      accessor: "area",
+      title: "Área",
+      width: 190,
+      render: (r) =>
+        r.area ? (
           <Badge
             variant="light"
             color="indigo"
             radius="sm"
-            size="xs"
+            size="md"
             className="font-medium w-fit"
           >
             {r.area}
           </Badge>
-        </Stack>
+        ) : (
+          <Text size="sm" className="text-zinc-500">
+            ---
+          </Text>
+        ),
+    },
+    {
+      accessor: "cargo",
+      title: "Cargo",
+      width: 200,
+      render: (r) => (
+        <Text size="sm" fw={700} className="text-zinc-100 leading-tight">
+          {r.cargo || "---"}
+        </Text>
       ),
     },
     {
@@ -136,6 +153,26 @@ export const TabEmpleados = ({ controller }: TabEmpleadosProps) => {
         >
           {r.estado}
         </Badge>
+      ),
+    },
+    {
+      accessor: "acciones",
+      title: "Acciones",
+      textAlign: "center",
+      width: 100,
+      render: (r) => (
+        <Tooltip label="Editar empleado" withArrow>
+          <ActionIcon
+            variant="light"
+            color="indigo"
+            size="md"
+            radius="lg"
+            onClick={() => onEditar(r)}
+            disabled={loading}
+          >
+            <PencilSquareIcon className="w-4 h-4" />
+          </ActionIcon>
+        </Tooltip>
       ),
     },
   ];

@@ -1,6 +1,12 @@
 import { z } from "zod";
 
-export const Schema_CrearEmpleado = z.object({
+/**
+ * Campos comunes del alta y la edición de un empleado.
+ *
+ * Área y cargo son opcionales: el área se coloca cuando se registra un cargo
+ * (el cargo determina su área) y puede informarse sola cuando no hay cargo.
+ */
+const BaseSchema_Empleado = z.object({
   nombre: z.string().min(1, "Los nombres son obligatorios"),
   apellido: z.string().min(1, "Los apellidos son obligatorios"),
   dni: z
@@ -40,8 +46,20 @@ export const Schema_CrearEmpleado = z.object({
     }),
   path_foto: z.any().nullable().optional(),
   id_empresa: z.number().min(1, "Debe seleccionar una empresa"),
-  id_cargo: z.number().min(1, "Debe seleccionar un cargo"),
-  autoriza_ingreso_unidades: z.boolean().default(false),
+  id_area: z
+    .number()
+    .nullable()
+    .optional()
+    .transform((val) => (val && val > 0 ? val : null)),
+  id_cargo: z
+    .number()
+    .nullable()
+    .optional()
+    .transform((val) => (val && val > 0 ? val : null)),
 });
 
+export const Schema_CrearEmpleado = BaseSchema_Empleado;
+export const Schema_EditarEmpleado = BaseSchema_Empleado;
+
 export type DTO_CrearEmpleado = z.infer<typeof Schema_CrearEmpleado>;
+export type DTO_EditarEmpleado = z.infer<typeof Schema_EditarEmpleado>;

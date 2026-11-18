@@ -553,6 +553,7 @@ export const TablaRecepciones = ({
         close={() => setExitRecord(null)}
         title="Registro de Salida"
         size="md"
+        validateClose
       >
         <div className="flex flex-col gap-4">
           <Select

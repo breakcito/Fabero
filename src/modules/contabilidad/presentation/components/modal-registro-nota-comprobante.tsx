@@ -189,6 +189,7 @@ export const ModalRegistroNotaComprobante = ({
         />
       }
       size="lg"
+      validateClose
     >
       <Stack gap="md">
         {comprobante && (

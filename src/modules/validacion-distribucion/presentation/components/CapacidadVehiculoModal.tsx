@@ -60,6 +60,7 @@ export const CapacidadVehiculoModal = ({
       close={onClose}
       title={`Capacidad del vehículo${placa ? ` ${placa}` : ""}`}
       size="sm"
+      validateClose
     >
       <NumberInput
         label="Capacidad (TN)"

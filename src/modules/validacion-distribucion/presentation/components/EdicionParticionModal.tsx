@@ -321,6 +321,7 @@ export const EdicionParticionModal = ({
         close={onClose}
         title={`Recepción de la partición ${particion.particion}`}
         size="lg"
+        validateClose
       >
         <Stack gap="sm">
           <Group gap="xs" c="dimmed">
@@ -482,6 +483,7 @@ export const EdicionParticionModal = ({
           close={() => setSubModal(null)}
           title="Registrar vehículo"
           size="sm"
+          validateClose
         >
           <RegistroVehiculoSimple
             idEmpresaTransporte={
@@ -504,6 +506,7 @@ export const EdicionParticionModal = ({
           close={() => setSubModal(null)}
           title="Registrar vehículo carreta"
           size="sm"
+          validateClose
         >
           <RegistroVehiculoSimple
             idEmpresaTransporte={
@@ -526,6 +529,7 @@ export const EdicionParticionModal = ({
           close={() => setSubModal(null)}
           title="Registrar conductor"
           size="sm"
+          validateClose
         >
           <RegistroConductor
             onCancel={() => setSubModal(null)}
@@ -544,6 +548,7 @@ export const EdicionParticionModal = ({
           close={() => setSubModal(null)}
           title="Registrar empresa de transporte"
           size="md"
+          validateClose
         >
           <RegistroEmpresaTransporte
             onCancel={() => setSubModal(null)}
@@ -562,6 +567,7 @@ export const EdicionParticionModal = ({
           close={() => setSubModal(null)}
           title="Registrar tipo de vehículo"
           size="sm"
+          validateClose
         >
           <RegistroTipoVehiculoSimple
             onCancel={() => setSubModal(null)}
@@ -580,6 +586,7 @@ export const EdicionParticionModal = ({
           close={() => setSubModal(null)}
           title="Registrar proveedor minero"
           size="sm"
+          validateClose
         >
           <RegistroProveedorMineroSimple
             onCancel={() => setSubModal(null)}

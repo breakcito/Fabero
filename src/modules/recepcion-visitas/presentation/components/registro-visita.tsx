@@ -816,6 +816,7 @@ export const RegistroVisita = ({ onCancel, onSuccess }: Props) => {
         close={() => setOpenModalVehiculo(false)}
         title={editingVehiculo ? "Editar Vehículo Acompañante" : "Agregar Vehículo Acompañante"}
         size="md"
+        validateClose
       >
         <div className="flex flex-col gap-4">
           {visitorError && (
@@ -882,6 +883,7 @@ export const RegistroVisita = ({ onCancel, onSuccess }: Props) => {
         close={() => setOpenModalAcompanante(false)}
         title={editingAcompanante !== null ? "Editar Datos del Visitante" : "Agregar Visitante"}
         size="md"
+        validateClose
       >
         <div className="flex flex-col gap-4">
           {visitorError && (
@@ -1008,6 +1010,7 @@ export const RegistroVisita = ({ onCancel, onSuccess }: Props) => {
         close={() => setOpenModalMotivo(false)}
         title="Registrar Nuevo Motivo de Ingreso"
         size="md"
+        validateClose
       >
         <RegistroMotivoIngreso
           onCancel={() => setOpenModalMotivo(false)}

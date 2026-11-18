@@ -137,6 +137,7 @@ export const ModalAsignarCarga = ({
       close={onClose}
       title="Asignar Carga a la Distribución"
       size="xl"
+      validateClose
     >
       <Stack gap="sm" mt="xs">
         <Box>

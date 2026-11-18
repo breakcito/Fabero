@@ -203,6 +203,7 @@ export const OrganigramaPage = () => {
         close={closeArea}
         title="Nueva Área"
         size="md"
+        validateClose
       >
         <RegistroArea
           nombre={regArea.nombre}
@@ -220,6 +221,7 @@ export const OrganigramaPage = () => {
         close={closeCargos}
         title="Cargos"
         size="lg"
+        validateClose
       >
         <ListaCargos
           areaNombre={areaSeleccionada?.nombre || ""}

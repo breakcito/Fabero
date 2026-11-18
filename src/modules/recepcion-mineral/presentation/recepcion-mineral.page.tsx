@@ -697,6 +697,7 @@ export const RecepcionMineralPage = () => {
           close={() => setActiveParticionPesoInicial(null)}
           title={`Peso Inicial: ${activeParticionPesoInicial.particion.correlativo}`}
           size="lg"
+          validateClose
         >
           <ModalPesoInicial
             lote={activeParticionPesoInicial.lotePadre}
@@ -715,6 +716,7 @@ export const RecepcionMineralPage = () => {
           close={() => setActiveParticionPesoFinal(null)}
           title={`Peso Final: ${activeParticionPesoFinal.particion.correlativo}`}
           size="xl"
+          validateClose
         >
           <ModalPesoFinal
             lote={activeParticionPesoFinal.lotePadre}
@@ -732,6 +734,7 @@ export const RecepcionMineralPage = () => {
           close={() => setActiveLotePesoInicial(null)}
           title={`Peso Inicial: ${activeLotePesoInicial.correlativo}`}
           size="lg"
+          validateClose
         >
           <ModalPesoInicial
             lote={activeLotePesoInicial}
@@ -763,6 +766,7 @@ export const RecepcionMineralPage = () => {
           close={() => setActiveLotePesoFinal(null)}
           title={`Peso Final para Lote: ${activeLotePesoFinal.correlativo}`}
           size="xl"
+          validateClose
         >
           <ModalPesoFinal
             lote={activeLotePesoFinal}

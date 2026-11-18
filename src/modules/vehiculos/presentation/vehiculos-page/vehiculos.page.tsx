@@ -49,6 +49,7 @@ export const VehiculosPage = () => {
         close={() => setOpenRegistro(false)}
         title="Nuevo Vehículo"
         size="lg"
+        validateClose
       >
         <RegistroVehiculo
           onCancel={() => setOpenRegistro(false)}
@@ -65,6 +66,7 @@ export const VehiculosPage = () => {
         close={() => setVehiculoAEditar(null)}
         title={vehiculoAEditar ? `Editar Vehículo: ${vehiculoAEditar.placa}` : ""}
         size="lg"
+        validateClose
       >
         {vehiculoAEditar && (
           <RegistroVehiculo

@@ -173,6 +173,7 @@ export const RolesPage = () => {
           selectedRol ? `Editar Permisos: ${selectedRol.nombre}` : "Crear Rol"
         }
         size="lg"
+        validateClose
       >
         <RegistroRol
           estructura={registro.estructura}

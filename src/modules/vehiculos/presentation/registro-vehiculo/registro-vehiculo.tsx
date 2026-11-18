@@ -329,6 +329,7 @@ export const RegistroVehiculo = ({ vehiculo, onCancel, onSuccess }: Props) => {
         }}
         title="Registrar Marca de Vehículo"
         size="md"
+        validateClose
       >
         <FormMarca
           nombre={nombreMarca}
@@ -352,6 +353,7 @@ export const RegistroVehiculo = ({ vehiculo, onCancel, onSuccess }: Props) => {
         }}
         title="Administrar Tipos de Vehículo"
         size="lg"
+        validateClose
       >
         <FormTipoVehiculo
           onSelectTipoVehiculo={(id) => {

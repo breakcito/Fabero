@@ -85,6 +85,7 @@ export const ModalRegistroTipoCambio = ({
         </Group>
       }
       size="sm"
+      validateClose
     >
       <Stack gap="md">
         <Text fz="xs" c="dimmed">

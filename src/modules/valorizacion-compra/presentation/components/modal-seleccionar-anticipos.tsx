@@ -168,6 +168,7 @@ export const ModalSeleccionarAnticipos = ({
       close={onClose}
       title="Seleccionar Anticipos Disponibles"
       size="lg"
+      validateClose
     >
       <Stack gap="sm" mt="xs">
         {/* Banner Resumen Métrica */}

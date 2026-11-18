@@ -98,6 +98,7 @@ export const ModalCrearAnticipo = ({
       close={handleClose}
       title="Registrar Nuevo Anticipo"
       size="lg"
+      validateClose
     >
       <Stack gap="md">
         {/* Proveedor Minero */}

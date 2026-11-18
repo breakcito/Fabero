@@ -222,6 +222,7 @@ export function RegistroCuenta<T extends CuentaBancariaItem, TEntity>({
         close={() => setOpenBanco(false)}
         title="Registrar Nuevo Banco"
         size="sm"
+        validateClose
       >
         <RegistroBanco
           onCancel={() => setOpenBanco(false)}

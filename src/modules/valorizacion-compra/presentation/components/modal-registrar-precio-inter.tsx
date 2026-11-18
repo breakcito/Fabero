@@ -139,6 +139,7 @@ export const ModalRegistrarPrecioInter = ({
       close={onClose}
       title={`Registrar Precio INTER - ${elementoQuimico}`}
       size="sm"
+      validateClose
     >
       <Stack gap="sm" mt="xs">
         <button

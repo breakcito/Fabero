@@ -130,6 +130,7 @@ export const ModalCondicionIngreso = ({
           classNames={{ label: "text-zinc-200 text-sm" }}
         />
       }
+      validateClose
     >
       <Stack gap="md" className="p-2">
         <Select

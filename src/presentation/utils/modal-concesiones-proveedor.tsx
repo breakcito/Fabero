@@ -130,6 +130,7 @@ export const ModalConcesionesProveedor = ({
           }}
         />
       }
+      validateClose
     >
       <Stack gap="md" className="pt-2">
         {modo === "asociar" ? (

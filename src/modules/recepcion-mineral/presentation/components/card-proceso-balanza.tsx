@@ -967,6 +967,7 @@ export const CardProcesoBalanza = ({
         close={() => setOpenNewConductorModal(false)}
         title="Registrar Nuevo Conductor"
         size="md"
+        validateClose
       >
         <RegistroConductor
           onCancel={() => setOpenNewConductorModal(false)}
@@ -982,6 +983,7 @@ export const CardProcesoBalanza = ({
         close={() => setOpenNewVehiculoModal(false)}
         title="Registrar Nuevo Vehículo"
         size="sm"
+        validateClose
       >
         <RegistroVehiculoSimple
           idEmpresaTransporte={idEmpresaTransporteActual}
@@ -999,6 +1001,7 @@ export const CardProcesoBalanza = ({
         close={() => setOpenNewCarretaModal(false)}
         title="Registrar Vehículo Carreta"
         size="sm"
+        validateClose
       >
         <RegistroVehiculoSimple
           idEmpresaTransporte={null}
@@ -1016,6 +1019,7 @@ export const CardProcesoBalanza = ({
         close={() => setOpenNewTipoVehiculoModal(false)}
         title="Registrar Nuevo Tipo de Vehículo"
         size="sm"
+        validateClose
       >
         <RegistroTipoVehiculoSimple
           onCancel={() => setOpenNewTipoVehiculoModal(false)}
@@ -1029,6 +1033,7 @@ export const CardProcesoBalanza = ({
         close={() => setOpenNewEmpresaTransporteModal(false)}
         title="Registrar Nueva Empresa de Transporte"
         size="lg"
+        validateClose
       >
         <RegistroEmpresaTransporte
           onCancel={() => setOpenNewEmpresaTransporteModal(false)}

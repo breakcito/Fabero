@@ -61,6 +61,7 @@ export const PlantasDestinoPage = () => {
         close={() => setOpenRegistro(false)}
         title="Nueva Planta Destino"
         size="lg"
+        validateClose
       >
         <RegistroPlanta
           onCancel={() => setOpenRegistro(false)}
@@ -77,6 +78,7 @@ export const PlantasDestinoPage = () => {
         close={() => setPlantaAEditar(null)}
         title={plantaAEditar ? `Editar Planta Destino: ${plantaAEditar.razon_social}` : ""}
         size="lg"
+        validateClose
       >
         {plantaAEditar && (
           <RegistroPlanta

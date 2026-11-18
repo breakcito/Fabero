@@ -85,6 +85,7 @@ export const AgregarAcompananteModal = ({
       close={handleClose}
       title={isEditing ? "Editar Acompañante" : "Agregar Acompañante"}
       size="md"
+      validateClose
     >
       <form onSubmit={handleSubmit}>
         <Stack gap="md">

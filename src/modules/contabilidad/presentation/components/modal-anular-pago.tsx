@@ -75,6 +75,7 @@ export const ModalAnularPago = ({
       close={handleClose}
       title="Anular Pago"
       size="md"
+      validateClose
     >
       <Stack gap="md">
         <div className="p-3 rounded-lg border border-zinc-800 bg-zinc-900/40 text-xs space-y-2">

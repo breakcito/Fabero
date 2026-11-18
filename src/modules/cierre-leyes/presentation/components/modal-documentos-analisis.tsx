@@ -68,6 +68,7 @@ export const ModalDocumentosAnalisis = ({
         </div>
       }
       size="md"
+      validateClose
     >
       <Stack gap="md">
         <div>

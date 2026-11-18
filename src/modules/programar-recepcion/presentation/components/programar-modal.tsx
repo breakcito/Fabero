@@ -120,6 +120,7 @@ export const ProgramarRecepcionModal = ({ opened, onClose, onSuccess }: Props) =
         close={onClose}
         title="Programar Recepción de Unidad"
         size="lg"
+        validateClose
       >
         <Stack gap="md">
           <Grid gutter="sm">
@@ -434,6 +435,7 @@ export const ProgramarRecepcionModal = ({ opened, onClose, onSuccess }: Props) =
         close={() => setOpenEmpresaModal(false)}
         title="Nueva Empresa de Transporte"
         size="lg"
+        validateClose
       >
         <RegistroEmpresaTransporte
           onCancel={() => setOpenEmpresaModal(false)}
@@ -449,6 +451,7 @@ export const ProgramarRecepcionModal = ({ opened, onClose, onSuccess }: Props) =
         close={() => setOpenVehiculoModal(false)}
         title="Registrar Nuevo Vehículo"
         size="md"
+        validateClose
       >
         <RegistroVehiculoSimple
           idEmpresaTransporte={form.id_empresa_transporte || null}
@@ -474,6 +477,7 @@ export const ProgramarRecepcionModal = ({ opened, onClose, onSuccess }: Props) =
         close={() => setOpenCarretaModal(false)}
         title="Registrar Vehículo Carreta"
         size="md"
+        validateClose
       >
         <RegistroVehiculoSimple
           idEmpresaTransporte={form.id_empresa_transporte || null}

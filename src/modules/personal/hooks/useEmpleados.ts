@@ -43,7 +43,8 @@ export const useEmpleados = () => {
           e.nombre.toLowerCase().includes(query) ||
           e.apellido.toLowerCase().includes(query) ||
           e.dni?.includes(query) ||
-          e.cargo.toLowerCase().includes(query),
+          (e.cargo?.toLowerCase().includes(query) ?? false) ||
+          (e.area?.toLowerCase().includes(query) ?? false),
       );
     }
 

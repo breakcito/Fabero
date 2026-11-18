@@ -370,6 +370,7 @@ export const ModalPesoInicial = ({ lote, onCancel, onSubmit, targetIdOverride }:
         close={() => setOpenZonaModal(false)}
         title="Registrar Nueva Zona de Origen"
         size="sm"
+        validateClose
       >
         <FormZonaOrigen
           nombre={nuevaZonaNombre}
@@ -390,6 +391,7 @@ export const ModalPesoInicial = ({ lote, onCancel, onSubmit, targetIdOverride }:
         close={() => setOpenProveedorModal(false)}
         title="Registrar Nuevo Proveedor Minero"
         size="lg"
+        validateClose
       >
         <RegistroProveedorMineroSimple
           onCancel={() => setOpenProveedorModal(false)}

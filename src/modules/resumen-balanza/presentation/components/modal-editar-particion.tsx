@@ -234,6 +234,7 @@ export const ModalEditarParticion = ({
       close={onClose}
       title={`Editar Partición ${letra} · ${particion.lote_correlativo ?? ""}`}
       size="xl"
+      validateClose
     >
       <Stack
         gap="md"

@@ -149,6 +149,7 @@ export const RecepcionVisitasPage = () => {
         close={() => setOpenRegistro(false)}
         title="Nuevo Registro de Visita"
         size="lg"
+        validateClose
       >
         <RegistroVisita
           onCancel={() => setOpenRegistro(false)}

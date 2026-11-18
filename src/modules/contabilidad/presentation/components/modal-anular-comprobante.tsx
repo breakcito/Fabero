@@ -78,6 +78,7 @@ export const ModalAnularComprobante = ({
         </Group>
       }
       size="md"
+      validateClose
     >
       <Stack gap="md">
         <Alert

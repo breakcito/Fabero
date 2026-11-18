@@ -290,6 +290,7 @@ export const CuentasPage = () => {
         close={closeCreate}
         title={selectedCuenta ? "Editar Cuenta" : "Registrar Nueva Cuenta"}
         size="lg"
+        validateClose
       >
         <RegistroCuenta
           cuentaEdit={selectedCuenta}

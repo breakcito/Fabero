@@ -276,6 +276,7 @@ export const ModalFormValorizacionVenta = ({
         title={modalTitle}
         size="1500px"
         rightSection={modalHeaderRight}
+        validateClose
       >
         <Stack gap="sm" mt="xs" pb="md">
           <button
@@ -719,6 +720,7 @@ export const ModalFormValorizacionVenta = ({
         close={() => setModalMotivoOpened(false)}
         title="Motivo de la Modificación"
         size="sm"
+        validateClose
       >
         <Stack gap="sm">
           <Text size="xs" c="dimmed">

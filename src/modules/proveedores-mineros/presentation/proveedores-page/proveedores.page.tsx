@@ -65,6 +65,7 @@ export const ProveedoresPage = () => {
         close={() => setOpenRegistro(false)}
         title="Nuevo Proveedor"
         size="lg"
+        validateClose
       >
         <RegistroProveedor
           onCancel={() => setOpenRegistro(false)}
@@ -85,6 +86,7 @@ export const ProveedoresPage = () => {
             : ""
         }
         size="lg"
+        validateClose
       >
         {proveedorAEditar && (
           <RegistroProveedor

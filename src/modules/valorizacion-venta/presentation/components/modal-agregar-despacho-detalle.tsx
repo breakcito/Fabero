@@ -506,6 +506,7 @@ export const ModalAgregarDespachoDetalle = ({
         </Group>
       }
       size="xl"
+      validateClose
     >
       <Stack gap="sm" mt="xs">
         <button

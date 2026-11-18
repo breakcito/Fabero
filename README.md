@@ -4,7 +4,67 @@ Frontend del ERP para una planta de beneficio de mineral de oro y plata. Maneja 
 
 ## Módulos
 
-Empresas, Sucursales, Bancos, Marcas, Organigrama, Personal, Roles, Cuentas, Perfil, Login, Modo Auditoría, Proveedores Mineros, Concesiones, Condiciones Comerciales Proveedor, Anticipos Proveedor, Cuentas Bancarias (Proveedor / Empresa / Planta Destino), Empresas Transporte, Vehículos, Conductores, Recepción Visitas, Programar Recepción, Guías Primer Tramo, Recepción Mineral, Recepción Unidades, Resumen Balanza, Gestión de Leyes, Cierre de Leyes, Blending, Validación Distribución, Programación Despachos, Condiciones Comerciales Planta, Anticipos Planta, Valorización Compra, Valorización Venta, Contabilidad Compra, Plantas Destino, Tipo de Cambio, Ubigeo, **Centro de Ayuda**.
+Cada módulo vive en `src/modules/<nombre>/` y expone una ruta propia registrada en
+`src/presentation/root/App.tsx`.
+
+### Navegables (página propia)
+
+| Ruta | Módulo | Carpeta |
+|---|---|---|
+| `/home` | Dashboard de indicadores | `dashboard` |
+| `/empresas` | Empresas | `empresas` |
+| `/sucursales` | Sucursales | `sucursales` |
+| `/areas_cargos` | Organigrama (áreas y cargos) | `organigrama` |
+| `/trabajadores` | Personal (Trabajadores) | `personal` |
+| `/roles` | Roles | `roles` |
+| `/cuentas` | Cuentas (Usuarios y Cuentas) | `cuentas` |
+| `/perfil` | Perfil | `perfil` |
+| `/proveedores-mineros` | Proveedores Mineros | `proveedores-mineros` |
+| `/plantas-destino` | Plantas Destino | `plantas-destino` |
+| `/empresas-transporte` | Empresas Transporte | `empresas-transporte` |
+| `/condiciones-comerciales-proveedor` | Condiciones Comerciales Proveedor | `condiciones-comerciales-proveedor` |
+| `/condiciones-comerciales-planta` | Condiciones Comerciales Planta | `condiciones-comerciales-planta` |
+| `/conductores` | Conductores | `conductores` |
+| `/vehiculos` | Vehículos | `vehiculos` |
+| `/recepcion-visitas` | Recepción Visitas | `recepcion-visitas` |
+| `/programar-recepcion` | Programar Recepción | `programar-recepcion` |
+| `/guias-primer-tramo` | Guías Primer Tramo | `guias-primer-tramo` |
+| `/recepcion-unidades` | Recepción Unidades | `recepcion-unidades` |
+| `/recepcion-mineral` | Recepción Mineral | `recepcion-mineral` |
+| `/resumen-balanza` | Resumen Balanza | `resumen-balanza` |
+| `/validacion-distribucion` | Validación Distribución | `validacion-distribucion` |
+| `/cierre-leyes` | Cierre de Leyes — incluye la gestión de leyes (análisis, grupos de análisis y muestras externas) | `cierre-leyes` |
+| `/blending` | Blending | `blending` |
+| `/anticipos-proveedor` | Anticipos Proveedor | `anticipos-proveedor` |
+| `/anticipos-planta` | Anticipos Planta | `anticipos-planta` |
+| `/valorizacion-compra` | Valorización Compra | `valorizacion-compra` |
+| `/valorizacion-venta` | Valorización Venta | `valorizacion-venta` |
+| `/contabilidad` | Contabilidad (comprobantes, notas y pagos de compra y de venta) | `contabilidad` |
+| `/despacho` | Programación Despachos | `programacion-despachos` |
+| `/system` | Sistema (configuración del árbol de navegación) | `system` |
+| `/centro-ayuda` | Centro de Ayuda | `centro-ayuda` |
+
+Además: `/login` (pública, `login`) y `/modo-auditoria` (ruta oculta sin layout,
+`modo-auditoria`). `/home/acciones` conserva los accesos rápidos del home (legacy).
+
+### Catálogos transversales (sin página propia)
+
+Se sirven por `AuxController` (`/api/aux/...`) o por endpoints de catálogo, y se
+consumen desde formularios o componentes compartidos:
+
+- **Bancos** — `AuxService.getBancos` (`/api/proveedores/bancos`, módulo backend
+  `Bancos`); alta con el form compartido `RegistroBanco`.
+- **Marcas** — `src/modules/marcas/` (solo `hooks` + `service`, sin `presentation`);
+  se usa en Vehículos.
+- **Concesiones** — `AuxService.get_concesiones_proveedor` + `modal-concesiones-proveedor.tsx`;
+  se gestionan dentro de Proveedores Mineros.
+- **Cuentas Bancarias** (Proveedor / Empresa / Planta Destino) — componente
+  compartido `CuentasBancariasGenerico` (`src/presentation/utils/cuentas-bancarias/`)
+  con un `adapter` por entidad.
+- **Tipo de Cambio** — `AuxService.get_tipos_cambio` / `get_tipo_cambio_vigente`;
+  también se registra en línea al emitir un comprobante de venta.
+- **Ubigeo** (departamentos / provincias / distritos) — `AuxService.get_departamentos` /
+  `get_provincias` / `get_distritos`; selects en cascada en Empresas.
 
 ## Centro de Ayuda (`src/modules/centro-ayuda`)
 
@@ -75,7 +135,7 @@ src/
 ## Componentes base (`src/presentation/utils`)
 
 - **`DataTableEstandar`**: grilla maestra (envuelve `mantine-datatable`). Props: `columns`, `records`, `loading`, `idAccessor?`, `initialPageSize=25`, `columnGroups?`. Estilo dark consistente. **Única excepción al uso de `any` por diseño genérico.** Indexado automático con `{accessor: "index", title: "#"}`. Genera UUIDs estables para `id`/`accessor` omitidos.
-- **`ModalEstandar`**: wrapper de `Modal` con layout premium. Props: `opened`, `close`, `title`, `children`, `rightSection?`, `validateClose?` (abre confirmación al cerrar), `closeConfirmationTitle?`, `closeConfirmationMessage?`. Si `validateClose`, Enter se mantiene en "Cancelar".
+- **`ModalEstandar`**: wrapper de `Modal` con layout premium. Props: `opened`, `close`, `title`, `children`, `rightSection?`, `validateClose?` (abre confirmación al cerrar), `closeConfirmationTitle?`, `closeConfirmationMessage?`. Si `validateClose`, Enter se mantiene en "Cancelar". `validateClose` es **obligatorio** en los modales de registro/edición (regla 11).
 - **`JsonScanner`**: input compacto para códigos de barras.
 - **`limpiar-filtros-button.tsx`**: `LimpiarFiltrosButton` — botón de "Limpiar filtros" de la barra superior de los listados. X roja en círculo, gemelo del `RefreshButton`. **Úsalo en todos los módulos** (resumen-balanza, blending, valorizacion-compra/venta, cierre-leyes, guias-primer-tramo, recepcion-visitas, recepcion-unidades, programar-recepcion, programacion-despachos, validacion-distribucion, contabilidad): no reimplementar el botón "Limpiar" con texto. Las X sueltas dentro de los componentes de filtros (limpian un campo puntual) NO se sustituyen por este.
 - **`date-picker-input`**: selector de fechas unificado.
@@ -119,6 +179,7 @@ src/
 8. **Estilo dark premium**: inputs `bg-zinc-900/50 border-zinc-800`, focus `border-zinc-300 ring-zinc-300`. Sombras suaves (`shadow-lg shadow-indigo-900/20`), `backdrop-blur`. Badges `variant="light"` o `filled"`.
 9. **DataTable `#` automático**: `{accessor: "index", title: "#"}`. NUNCA `render` para el número correlativo.
 10. **ActionIcon**: `size` controla el botón, NO el ícono. Para íconos visibles usar `size="md"`+ y tamaño manual del ícono (`className="w-4 h-4"` o `size={16}`).
+11. **`validateClose` en modales de registro/edición**: todo `ModalEstandar` que registre o edite un registro **DEBE** llevar `validateClose`. Ver *Componentes transversales obligatorios* para el alcance y las excepciones.
 
 ## Loading States en mutaciones asíncronas (regla crítica)
 
@@ -178,6 +239,9 @@ Cualquier `<Select>` cuyo `data` provenga de un fetch asíncrono **debe** mostra
 - **Adjuntos**:
   - Formularios (registro/edición) → `MultiFilePicker` (soporta `File[]` nuevos + `IArchivo[]` existentes).
   - Visualización/descarga en modales o listas → `ArchivoCard` (preview de imágenes + descarga).
+- **`validateClose` (`ModalEstandar`)**: todo modal de **registro o edición** debe pasar `validateClose`, para que el usuario confirme antes de perder lo capturado. Alcance:
+  - **Sí**: formularios de alta/edición, captura de valores (pesajes, fechas, montos, capacidades), motivos de anulación/modificación, y catálogos rápidos embebidos (registrar conductor, vehículo, carreta, empresa de transporte, tipo de vehículo, zona de origen, marca, banco, motivo de ingreso).
+  - **No**: vistas de solo lectura (detalle, historial, log de cambios, visor de evidencias/fotos, video) y confirmaciones sin captura de datos (aprobar, seleccionar, reemplazar).
 
 ## Módulo Resumen de Balanza (`src/modules/resumen-balanza`)
 
@@ -240,5 +304,5 @@ npm run dev
 4. **No inventar componentes**. Solo usar los del "Catálogo Mantine v8". Si falta uno, preguntar antes de instalar.
 5. **Respetar las "Reglas de código"** y la sección "Loading States en mutaciones asíncronas" — esta última es regla del proyecto, no opcional.
 6. **Cuestionar reusos forzados**. Si piden "un componente que sirva para X e Y", proponer separar antes.
-7. **Aplicar las reglas aunque el código existente las viole** (con autorización del usuario). Si ves un botón sin `loading`, un Select con `data` asíncrono sin Loader, un `useForm` en un módulo nuevo, un historial que no usa `CambiosLogViewer`, un formulario con adjuntos que no usa `MultiFilePicker`, etc.: corregirlo. Si la refactorización es grande, proponer un plan antes.
+7. **Aplicar las reglas aunque el código existente las viole** (con autorización del usuario). Si ves un botón sin `loading`, un Select con `data` asíncrono sin Loader, un `useForm` en un módulo nuevo, un historial que no usa `CambiosLogViewer`, un formulario con adjuntos que no usa `MultiFilePicker`, un modal de registro/edición sin `validateClose`, etc.: corregirlo. Si la refactorización es grande, proponer un plan antes.
 8. Después de cualquier cambio: `npm run build` (tsc + vite build; no confiar solo en `tsc --noEmit`).

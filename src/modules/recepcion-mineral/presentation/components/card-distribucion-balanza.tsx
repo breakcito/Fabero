@@ -424,6 +424,7 @@ const DetallePesajeItem = ({ detalle, onSaved }: DetallePesajeItemProps) => {
       close={() => setOpenObservaciones(false)}
       title={`Observaciones - ${detalle.lote_correlativo ?? detalle.blending_correlativo ?? `Detalle #${detalle.id}`}`}
       size="sm"
+      validateClose
     >
       <Stack gap="md">
         <Textarea

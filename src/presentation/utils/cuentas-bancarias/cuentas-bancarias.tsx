@@ -162,6 +162,7 @@ export function CuentasBancariasGenerico<
         close={() => setOpenAgregar(false)}
         title="Agregar Cuenta Bancaria"
         size="lg"
+        validateClose
       >
         <RegistroCuenta<T, TEntity>
           adapter={adapter}
@@ -184,6 +185,7 @@ export function CuentasBancariasGenerico<
         close={() => setCuentaAEditar(null)}
         title={cuentaAEditar ? "Editar Cuenta Bancaria" : ""}
         size="lg"
+        validateClose
       >
         {cuentaAEditar && (
           <RegistroCuenta<T, TEntity>

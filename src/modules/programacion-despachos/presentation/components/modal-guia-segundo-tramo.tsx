@@ -544,6 +544,7 @@ export const ModalGuiaSegundoTramo = ({
           </Group>
         ) : undefined
       }
+      validateClose
     >
       <Stack
         gap="md"

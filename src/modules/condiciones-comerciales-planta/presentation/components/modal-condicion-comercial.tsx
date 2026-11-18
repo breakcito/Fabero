@@ -172,6 +172,7 @@ export const ModalCondicionComercialPlanta = ({
           : "Nueva Condición Comercial de Planta"
       }
       size="xl"
+      validateClose
     >
       <Stack gap="md">
         <Group grow gap="md" align="flex-end">

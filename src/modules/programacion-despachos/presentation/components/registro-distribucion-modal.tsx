@@ -1016,6 +1016,7 @@ export const RegistroDistribucionModal = ({
         close={() => setModalCrearEmpresa(false)}
         title="Nueva Empresa de Transporte"
         size="md"
+        validateClose
       >
         <RegistroEmpresaTransporte
           onCancel={() => setModalCrearEmpresa(false)}
@@ -1028,6 +1029,7 @@ export const RegistroDistribucionModal = ({
         close={() => setModalCrearTipoVehiculo(false)}
         title="Nuevo Tipo de Vehículo"
         size="sm"
+        validateClose
       >
         <RegistroTipoVehiculoSimple
           onCancel={() => setModalCrearTipoVehiculo(false)}
@@ -1040,6 +1042,7 @@ export const RegistroDistribucionModal = ({
         close={() => setModalCrearVehiculo(false)}
         title="Nuevo Vehículo"
         size="sm"
+        validateClose
       >
         <RegistroVehiculoSimple
           idEmpresaTransporte={ctrl.form.id_empresa_transporte || null}
@@ -1054,6 +1057,7 @@ export const RegistroDistribucionModal = ({
         close={() => setModalCrearVehiculoCarreta(false)}
         title="Nuevo Vehículo Carreta"
         size="sm"
+        validateClose
       >
         {idTipoVehiculoCarreta === null ? (
           <Text size="sm" c="zinc.4" ta="center" py="md">
@@ -1075,6 +1079,7 @@ export const RegistroDistribucionModal = ({
         close={() => setModalCrearConductor(false)}
         title="Nuevo Conductor"
         size="sm"
+        validateClose
       >
         <RegistroConductor
           onCancel={() => setModalCrearConductor(false)}

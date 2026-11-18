@@ -506,6 +506,7 @@ export const ModalRegistroPago = ({
         />
       }
       size="6xl"
+      validateClose
     >
       <Stack gap="md">
         {/* Banner informativo de cuentas */}

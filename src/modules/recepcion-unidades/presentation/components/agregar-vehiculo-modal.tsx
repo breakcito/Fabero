@@ -85,6 +85,7 @@ export const AgregarVehiculoModal = ({
       close={handleClose}
       title={isEditing ? "Editar Vehículo Acompañante" : "Agregar Vehículo Acompañante"}
       size="sm"
+      validateClose
     >
       <form onSubmit={handleSubmit}>
         <Stack gap="md">

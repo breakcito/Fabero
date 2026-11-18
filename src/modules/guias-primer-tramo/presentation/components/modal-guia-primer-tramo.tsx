@@ -1519,6 +1519,7 @@ export const ModalGuiaPrimerTramo = ({
         title={guia ? "Editar Guía" : "Registrar Guía"}
         size="78rem"
         rightSection={fechasHeader}
+        validateClose
       >
         <Stack
           gap="md"
@@ -2404,6 +2405,7 @@ export const ModalGuiaPrimerTramo = ({
             : "Registrar Vehículo Tractor"
         }
         size="md"
+        validateClose
       >
         <RegistroVehiculoSimple
           idEmpresaTransporte={
@@ -2429,6 +2431,7 @@ export const ModalGuiaPrimerTramo = ({
             : "Registrar Empresa de Transporte"
         }
         size="lg"
+        validateClose
       >
         <RegistroEmpresaTransporte
           onCancel={() => setOpenedModalEmpresa(null)}
@@ -2444,6 +2447,7 @@ export const ModalGuiaPrimerTramo = ({
         close={() => setOpenedModalConductor(false)}
         title="Registrar Conductor"
         size="md"
+        validateClose
       >
         <RegistroConductor
           onCancel={() => setOpenedModalConductor(false)}

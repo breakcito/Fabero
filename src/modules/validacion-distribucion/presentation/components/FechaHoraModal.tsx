@@ -48,7 +48,9 @@ export const FechaHoraModal = ({
   };
 
   return (
-    <ModalEstandar opened={opened} close={onClose} title={title} size="sm">
+    <ModalEstandar opened={opened} close={onClose} title={title} size="sm"
+      validateClose
+    >
       <Group gap="sm" align="flex-end">
         <DateTimePicker
           label={label}

@@ -165,6 +165,7 @@ export const EmpresasPage = () => {
             : "Registrar Empresa"
         }
         size="lg"
+        validateClose
       >
         <RegistroEmpresa
           ruc={registro.ruc}

@@ -545,6 +545,7 @@ export const TablaVisitas = ({ recepciones, loading, onUpdateRecepcion }: Props)
         close={() => setExitRecord(null)}
         title={`Registrar Salida: ${exitRecord?.visitanteNombre || ""}`}
         size="md"
+        validateClose
       >
         <div className="flex flex-col gap-4">
           <Text size="xs" className="text-zinc-400 mb-1 font-semibold uppercase tracking-wider">
@@ -597,6 +598,7 @@ export const TablaVisitas = ({ recepciones, loading, onUpdateRecepcion }: Props)
         close={() => setExitGeneralRecord(null)}
         title={`Registrar Salida General (Visita #${exitGeneralRecord?.id || ""})`}
         size="md"
+        validateClose
       >
         <div className="flex flex-col gap-4">
           <Text size="xs" className="text-zinc-400 font-semibold uppercase tracking-wider">

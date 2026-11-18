@@ -15,6 +15,7 @@ export const ModalRegistroProveedor = ({ opened, onClose, onSuccess }: Props) =>
       close={onClose}
       title="Registrar Nuevo Proveedor Minero"
       size="lg"
+      validateClose
     >
       <RegistroProveedor
         onCancel={onClose}

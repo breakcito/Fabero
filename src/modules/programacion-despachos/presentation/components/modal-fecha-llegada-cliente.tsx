@@ -86,6 +86,7 @@ export const ModalFechaLlegadaCliente = ({
         </Group>
       }
       size="xs"
+      validateClose
     >
       <Stack gap="md">
         <Text size="xs" c="zinc.4">

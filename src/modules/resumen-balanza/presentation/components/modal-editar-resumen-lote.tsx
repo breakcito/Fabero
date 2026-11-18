@@ -269,6 +269,7 @@ export const ModalEditarResumenLote = ({ opened, lote, onClose, onSuccess }: Pro
       close={onClose}
       title={`Editar Información del Lote: ${lote.lote_correlativo}`}
       size="xl"
+      validateClose
     >
       <Stack gap="md" className="max-h-[80vh] overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
             {/* Sección 1: Detalles del Lote y Mineral (3 columnas, todas md:4) */}
@@ -597,6 +598,7 @@ export const ModalEditarResumenLote = ({ opened, lote, onClose, onSuccess }: Pro
         close={() => setOpenZonaModal(false)}
         title="Registrar Nueva Zona de Origen"
         size="sm"
+        validateClose
       >
         <FormZonaOrigen
           nombre={nuevaZonaNombre}
@@ -617,6 +619,7 @@ export const ModalEditarResumenLote = ({ opened, lote, onClose, onSuccess }: Pro
         close={() => setOpenVehiculoModal(false)}
         title="Registrar Vehículo (Rápido)"
         size="sm"
+        validateClose
       >
         <RegistroVehiculoSimple
           idEmpresaTransporte={idEmpresaTransporte ? Number(idEmpresaTransporte) : null}
@@ -641,6 +644,7 @@ export const ModalEditarResumenLote = ({ opened, lote, onClose, onSuccess }: Pro
         close={() => setOpenProveedorModal(false)}
         title="Registrar Proveedor Minero"
         size="lg"
+        validateClose
       >
         <RegistroProveedorMineroSimple
           onCancel={() => setOpenProveedorModal(false)}
@@ -654,6 +658,7 @@ export const ModalEditarResumenLote = ({ opened, lote, onClose, onSuccess }: Pro
         close={() => setOpenEmpresaTransporteModal(false)}
         title="Registrar Empresa de Transporte"
         size="lg"
+        validateClose
       >
         <RegistroEmpresaTransporte
           onCancel={() => setOpenEmpresaTransporteModal(false)}
@@ -667,6 +672,7 @@ export const ModalEditarResumenLote = ({ opened, lote, onClose, onSuccess }: Pro
         close={() => setOpenConductorModal(false)}
         title="Registrar Conductor"
         size="sm"
+        validateClose
       >
         <RegistroConductor
           onCancel={() => setOpenConductorModal(false)}

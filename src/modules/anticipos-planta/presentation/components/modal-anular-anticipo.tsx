@@ -54,6 +54,7 @@ export const ModalAnularAnticipoPlanta = ({
       close={handleClose}
       title="Anular Anticipo de Planta"
       size="md"
+      validateClose
     >
       <Stack gap="md">
         {anticipoInfo && (

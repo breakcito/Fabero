@@ -15,7 +15,9 @@ import { TabEmpleados } from "./tab-empleados";
 import { useEmpleados } from "../hooks/useEmpleados";
 import { ModalEstandar } from "../../../presentation/utils/modal-estandar";
 import { useDisclosure } from "@mantine/hooks";
+import { useState } from "react";
 import { RegistroEmpleado } from "./registro-empleado";
+import type { RES_EmpleadoResumen } from "../service/empleados.responses";
 
 export const PersonalPage = () => {
   useTitlePage("Trabajadores / Personal");
@@ -24,6 +26,11 @@ export const PersonalPage = () => {
 
   const [openedRegEmp, { open: openRegEmp, close: closeRegEmp }] =
     useDisclosure(false);
+  const [empleadoAEditar, setEmpleadoAEditar] = useState<
+    RES_EmpleadoResumen | null
+  >(null);
+
+  const cerrarEdicion = () => setEmpleadoAEditar(null);
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -88,7 +95,10 @@ export const PersonalPage = () => {
         </Button>
       </div>
 
-      <TabEmpleados controller={empleadosCtrl} />
+      <TabEmpleados
+        controller={empleadosCtrl}
+        onEditar={(empleado) => setEmpleadoAEditar(empleado)}
+      />
 
       {/* Modal Registro Empleado */}
       <ModalEstandar
@@ -96,6 +106,7 @@ export const PersonalPage = () => {
         close={closeRegEmp}
         title="Registrar Empleado"
         size="md"
+        validateClose
       >
         <RegistroEmpleado
           onSuccess={(nuevo) => {
@@ -104,6 +115,30 @@ export const PersonalPage = () => {
           }}
           onCancel={closeRegEmp}
         />
+      </ModalEstandar>
+
+      {/* Modal Editar Empleado */}
+      <ModalEstandar
+        opened={empleadoAEditar !== null}
+        close={cerrarEdicion}
+        title={
+          empleadoAEditar
+            ? `Editar Empleado: ${empleadoAEditar.nombre} ${empleadoAEditar.apellido}`
+            : "Editar Empleado"
+        }
+        size="md"
+        validateClose
+      >
+        {empleadoAEditar && (
+          <RegistroEmpleado
+            empleadoEditar={empleadoAEditar}
+            onSuccess={(editado) => {
+              empleadosCtrl.actualizarEmpleadoEnLista(editado);
+              cerrarEdicion();
+            }}
+            onCancel={cerrarEdicion}
+          />
+        )}
       </ModalEstandar>
     </div>
   );

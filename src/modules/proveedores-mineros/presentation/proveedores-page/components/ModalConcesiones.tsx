@@ -350,6 +350,7 @@ export const ModalConcesiones = ({ proveedor }: Props) => {
         close={() => setOpenCrearConcesion(false)}
         title="Registrar Nueva Concesión"
         size="md"
+        validateClose
       >
         <RegistroConcesion
           onCancel={() => setOpenCrearConcesion(false)}
@@ -380,6 +381,7 @@ export const ModalConcesiones = ({ proveedor }: Props) => {
         close={() => setConcesionAEditar(null)}
         title={concesionAEditar ? `Editar Concesión: ${concesionAEditar.nombre}` : ""}
         size="md"
+        validateClose
       >
         {concesionAEditar && (
           <RegistroConcesion

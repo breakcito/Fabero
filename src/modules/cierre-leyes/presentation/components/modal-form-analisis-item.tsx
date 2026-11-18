@@ -278,6 +278,7 @@ export const ModalFormAnalisisItem = ({
         </div>
       }
       size="md"
+      validateClose
     >
       {opened && (
         <FormAnalisisItemBody

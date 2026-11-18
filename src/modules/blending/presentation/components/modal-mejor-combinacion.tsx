@@ -63,6 +63,7 @@ export const ModalMejorCombinacion: React.FC<ModalMejorCombinacionProps> = ({
         </Group>
       }
       size="md"
+      validateClose
     >
       <Stack gap="md" p="sm">
         

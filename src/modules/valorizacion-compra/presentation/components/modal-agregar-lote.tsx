@@ -765,6 +765,7 @@ export const ModalAgregarLote = ({
       close={onClose}
       title={detalleEditar ? "Editar Condiciones del Lote" : "Agregar Lote a Valorización"}
       size="xl"
+      validateClose
     >
       <Stack gap="sm" mt="xs">
         <button

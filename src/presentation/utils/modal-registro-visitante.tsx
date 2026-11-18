@@ -87,6 +87,7 @@ export const ModalRegistroVisitante = ({
       close={onClose}
       title="Crear Nuevo Visitante"
       size="md"
+      validateClose
     >
       <Stack gap="md">
         <Group grow wrap="nowrap">

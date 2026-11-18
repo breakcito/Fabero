@@ -49,6 +49,7 @@ export const EmpresasTransportePage = () => {
         close={() => setOpenRegistro(false)}
         title="Nueva Empresa de Transporte"
         size="lg"
+        validateClose
       >
         <RegistroEmpresaTransporte
           onCancel={() => setOpenRegistro(false)}
@@ -65,6 +66,7 @@ export const EmpresasTransportePage = () => {
         close={() => setEmpresaAEditar(null)}
         title={empresaAEditar ? `Editar Empresa de Transporte: ${empresaAEditar.razon_social}` : ""}
         size="lg"
+        validateClose
       >
         {empresaAEditar && (
           <RegistroEmpresaTransporte

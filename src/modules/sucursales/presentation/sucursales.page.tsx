@@ -123,6 +123,7 @@ export const SucursalesPage = () => {
         close={closeCreate}
         title="Registrar Sucursal"
         size="md"
+        validateClose
       >
         <RegistroSucursal
           nombre={registro.nombre}

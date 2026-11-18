@@ -8,43 +8,62 @@ import {
   FileButton,
   Text,
   Loader,
-  Switch,
+  ActionIcon,
+  Tooltip,
 } from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
+import { useState } from "react";
 import {
   UserIcon,
   IdentificationIcon,
   BriefcaseIcon,
   PencilIcon,
   BuildingOfficeIcon,
-  TruckIcon,
+  PlusIcon,
 } from "@heroicons/react/24/outline";
 import { useRegistroEmpleado } from "../hooks/useRegistroEmpleado";
 import type { RES_EmpleadoResumen } from "../service/empleados.responses";
 import { CustomDatePicker } from "../../../presentation/utils/date-picker-input";
+import { ModalEstandar } from "../../../presentation/utils/modal-estandar";
+import { FormArea } from "../../../presentation/utils/form-area";
+import { FormCargo } from "../../../presentation/utils/form-cargo";
 
 interface RegistroEmpleadoProps {
   onSuccess: (nuevo: RES_EmpleadoResumen) => void;
   onCancel: () => void;
+  empleadoEditar?: RES_EmpleadoResumen | null;
 }
 
 export const RegistroEmpleado = ({
   onSuccess,
   onCancel,
+  empleadoEditar,
 }: RegistroEmpleadoProps) => {
   const {
     form,
     setField,
     idArea,
     setIdArea,
+    setIdCargo,
     empresas,
     areas,
+    setAreas,
     cargos,
+    setCargos,
     loading,
     loadingEmpresas,
     loadingAreas,
     loadingCargos,
+    esEdicion,
     handleSubmit,
-  } = useRegistroEmpleado(onSuccess);
+  } = useRegistroEmpleado(onSuccess, empleadoEditar);
+
+  const [openedArea, { open: openArea, close: closeArea }] =
+    useDisclosure(false);
+  const [openedCargo, { open: openCargo, close: closeCargo }] =
+    useDisclosure(false);
+  const [nombreArea, setNombreArea] = useState("");
+  const [nombreCargo, setNombreCargo] = useState("");
 
   const fieldClasses = {
     input:
@@ -162,79 +181,78 @@ export const RegistroEmpleado = ({
         rightSection={loadingEmpresas ? <Loader size={16} /> : undefined}
       />
 
-      {/* Área y Cargo en cascada */}
-      <Group grow align="flex-start" gap="md">
-        <Select
-          label="Área"
-          placeholder={loadingAreas ? "Cargando áreas..." : "Seleccione área"}
-          data={areas.map((a) => ({
-            value: a.id_area.toString(),
-            label: a.nombre,
-          }))}
-          value={idArea?.toString() || null}
-          onChange={(val) => setIdArea(Number(val))}
-          leftSection={<BriefcaseIcon className="w-4 h-4 text-zinc-500" />}
-          classNames={fieldClasses}
-          radius="lg"
-          required
-          withAsterisk
-          searchable
-          disabled={loadingAreas || loading}
-          rightSection={loadingAreas ? <Loader size={16} /> : undefined}
-        />
-        <Select
-          label="Cargo"
-          placeholder={
-            loadingCargos
-              ? "Cargando cargos..."
-              : idArea
-                ? "Seleccione cargo"
-                : "Primero seleccione área"
-          }
-          data={cargos.map((c) => ({
-            value: c.id_cargo.toString(),
-            label: c.nombre,
-          }))}
-          value={form.id_cargo === 0 ? null : form.id_cargo.toString()}
-          onChange={(val) => setField("id_cargo", Number(val))}
-          leftSection={<BriefcaseIcon className="w-4 h-4 text-zinc-500" />}
-          classNames={fieldClasses}
-          radius="lg"
-          required
-          withAsterisk
-          disabled={!idArea || loadingCargos || loading}
-          rightSection={loadingCargos ? <Loader size={16} /> : undefined}
-          searchable
-        />
-      </Group>
+      {/* Área y Cargo en cascada — ambos opcionales */}
+      <Group grow align="flex-start" gap="md" wrap="nowrap">
+        <Group gap="xs" wrap="nowrap" align="flex-end" className="flex-1">
+          <Select
+            label="Área"
+            placeholder={loadingAreas ? "Cargando áreas..." : "Opcional"}
+            data={areas.map((a) => ({
+              value: a.id_area.toString(),
+              label: a.nombre,
+            }))}
+            value={idArea ? idArea.toString() : null}
+            onChange={(val) => setIdArea(val ? Number(val) : null)}
+            leftSection={<BriefcaseIcon className="w-4 h-4 text-zinc-500" />}
+            classNames={fieldClasses}
+            radius="lg"
+            searchable
+            clearable
+            disabled={loadingAreas || loading}
+            rightSection={loadingAreas ? <Loader size={16} /> : undefined}
+          />
+          <Tooltip label="Registrar nueva área">
+            <ActionIcon
+              variant="light"
+              color="indigo"
+              size="lg"
+              radius="lg"
+              onClick={openArea}
+              disabled={loading}
+            >
+              <PlusIcon className="w-4 h-4" />
+            </ActionIcon>
+          </Tooltip>
+        </Group>
 
-      {/* Permisos de Ingreso */}
-      <div
-        className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4 transition-all hover:border-zinc-700"
-      >
-        <Switch
-          color="indigo"
-          checked={form.autoriza_ingreso_unidades}
-          onChange={(e) =>
-            setField("autoriza_ingreso_unidades", e.currentTarget.checked)
-          }
-          disabled={loading}
-          label={
-            <Group gap="xs" wrap="nowrap">
-              <TruckIcon className="w-4 h-4 text-indigo-400" />
-              <Text size="sm" fw={600} className="text-zinc-200">
-                ¿Autoriza el ingreso de unidades?
-              </Text>
-            </Group>
-          }
-          description="Habilita al empleado para registrar ingresos de vehículos en planta"
-          classNames={{
-            label: "text-zinc-200 font-medium",
-            description: "text-zinc-500 text-xs mt-1",
-            track: "cursor-pointer",
-          }}
-        />
-      </div>
+        <Group gap="xs" wrap="nowrap" align="flex-end" className="flex-1">
+          <Select
+            label="Cargo"
+            placeholder={
+              loadingCargos
+                ? "Cargando cargos..."
+                : idArea
+                  ? "Opcional"
+                  : "Elija un área primero"
+            }
+            data={cargos.map((c) => ({
+              value: c.id_cargo.toString(),
+              label: c.nombre,
+            }))}
+            value={form.id_cargo ? form.id_cargo.toString() : null}
+            onChange={(val) => setIdCargo(val ? Number(val) : null)}
+            leftSection={<BriefcaseIcon className="w-4 h-4 text-zinc-500" />}
+            classNames={fieldClasses}
+            radius="lg"
+            clearable
+            disabled={!idArea || loadingCargos || loading}
+            rightSection={loadingCargos ? <Loader size={16} /> : undefined}
+            searchable
+          />
+          <Tooltip label="Registrar nuevo cargo">
+            <ActionIcon
+              variant="light"
+              color="indigo"
+              size="lg"
+              radius="lg"
+              onClick={openCargo}
+              disabled={loading}
+            >
+              <PlusIcon className="w-4 h-4" />
+            </ActionIcon>
+          </Tooltip>
+        </Group>
+      </Group>
 
       {/* Acciones */}
       <Group justify="flex-end" gap="md" mt="xl">
@@ -255,9 +273,60 @@ export const RegistroEmpleado = ({
           size="sm"
           className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-900/20 px-8"
         >
-          Guardar
+          {esEdicion ? "Guardar Cambios" : "Guardar"}
         </Button>
       </Group>
+
+      {/* Modal: Registrar Área */}
+      <ModalEstandar
+        opened={openedArea}
+        close={closeArea}
+        title="Registrar Nueva Área"
+        size="sm"
+        zIndex={300}
+        validateClose
+      >
+        <FormArea
+          nombre={nombreArea}
+          setNombre={setNombreArea}
+          areasExistentes={areas}
+          onSuccess={(nuevaArea) => {
+            setAreas((prev) => [
+              ...prev,
+              { id_area: nuevaArea.id_area, nombre: nuevaArea.nombre },
+            ]);
+            setIdArea(nuevaArea.id_area);
+            closeArea();
+          }}
+        />
+      </ModalEstandar>
+
+      {/* Modal: Registrar Cargo */}
+      <ModalEstandar
+        opened={openedCargo}
+        close={closeCargo}
+        title="Registrar Nuevo Cargo"
+        size="sm"
+        zIndex={300}
+        validateClose
+      >
+        <FormCargo
+          nombre={nombreCargo}
+          setNombre={setNombreCargo}
+          areas={areas}
+          idArea={idArea}
+          setIdArea={setIdArea}
+          cargosExistentes={cargos}
+          onSuccess={(nuevoCargo) => {
+            setCargos((prev) => [
+              ...prev,
+              { id_cargo: nuevoCargo.id_cargo, nombre: nuevoCargo.nombre },
+            ]);
+            setIdCargo(nuevoCargo.id_cargo);
+            closeCargo();
+          }}
+        />
+      </ModalEstandar>
     </Stack>
   );
 };

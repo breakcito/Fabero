@@ -87,6 +87,7 @@ export const RegistrarOcupanteModal = ({
       close={handleClose}
       title={`Ocupante #${numeroSlot ?? 1} - Vehículo ${placaVehiculo ?? ""}`}
       size="md"
+      validateClose
     >
       <form onSubmit={handleSubmit}>
         <Stack gap="md">

@@ -174,6 +174,7 @@ const esDespacho =
       close={onClose}
       title={programacion ? `Confirmar Programación #${programacion.id}` : "Registrar Recepción de Unidad"}
       size="xl"
+      validateClose
     >
       <Stack gap="md">
         {/* Datos de la Programación y Unidad */}
@@ -962,6 +963,7 @@ const esDespacho =
           close={() => setOpenConductorModal(false)}
           title="Registrar Nuevo Conductor"
           size="md"
+          validateClose
         >
           <RegistroConductor
             onCancel={() => setOpenConductorModal(false)}
@@ -978,6 +980,7 @@ const esDespacho =
           close={() => setOpenVehiculoSimpleModal(false)}
           title="Registrar Nuevo Vehículo"
           size="md"
+          validateClose
         >
           <RegistroVehiculoSimple
             idEmpresaTransporte={ctrl.programacion?.id_empresa_transporte ?? ctrl.idEmpresaTransporteEditado ?? null}
@@ -999,6 +1002,7 @@ const esDespacho =
           close={() => setOpenTipoVehiculoModal(false)}
           title="Registrar Nuevo Tipo de Vehículo"
           size="md"
+          validateClose
         >
           <RegistroTipoVehiculoSimple
             onCancel={() => setOpenTipoVehiculoModal(false)}
@@ -1015,6 +1019,7 @@ const esDespacho =
           close={() => setOpenEmpresaModal(false)}
           title="Nueva Empresa de Transporte"
           size="lg"
+          validateClose
         >
           <RegistroEmpresaTransporte
             onCancel={() => setOpenEmpresaModal(false)}
@@ -1041,6 +1046,7 @@ const esDespacho =
           close={() => setOpenCarretaModal(false)}
           title="Registrar Vehículo Carreta"
           size="md"
+          validateClose
         >
           <RegistroVehiculoSimple
             idEmpresaTransporte={ctrl.programacion?.id_empresa_transporte ?? ctrl.idEmpresaTransporteEditado ?? null}

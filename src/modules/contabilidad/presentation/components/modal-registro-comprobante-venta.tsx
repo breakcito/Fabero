@@ -363,6 +363,7 @@ export const ModalRegistroComprobanteVenta = ({
         close={onClose}
         title="Nuevo Comprobante de Venta"
         size="xl"
+        validateClose
       >
         <Stack gap="md">
           {/* Fila 1: Planta Destino, Empresa, Código Comprobante, Fecha de Emisión */}

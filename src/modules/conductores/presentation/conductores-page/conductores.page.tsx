@@ -50,6 +50,7 @@ export const ConductoresPage = () => {
         close={() => setOpenRegistro(false)}
         title="Nuevo Conductor"
         size="lg"
+        validateClose
       >
         <RegistroConductor
           onCancel={() => setOpenRegistro(false)}
@@ -70,6 +71,7 @@ export const ConductoresPage = () => {
             : ""
         }
         size="lg"
+        validateClose
       >
         {conductorAEditar && (
           <RegistroConductor

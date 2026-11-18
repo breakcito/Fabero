@@ -101,6 +101,7 @@ export const ModalCrearAnticipoPlanta = ({
       close={handleClose}
       title="Registrar Nuevo Anticipo a Planta"
       size="lg"
+      validateClose
     >
       <Stack gap="md">
         {/* Planta Destino + Código Comprobante + Monto Inicial en la misma fila */}

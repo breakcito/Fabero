@@ -1,6 +1,6 @@
 import { api } from "../../../service/_api";
 import type { IRespuesta } from "../../../shared/interfaces/_response";
-import type { DTO_CrearEmpleado } from "./empleados.requests";
+import type { DTO_CrearEmpleado, DTO_EditarEmpleado } from "./empleados.requests";
 import type {
   RES_Area,
   RES_Cargo,
@@ -31,9 +31,11 @@ export class EmpleadosService {
     return data;
   };
 
-  public static crear_empleado = async (
-    dto: DTO_CrearEmpleado,
-  ): Promise<IRespuesta<RES_EmpleadoResumen>> => {
+  /**
+   * Arma el FormData del empleado. Los valores `null` se omiten y los
+   * booleanos se envían como "1"/"0".
+   */
+  private static toFormData(dto: DTO_CrearEmpleado | DTO_EditarEmpleado) {
     const formData = new FormData();
     Object.entries(dto).forEach(([key, value]) => {
       if (value === null || value === undefined) return;
@@ -45,9 +47,29 @@ export class EmpleadosService {
         formData.append(key, String(value));
       }
     });
-    const { data } = await api.post(this.PATH, formData, {
+    return formData;
+  }
+
+  public static crear_empleado = async (
+    dto: DTO_CrearEmpleado,
+  ): Promise<IRespuesta<RES_EmpleadoResumen>> => {
+    const { data } = await api.post(this.PATH, this.toFormData(dto), {
       headers: { "Content-Type": "multipart/form-data" },
     });
+    return data;
+  };
+
+  public static actualizar_empleado = async (
+    idEmpleado: number,
+    dto: DTO_EditarEmpleado,
+  ): Promise<IRespuesta<RES_EmpleadoResumen>> => {
+    const { data } = await api.put(
+      `${this.PATH}/${idEmpleado}`,
+      this.toFormData(dto),
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+      },
+    );
     return data;
   };
 

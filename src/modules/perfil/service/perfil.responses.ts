@@ -14,5 +14,4 @@ export interface RES_Perfil {
   nombre_cargo: string | null;
   nombre_area: string | null;
   empresa_nombre: string | null;
-  autoriza_ingreso_unidades: boolean;
 }
