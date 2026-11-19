@@ -556,6 +556,13 @@ export const useConfirmarProgramacion = ({ programacion, opened = true }: Props)
           guia_transportista: updated.guia_transportista,
           documentos_programacion: (updated.documentos_programacion as IDocumentoProgramacion | null) ?? programacion.documentos_programacion ?? null,
           es_recepcion_ficticia: updated.es_recepcion_ficticia,
+          // El ticket de ingreso se genera al confirmar la llegada: se copia
+          // para que la columna "Ticket" de la tabla lo muestre de inmediato.
+          id_ticket_recepcion_unidades: updated.id_ticket_recepcion_unidades,
+          ticket_correlativo: updated.ticket_correlativo,
+          ticket_numero_correlativo: updated.ticket_numero_correlativo,
+          campos_bloqueados:
+            updated.campos_bloqueados ?? programacion.campos_bloqueados ?? [],
           visita: updated.visita as RecepcionUnidadResponse["visita"],
         };
 

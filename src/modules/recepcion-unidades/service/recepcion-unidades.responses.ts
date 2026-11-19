@@ -50,6 +50,11 @@ export interface RecepcionUnidadResponse {
   id_ticket_recepcion_unidades?: number | null;
   ticket_correlativo?: string | null;
   ticket_numero_correlativo?: number | null;
+  /**
+   * Campos que se registraron en una PROGRAMACIÓN (de recepción o de despacho)
+   * y que por lo tanto NO se pueden editar. Nombres de columna en BD.
+   */
+  campos_bloqueados?: string[];
   visita?: ProgramacionVisitaPayload | null;
   log_cambios?: RES_CambiosLog[] | null;
 }

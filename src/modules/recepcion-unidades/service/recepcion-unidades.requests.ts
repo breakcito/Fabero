@@ -10,6 +10,25 @@ export interface DTO_EditarObservacionEvidencias {
   evidencias?: File[];
 }
 
+/**
+ * Edición de campos puntuales de una recepción de unidad.
+ *
+ * Solo se envía el grupo editado (vehículo, transportista, conductor o
+ * proveedor). El backend rechaza los campos que vinieron de una
+ * programación (`campos_bloqueados`).
+ */
+export interface DTO_ActualizarCampos {
+  campos: {
+    id_vehiculo?: number | null;
+    id_tipo_vehiculo?: number | null;
+    id_vehiculo_carreta?: number | null;
+    id_empresa_transporte?: number | null;
+    id_conductor?: number | null;
+    id_proveedor_minero?: number | null;
+  };
+  motivo?: string | null;
+}
+
 export interface CrearRecepcionRequest {
   id_vehiculo?: number;
   placa?: string;

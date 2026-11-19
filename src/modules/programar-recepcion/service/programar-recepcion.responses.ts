@@ -102,6 +102,12 @@ export interface ProgramacionDetail {
   guia_transportista: string | null;
   documentos_programacion: IDocumentoProgramacion | null;
   es_recepcion_ficticia: boolean;
+  /** Ticket de ingreso vehicular (se genera al confirmar la llegada). */
+  id_ticket_recepcion_unidades?: number | null;
+  ticket_correlativo?: string | null;
+  ticket_numero_correlativo?: number | null;
+  /** Campos registrados en la programación: no editables. */
+  campos_bloqueados?: string[];
   visita?: ProgramacionVisitaPayload | null;
   log_cambios?: RES_CambiosLog[] | null;
 }

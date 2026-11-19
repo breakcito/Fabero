@@ -1,17 +1,18 @@
 import { useState } from "react";
 import { Text, Button, Select, Textarea, Badge, Group, ActionIcon, Tooltip, type MantineColor } from "@mantine/core";
 import { DataTableEstandar } from "../../../../presentation/utils/datatable-estandar";
-import { IconPaperclip, IconClipboardCheck, IconPencil, IconHistory, IconTruck, IconPrinter } from "@tabler/icons-react";
+import { IconPaperclip, IconClipboardCheck, IconPencil, IconHistory, IconTruck, IconPrinter, IconLock } from "@tabler/icons-react";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
-import { ArchivoCard } from "../../../../presentation/utils/archivo/archivo-card";
+
 import { MultiFilePicker } from "../../../../presentation/utils/archivo/multifile-picker";
 import type { RecepcionUnidadResponse, GuiaRecepcionItem } from "../../service/recepcion-unidades.responses";
-import type { IArchivo } from "../../../../shared/interfaces/archivo";
+
 import { RecepcionUnidadesService } from "../../service/recepcion-unidades.service";
 import { useNotify } from "../../../../hooks/useNotify";
 import { useTicketIngresoVehiculo } from "../../hooks/useTicketIngresoVehiculo";
 import { EstadoSalida } from "../../../../shared/enums/_generic/estado-salida";
 import { EstadoUnidad } from "../../../../shared/enums/_generic/estado-unidad";
+import type { GrupoEdicion } from "./modal-editar-campo-unidad";
 
 interface Props {
   recepciones: RecepcionUnidadResponse[];
@@ -19,7 +20,9 @@ interface Props {
   onUpdateRecepcion: (r: RecepcionUnidadResponse) => void;
   onConfirmarProgramacion: (r: RecepcionUnidadResponse) => void;
   onEditarObservacionEvidencias: (r: RecepcionUnidadResponse) => void;
+  onGestionarEvidencias: (r: RecepcionUnidadResponse) => void;
   onVerHistorial: (r: RecepcionUnidadResponse) => void;
+  onEditarCampo: (r: RecepcionUnidadResponse, grupo: GrupoEdicion) => void;
 }
 
 export const TablaRecepciones = ({
@@ -28,11 +31,10 @@ export const TablaRecepciones = ({
   onUpdateRecepcion,
   onConfirmarProgramacion,
   onEditarObservacionEvidencias,
+  onGestionarEvidencias,
   onVerHistorial,
+  onEditarCampo,
 }: Props) => {
-  const [selectedEvidencias, setSelectedEvidencias] = useState<IArchivo[] | null>(null);
-  const [modalOpen, setModalOpen] = useState(false);
-
   const [modalSeleccionGuiaOpen, setModalSeleccionGuiaOpen] = useState(false);
   const [guiasRecepcion, setGuiasRecepcion] = useState<GuiaRecepcionItem[]>([]);
   const [recepcionSeleccionadaTicket, setRecepcionSeleccionadaTicket] = useState<RecepcionUnidadResponse | null>(null);
@@ -65,11 +67,6 @@ export const TablaRecepciones = ({
     } finally {
       setLoadingGuiasRecepcion(false);
     }
-  };
-
-  const handleOpenEvidencias = (evidencias: IArchivo[]) => {
-    setSelectedEvidencias(evidencias);
-    setModalOpen(true);
   };
 
   const formatFecha = (fechaStr: string | null | undefined) => {
@@ -138,8 +135,50 @@ export const TablaRecepciones = ({
     );
   };
 
-  const handleSaveExit = async () => {
-    if (!exitRecord) return;
+  /**
+   * Lápiz de edición por columna.
+   *
+   * Si el campo se registró en una programación (recepción o despacho) queda
+   * bloqueado: el backend lo rechaza y el botón se muestra deshabilitado
+   * con la explicación.
+   */
+  const pencilCampo = (
+    r: RecepcionUnidadResponse,
+    campo: string,
+    grupo: GrupoEdicion,
+  ) => {
+    const bloqueado = (r.campos_bloqueados ?? []).includes(campo);
+
+    return (
+      <Tooltip
+        label={
+          bloqueado
+            ? "Registrado en la programación: no se puede editar"
+            : "Editar"
+        }
+        withArrow
+      >
+        <ActionIcon
+          variant="subtle"
+          color={bloqueado ? "gray" : "indigo"}
+          radius="sm"
+          size="sm"
+          disabled={bloqueado}
+          onClick={() => onEditarCampo(r, grupo)}
+          className={
+            bloqueado
+              ? "text-zinc-600 opacity-50 cursor-not-allowed"
+              : "text-indigo-300 hover:bg-indigo-500/10"
+          }
+          aria-label="Editar"
+        >
+          {bloqueado ? <IconLock size={14} /> : <IconPencil size={14} />}
+        </ActionIcon>
+      </Tooltip>
+    );
+  };
+
+  const handleSaveExit = async () => {    if (!exitRecord) return;
     if (!estadoSalida) {
       notifyError("Debe seleccionar el estado de la unidad.");
       return;
@@ -183,46 +222,40 @@ export const TablaRecepciones = ({
             accessor: "acciones",
             title: "Acciones",
             textAlign: "center",
-            width: 175,
+            width: 200,
             render: (r: RecepcionUnidadResponse) => {
-              const tieneObservacionoEvidencias =
-                (r.observacion !== null && r.observacion.trim().length > 0) ||
-                (Array.isArray(r.evidencias) && r.evidencias.length > 0);
-
               const noConfirmada = r.es_programacion && !r.id_empleado_recepcion;
-              const disabledReason = "Confirme la programación para habilitar";
 
               const puedeRegistrarSalida =
                 !noConfirmada && !r.fecha_hora_salida;
+
+              /**
+               * Unidad programada (recepción o despacho) que todavía no
+               * confirmó su llegada: en vez de los botones (que estaban
+               * deshabilitados) se muestra la acción principal. Al confirmar,
+               * la fila vuelve a mostrar los botones de acción.
+               */
+              if (noConfirmada) {
+                return (
+                  <Button
+                    radius="lg"
+                    size="sm"
+                    leftSection={<IconClipboardCheck size={18} />}
+                    onClick={() => onConfirmarProgramacion(r)}
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm px-4 py-2 shadow-lg shadow-indigo-900/20"
+                  >
+                    Confirmar llegada
+                  </Button>
+                );
+              }
 
               return (
                 <Group gap={6} wrap="nowrap" justify="center">
                   <Tooltip
                     label={
-                      noConfirmada
-                        ? disabledReason
-                        : "Imprimir Ticket de Ingreso"
-                    }
-                    withArrow
-                  >
-                    <ActionIcon
-                      variant="light"
-                      color="yellow"
-                      radius="xl"
-                      size="md"
-                      disabled={noConfirmada || loadingTicket || loadingGuiasRecepcion}
-                      onClick={() => handlePrintTicket(r)}
-                      className="bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 disabled:opacity-40"
-                    >
-                      <IconPrinter size={16} />
-                    </ActionIcon>
-                  </Tooltip>
-
-                  <Tooltip
-                    label={
                       Array.isArray(r.evidencias) && r.evidencias.length > 0
-                        ? `Ver ${r.evidencias.length} evidencia(s)`
-                        : "Sin evidencias"
+                        ? `Gestionar evidencias (${r.evidencias.length})`
+                        : "Agregar evidencias"
                     }
                     withArrow
                   >
@@ -230,56 +263,24 @@ export const TablaRecepciones = ({
                       variant="light"
                       color="indigo"
                       radius="xl"
-                      size="md"
-                      disabled={
-                        !Array.isArray(r.evidencias) || r.evidencias.length === 0
-                      }
-                      onClick={() => handleOpenEvidencias(r.evidencias)}
-                      className="bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/10 disabled:opacity-40"
+                      size="lg"
+                      onClick={() => onGestionarEvidencias(r)}
+                      className="bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/10"
                     >
-                      <IconPaperclip size={16} />
+                      <IconPaperclip size={18} />
                     </ActionIcon>
                   </Tooltip>
 
-                  <Tooltip
-                    label={
-                      noConfirmada ? disabledReason : "Ver historial de cambios"
-                    }
-                    withArrow
-                  >
+                  <Tooltip label="Ver historial de cambios" withArrow>
                     <ActionIcon
                       variant="light"
                       color="gray"
                       radius="xl"
-                      size="md"
-                      disabled={noConfirmada}
+                      size="lg"
                       onClick={() => onVerHistorial(r)}
                       className="bg-zinc-700/10 hover:bg-zinc-700/20 text-zinc-400 border border-zinc-500/10 disabled:opacity-40"
                     >
-                      <IconHistory size={16} />
-                    </ActionIcon>
-                  </Tooltip>
-
-                  <Tooltip
-                    label={
-                      noConfirmada
-                        ? disabledReason
-                        : tieneObservacionoEvidencias
-                          ? "Editar observación y evidencias"
-                          : "Agregar observación y evidencias"
-                    }
-                    withArrow
-                  >
-                    <ActionIcon
-                      variant="light"
-                      color="indigo"
-                      radius="xl"
-                      size="md"
-                      disabled={noConfirmada}
-                      onClick={() => onEditarObservacionEvidencias(r)}
-                      className="bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 border border-indigo-500/10 disabled:opacity-40"
-                    >
-                      <IconPencil size={16} />
+                      <IconHistory size={18} />
                     </ActionIcon>
                   </Tooltip>
 
@@ -289,7 +290,7 @@ export const TablaRecepciones = ({
                         variant="light"
                         color="red"
                         radius="xl"
-                        size="md"
+                        size="lg"
                         onClick={() => {
                           setExitRecord(r);
                           setEstadoSalida(null);
@@ -298,7 +299,7 @@ export const TablaRecepciones = ({
                         }}
                         className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20"
                       >
-                        <IconTruck size={16} />
+                        <IconTruck size={18} />
                       </ActionIcon>
                     </Tooltip>
                   )}
@@ -307,81 +308,32 @@ export const TablaRecepciones = ({
             },
           },
           {
-            accessor: "tipo",
-            title: "Tipo",
-            width: 140,
+            accessor: "ticket_correlativo",
+            title: "Ticket",
             textAlign: "center",
+            width: 170,
             render: (r: RecepcionUnidadResponse) => {
-              const esProgramacionSinConfirmar =
-                r.es_programacion && !r.id_empleado_recepcion;
-
-              const badge = (() => {
-                if (esProgramacionSinConfirmar) {
-                  return (
-                    <Badge color="yellow" variant="light" radius="md" size="sm">
-                      Programación
-                    </Badge>
-                  );
-                }
-                if (r.es_programacion && r.id_empleado_recepcion) {
-                  return (
-                    <Badge color="indigo" variant="light" radius="md" size="sm">
-                      Confirmada
-                    </Badge>
-                  );
-                }
-                return (
-                  <Badge color="gray" variant="light" radius="md" size="sm">
-                    Directa
-                  </Badge>
-                );
-              })();
+              const noConfirmada = r.es_programacion && !r.id_empleado_recepcion;
 
               return (
                 <Group gap={6} wrap="nowrap" justify="center">
-                  {badge}
-                  {esProgramacionSinConfirmar && (
-                    <Tooltip label="Confirmar información" withArrow>
-                      <ActionIcon
-                        variant="filled"
-                        color="indigo"
-                        radius="xl"
-                        size="md"
-                        onClick={() => onConfirmarProgramacion(r)}
-                        className="bg-indigo-600 hover:bg-indigo-500 text-white"
-                      >
-                        <IconClipboardCheck size={16} />
-                      </ActionIcon>
-                    </Tooltip>
-                  )}
+                  <Text size="sm" fw={700} className="text-white font-mono">
+                    {r.ticket_correlativo ?? "—"}
+                  </Text>
+                  <Tooltip label="Imprimir Ticket de Ingreso" withArrow>
+                    <ActionIcon
+                      variant="light"
+                      color="yellow"
+                      radius="xl"
+                      size="lg"
+                      disabled={noConfirmada || loadingTicket || loadingGuiasRecepcion}
+                      onClick={() => handlePrintTicket(r)}
+                      className="bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 disabled:opacity-40"
+                    >
+                      <IconPrinter size={18} />
+                    </ActionIcon>
+                  </Tooltip>
                 </Group>
-              );
-            },
-          },
-          {
-            accessor: "proveedor_razon_social",
-            title: "Proveedor",
-            textAlign: "center",
-            width: 200,
-            render: (r: RecepcionUnidadResponse) => {
-              if (!r.proveedor_razon_social && !r.proveedor_ruc) {
-                return (
-                  <Text size="xs" className="text-zinc-500 italic">
-                    (sin asignar)
-                  </Text>
-                );
-              }
-              return (
-                <div className="flex flex-col gap-1 items-center">
-                  <Text size="sm" className="text-zinc-200 max-w-47.5" truncate title={r.proveedor_razon_social ?? ""}>
-                    {r.proveedor_razon_social ?? "—"}
-                  </Text>
-                  {r.proveedor_ruc && (
-                    <Text size="xs" className="text-zinc-500 italic">
-                      RUC: {r.proveedor_ruc}
-                    </Text>
-                  )}
-                </div>
               );
             },
           },
@@ -389,26 +341,66 @@ export const TablaRecepciones = ({
             accessor: "vehiculo_placa",
             title: "Vehículo",
             textAlign: "center",
-            width: 170,
+            width: 190,
             render: (r: RecepcionUnidadResponse) => {
               if (!r.vehiculo_placa) {
                 return (
-                  <Text size="xs" className="text-zinc-500 italic">
-                    (sin asignar)
-                  </Text>
+                  <Group gap={6} wrap="nowrap" justify="center">
+                    <Text size="sm" className="text-white italic">
+                      (sin asignar)
+                    </Text>
+                    {pencilCampo(r, "id_vehiculo", "vehiculo")}
+                  </Group>
                 );
               }
               return (
                 <div className="flex flex-col gap-1.5 items-center">
-                  <div className="inline-flex items-center justify-center bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-2.5 py-0.5 rounded-md font-bold text-xs tracking-wider uppercase font-mono">
-                    {r.vehiculo_placa}
-                  </div>
-                  <Text size="xs" className="text-zinc-500 italic">
+                  <Group gap={6} wrap="nowrap" justify="center">
+                    <div className="inline-flex items-center justify-center bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 px-2.5 py-0.5 rounded-md font-bold text-xs tracking-wider uppercase font-mono">
+                      {r.vehiculo_placa}
+                    </div>
+                    {pencilCampo(r, "id_vehiculo", "vehiculo")}
+                  </Group>
+                  <Text size="sm" className="text-white">
                     {r.tipo_vehiculo_nombre ?? ""}
                   </Text>
                 </div>
               );
             },
+          },
+          {
+            accessor: "proveedor_razon_social",
+            title: "Proveedor",
+            textAlign: "center",
+            width: 210,
+            render: (r: RecepcionUnidadResponse) => (
+              <Group gap={6} wrap="nowrap" justify="center">
+                <div className="flex flex-col gap-1 items-center min-w-0">
+                  {!r.proveedor_razon_social && !r.proveedor_ruc ? (
+                    <Text size="sm" className="text-white italic">
+                      (sin asignar)
+                    </Text>
+                  ) : (
+                    <>
+                      <Text
+                        size="sm"
+                        className="text-white max-w-47.5"
+                        truncate
+                        title={r.proveedor_razon_social ?? ""}
+                      >
+                        {r.proveedor_razon_social ?? "—"}
+                      </Text>
+                      {r.proveedor_ruc && (
+                        <Text size="sm" className="text-white">
+                          RUC: {r.proveedor_ruc}
+                        </Text>
+                      )}
+                    </>
+                  )}
+                </div>
+                {pencilCampo(r, "id_proveedor_minero", "proveedor")}
+              </Group>
+            ),
           },
           {
             accessor: "estado",
@@ -421,26 +413,35 @@ export const TablaRecepciones = ({
             accessor: "empresa_transporte_razon_social",
             title: "Transportista",
             textAlign: "center",
-            width: 200,
+            width: 220,
             render: (r: RecepcionUnidadResponse) => (
-              <div>
-                <Text size="sm" className="text-zinc-200 max-w-47.5" truncate title={r.empresa_transporte_razon_social}>
+              <Group gap={6} wrap="nowrap" justify="center">
+                <Text
+                  size="sm"
+                  className="text-white max-w-47.5"
+                  truncate
+                  title={r.empresa_transporte_razon_social}
+                >
                   {r.empresa_transporte_razon_social}
                 </Text>
-              </div>
+                {pencilCampo(r, "id_empresa_transporte", "transportista")}
+              </Group>
             ),
           },
           {
             accessor: "conductor_nombre_completo",
             title: "Conductor",
             textAlign: "center",
-            width: 200,
+            width: 220,
             render: (r: RecepcionUnidadResponse) => (
-              <div>
-                <Text size="sm" className="text-zinc-200" fw={500}>
-                  {r.conductor_nombre_completo ?? "—"}
-                </Text>
-                <Text size="xs" className="text-zinc-500">
+              <div className="flex flex-col gap-1 items-center">
+                <Group gap={6} wrap="nowrap" justify="center">
+                  <Text size="sm" className="text-white" fw={500}>
+                    {r.conductor_nombre_completo ?? "—"}
+                  </Text>
+                  {pencilCampo(r, "id_conductor", "conductor")}
+                </Group>
+                <Text size="sm" className="text-white">
                   Licencia: {r.conductor_numero_licencia ?? "—"}
                 </Text>
               </div>
@@ -450,33 +451,15 @@ export const TablaRecepciones = ({
             accessor: "fecha_hora_ingreso",
             title: "Fecha Ingreso",
             textAlign: "center",
-            width: 180,
+            width: 200,
             render: (r: RecepcionUnidadResponse) => (
-              <div>
-                <Text size="sm" className="text-zinc-200" fw={500}>
+              <div className="flex flex-col gap-1 items-center">
+                <Text size="sm" className="text-white" fw={500}>
                   {formatFecha(r.fecha_hora_ingreso)}
                 </Text>
                 {r.fecha_hora_ingreso && (
-                  <Text size="xs" className="text-zinc-500">
+                  <Text size="sm" className="text-white">
                     Por: {r.empleado_recepcion_nombre ?? r.empleado_registro_nombre ?? "—"}
-                  </Text>
-                )}
-              </div>
-            ),
-          },
-          {
-            accessor: "fecha_estimada_llegada",
-            title: "F. Est. Llegada",
-            textAlign: "center",
-            width: 180,
-            render: (r: RecepcionUnidadResponse) => (
-              <div>
-                <Text size="sm" className="text-zinc-200" fw={500}>
-                  {r.fecha_estimada_llegada ?? "—"}
-                </Text>
-                {r.fecha_estimada_llegada && (
-                  <Text size="xs" className="text-zinc-500">
-                    Autorizó: {r.empleado_autoriza_nombre ?? "—"}
                   </Text>
                 )}
               </div>
@@ -497,19 +480,35 @@ export const TablaRecepciones = ({
             accessor: "observacion",
             title: "Observación",
             textAlign: "center",
-            width: 200,
-            render: (r: RecepcionUnidadResponse) => {
-              if (!r.observacion) {
-                return <Text size="xs" className="text-zinc-500 italic max-w-45">—</Text>;
-              }
-              return (
-                <Tooltip label={r.observacion} multiline w={320} withArrow>
-                  <Text size="xs" className="text-zinc-400 italic max-w-45 truncate">
-                    {r.observacion}
+            width: 220,
+            render: (r: RecepcionUnidadResponse) => (
+              <Group gap={6} wrap="nowrap" justify="center">
+                {!r.observacion ? (
+                  <Text size="sm" className="text-white italic max-w-45">
+                    —
                   </Text>
+                ) : (
+                  <Tooltip label={r.observacion} multiline w={320} withArrow>
+                    <Text size="sm" className="text-white italic max-w-45 truncate">
+                      {r.observacion}
+                    </Text>
+                  </Tooltip>
+                )}
+                <Tooltip label="Editar observación" withArrow>
+                  <ActionIcon
+                    variant="subtle"
+                    color="indigo"
+                    radius="sm"
+                    size="sm"
+                    onClick={() => onEditarObservacionEvidencias(r)}
+                    className="text-indigo-300 hover:bg-indigo-500/10"
+                    aria-label="Editar observación"
+                  >
+                    <IconPencil size={14} />
+                  </ActionIcon>
                 </Tooltip>
-              );
-            },
+              </Group>
+            ),
           },
           {
             accessor: "observacion_salida",
@@ -531,22 +530,6 @@ export const TablaRecepciones = ({
           },
         ]}
       />
-
-      <ModalEstandar
-        opened={modalOpen}
-        close={() => {
-          setModalOpen(false);
-          setSelectedEvidencias(null);
-        }}
-        title="Evidencias Registradas"
-        size="md"
-      >
-        <div className="flex flex-col gap-3">
-          {selectedEvidencias?.map((e, idx) => (
-            <ArchivoCard key={idx} archivo={e} />
-          ))}
-        </div>
-      </ModalEstandar>
 
       <ModalEstandar
         opened={!!exitRecord}

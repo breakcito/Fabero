@@ -4,7 +4,9 @@ import { useRecepciones } from "../hooks/useRecepciones";
 import { Filtros } from "./components/filtros";
 import { TablaRecepciones } from "./components/tabla-recepciones";
 import { ConfirmarProgramacionModal } from "./components/confirmar-programacion-modal";
-import { ModalEditarObservacionEvidencias } from "./components/modal-editar-observacion-evidencias";
+import { ModalEditarObservacion } from "./components/modal-editar-observacion";
+import { ModalGestionarEvidencias } from "./components/modal-gestionar-evidencias";
+import { ModalEditarCampoUnidad, type GrupoEdicion } from "./components/modal-editar-campo-unidad";
 import { ModalVerHistorial } from "./components/modal-ver-historial";
 import { RefreshButton } from "../../../presentation/utils/refresh-button";
 import { LimpiarFiltrosButton } from "../../../presentation/utils/limpiar-filtros-button";
@@ -43,8 +45,16 @@ export const RecepcionUnidadesPage = () => {
   const [programacionConfirmadaFull, setProgramacionConfirmadaFull] =
     useState<RecepcionUnidadResponse | null>(null);
   const [recepcionAEditar, setRecepcionAEditar] = useState<RecepcionUnidadResponse | null>(null);
+  const [recepcionAEvidencias, setRecepcionAEvidencias] =
+    useState<RecepcionUnidadResponse | null>(null);
   const [recepcionAVerHistorial, setRecepcionAVerHistorial] =
     useState<RecepcionUnidadResponse | null>(null);
+
+  // Edición por columna (vehículo / transportista / conductor / proveedor).
+  const [campoAEditar, setCampoAEditar] = useState<{
+    recepcion: RecepcionUnidadResponse;
+    grupo: GrupoEdicion;
+  } | null>(null);
 
   useEffect(() => {
     let cancelado = false;
@@ -147,7 +157,9 @@ export const RecepcionUnidadesPage = () => {
           onUpdateRecepcion={updateRecepcion}
           onConfirmarProgramacion={(r) => setProgramacionAConfirmar(r)}
           onEditarObservacionEvidencias={(r) => setRecepcionAEditar(r)}
+          onGestionarEvidencias={(r) => setRecepcionAEvidencias(r)}
           onVerHistorial={(r) => setRecepcionAVerHistorial(r)}
+          onEditarCampo={(r, grupo) => setCampoAEditar({ recepcion: r, grupo })}
         />
       </Stack>
 
@@ -173,10 +185,19 @@ export const RecepcionUnidadesPage = () => {
         }}
       />
 
-      <ModalEditarObservacionEvidencias
+      <ModalEditarObservacion
         opened={!!recepcionAEditar}
         recepcion={recepcionAEditar}
         onClose={() => setRecepcionAEditar(null)}
+        onGuardada={(actualizada) => {
+          updateRecepcion(actualizada);
+        }}
+      />
+
+      <ModalGestionarEvidencias
+        opened={!!recepcionAEvidencias}
+        recepcion={recepcionAEvidencias}
+        onClose={() => setRecepcionAEvidencias(null)}
         onGuardada={(actualizada) => {
           updateRecepcion(actualizada);
         }}
@@ -186,6 +207,16 @@ export const RecepcionUnidadesPage = () => {
         opened={!!recepcionAVerHistorial}
         recepcion={recepcionAVerHistorial}
         onClose={() => setRecepcionAVerHistorial(null)}
+      />
+
+      <ModalEditarCampoUnidad
+        opened={!!campoAEditar}
+        recepcion={campoAEditar?.recepcion ?? null}
+        grupo={campoAEditar?.grupo ?? "vehiculo"}
+        onClose={() => setCampoAEditar(null)}
+        onGuardada={(actualizada) => {
+          updateRecepcion(actualizada);
+        }}
       />
     </div>
   );

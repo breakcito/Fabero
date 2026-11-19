@@ -3,6 +3,7 @@ import type {
   ConfirmarVisitaPayload,
   CrearRecepcionRequest,
   CrearVisitaVehiculoRequest,
+  DTO_ActualizarCampos,
   DTO_EditarObservacionEvidencias,
   RecepcionFilters,
 } from "./recepcion-unidades.requests";
@@ -200,6 +201,23 @@ export const RecepcionUnidadesService = {
   eliminarVehiculoVisitado: async (id: number): Promise<IRespuesta<null>> => {
     const { data } = await api.delete(`/visitas-vehiculo/${id}`);
     return data;
+  },
+
+  /**
+   * Editar campos puntuales de una recepción de unidad.
+   *
+   * El backend valida que el campo no esté bloqueado (registrado en una
+   * programación) y deja el cambio registrado en `log_cambios`.
+   */
+  actualizarCampos: async (
+    id: number,
+    dto: DTO_ActualizarCampos,
+  ): Promise<RecepcionUnidadResponse> => {
+    const { data } = await api.put(`/recepcion-unidades/${id}/campos`, dto);
+    if (data.success === false) {
+      throw new Error(data.message || "No se pudo actualizar la recepción.");
+    }
+    return data.data;
   },
 
   /**
