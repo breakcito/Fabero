@@ -64,6 +64,7 @@ export const iconos_menu_navegacion: IconoMenuEntrada[] = [
   { path: "balanza", icono: ScaleIcon },
   { path: "guias", icono: DocumentTextIcon },
   { path: "leyes", icono: BeakerIcon },
+  { path: "muestreo", icono: BeakerIcon },
   { path: "anticipos", icono: CurrencyDollarIcon },
   { path: "valorizacion", icono: ArrowTrendingUpIcon },
   { path: "contabilidad", icono: CalculatorIcon },

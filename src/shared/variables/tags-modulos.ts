@@ -245,6 +245,16 @@ export const MODULO_TAGS_MAP: Record<string, string[]> = {
     "consolidado",
     "control",
   ],
+  "muestreo": [
+    "muestreo",
+    "muestra",
+    "analisis",
+    "laboratorio",
+    "producto",
+    "mineral",
+    "lote",
+    "clasificacion",
+  ],
 
   // --- Operaciones / Guias y Leyes ---
   guias: [

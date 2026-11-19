@@ -118,41 +118,76 @@ export const EdicionParticionModal = ({
 
   const catalogKey = `edicion-particion-${particion.id}`;
 
+  /**
+   * Reinicio del formulario al abrir el modal o al cambiar de partición.
+   *
+   * Se ajusta DURANTE el render (comparando con el valor previo) y no
+   * dentro de un efecto: depender del objeto `particion` en el array de
+   * dependencias reiniciaba TODOS los campos en cada render del padre (el
+   * objeto llega con nueva identidad en cada render), borrando lo que el
+   * operador acababa de elegir. Por eso el proveedor se volvía al del lote
+   * padre y no se podía cambiar.
+   */
+  const [prevAbierto, setPrevAbierto] = useState(opened);
+  const [prevParticionId, setPrevParticionId] = useState(particion.id);
+
+  const seAbrio = opened !== prevAbierto;
+  const cambioParticion = particion.id !== prevParticionId;
+
+  if (seAbrio || cambioParticion) {
+    setPrevAbierto(opened);
+    setPrevParticionId(particion.id);
+
+    if (opened) {
+      setIdVehiculo(
+        particion.id_vehiculo != null ? String(particion.id_vehiculo) : null
+      );
+      setCapacidadVehiculo(particion.vehiculo_capacidad ?? null);
+      setIdConductor(
+        particion.id_conductor != null ? String(particion.id_conductor) : null
+      );
+      setIdEmpresaTransporte(
+        particion.id_empresa_transporte != null
+          ? String(particion.id_empresa_transporte)
+          : null
+      );
+      setIdTipoVehiculo(
+        particion.id_tipo_vehiculo != null
+          ? String(particion.id_tipo_vehiculo)
+          : null
+      );
+      setIdProveedorMinero(
+        particion.id_proveedor_minero != null
+          ? String(particion.id_proveedor_minero)
+          : null
+      );
+      setIdVehiculoCarreta(
+        particion.id_vehiculo_carreta != null
+          ? String(particion.id_vehiculo_carreta)
+          : null
+      );
+      setFechaHoraIngreso(
+        particion.fecha_hora_ingreso
+          ? new Date(particion.fecha_hora_ingreso)
+          : new Date()
+      );
+      setFechaHoraSalida(() => {
+        if (particion.fecha_hora_salida)
+          return new Date(particion.fecha_hora_salida);
+        const base = particion.fecha_hora_ingreso
+          ? new Date(particion.fecha_hora_ingreso)
+          : new Date();
+        return new Date(base.getTime() + 2 * 60 * 60 * 1000);
+      });
+    }
+  }
+
+  /**
+   * Catálogos: se cargan al abrir el modal (o al cambiar de partición).
+   * NO reinician el formulario (eso va arriba, en el ajuste durante render).
+   */
   useEffect(() => {
     if (!opened) return;
-    setIdVehiculo(particion.id_vehiculo != null ? String(particion.id_vehiculo) : null);
-    setCapacidadVehiculo(particion.vehiculo_capacidad ?? null);
-    setIdConductor(
-      particion.id_conductor != null ? String(particion.id_conductor) : null
-    );
-    setIdEmpresaTransporte(
-      particion.id_empresa_transporte != null
-        ? String(particion.id_empresa_transporte)
-        : null
-    );
-    setIdTipoVehiculo(
-      particion.id_tipo_vehiculo != null ? String(particion.id_tipo_vehiculo) : null
-    );
-    setIdProveedorMinero(
-      particion.id_proveedor_minero != null
-        ? String(particion.id_proveedor_minero)
-        : null
-    );
-    setIdVehiculoCarreta(
-      particion.id_vehiculo_carreta != null
-        ? String(particion.id_vehiculo_carreta)
-        : null
-    );
-    setFechaHoraIngreso(
-      particion.fecha_hora_ingreso
-        ? new Date(particion.fecha_hora_ingreso)
-        : new Date()
-    );
-    setFechaHoraSalida(() => {
-      if (particion.fecha_hora_salida) return new Date(particion.fecha_hora_salida);
-      const base = particion.fecha_hora_ingreso ? new Date(particion.fecha_hora_ingreso) : new Date();
-      return new Date(base.getTime() + 2 * 60 * 60 * 1000);
-    });
 
     setLoadingVehiculos(true);
     setLoadingConductores(true);
@@ -196,7 +231,7 @@ export const EdicionParticionModal = ({
       })
       .catch(() => notifyError("No se pudo cargar el catálogo de tipos de vehículo."))
       .finally(() => setLoadingTiposVehiculo(false));
-  }, [opened, particion, catalogKey, notifyError]);
+  }, [opened, catalogKey, notifyError]);
 
   const refreshCatalog = async (kind: SubModal) => {
     const setLoading = (val: boolean) => {
@@ -261,9 +296,8 @@ export const EdicionParticionModal = ({
             ? Number(idEmpresaTransporte)
             : null,
           id_tipo_vehiculo: idTipoVehiculo ? Number(idTipoVehiculo) : null,
-          id_proveedor_minero: idProveedorMinero
-            ? Number(idProveedorMinero)
-            : null,
+          // El proveedor NO se envía: la partición lo hereda del lote padre y
+          // el select está bloqueado. El backend lo resuelve con un COALESCE.
           fecha_hora_ingreso: fechaHoraIngreso
             ? fechaHoraIngreso.toISOString()
             : null,
@@ -422,6 +456,7 @@ export const EdicionParticionModal = ({
                 onChange={setIdProveedorMinero}
                 onPlus={() => setSubModal("proveedor")}
                 loading={loadingProveedores}
+                locked
               />
             </Grid.Col>
             {/* Celda vacía para empujar las fechas a la última fila y mantenerlas juntas. */}
@@ -610,6 +645,11 @@ interface SelectFieldProps {
   onPlus: () => void;
   loading: boolean;
   placeholder?: string;
+  /**
+   * Campo bloqueado: muestra el valor pero no se puede cambiar. Se usa para
+   * los datos que la partición hereda del lote padre (p.ej. el proveedor).
+   */
+  locked?: boolean;
 }
 
 const SelectField = ({
@@ -620,6 +660,7 @@ const SelectField = ({
   onPlus,
   loading,
   placeholder,
+  locked = false,
 }: SelectFieldProps) => {
   return (
     <Stack gap={4}>
@@ -633,7 +674,8 @@ const SelectField = ({
           value={value}
           onChange={onChange}
           searchable
-          clearable
+          clearable={!locked}
+          readOnly={locked}
           radius="lg"
           size="xs"
           style={{ flex: 1 }}
@@ -647,7 +689,7 @@ const SelectField = ({
             color="gray"
             size="sm"
             onClick={onPlus}
-            disabled={loading}
+            disabled={loading || locked}
             aria-label={`Agregar ${label}`}
           >
             <IconPlus size={16} />

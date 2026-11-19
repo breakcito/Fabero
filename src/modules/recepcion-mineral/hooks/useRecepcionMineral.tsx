@@ -264,8 +264,12 @@ export const useRecepcionMineral = () => {
     id: number,
     condicionIngreso: CondicionIngreso,
     idEmpresa: number,
-    flags?: { conCodigoManual: boolean; codigoManual?: string; particionar?: boolean },
-  ) => {
+    flags?: {
+      particionar?: boolean;
+      correlativo?: string;
+      numero_correlativo?: number;
+    },
+  ): Promise<RES_LoteMineral | null> => {
     const tempId = -Date.now();
     const tempLote: RES_LoteMineral = {
       id: tempId,
@@ -277,7 +281,6 @@ export const useRecepcionMineral = () => {
       id_zona_origen: null,
       correlativo: TEMP_LOTE_CORRELATIVO,
       numero_correlativo: null,
-      con_codigo_manual: flags?.conCodigoManual ?? false,
       numero_contacto: null,
       tipo_producto: null,
       tipo_mineral: null,
@@ -368,21 +371,20 @@ export const useRecepcionMineral = () => {
       const nuevoLote = await RecepcionMineralService.crear_lote(id, {
         condicion_ingreso: condicionIngreso,
         id_empresa: idEmpresa,
-        con_codigo_manual: flags?.conCodigoManual ?? false,
-        codigo_manual: flags?.codigoManual,
         particionar: flags?.particionar ?? false,
+        correlativo: flags?.correlativo,
+        numero_correlativo: flags?.numero_correlativo,
       });
-      const msg = flags?.particionar
-        ? "Lote particionado generado correctamente: " + nuevoLote.correlativo
-        : "Lote generado correctamente: " + nuevoLote.correlativo;
-      notifySuccess(msg);
 
       // Re-fetch completo: garantiza que `enProcesoList` refleja el backend
       // (incluye el nuevo lote). Sin esto, en flujos no particionados el
       // temp optim nunca se renderizaba como card visible. `showLoading: false`
       // evita que el grid desaparezca detrás del spinner global durante el
       // re-fetch — la card del lote se actualiza in-place sin parpadeo.
-      await loadRecepciones({ showLoading: false });
+      //
+      // NO se espera: el refresco sigue en segundo plano para que el modal
+      // de primer pesaje se abra de inmediato tras crear el lote.
+      void loadRecepciones({ showLoading: false });
 
       // Si se particionó, refrescar header global + cache de particiones.
       if (nuevoLote.particionado_desde_balanza) {
@@ -401,6 +403,8 @@ export const useRecepcionMineral = () => {
           refreshParticionesLote(nuevoLote.id), // sobrescribe particionesByLote[nuevoLote.id]
         ]);
       }
+
+      return nuevoLote;
     } catch (e: unknown) {
       console.error(e);
       notifyError(extractApiErrorMessage(e, "No se pudo generar el lote"));
@@ -415,6 +419,7 @@ export const useRecepcionMineral = () => {
       }
       // Re-fetch para limpiar cualquier estado optimista pendiente.
       await loadRecepciones({ showLoading: false });
+      return null;
     }
   };
 

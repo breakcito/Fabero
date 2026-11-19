@@ -43,6 +43,7 @@ import ProgramarRecepcionPage from "../../modules/programar-recepcion/presentati
 import { ValorizacionesVentaPage } from "../../modules/valorizacion-venta/presentation/valorizacion-venta.page.tsx";
 import CentroAyudaPage from "../../modules/centro-ayuda/presentation/centro-ayuda.page.tsx";
 import SystemPage from "../../modules/system/presentation/system.page.tsx";
+import { MuestreoPage } from "../../modules/muestreo/presentation/muestreo.page.tsx";
 import { RUTAS_LEGACY } from "../../shared/variables/rutas-legacy";
 
 /**
@@ -138,6 +139,7 @@ export const App = () => {
           element={<ProgramarRecepcionPage />}
         />
         <Route path="/recepcion-mineral" element={<RecepcionMineralPage />} />
+        <Route path="/muestreo" element={<MuestreoPage />} />
         <Route
           path="/validacion-distribucion"
           element={<ValidacionDistribucionPage />}

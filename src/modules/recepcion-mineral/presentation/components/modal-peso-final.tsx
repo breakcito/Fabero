@@ -10,9 +10,6 @@ import {
   Select,
   Tooltip,
   ActionIcon,
-  Paper,
-  Divider,
-  Badge,
   Loader,
 } from "@mantine/core";
 import { IconWeight, IconPlus, IconUserPlus } from "@tabler/icons-react";
@@ -53,7 +50,7 @@ export const ModalPesoFinal = ({ lote, onCancel, onSubmit, targetIdOverride }: P
   const [openProveedorModal, setOpenProveedorModal] = useState(false);
   const [nuevaZonaNombre, setNuevaZonaNombre] = useState("");
 
-  // Estados Formulario - Peso Inicial (Izquierda)
+  // Estados Formulario
   // El proveedor_minero se autocompleta con el del lote si ya fue elegido (ej. en peso inicial);
   // si el lote no tiene aún proveedor, se sugiere el de la recepción
   // (denormalizado como `id_proveedor_minero_recepcion` en la respuesta del lote).
@@ -65,17 +62,11 @@ export const ModalPesoFinal = ({ lote, onCancel, onSubmit, targetIdOverride }: P
   );
   const [idZona, setIdZona] = useState<string | null>(lote.id_zona_origen ? String(lote.id_zona_origen) : null);
   const [contacto, setContacto] = useState<string>(lote.numero_contacto || "");
-  // Producto y Material son opcionales (pueden quedar null en el primer pesaje).
-  const [producto, setProducto] = useState<string | null>(lote.tipo_producto ?? null);
-  const [material, setMaterial] = useState<string | null>(lote.tipo_mineral ?? null);
   const [pesoInicial, setPesoInicial] = useState<string>(lote.peso_inicial ? String(lote.peso_inicial) : "");
-
-  // Estados Formulario - Peso Final (Derecha)
   const [pesoFinal, setPesoFinal] = useState<string>(lote.peso_final ? String(lote.peso_final) : "");
   const [observaciones, setObservaciones] = useState<string>(lote.observaciones ?? "");
   const [evidencias, setEvidencias] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
-
 
   // Carga de catálogos
   const fetchCatalogos = async () => {
@@ -148,8 +139,6 @@ export const ModalPesoFinal = ({ lote, onCancel, onSubmit, targetIdOverride }: P
         id_proveedor_minero: idProveedor ? Number(idProveedor) : null,
         id_zona_origen: idZona ? Number(idZona) : null,
         numero_contacto: contacto,
-        tipo_producto: producto,
-        tipo_mineral: material,
         peso_inicial: pesoBruto,
         observaciones: observaciones.trim() ? observaciones.trim() : null,
       };
@@ -178,131 +167,68 @@ export const ModalPesoFinal = ({ lote, onCancel, onSubmit, targetIdOverride }: P
   const fieldClasses = {
     input:
       "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 transition-all",
-    label: "text-zinc-300 font-semibold text-xs mb-1",
+    label: "text-zinc-300 font-semibold text-xs mb-1.5",
   };
 
   return (
     <>
-      <Stack gap="md" className="max-h-[85vh] overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
-        {/* 1. Datos del Pesaje - 2 columnas (md:6) */}
-        <Paper radius="xl" p="md" className="bg-zinc-900/20 border border-zinc-800/80">
-          <Group gap="xs" mb="xs" pb="xs" className="border-b border-zinc-800">
-
-            <Text size="xs" fw={800} className="text-indigo-400 uppercase tracking-widest">
-              Datos del Pesaje
-            </Text>
-          </Group>
-
-          <Grid gutter="sm">
-            <Grid.Col span={{ base: 12, sm: 6 }}>
-              <Select
-                label="Producto:"
-                placeholder="Opcional"
-                data={["Aurífero", "Polimetálico"]}
-                value={producto}
-                onChange={(val) => setProducto(val)}
-                classNames={fieldClasses}
-                radius="lg"
-                size="xs"
-                clearable
-              />
-            </Grid.Col>
-            <Grid.Col span={{ base: 12, sm: 6 }}>
-              <Select
-                label="Tipo Material:"
-                placeholder="Opcional"
-                data={["Mixto", "Óxido", "Sulfuro"]}
-                value={material}
-                onChange={(val) => setMaterial(val)}
-                classNames={fieldClasses}
-                radius="lg"
-                size="xs"
-                clearable
-              />
-            </Grid.Col>
-
-            <Grid.Col span={{ base: 12, sm: 6 }}>
-              <Group gap="xs" align="flex-end" wrap="nowrap">
-                <Select
-                  label="Proveedor Minero:"
-                  placeholder={loadingCatalogos ? "Cargando..." : "Seleccione"}
-                  searchable
-                  clearable
-                  disabled={loadingCatalogos}
-                  rightSection={loadingCatalogos ? <Loader size={16} /> : undefined}
-                  data={proveedores
-                    .filter(
-                      (p): p is RES_Proveedor & { id_proveedor: number } =>
-                        typeof p.id_proveedor === "number",
-                    )
-                    .map((p) => ({
-                      value: String(p.id_proveedor),
-                      label: `${p.razon_social} (${p.documento})`,
-                    }))}
-                  value={idProveedor}
-                  onChange={handleProveedorChange}
-                  comboboxProps={{ withinPortal: true }}
-                  classNames={fieldClasses}
-                  radius="lg"
-                  size="xs"
-                  className="flex-1"
-                />
-                <Tooltip label="Registrar Proveedor Minero" withArrow>
-                  <ActionIcon
-                    type="button"
-                    variant="filled"
-                    color="indigo"
+      <Stack gap="md" className="max-h-[80vh] overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+        <Grid gutter="md">
+          {/* Columna Izquierda */}
+          <Grid.Col span={{ base: 12, md: 6 }}>
+            <Stack gap="md">
+              {/* Proveedor Minero + Botón Agregar */}
+              <div>
+                <Group gap="xs" align="flex-end" wrap="nowrap">
+                  <Select
+                    label="Proveedor Minero:"
+                    placeholder={loadingCatalogos ? "Cargando..." : "Seleccione proveedor"}
+                    searchable
+                    clearable
+                    disabled={loadingCatalogos}
+                    rightSection={loadingCatalogos ? <Loader size={16} /> : undefined}
+                    data={proveedores
+                      .filter(
+                        (p): p is RES_Proveedor & { id_proveedor: number } =>
+                          typeof p.id_proveedor === "number",
+                      )
+                      .map((p) => ({
+                        value: String(p.id_proveedor),
+                        label: `${p.razon_social} (${p.documento})`,
+                      }))}
+                    value={idProveedor}
+                    onChange={handleProveedorChange}
+                    comboboxProps={{ withinPortal: true }}
+                    classNames={fieldClasses}
                     radius="lg"
-                    size="lg"
-                    onClick={() => setOpenProveedorModal(true)}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white"
-                  >
-                    <IconUserPlus size={16} />
-                  </ActionIcon>
-                </Tooltip>
-              </Group>
-            </Grid.Col>
-            <Grid.Col span={{ base: 12, sm: 6 }}>
-              <Group gap="xs" align="flex-end" wrap="nowrap">
-                <Select
-                  label="Zona Origen:"
-                  placeholder={loadingCatalogos ? "Cargando..." : "Seleccione..."}
-                  searchable
-                  disabled={loadingCatalogos}
-                  rightSection={loadingCatalogos ? <Loader size={16} /> : undefined}
-                  data={zonas.map((z) => ({ value: String(z.id), label: z.nombre }))}
-                  value={idZona}
-                  onChange={setIdZona}
-                  classNames={fieldClasses}
-                  radius="lg"
-                  size="xs"
-                  className="flex-1"
-                />
-                <Tooltip label="Agregar Zona de Origen" withArrow>
-                  <ActionIcon
-                    type="button"
-                    variant="filled"
-                    color="indigo"
-                    radius="lg"
-                    size="lg"
-                    onClick={() => setOpenZonaModal(true)}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white"
-                  >
-                    <IconPlus size={16} />
-                  </ActionIcon>
-                </Tooltip>
-              </Group>
-            </Grid.Col>
+                    className="flex-1"
+                  />
+                  <Tooltip label="Registrar Proveedor Minero" withArrow>
+                    <ActionIcon
+                      type="button"
+                      variant="filled"
+                      color="indigo"
+                      radius="lg"
+                      size="lg"
+                      onClick={() => setOpenProveedorModal(true)}
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white h-9.5 w-9.5 mb-0.5"
+                    >
+                      <IconUserPlus size={16} />
+                    </ActionIcon>
+                  </Tooltip>
+                </Group>
+              </div>
 
-            <Grid.Col span={{ base: 12, sm: 4 }}>
+              {/* N° Contacto */}
               <TextInput
                 label="N° Contacto:"
+                placeholder="Autocompletado con teléfono del proveedor"
                 type="tel"
                 inputMode="tel"
                 maxLength={20}
                 value={contacto}
                 onChange={(e) => {
-                  const sanitizado = e.currentTarget.value.replace(/[^0-9+\-\s()]/g, "");
+                  const sanitizado = e.target.value.replace(/[^0-9+\-\s()]/g, "");
                   setContacto(sanitizado);
                 }}
                 onKeyDown={(e) => {
@@ -320,145 +246,130 @@ export const ModalPesoFinal = ({ lote, onCancel, onSubmit, targetIdOverride }: P
                 }}
                 classNames={fieldClasses}
                 radius="lg"
-                size="xs"
               />
-            </Grid.Col>
-            <Grid.Col span={{ base: 12, sm: 4 }}>
-              <TextInput
-                label="Peso Inicial (Kg):"
-                value={pesoInicial}
-                onChange={(e) => setPesoInicial(e.currentTarget.value.replace(/\D/g, ""))}
+            </Stack>
+          </Grid.Col>
+
+          {/* Columna Derecha */}
+          <Grid.Col span={{ base: 12, md: 6 }}>
+            <Stack gap="md">
+              {/* Zona Origen + Botón Agregar */}
+              <Group gap="xs" align="flex-end" wrap="nowrap">
+                <Select
+                  label="Zona Origen:"
+                  placeholder={loadingCatalogos ? "Cargando..." : "Elija una opción..."}
+                  searchable
+                  disabled={loadingCatalogos}
+                  rightSection={loadingCatalogos ? <Loader size={16} /> : undefined}
+                  data={zonas.map((z) => ({ value: String(z.id), label: z.nombre }))}
+                  value={idZona}
+                  onChange={setIdZona}
+                  classNames={fieldClasses}
+                  radius="lg"
+                  className="flex-1"
+                />
+                <Tooltip label="Agregar Zona de Origen" withArrow>
+                  <ActionIcon
+                    type="button"
+                    variant="filled"
+                    color="indigo"
+                    radius="lg"
+                    size="lg"
+                    onClick={() => setOpenZonaModal(true)}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white mb-0.5"
+                  >
+                    <IconPlus size={16} />
+                  </ActionIcon>
+                </Tooltip>
+              </Group>
+
+            </Stack>
+          </Grid.Col>
+
+          {/* Fila inferior de ancho completo */}
+          <Grid.Col span={12}>
+            <Stack gap="md">
+              {/* Peso Inicial */}
+              <div className="bg-zinc-950/40 p-4 rounded-2xl border border-zinc-900/80">
+                <Text className="text-zinc-300 font-bold text-sm mb-2">Peso Inicial (Kg):</Text>
+                <TextInput
+                  placeholder="Ingrese peso inicial en Kilos"
+                  value={pesoInicial}
+                  onChange={(e) => setPesoInicial(e.currentTarget.value.replace(/\D/g, ""))}
+                  classNames={{
+                    input:
+                      "bg-zinc-900/60 border-zinc-800 text-center font-bold text-white focus:border-zinc-300 transition-all",
+                  }}
+                  radius="lg"
+                  required
+                />
+              </div>
+
+              {/* Peso Final / Tara */}
+              <div className="bg-zinc-950/40 p-4 rounded-2xl border border-zinc-900/80">
+                <Text className="text-zinc-300 font-bold text-sm mb-2">
+                  Peso Final / Tara (Kg):
+                </Text>
+                <TextInput
+                  placeholder="Ingrese tara en Kilos"
+                  value={pesoFinal}
+                  onChange={(e) => setPesoFinal(e.currentTarget.value.replace(/\D/g, ""))}
+                  classNames={{
+                    input:
+                      "bg-zinc-900/60 border-zinc-800 text-center font-bold text-white focus:border-zinc-300 transition-all",
+                  }}
+                  radius="lg"
+                  autoFocus
+                  required
+                />
+              </div>
+
+              {/* Peso Neto */}
+              <div className="bg-emerald-950/25 border border-emerald-800/40 p-4 rounded-2xl flex items-center justify-between gap-4">
+                <Text className="text-emerald-300 font-bold text-sm uppercase tracking-widest">
+                  Peso Neto (Kg):
+                </Text>
+                <Text
+                  size="xl"
+                  fw={900}
+                  className="font-mono text-emerald-300"
+                >
+                  {Math.max(0, Math.floor(pesoNeto)).toLocaleString()}
+                </Text>
+              </div>
+
+              {/* Observaciones */}
+              <Textarea
+                label="Observaciones:"
+                placeholder="Observaciones adicionales del lote / pesaje (opcional)"
+                value={observaciones}
+                onChange={(e) => setObservaciones(e.currentTarget.value)}
+                minRows={2}
+                maxRows={4}
+                autosize
+                radius="lg"
                 classNames={fieldClasses}
-                radius="lg"
-                size="xs"
-                required
               />
-            </Grid.Col>
-            <Grid.Col span={{ base: 12, sm: 4 }}>
-              <TextInput
-                label="Peso Final / Tara (Kg):"
-                placeholder="Ingrese tara en Kilos"
-                value={pesoFinal}
-                onChange={(e) => setPesoFinal(e.currentTarget.value.replace(/\D/g, ""))}
-                classNames={fieldClasses}
-                radius="lg"
-                size="xs"
-                autoFocus
-                required
-              />
-            </Grid.Col>
-          </Grid>
-        </Paper>
 
-        {/* 3. Cálculo de Pesos - 3 badges independientes */}
-        <Paper radius="xl" p="xs" className="bg-zinc-950/80 border border-zinc-800/80 shadow-inner">
-
-          <Grid gutter="xs" align="stretch">
-            <Grid.Col span={{ base: 12, sm: 4 }}>
-              <Badge
-                variant="outline"
-                color="zinc"
-                radius="lg"
-                size="xs"
-                fullWidth
-                styles={{
-                  root: {
-                    height: "100%",
-                    paddingTop: 6,
-                    paddingBottom: 6,
-                    borderColor: "var(--mantine-color-zinc-8)",
-                    backgroundColor: "rgba(24, 24, 27, 0.5)",
-                  },
-                }}
-              >
-                <Stack gap={4} align="center">
-                  <Text size="xs" fw={700} c="dimmed" tt="uppercase" lts="0.05em">Peso Bruto (Kg)</Text>
-                  <Text size="sm" fw={700} c="zinc.2" className="font-mono">{Math.floor(pesoBruto).toLocaleString()}</Text>
-                </Stack>
-              </Badge>
-            </Grid.Col>
-            <Grid.Col span={{ base: 12, sm: 4 }}>
-              <Badge
-                variant="outline"
-                color="zinc"
-                radius="lg"
-                size="xs"
-                fullWidth
-                styles={{
-                  root: {
-                    height: "100%",
-                    paddingTop: 6,
-                    paddingBottom: 6,
-                    borderColor: "var(--mantine-color-zinc-8)",
-                    backgroundColor: "rgba(24, 24, 27, 0.5)",
-                  },
-                }}
-              >
-                <Stack gap={4} align="center">
-                  <Text size="xs" fw={700} c="dimmed" tt="uppercase" lts="0.05em">Tara (Kg)</Text>
-                  <Text size="sm" fw={700} c="zinc.2" className="font-mono">{Math.floor(tara).toLocaleString()}</Text>
-                </Stack>
-              </Badge>
-            </Grid.Col>
-            <Grid.Col span={{ base: 12, sm: 4 }}>
-              <Badge
-                variant="light"
-                color="emerald"
-                radius="lg"
-                size="xs"
-                fullWidth
-                styles={{
-                  root: {
-                    height: "100%",
-                    paddingTop: 6,
-                    paddingBottom: 6,
-                    borderColor: "var(--mantine-color-emerald-5)",
-                    boxShadow: "0 0 15px rgba(16, 185, 129, 0.15)",
-                  },
-                }}
-              >
-                <Stack gap={4} align="center">
-                  <Text size="xs" fw={800} c="emerald.4" tt="uppercase" lts="0.1em">Peso Neto (Kg)</Text>
-                  <Text size="sm" fw={900} c="emerald.3" className="font-mono">{Math.max(0, Math.floor(pesoNeto)).toLocaleString()}</Text>
-                </Stack>
-              </Badge>
-            </Grid.Col>
-          </Grid>
-        </Paper>
-
-        {/* Observaciones */}
-        <Textarea
-          label="Observaciones:"
-          placeholder="Observaciones adicionales del lote / pesaje (opcional)"
-          value={observaciones}
-          onChange={(e) => setObservaciones(e.currentTarget.value)}
-          minRows={2}
-          maxRows={4}
-          autosize
-          radius="lg"
-          size="xs"
-          classNames={fieldClasses}
-        />
-
-        {/* Evidencias - Fila inferior de ancho completo */}
-        <div className="bg-zinc-900/30 border border-zinc-800/80 p-3 rounded-2xl">
-          <MultiFilePicker
-            files={evidencias}
-            onFilesChange={setEvidencias}
-            label="Evidencias de Pesaje Final"
-            description="Adjunte imágenes del pesaje final"
-          />
-        </div>
-
-        <Divider my="xs" color="zinc.8" />
+              {/* Evidencias */}
+              <div className="bg-zinc-900/30 border border-zinc-800/80 p-4 rounded-2xl">
+                <MultiFilePicker
+                  files={evidencias}
+                  onFilesChange={setEvidencias}
+                  label="Evidencias de Pesaje Final"
+                  description="Adjunte imágenes del pesaje final"
+                />
+              </div>
+            </Stack>
+          </Grid.Col>
+        </Grid>
 
         {/* Botones de acción */}
-        <Group justify="flex-end" gap="sm">
+        <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-zinc-800">
           <Button
             variant="subtle"
             color="gray"
             radius="lg"
-            size="sm"
             onClick={onCancel}
             disabled={submitting}
             classNames={{ root: "text-zinc-400 hover:bg-zinc-800" }}
@@ -467,7 +378,6 @@ export const ModalPesoFinal = ({ lote, onCancel, onSubmit, targetIdOverride }: P
           </Button>
           <Button
             radius="lg"
-            size="sm"
             loading={submitting}
             onClick={handleConfirmar}
             leftSection={<IconWeight size={18} />}
@@ -475,7 +385,7 @@ export const ModalPesoFinal = ({ lote, onCancel, onSubmit, targetIdOverride }: P
           >
             Confirmar Peso Final
           </Button>
-        </Group>
+        </div>
       </Stack>
 
       {/* Sub-Modal: Registro de Nueva Zona de Origen */}
@@ -513,6 +423,6 @@ export const ModalPesoFinal = ({ lote, onCancel, onSubmit, targetIdOverride }: P
         />
       </ModalEstandar>
 
-      </>
+    </>
   );
 };

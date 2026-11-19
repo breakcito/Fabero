@@ -35,7 +35,7 @@ import { RegistroConductor } from "../../../../presentation/utils/registro-condu
 import { RegistroEmpresaTransporte } from "../../../../presentation/utils/registro-empresa-transporte";
 import type { EmpresaTransporteResponse } from "../../../empresas-transporte/service/empresas-transporte.responses";
 import { CondicionIngreso } from "../../../../shared/enums/_generic/condicion-ingreso";
-import { TipoMineral } from "../../../../shared/enums/_generic/tipo-mineral";
+import { TipoProducto } from "../../../../shared/enums/_generic/tipo-producto";
 import { EstadoBase } from "../../../../shared/enums/_generic/estado-base";
 
 interface Props {
@@ -71,7 +71,7 @@ export const ModalEditarResumenLote = ({ opened, lote, onClose, onSuccess }: Pro
   const [idProveedor, setIdProveedor] = useState<string | null>(lote.id_proveedor ? String(lote.id_proveedor) : null);
   const [idZona, setIdZona] = useState<string | null>(lote.id_zona_origen ? String(lote.id_zona_origen) : null);
   const [contacto, setContacto] = useState<string>(lote.lote_numero_contacto || "");
-  const [producto, setProducto] = useState<string>(lote.lote_tipo_producto || TipoMineral.Aurifero);
+  const [producto, setProducto] = useState<string>(lote.lote_tipo_producto || TipoProducto.Aurifero);
   const [material, setMaterial] = useState<string>(lote.lote_tipo_mineral || "Mixto");
   const [pesoInicial, setPesoInicial] = useState<string>(lote.peso_inicial ? String(lote.peso_inicial) : "");
   
@@ -127,7 +127,7 @@ export const ModalEditarResumenLote = ({ opened, lote, onClose, onSuccess }: Pro
       setIdProveedor(lote.id_proveedor ? String(lote.id_proveedor) : null);
       setIdZona(lote.id_zona_origen ? String(lote.id_zona_origen) : null);
       setContacto(lote.lote_numero_contacto || "");
-      setProducto(lote.lote_tipo_producto || TipoMineral.Aurifero);
+      setProducto(lote.lote_tipo_producto || TipoProducto.Aurifero);
       setMaterial(lote.lote_tipo_mineral || "Mixto");
       setPesoInicial(lote.peso_inicial ? String(lote.peso_inicial) : "");
       setPesoFinal(lote.peso_final ? String(lote.peso_final) : "");
@@ -331,9 +331,9 @@ export const ModalEditarResumenLote = ({ opened, lote, onClose, onSuccess }: Pro
               <Select
                 label="Producto:"
                 placeholder="Seleccione"
-                data={[TipoMineral.Aurifero, TipoMineral.Polimetalico]}
+                data={[TipoProducto.Aurifero, TipoProducto.Polimetalico]}
                 value={producto}
-                onChange={(val) => setProducto(val || TipoMineral.Aurifero)}
+                onChange={(val) => setProducto(val || TipoProducto.Aurifero)}
                 classNames={selectClassNames}
                 radius="lg"
                 comboboxProps={selectComboboxProps}

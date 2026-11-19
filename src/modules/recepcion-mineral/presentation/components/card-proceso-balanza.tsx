@@ -341,7 +341,6 @@ export const CardProcesoBalanza = ({
     id_empleado_registro: 0,
     correlativo: p.lote_correlativo ?? "",
     numero_correlativo: null,
-    con_codigo_manual: false,
     id_proveedor_minero: p.id_proveedor_minero ?? idProveedorUnidad ?? null,
     id_proveedor_minero_recepcion:
       idProveedorUnidad ?? ru.id_proveedor_minero ?? null,
@@ -391,16 +390,16 @@ export const CardProcesoBalanza = ({
       className="bg-zinc-950/30 border border-zinc-800/80"
     >
       <div className="flex items-center justify-between gap-1.5">
-        <Badge
-          variant="light"
-          color="indigo"
-          size="sm"
-          radius="sm"
-          className="font-mono font-bold text-[10px]"
-        >
-          {lote.correlativo}
-        </Badge>
         <Group gap={2}>
+          <Badge
+            variant="light"
+            color="indigo"
+            size="sm"
+            radius="sm"
+            className="font-mono font-bold text-[10px]"
+          >
+            {lote.correlativo}
+          </Badge>
           <Tooltip label="Imprimir ticket" withArrow>
             <ActionIcon
               variant="subtle"
@@ -413,25 +412,25 @@ export const CardProcesoBalanza = ({
               <IconBarcode size={12} />
             </ActionIcon>
           </Tooltip>
-          <Tooltip label="Eliminar lote" withArrow>
-            <ActionIcon
-              color="red"
-              variant="subtle"
-              radius="sm"
-              size="sm"
-              loading={deletingLoteId === lote.id}
-              onClick={() => eliminarLote(ru.id, lote.id)}
-            >
-              <IconTrash size={12} />
-            </ActionIcon>
-          </Tooltip>
         </Group>
+        <Tooltip label="Eliminar lote" withArrow>
+          <ActionIcon
+            color="red"
+            variant="subtle"
+            radius="sm"
+            size="sm"
+            loading={deletingLoteId === lote.id}
+            onClick={() => eliminarLote(ru.id, lote.id)}
+          >
+            <IconTrash size={12} />
+          </ActionIcon>
+        </Tooltip>
       </div>
 
       <div className="grid grid-cols-2 gap-1.5 mt-1.5">
         <div className="flex items-center justify-between gap-1.5">
           <Text size="9px" c="dimmed" className="uppercase font-semibold shrink-0">
-            Peso Inicial
+            Inicial
           </Text>
           {lote.peso_inicial !== null ? (
             <Badge
@@ -456,7 +455,7 @@ export const CardProcesoBalanza = ({
         </div>
         <div className="flex items-center justify-between gap-1.5">
           <Text size="9px" c="dimmed" className="uppercase font-semibold shrink-0">
-            Peso Final
+            Final
           </Text>
           {lote.peso_final !== null ? (
             <Badge
@@ -589,10 +588,7 @@ export const CardProcesoBalanza = ({
             <Group justify="space-between" align="center" className="px-1 mb-1.5">
               <Group gap={6} align="center">
                 <div className="w-2 h-2 rounded-full animate-pulse bg-amber-400 shadow-[0_0_6px_#fbbf24]" />
-                <Text size="10px" fw={700} className="text-indigo-400 uppercase tracking-wider">
-                  Unidad
-                </Text>
-                <Text size="12px" fw={700} className="text-zinc-500 font-mono">
+                <Text size="12px" fw={700} className="text-white font-mono">
                   {placaHeader}
                 </Text>
                 <Tooltip
@@ -621,7 +617,7 @@ export const CardProcesoBalanza = ({
                   </ActionIcon>
                 </Tooltip>
               </Group>
-              <Text size="10px" c="dimmed" className="font-mono">
+              <Text size="11px" className="text-white font-mono">
                 {ru.fecha_hora_ingreso}
               </Text>
             </Group>
@@ -695,7 +691,7 @@ export const CardProcesoBalanza = ({
               <Grid.Col span={{ base: 12, sm: 6 }}>
                 <div className="flex items-end gap-1">
                   <Select
-                    label="Empresa Transporte"
+                    label="Empresa Transp."
                     placeholder={
                       empresasData.length === 0 ? "Cargando..." : "Seleccione"
                     }

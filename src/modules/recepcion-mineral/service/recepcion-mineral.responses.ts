@@ -20,7 +20,6 @@ export interface RES_LoteMineral {
   zona_origen_nombre?: string;
   correlativo: string;
   numero_correlativo: number | null;
-  con_codigo_manual: boolean;
   numero_contacto: string | null;
   tipo_producto: string | null;
   tipo_mineral: string | null;

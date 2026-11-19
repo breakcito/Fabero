@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Grid, Paper, Text, Group, Center, Loader, Stack, Badge } from "@mantine/core";
-import { IconScale, IconChecklist } from "@tabler/icons-react";
+import { IconScale } from "@tabler/icons-react";
+import dayjs from "dayjs";
 import { useTitlePage } from "../../../hooks/useTitlePage";
 import { mostrarConfirmacion } from "../../../presentation/utils/modal-confirmacion";
 import { useRecepcionMineral } from "../hooks/useRecepcionMineral";
@@ -14,6 +15,11 @@ import { CardProcesoBalanza } from "./components/card-proceso-balanza";
 import { CardDistribucionBalanza } from "./components/card-distribucion-balanza";
 import { CardLotePadreParticionado } from "./components/card-lote-padre-particionado";
 import { RefreshButton } from "../../../presentation/utils/refresh-button";
+import {
+  DateRangeFilter,
+  defaultFechaInicio,
+  defaultFechaFin,
+} from "../../../presentation/utils/filtro-rango-fechas";
 import type { RES_EmpresaTransporte } from "../../../service/responses/empresa-transporte";
 import type { RES_TipoVehiculo } from "../../../service/responses/tipo-vehiculo";
 import type { RES_Conductor } from "../../../service/responses/conductor";
@@ -30,6 +36,9 @@ import type {
 } from "../service/recepcion-mineral.requests";
 import { useTicketBalanza } from "../hooks/useTicketBalanza";
 import { useNotify } from "../../../hooks/useNotify";
+import { onSocketEvent } from "../../../service/_socket.ts";
+import { SOCKET_UNIDADES_PESAR } from "../../../shared/variables/socket-eventos";
+import type { EVT_UnidadesParaPesar } from "../../../shared/interfaces/unidades-para-pesar";
 
 export const RecepcionMineralPage = () => {
   useTitlePage("Recepción de Mineral", true);
@@ -104,6 +113,56 @@ export const RecepcionMineralPage = () => {
   // Drop state: id de la unidad sobre la que se está arrastrando un card del lote padre.
   const [dragOverRecepcionId, setDragOverRecepcionId] = useState<number | null>(null);
   const [eliminandoLotePadreId, setEliminandoLotePadreId] = useState<number | null>(null);
+
+  // Filtro de rango de fechas para las unidades que inician pesaje.
+  // Por defecto: la última semana. Filtra por la fecha de ingreso de la unidad.
+  const [fechaInicio, setFechaInicio] = useState<string | null>(
+    defaultFechaInicio(),
+  );
+  const [fechaFin, setFechaFin] = useState<string | null>(defaultFechaFin());
+
+  /**
+   * Referencia al cargador de recepciones vigente.
+   *
+   * El hook recrea `loadRecepciones` en cada render, así que la suscripción
+   * de WebSocket (que se monta una sola vez) no puede depender de su
+   * identidad: guarda la última versión en un ref y la usa al disparar.
+   */
+  const loadRecepcionesRef = useRef(loadRecepciones);
+  useEffect(() => {
+    loadRecepcionesRef.current = loadRecepciones;
+  });
+
+  /**
+   * WebSocket: el backend avisa cuando hay una unidad nueva disponible para
+   * pesar (ingreso directo de una recepción o confirmación de una
+   * programación de recepción o de despacho). La lista se refresca sola,
+   * sin que el operador tenga que recargar la página.
+   */
+  useEffect(() => {
+    let temporizador: ReturnType<typeof setTimeout> | null = null;
+
+    const channel = onSocketEvent(
+      SOCKET_UNIDADES_PESAR.canal,
+      SOCKET_UNIDADES_PESAR.evento,
+      (data: EVT_UnidadesParaPesar) => {
+        console.log("[Recepción Mineral] Unidad para pesar actualizada:", data);
+
+        // Varias acciones pueden llegar juntas (p.ej. confirmar una
+        // programación de despacho habilita la unidad y su distribución):
+        // se agrupan en un solo refresco.
+        if (temporizador) clearTimeout(temporizador);
+        temporizador = setTimeout(() => {
+          void loadRecepcionesRef.current({ showLoading: false });
+        }, 300);
+      },
+    );
+
+    return () => {
+      if (temporizador) clearTimeout(temporizador);
+      channel.stopListening(`.${SOCKET_UNIDADES_PESAR.evento}`);
+    };
+  }, []);
 
   // Carga perezosa de particiones para cada lote padre que aparece en el header.
   // Incluye también los padres ya finalizados: sus particiones hijas deben
@@ -394,6 +453,26 @@ export const RecepcionMineralPage = () => {
     return { conProveedorPorGrupo: grupos, sinProveedor: sinProv };
   }, [lotesPadreActivos, getProveedorDePadre]);
 
+  /**
+   * Unidades pendientes de pesaje filtradas por el rango de fechas,
+   * usando la fecha de ingreso de la unidad.
+   */
+  const sinPesarFiltrado = useMemo(() => {
+    const desde = fechaInicio ? dayjs(fechaInicio).startOf("day") : null;
+    const hasta = fechaFin ? dayjs(fechaFin).endOf("day") : null;
+
+    if (!desde && !hasta) return sinPesarList;
+
+    return sinPesarList.filter((ru) => {
+      if (!ru.fecha_hora_ingreso) return false;
+      const fecha = dayjs(ru.fecha_hora_ingreso);
+      if (!fecha.isValid()) return false;
+      if (desde && fecha.isBefore(desde)) return false;
+      if (hasta && fecha.isAfter(hasta)) return false;
+      return true;
+    });
+  }, [sinPesarList, fechaInicio, fechaFin]);
+
   return (
     <div className="space-y-6 animate-fadeIn">
       {loading && (
@@ -406,26 +485,21 @@ export const RecepcionMineralPage = () => {
         <>
           <Grid columns={24} gutter="md">
           {/* Lateral Izquierdo: Unidades en Planta (Sin Pesar) */}
-          <Grid.Col span={{ base: 24, sm: 8, md: 6, lg: 5 }}>
+          <Grid.Col span={{ base: 24, sm: 9, md: 8, lg: 7 }}>
             <Paper
               radius="lg"
               p="md"
               className="bg-zinc-950/40 border border-zinc-900/80 min-h-125 h-full flex flex-col gap-4"
             >
-              <div className="border-b border-zinc-900 pb-3 flex justify-between items-center gap-2 w-full">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <IconChecklist
-                    size={18}
-                    className="text-indigo-400 shrink-0"
+              <div className="border-b border-zinc-900 pb-3 flex items-end gap-2 w-full">
+                <div className="flex-1 min-w-0">
+                  <DateRangeFilter
+                    fechaInicio={fechaInicio}
+                    fechaFin={fechaFin}
+                    onFechaInicioChange={setFechaInicio}
+                    onFechaFinChange={setFechaFin}
+                    defaultDaysBack={7}
                   />
-                  <Text
-                    size="sm"
-                    fw={700}
-                    className="text-zinc-100 truncate"
-                    title="Unidades en Planta"
-                  >
-                    Unidades en Planta
-                  </Text>
                 </div>
                 <RefreshButton
                   onClick={loadRecepciones}
@@ -435,14 +509,14 @@ export const RecepcionMineralPage = () => {
               </div>
 
               <Stack gap="sm" className="flex-1 overflow-y-auto pr-1">
-                {sinPesarList.length === 0 ? (
+                {sinPesarFiltrado.length === 0 ? (
                   <Center className="h-40 flex-col gap-2">
                     <Text size="xs" c="dimmed" ta="center">
                       No hay unidades pendientes de pesaje en esta sucursal.
                     </Text>
                   </Center>
                 ) : (
-                  sinPesarList.map((ru) => {
+                  sinPesarFiltrado.map((ru) => {
                     const formatFechaHora = (
                       s: string | null | undefined,
                     ): { fecha: string; hora: string } => {
@@ -495,14 +569,14 @@ export const RecepcionMineralPage = () => {
                       >
                         {/* Header: Placa + Badge tipo ingreso */}
                         <div
-                          className={`py-2 px-3 font-bold text-xs tracking-wider font-mono uppercase bg-zinc-800 text-zinc-300`}
+                          className={`py-2.5 px-3 font-bold text-sm tracking-wider font-mono uppercase bg-zinc-800 text-white`}
                         >
                           <Group justify="space-between" align="center" gap={6} wrap="nowrap">
                             <span className="truncate">
                               {getFullPlaca(ru.vehiculo_placa)}
                             </span>
                             <Badge
-                              size="xs"
+                              size="sm"
                               variant="filled"
                               radius="sm"
                               color={
@@ -510,6 +584,7 @@ export const RecepcionMineralPage = () => {
                                   ? "yellow"
                                   : "teal"
                               }
+                              className="text-white"
                             >
                               {ru.tipo_ingreso === "Despacho de Mineral"
                                 ? "Despacho"
@@ -519,20 +594,20 @@ export const RecepcionMineralPage = () => {
                         </div>
 
                         {/* Body: Fechas */}
-                        <div className="p-3 space-y-1.5 bg-zinc-900/10">
-                          <div className="flex justify-between items-center text-[11px]">
-                            <span className="text-zinc-400 font-medium">
+                        <div className="p-3 space-y-2 bg-zinc-900/10">
+                          <div className="flex justify-between items-center gap-2">
+                            <span className="text-xs font-semibold uppercase tracking-wide text-white">
                               Fecha Ingreso
                             </span>
-                            <span className="text-zinc-200 font-mono font-bold">
+                            <span className="text-sm font-mono font-bold text-white">
                               {formattedDate}
                             </span>
                           </div>
-                          <div className="flex justify-between items-center text-[11px]">
-                            <span className="text-zinc-400 font-medium">
+                          <div className="flex justify-between items-center gap-2">
+                            <span className="text-xs font-semibold uppercase tracking-wide text-white">
                               Hora Ingreso
                             </span>
-                            <span className="text-zinc-200 font-mono font-bold">
+                            <span className="text-sm font-mono font-bold text-white">
                               {formattedTime}
                             </span>
                           </div>
@@ -546,7 +621,7 @@ export const RecepcionMineralPage = () => {
           </Grid.Col>
 
           {/* Área Central: Proceso de Pesaje y Lotes */}
-          <Grid.Col span={{ base: 24, sm: 16, md: 18, lg: 19 }}>
+          <Grid.Col span={{ base: 24, sm: 15, md: 16, lg: 17 }}>
             <Paper
               radius="lg"
               p="md"
@@ -696,7 +771,7 @@ export const RecepcionMineralPage = () => {
           opened={!!activeParticionPesoInicial}
           close={() => setActiveParticionPesoInicial(null)}
           title={`Peso Inicial: ${activeParticionPesoInicial.particion.correlativo}`}
-          size="lg"
+          size="md"
           validateClose
         >
           <ModalPesoInicial
@@ -715,7 +790,7 @@ export const RecepcionMineralPage = () => {
           opened={!!activeParticionPesoFinal}
           close={() => setActiveParticionPesoFinal(null)}
           title={`Peso Final: ${activeParticionPesoFinal.particion.correlativo}`}
-          size="xl"
+          size="md"
           validateClose
         >
           <ModalPesoFinal
@@ -733,19 +808,25 @@ export const RecepcionMineralPage = () => {
           opened={!!activeLotePesoInicial}
           close={() => setActiveLotePesoInicial(null)}
           title={`Peso Inicial: ${activeLotePesoInicial.correlativo}`}
-          size="lg"
+          size="md"
           validateClose
         >
           <ModalPesoInicial
             lote={activeLotePesoInicial}
             onCancel={() => setActiveLotePesoInicial(null)}
             onSubmit={async (loteId, dto) => {
+              // El lote puede recién haberse creado y el listado todavía
+              // mostrar elOptimista: se busca la recepción por el lote y, si
+              // aún no está, se usa la del propio lote.
               const ru = enProcesoList.find((r) =>
                 r.lotes?.some((l) => l.id === loteId),
               );
-              if (ru) {
+              const idRecepcion =
+                ru?.id ?? activeLotePesoInicial?.id_recepcion_unidad ?? null;
+
+              if (idRecepcion) {
                 const loteActualizado = await registrarPesoInicial(
-                  ru.id,
+                  idRecepcion,
                   loteId,
                   dto,
                 );
@@ -765,7 +846,7 @@ export const RecepcionMineralPage = () => {
           opened={!!activeLotePesoFinal}
           close={() => setActiveLotePesoFinal(null)}
           title={`Peso Final para Lote: ${activeLotePesoFinal.correlativo}`}
-          size="xl"
+          size="md"
           validateClose
         >
           <ModalPesoFinal
@@ -799,12 +880,26 @@ export const RecepcionMineralPage = () => {
           setSelectedRecepcionIdForLote(null);
         }}
         empresasTitulares={empresasTitulares}
-        onConfirm={(condicion, idEmpresa, flags) => {
-          if (selectedRecepcionIdForLote) {
-            crearLote(selectedRecepcionIdForLote, condicion, idEmpresa, flags);
-          }
+        onConfirm={async (condicion, idEmpresa, flags) => {
+          const idRecepcion = selectedRecepcionIdForLote;
           setCondicionModalOpen(false);
           setSelectedRecepcionIdForLote(null);
+
+          if (!idRecepcion) return;
+
+          const nuevoLote = await crearLote(
+            idRecepcion,
+            condicion,
+            idEmpresa,
+            flags,
+          );
+
+          // Al crear el lote se abre el modal de primer pesaje.
+          // En el flujo particionado el pesaje inicial es el de la partición,
+          // que se gestiona aparte (arrastrando la partición al grupo).
+          if (nuevoLote && !nuevoLote.particionado_desde_balanza) {
+            setActiveLotePesoInicial(nuevoLote);
+          }
         }}
       />
     </div>

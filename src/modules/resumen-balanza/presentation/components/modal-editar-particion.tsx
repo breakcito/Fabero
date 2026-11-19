@@ -25,7 +25,7 @@ import type { RES_ZonaOrigen } from "../../../../service/responses/zona-origen";
 import type { RES_ResumenBalanzaItem } from "../../service/resumen-balanza.responses";
 import type { IArchivo } from "../../../../shared/interfaces/archivo";
 import { useNotify } from "../../../../hooks/useNotify";
-import { TipoMineral } from "../../../../shared/enums/_generic/tipo-mineral";
+import { TipoProducto } from "../../../../shared/enums/_generic/tipo-producto";
 
 interface Props {
   opened: boolean;
@@ -116,7 +116,7 @@ export const ModalEditarParticion = ({
     particion.lote_numero_contacto || ""
   );
   const [producto, setProducto] = useState<string>(
-    particion.lote_tipo_producto || TipoMineral.Aurifero
+    particion.lote_tipo_producto || TipoProducto.Aurifero
   );
   const [material, setMaterial] = useState<string>(
     particion.lote_tipo_mineral || "Mixto"
@@ -161,7 +161,7 @@ export const ModalEditarParticion = ({
       particion.id_zona_origen ? String(particion.id_zona_origen) : null
     );
     setContacto(particion.lote_numero_contacto || "");
-    setProducto(particion.lote_tipo_producto || TipoMineral.Aurifero);
+    setProducto(particion.lote_tipo_producto || TipoProducto.Aurifero);
     setMaterial(particion.lote_tipo_mineral || "Mixto");
     setEvidenciasExistentes(particion.particion_evidencias || []);
     setEvidencias([]);
@@ -394,9 +394,9 @@ export const ModalEditarParticion = ({
               <Select
                 label="Producto:"
                 placeholder="Seleccione"
-                data={[TipoMineral.Aurifero, TipoMineral.Polimetalico]}
+                data={[TipoProducto.Aurifero, TipoProducto.Polimetalico]}
                 value={producto}
-                onChange={(val) => setProducto(val || TipoMineral.Aurifero)}
+                onChange={(val) => setProducto(val || TipoProducto.Aurifero)}
                 size="xs"
                 radius="lg"
                 comboboxProps={selectComboboxProps}

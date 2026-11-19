@@ -44,12 +44,6 @@ export const ModalPesoInicial = ({ lote, onCancel, onSubmit, targetIdOverride }:
   const [contacto, setContacto] = useState<string>(
     lote.numero_contacto ?? "",
   );
-  const [producto, setProducto] = useState<string | null>(
-    lote.tipo_producto ?? null,
-  );
-  const [material, setMaterial] = useState<string | null>(
-    lote.tipo_mineral ?? null,
-  );
   const [pesoInicial, setPesoInicial] = useState<string>("");
   const [observaciones, setObservaciones] = useState<string>(lote.observaciones ?? "");
   const [evidencias, setEvidencias] = useState<File[]>([]);
@@ -121,8 +115,6 @@ export const ModalPesoInicial = ({ lote, onCancel, onSubmit, targetIdOverride }:
         id_proveedor_minero: idProveedor ? Number(idProveedor) : null,
         id_zona_origen: idZona ? Number(idZona) : null,
         numero_contacto: contacto,
-        tipo_producto: producto,
-        tipo_mineral: material,
         peso_inicial: Number(pesoInicial),
         observaciones: observaciones.trim() ? observaciones.trim() : null,
         evidencias: evidencias,
@@ -204,28 +196,33 @@ export const ModalPesoInicial = ({ lote, onCancel, onSubmit, targetIdOverride }:
                 </Group>
               </div>
 
-              {/* Producto (opcional) */}
-              <Select
-                label="Producto:"
-                placeholder="Opcional"
-                data={["Aurífero", "Polimetálico"]}
-                value={producto}
-                onChange={(val) => setProducto(val)}
+              {/* N° Contacto */}
+              <TextInput
+                label="N° Contacto:"
+                placeholder="Autocompletado con teléfono del proveedor"
+                type="tel"
+                inputMode="tel"
+                maxLength={20}
+                value={contacto}
+                onChange={(e) => {
+                  const sanitizado = e.target.value.replace(/[^0-9+\-\s()]/g, "");
+                  setContacto(sanitizado);
+                }}
+                onKeyDown={(e) => {
+                  if (
+                    !/[0-9+\-\s()\bBackspace\bDelete\bArrowLeft\bArrowRight\bTab\bEnter]/.test(e.key)
+                  ) {
+                    e.preventDefault();
+                  }
+                }}
+                onPaste={(e) => {
+                  const textoPegado = e.clipboardData.getData("text");
+                  if (/[a-zA-Z]/.test(textoPegado)) {
+                    e.preventDefault();
+                  }
+                }}
                 classNames={fieldClasses}
                 radius="lg"
-                clearable
-              />
-
-              {/* Tipo Material (opcional) */}
-              <Select
-                label="Tipo Material:"
-                placeholder="Opcional"
-                data={["Mixto", "Óxido", "Sulfuro"]}
-                value={material}
-                onChange={(val) => setMaterial(val)}
-                classNames={fieldClasses}
-                radius="lg"
-                clearable
               />
             </Stack>
           </Grid.Col>
@@ -263,34 +260,6 @@ export const ModalPesoInicial = ({ lote, onCancel, onSubmit, targetIdOverride }:
                 </Tooltip>
               </Group>
 
-              {/* N° Contacto */}
-              <TextInput
-                label="N° Contacto:"
-                placeholder="Autocompletado con teléfono del proveedor"
-                type="tel"
-                inputMode="tel"
-                maxLength={20}
-                value={contacto}
-                onChange={(e) => {
-                  const sanitizado = e.currentTarget.value.replace(/[^0-9+\-\s()]/g, "");
-                  setContacto(sanitizado);
-                }}
-                onKeyDown={(e) => {
-                  if (
-                    !/[0-9+\-\s()\bBackspace\bDelete\bArrowLeft\bArrowRight\bTab\bEnter]/.test(e.key)
-                  ) {
-                    e.preventDefault();
-                  }
-                }}
-                onPaste={(e) => {
-                  const textoPegado = e.clipboardData.getData("text");
-                  if (/[a-zA-Z]/.test(textoPegado)) {
-                    e.preventDefault();
-                  }
-                }}
-                classNames={fieldClasses}
-                radius="lg"
-              />
             </Stack>
           </Grid.Col>
 

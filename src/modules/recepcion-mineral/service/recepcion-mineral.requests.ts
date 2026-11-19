@@ -4,17 +4,21 @@ import { CondicionIngreso } from "../../../shared/enums/_generic/condicion-ingre
 export interface DTO_CrearLote {
   condicion_ingreso: CondicionIngreso;
   id_empresa: number;
-  con_codigo_manual: boolean;
-  codigo_manual?: string;
   particionar?: boolean;
+  /**
+   * Correlativo a usar. Si difiere del que se generaría automáticamente, el
+   * lote queda con código temporal (`con_codigo_temporal`).
+   */
+  correlativo?: string;
+  numero_correlativo?: number;
 }
 
 export interface DTO_PesoInicial {
   id_proveedor_minero: number | null;
   id_zona_origen: number | null;
   numero_contacto: string;
-  tipo_producto: string | null;
-  tipo_mineral: string | null;
+  tipo_producto?: string | null;
+  tipo_mineral?: string | null;
   peso_inicial: number;
   observaciones?: string | null;
   evidencias?: File[];

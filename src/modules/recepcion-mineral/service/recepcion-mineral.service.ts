@@ -16,6 +16,7 @@ import type {
   RES_LotePadreParticionado,
 } from "./recepcion-mineral.responses";
 import type { RES_TicketBalanzaData } from "../../../service/responses/ticket-balanza";
+import type { IRespuesta } from "../../../shared/interfaces/_response";
 
 const PATH = "/recepcion-mineral";
 
@@ -107,14 +108,30 @@ export const RecepcionMineralService = {
     const body: DTO_CrearLote = {
       condicion_ingreso: dto.condicion_ingreso,
       id_empresa: dto.id_empresa,
-      con_codigo_manual: dto.con_codigo_manual,
       particionar: dto.particionar ?? false,
     };
-    if (dto.con_codigo_manual && dto.codigo_manual) {
-      body.codigo_manual = dto.codigo_manual;
+    if (dto.correlativo) {
+      body.correlativo = dto.correlativo;
+    }
+    if (dto.numero_correlativo) {
+      body.numero_correlativo = dto.numero_correlativo;
     }
     const response = await api.post(`${PATH}/${id}/lotes`, body);
     return unwrapApiResponse<RES_LoteMineral>(response);
+  },
+
+  /**
+   * Previsualiza el correlativo que se generará para el próximo lote.
+   * Permite mostrarlo en el modal "Nuevo Lote" y que el usuario lo ajuste.
+   */
+  preview_correlativo_lote: async (params: {
+    id_empresa: number;
+    condicion_ingreso: string;
+  }): Promise<IRespuesta<{ correlativo: string; numero_correlativo: number }>> => {
+    const response = await api.get(`${PATH}/lotes/correlativo-preview`, {
+      params,
+    });
+    return response.data;
   },
 
   /**

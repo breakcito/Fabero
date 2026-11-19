@@ -1,5 +1,5 @@
 export enum TipoMineral {
-  Polimetalico = "Polimetálico",
-  Carbon = "Carbón",
-  Aurifero = "Aurífero",
+  Mixto = "Mixto",
+  Oxido = "Óxido",
+  Sulfuro = "Sulfuro",
 }

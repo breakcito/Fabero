@@ -62,6 +62,9 @@ export interface RES_Particion {
   vehiculo_capacidad?: number | null;
   id_vehiculo_carreta?: number | null;
   vehiculo_carreta_placa?: string | null;
+  /** Proveedor minero de la partición (puede venir heredado del lote padre). */
+  proveedor_razon_social?: string | null;
+  proveedor_ruc?: string | null;
   // Estado de validación de la partición.
   esta_validado?: boolean;
   id_empleado_valida?: number | null;

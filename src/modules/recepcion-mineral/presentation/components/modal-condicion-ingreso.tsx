@@ -1,8 +1,8 @@
-import { useState, useMemo } from "react";
-import { Select, Button, Checkbox, TextInput, Stack } from "@mantine/core";
+import { useState, useMemo, useEffect } from "react";
+import { Select, Button, Checkbox, TextInput, NumberInput, Stack, Grid } from "@mantine/core";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
 import { CondicionIngreso } from "../../../../shared/enums/_generic/condicion-ingreso";
-import { useNotify } from "../../../../hooks/useNotify";
+import { RecepcionMineralService } from "../../service/recepcion-mineral.service";
 import type { RES_Empresa } from "../../../../service/responses/empresa";
 
 interface ModalCondicionIngresoProps {
@@ -13,9 +13,9 @@ interface ModalCondicionIngresoProps {
     condicion: CondicionIngreso,
     idEmpresa: number,
     flags?: {
-      conCodigoManual: boolean;
-      codigoManual?: string;
       particionar?: boolean;
+      correlativo?: string;
+      numero_correlativo?: number;
     },
   ) => void;
 }
@@ -26,12 +26,16 @@ export const ModalCondicionIngreso = ({
   empresasTitulares,
   onConfirm,
 }: ModalCondicionIngresoProps) => {
-  const { notifyError } = useNotify();
   const [condicion, setCondicion] = useState<CondicionIngreso>(CondicionIngreso.Comercializacion);
   const [idEmpresa, setIdEmpresa] = useState<string | null>(null);
-  const [conCodigoManual, setConCodigoManual] = useState(false);
-  const [codigoManual, setCodigoManual] = useState("");
   const [particionar, setParticionar] = useState(false);
+
+  // Correlativo: se previsualiza el que se generará y el usuario puede
+  // ajustarlo. Si lo cambia, el lote queda con código temporal.
+  const [correlativoAuto, setCorrelativoAuto] = useState("");
+  const [correlativo, setCorrelativo] = useState("");
+  const [numeroCorrelativo, setNumeroCorrelativo] = useState<string>("");
+  const [loadingCorrelativo, setLoadingCorrelativo] = useState(false);
 
   // Identifica la empresa Fabero por coincidencia en razon_social.
   // Heurística estable: primera empresa cuya razón social contiene "fabero"
@@ -69,9 +73,10 @@ export const ModalCondicionIngreso = ({
         // por defecto.
         setCondicion(CondicionIngreso.Comercializacion);
         setIdEmpresa(idFabero !== null ? String(idFabero) : null);
-        setConCodigoManual(false);
-        setCodigoManual("");
         setParticionar(false);
+        setCorrelativoAuto("");
+        setCorrelativo("");
+        setNumeroCorrelativo("");
       }
     } else if (opened) {
       // Llegó (o cambió) la empresa Fabero mientras el modal está abierto:
@@ -85,34 +90,105 @@ export const ModalCondicionIngreso = ({
     }
   }
 
+  /**
+   * Previsualiza el correlativo del próximo lote para la empresa y condición
+   * actuales. Cada vez que se abre el modal o cambian esos datos, se vuelve a
+   * pedir (el correlativo depende del estado de la secuencia).
+   */
+  useEffect(() => {
+    if (!opened || !idEmpresa) return;
+
+    let cancelado = false;
+
+    const cargarPreview = async () => {
+      setLoadingCorrelativo(true);
+      try {
+        const resp = await RecepcionMineralService.preview_correlativo_lote({
+          id_empresa: Number(idEmpresa),
+          condicion_ingreso: condicion,
+        });
+        if (cancelado) return;
+        if (resp.success && resp.data) {
+          setCorrelativoAuto(resp.data.correlativo);
+          setCorrelativo(resp.data.correlativo);
+          setNumeroCorrelativo(String(resp.data.numero_correlativo));
+        }
+      } catch (e) {
+        console.error("Error al previsualizar el correlativo del lote", e);
+      } finally {
+        if (!cancelado) setLoadingCorrelativo(false);
+      }
+    };
+
+    void cargarPreview();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [opened, idEmpresa, condicion]);
+
+  /**
+   * Reconstruye el correlativo conservando el año y el prefijo cuando el
+   * usuario edita el número (ej. `26-FB-005` -> `26-FB-012`).
+   */
+  const reconstruirCorrelativo = (numero: number) => {
+    const partes = correlativoAuto.split("-");
+    if (partes.length < 3) return correlativoAuto;
+    const [anio, prefijo] = partes;
+    return `${anio}-${prefijo}-${String(numero).padStart(3, "0")}`;
+  };
+
+  const handleNumeroChange = (valor: string | number) => {
+    const texto = String(valor);
+    setNumeroCorrelativo(texto);
+    const numero = Number(texto);
+    if (texto !== "" && !Number.isNaN(numero) && numero > 0) {
+      setCorrelativo(reconstruirCorrelativo(numero));
+    }
+  };
+
+  /**
+   * Al escribir un correlativo propio, el N° correlativo se borra: la tabla
+   * admite `numero_correlativo` NULL para los códigos ingresados a mano.
+   */
+  const handleCorrelativoChange = (valor: string) => {
+    const texto = valor.toUpperCase();
+    setCorrelativo(texto);
+    if (texto !== correlativoAuto) {
+      setNumeroCorrelativo("");
+    }
+  };
+
   const handleConfirm = () => {
     if (!idEmpresa) return;
 
-    if (conCodigoManual && !codigoManual.trim()) {
-      notifyError("Debe ingresar el código manual");
-      return;
-    }
-
     const payload: {
-      conCodigoManual: boolean;
-      codigoManual?: string;
       particionar?: boolean;
-    } = {
-      conCodigoManual,
-    };
-    if (conCodigoManual) {
-      payload.codigoManual = codigoManual.trim().toUpperCase();
-    }
+      correlativo?: string;
+      numero_correlativo?: number;
+    } = {};
+
     if (particionar) {
       payload.particionar = true;
+    }
+
+    // Solo se envía si el usuario ajustó el correlativo generado.
+    const correlativoIngresado = correlativo.trim().toUpperCase();
+    if (correlativoIngresado && correlativoIngresado !== correlativoAuto) {
+      payload.correlativo = correlativoIngresado;
+      const numero = Number(numeroCorrelativo);
+      if (numero > 0) {
+        payload.numero_correlativo = numero;
+      }
     }
 
     onConfirm(condicion, Number(idEmpresa), payload);
   };
 
   const fieldClasses = {
-    input: "bg-zinc-900/50 border-zinc-800 text-white focus:border-indigo-500",
-    label: "text-zinc-300 mb-1 font-semibold text-xs",
+    input:
+      "bg-zinc-900/50 border-zinc-800 text-white focus:border-indigo-500",
+    label: "text-zinc-300 font-semibold text-xs mb-1.5",
   };
 
   return (
@@ -140,7 +216,7 @@ export const ModalCondicionIngreso = ({
           withAsterisk
           data={empresasTitulares.map((e) => ({
             value: String(e.id_empresa),
-            label: e.razon_social
+            label: e.razon_social,
           }))}
           value={idEmpresa}
           onChange={(val) => setIdEmpresa(val)}
@@ -172,26 +248,32 @@ export const ModalCondicionIngreso = ({
           radius="md"
         />
 
-        <Checkbox
-          label="Código manual"
-          checked={conCodigoManual}
-          onChange={(e) => setConCodigoManual(e.currentTarget.checked)}
-          color="indigo"
-          classNames={{ label: "text-zinc-200 text-sm" }}
-        />
-
-        {conCodigoManual && (
-          <TextInput
-            label="Código"
-            placeholder="Ingrese el código del lote"
-            required
-            withAsterisk
-            value={codigoManual}
-            onChange={(e) => setCodigoManual(e.currentTarget.value.toUpperCase())}
-            classNames={fieldClasses}
-            radius="md"
-          />
-        )}
+        {/* Correlativo que se generará (editable) */}
+        <Grid gutter="xs">
+          <Grid.Col span={{ base: 12, sm: 8 }}>
+            <TextInput
+              label="Correlativo"
+              placeholder={loadingCorrelativo ? "Generando..." : "Ej: 26-FB-005"}
+              value={correlativo}
+              onChange={(e) => handleCorrelativoChange(e.target.value)}
+              disabled={loadingCorrelativo}
+              classNames={fieldClasses}
+              radius="md"
+            />
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, sm: 4 }}>
+            <NumberInput
+              label="N° Correlativo"
+              placeholder={loadingCorrelativo ? "..." : "5"}
+              value={numeroCorrelativo}
+              onChange={handleNumeroChange}
+              min={1}
+              disabled={loadingCorrelativo}
+              classNames={fieldClasses}
+              radius="md"
+            />
+          </Grid.Col>
+        </Grid>
 
         <div className="flex justify-end gap-2 mt-2">
           <Button variant="subtle" color="zinc" onClick={onClose}>
@@ -199,7 +281,7 @@ export const ModalCondicionIngreso = ({
           </Button>
           <Button
             color="indigo"
-            disabled={!idEmpresa}
+            disabled={!idEmpresa || loadingCorrelativo}
             onClick={handleConfirm}
           >
             Generar Lote
