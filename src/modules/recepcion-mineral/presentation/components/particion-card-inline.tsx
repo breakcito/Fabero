@@ -108,7 +108,7 @@ export const ParticionCardInline = ({
       <div className="grid grid-cols-2 gap-1.5">
         <div className="flex items-center justify-between gap-1.5">
           <Text size="9px" c="dimmed" className="uppercase font-semibold shrink-0">
-            Peso Inicial
+            Inicial
           </Text>
           {particion.peso_inicial !== null ? (
             <Badge
@@ -134,7 +134,7 @@ export const ParticionCardInline = ({
         </div>
         <div className="flex items-center justify-between gap-1.5">
           <Text size="9px" c="dimmed" className="uppercase font-semibold shrink-0">
-            Peso Final
+            Final
           </Text>
           {particion.peso_final !== null ? (
             <Badge
