@@ -58,7 +58,11 @@ export const MuestreoService = {
     id: number,
     dto: DTO_ConfirmarMuestreo,
   ): Promise<{ lote: RES_LoteMuestreo; particiones: RES_ParticionMuestreo[] }> => {
-    const response = await api.post(`${PATH}/lotes/${id}/confirmar`, dto);
+    const body: DTO_ConfirmarMuestreo = { ...dto };
+    if (dto.id_particion === undefined || dto.id_particion === null) {
+      delete body.id_particion;
+    }
+    const response = await api.post(`${PATH}/lotes/${id}/confirmar`, body);
     return unwrapApiResponse<{
       lote: RES_LoteMuestreo;
       particiones: RES_ParticionMuestreo[];

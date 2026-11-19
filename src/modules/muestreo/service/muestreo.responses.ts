@@ -24,7 +24,18 @@ export interface RES_ParticionMuestreo {
  */
 export interface RES_LoteMuestreo {
   id: number;
+  /**
+   * `LOTE` para un lote sin particiones; `PARTICION` para una partición
+   * creada en pesaje (el lote padre no se lista, se listan sus particiones).
+   */
+  tipo_registro: "LOTE" | "PARTICION";
+  /** Id de la partición (null si el registro es un lote). */
+  id_particion: number | null;
+  /** Letra de la partición (null si el registro es un lote). */
+  particion: string | null;
   correlativo: string;
+  /** Correlativo del lote padre (en una partición, el que se edita). */
+  correlativo_padre: string;
   numero_correlativo: number | null;
   tipo_producto: string | null;
   tipo_mineral: string | null;

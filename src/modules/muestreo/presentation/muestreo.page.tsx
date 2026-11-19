@@ -167,7 +167,7 @@ export const MuestreoPage = () => {
             {
               accessor: "particiones",
               title: "Particiones",
-              width: 150,
+              width: 170,
               textAlign: "center",
               render: (r: RES_LoteMuestreo) =>
                 r.total_particiones > 0 ? (
@@ -175,7 +175,7 @@ export const MuestreoPage = () => {
                     {r.particiones.map((p) => (
                       <Badge
                         key={p.id}
-                        size="xs"
+                        size="md"
                         variant="light"
                         radius="sm"
                         color={p.muestreo_confirmado ? "teal" : "indigo"}
@@ -186,7 +186,7 @@ export const MuestreoPage = () => {
                     ))}
                   </Group>
                 ) : (
-                  <Text size="xs" className="text-zinc-500">
+                  <Text size="sm" className="text-white">
                     —
                   </Text>
                 ),
@@ -220,12 +220,12 @@ export const MuestreoPage = () => {
               textAlign: "center",
               render: (r: RES_LoteMuestreo) =>
                 r.con_codigo_temporal ? (
-                  <Badge size="sm" radius="sm" variant="light" color="yellow">
-                    Correlativo temporal
-                  </Badge>
-                ) : (
                   <Badge size="sm" radius="sm" variant="light" color="orange">
                     Pendiente de muestreo
+                  </Badge>
+                ) : (
+                  <Badge size="sm" radius="sm" variant="light" color="teal">
+                    Muestreado
                   </Badge>
                 ),
             },

@@ -6,6 +6,7 @@ import {
   Button,
   Stack,
   Grid,
+  Group,
   Table,
   Text,
   Badge,
@@ -63,7 +64,9 @@ export const ModalConfirmarMuestreo = ({
     if (opened && lote) {
       setTipoProducto(lote.tipo_producto ?? null);
       setTipoMineral(lote.tipo_mineral ?? null);
-      setCorrelativo(lote.correlativo ?? "");
+      // En una PARTICIÓN el correlativo editable es el del LOTE PADRE (el de
+      // la partición se deriva: `{correlativo_padre}-{letra}`).
+      setCorrelativo(lote.correlativo_padre ?? lote.correlativo ?? "");
       setNumeroCorrelativo(
         lote.numero_correlativo !== null ? String(lote.numero_correlativo) : "",
       );
@@ -88,6 +91,7 @@ export const ModalConfirmarMuestreo = ({
       tipo_mineral: tipoMineral,
       correlativo: correlativo.trim().toUpperCase(),
       numero_correlativo: numero > 0 ? numero : null,
+      id_particion: lote?.id_particion ?? null,
     });
   };
 
@@ -113,11 +117,18 @@ export const ModalConfirmarMuestreo = ({
         <div className="bg-zinc-900/30 border border-zinc-800/80 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
           <div>
             <Text size="xs" className="text-zinc-400 uppercase tracking-wider">
-              Lote
+              {lote.tipo_registro === "PARTICION" ? "Partición" : "Lote"}
             </Text>
-            <Text size="lg" fw={800} className="text-white font-mono">
-              {lote.correlativo}
-            </Text>
+            <Group gap={6} wrap="nowrap">
+              <Text size="lg" fw={800} className="text-white font-mono">
+                {lote.correlativo}
+              </Text>
+              {lote.tipo_registro === "PARTICION" && lote.particion && (
+                <Badge size="md" variant="light" color="indigo" radius="sm">
+                  {lote.particion}
+                </Badge>
+              )}
+            </Group>
           </div>
           <div className="text-right">
             <Text size="xs" className="text-zinc-400 uppercase tracking-wider">

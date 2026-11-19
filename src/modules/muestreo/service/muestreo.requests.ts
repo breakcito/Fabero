@@ -10,6 +10,8 @@ export interface DTO_ConfirmarMuestreo {
   tipo_mineral: string;
   correlativo: string;
   numero_correlativo?: number | null;
+  /** Id de la partición a confirmar (null = el propio lote). */
+  id_particion?: number | null;
 }
 
 /** Filtros del listado de lotes pendientes de muestreo. */
