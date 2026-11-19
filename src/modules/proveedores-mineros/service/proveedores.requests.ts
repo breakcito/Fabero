@@ -11,6 +11,8 @@ export const Schema_CrearProveedor = z
     direccion: z.string().optional().nullable(),
     telefono: z.string().optional().nullable(),
     correo: z.email("Correo no válido").optional().or(z.literal("")),
+    origen_guias: z.string().max(512).optional().nullable(),
+    destino_guias: z.string().max(512).optional().nullable(),
   })
   .superRefine((data, ctx) => {
     if (data.tipo_entidad === TipoEntidad.Natural) {

@@ -4,16 +4,12 @@ import {
   Tooltip,
   Group,
   Text,
-  ThemeIcon,
 } from "@mantine/core";
 import {
   IconBuildingBank,
-  IconBuilding,
-  IconUser,
   IconPencil,
   IconPower,
   IconMapPin,
-  
 } from "@tabler/icons-react";
 import { DataTableEstandar } from "../../../../../presentation/utils/datatable-estandar";
 import type { ProveedorResponse } from "../../../service/proveedores.responses";
@@ -55,32 +51,54 @@ export const Proveedor = ({
         {
           accessor: "razon_social",
           title: "Proveedor",
-          width: 280,
+          width: 300,
+          textAlign: "center",
           render: (r: ProveedorResponse) => (
-            <Group gap="sm">
-              <ThemeIcon
-                variant="light"
-                color={r.tipo_entidad === "Persona Natural" ? "cyan" : "indigo"}
-                radius="xl"
-                size="lg"
-              >
-                {r.tipo_entidad === "Persona Natural" ? (
-                  <IconUser className="w-5 h-5" />
-                ) : (
-                  <IconBuilding className="w-5 h-5" />
-                )}
-              </ThemeIcon>
-              <div>
-                <Text size="sm" fw={500} className="text-zinc-200">
+            <div className="min-w-0 space-y-1.5">
+              <Tooltip label={r.razon_social} withArrow>
+                <Text
+                  size="sm"
+                  fw={500}
+                  lineClamp={1}
+                  className="text-zinc-100 cursor-default"
+                >
                   {r.razon_social}
                 </Text>
-                <Text size="xs" className="text-zinc-500">
+              </Tooltip>
+              <Group gap={6} wrap="nowrap" justify="center">
+                <Badge
+                  variant="light"
+                  color="indigo"
+                  size="md"
+                  radius="md"
+                  className="w-fit"
+                >
                   {r.tipo_entidad}
-                  {r.ruc && ` · RUC: ${r.ruc}`}
-                  {r.dni && ` · DNI: ${r.dni}`}
-                </Text>
-              </div>
-            </Group>
+                </Badge>
+                {r.ruc && (
+                  <Badge
+                    variant="light"
+                    color="teal"
+                    size="md"
+                    radius="md"
+                    className="font-mono w-fit"
+                  >
+                    RUC: {r.ruc}
+                  </Badge>
+                )}
+                {r.dni && (
+                  <Badge
+                    variant="light"
+                    color="teal"
+                    size="md"
+                    radius="md"
+                    className="font-mono w-fit"
+                  >
+                    DNI: {r.dni}
+                  </Badge>
+                )}
+              </Group>
+            </div>
           ),
         },
         {
@@ -120,20 +138,27 @@ export const Proveedor = ({
           title: "Dirección",
           textAlign: "center",
           render: (r: ProveedorResponse) => (
-            <Text
-              size="sm"
-              className="text-zinc-400 mx-3.5 text-center"
-              lineClamp={1}
+            <Tooltip
+              label={r.direccion || ""}
+              withArrow
+              disabled={!r.direccion}
             >
-              {r.direccion || "—"}
-            </Text>
+              <Text
+                size="sm"
+                className="text-zinc-400 mx-3.5 text-center"
+                lineClamp={1}
+              >
+                {r.direccion || "—"}
+              </Text>
+            </Tooltip>
           ),
         },
         {
           accessor: "telefono",
           title: "Teléfono",
+          textAlign: "center",
           render: (r: ProveedorResponse) => (
-            <Text size="sm" className="text-zinc-300">
+            <Text size="sm" className="text-zinc-300 text-center">
               {r.telefono || "—"}
             </Text>
           ),
@@ -141,10 +166,21 @@ export const Proveedor = ({
         {
           accessor: "correo",
           title: "Correo",
+          textAlign: "center",
           render: (r: ProveedorResponse) => (
-            <Text size="sm" className="text-zinc-400">
-              {r.correo || "—"}
-            </Text>
+            <Tooltip
+              label={r.correo || ""}
+              withArrow
+              disabled={!r.correo}
+            >
+              <Text
+                size="sm"
+                className="text-zinc-400 text-center"
+                lineClamp={1}
+              >
+                {r.correo || "—"}
+              </Text>
+            </Tooltip>
           ),
         },
         {

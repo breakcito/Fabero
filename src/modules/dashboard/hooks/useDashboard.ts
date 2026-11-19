@@ -3,6 +3,7 @@ import { DashboardService } from "../service/dashboard.service";
 import type { RES_Dashboard, RES_DashboardMes } from "../service/dashboard.responses";
 import { useUIStore } from "../../../stores/ui.store";
 import { useNotify } from "../../../hooks/useNotify";
+import { useAuthStore } from "../../../stores/auth.store";
 
 /**
  * La ventana de análisis son los últimos 12 meses **incluyendo el mes en
@@ -15,6 +16,12 @@ export const useDashboard = () => {
   const [data, setData] = useState<RES_Dashboard | null>(null);
   const [loading, setLoading] = useState(false);
   /**
+   * true cuando el servidor respondió 403: el usuario no tiene el permiso
+   * `ver_dashboard`. Puede ocurrir con una sesión vieja (permisos guardados en
+   * localStorage antes de existir la columna).
+   */
+  const [sinPermiso, setSinPermiso] = useState(false);
+  /**
    * Índice del mes seleccionado dentro de la ventana (0 = el más antiguo).
    * `null` = sin selección explícita → se usa el último índice, que
    * corresponde al mes en curso.
@@ -23,7 +30,18 @@ export const useDashboard = () => {
 
   const idSucursal = sucursal?.id_sucursal ?? null;
 
+  /**
+   * Permiso `ver_dashboard`. Si está denegado no se piden los indicadores.
+   */
+  const permisos = useAuthStore((state) => state.usuario?.permisos);
+  const puedeVerDashboard = (() => {
+    const entrada = permisos?.find((p) => p.codigo === "ver_dashboard");
+    return entrada ? entrada.decision : true;
+  })();
+
   const load = useCallback(async () => {
+    if (!puedeVerDashboard) return;
+
     setLoading(true);
     try {
       const res = await DashboardService.get_resumen({ id_sucursal: idSucursal });
@@ -35,15 +53,23 @@ export const useDashboard = () => {
 
       setData(res.data);
     } catch (e) {
+      // 403 = sin permiso `ver_dashboard`. No es un error de red: la vista cae
+      // a la pantalla de Inicio sin avisar.
+      const status = (e as { response?: { status?: number } })?.response?.status;
+      if (status === 403) {
+        setSinPermiso(true);
+        return;
+      }
+
       console.error("Error al cargar indicadores del dashboard", e);
       notifyError("Ocurrió un error al cargar los indicadores del dashboard");
     } finally {
       setLoading(false);
     }
-  }, [idSucursal, notifyError]);
+  }, [idSucursal, notifyError, puedeVerDashboard]);
 
   useEffect(() => {
-    load();
+    void load();
   }, [load]);
 
   const meses = useMemo(
@@ -82,6 +108,7 @@ export const useDashboard = () => {
     data,
     loading,
     load,
+    sinPermiso,
     meses,
     mesesAnioAnterior,
     indice,

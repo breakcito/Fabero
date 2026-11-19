@@ -107,6 +107,36 @@ export const RegistroProveedor = ({ proveedor, onCancel, onSuccess }: Props) => 
             }}
           />
         </Grid.Col>
+        <Grid.Col span={{ base: 12 }}>
+          <TextInput
+            label="Origen de Guías"
+            placeholder="Ej. Lima, Ancash, Arequipa..."
+            radius="xl"
+            maxLength={512}
+            value={payload.origen_guias || ""}
+            onChange={(e) => handleChange("origen_guias", e.target.value)}
+            classNames={{
+              input:
+                "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 transition-all",
+              label: "text-zinc-400 font-medium text-xs",
+            }}
+          />
+        </Grid.Col>
+        <Grid.Col span={{ base: 12 }}>
+          <TextInput
+            label="Destino de Guías"
+            placeholder="Ej. Planta Fabero, Trujillo..."
+            radius="xl"
+            maxLength={512}
+            value={payload.destino_guias || ""}
+            onChange={(e) => handleChange("destino_guias", e.target.value)}
+            classNames={{
+              input:
+                "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 transition-all",
+              label: "text-zinc-400 font-medium text-xs",
+            }}
+          />
+        </Grid.Col>
         <Grid.Col span={{ base: 12, md: 6 }}>
           <TextInput
             label="Teléfono Móvil / Fijo"

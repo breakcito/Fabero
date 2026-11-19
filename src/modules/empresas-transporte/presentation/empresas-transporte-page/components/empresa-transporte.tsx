@@ -1,5 +1,5 @@
-import { Badge, ActionIcon, Tooltip, Group, Text, ThemeIcon } from "@mantine/core";
-import { IconBuilding, IconPencil, IconPower } from "@tabler/icons-react";
+import { Badge, ActionIcon, Tooltip, Group, Text } from "@mantine/core";
+import { IconPencil, IconPower } from "@tabler/icons-react";
 import { DataTableEstandar } from "../../../../../presentation/utils/datatable-estandar";
 import type { EmpresaTransporteResponse } from "../../../service/empresas-transporte.responses";
 import { EstadoBase } from "../../../../../shared/enums/_generic/estado-base";
@@ -35,21 +35,45 @@ export const EmpresaTransporte = ({
         {
           accessor: "razon_social",
           title: "Empresa de Transporte",
-          width: 280,
+          width: 300,
+          textAlign: "center",
           render: (r: EmpresaTransporteResponse) => (
-            <Group gap="sm">
-              <ThemeIcon variant="light" color="indigo" radius="xl" size="lg">
-                <IconBuilding className="w-5 h-5" />
-              </ThemeIcon>
-              <div>
-                <Text size="sm" fw={500} className="text-zinc-200">
+            <div className="min-w-0 space-y-1.5">
+              <Tooltip label={r.razon_social} withArrow>
+                <Text
+                  size="sm"
+                  fw={500}
+                  lineClamp={1}
+                  className="text-zinc-100 cursor-default"
+                >
                   {r.razon_social}
                 </Text>
-                <Text size="xs" className="text-zinc-500">
-                  RUC: {r.ruc} {r.dni ? `| DNI: ${r.dni}` : ""}
-                </Text>
-              </div>
-            </Group>
+              </Tooltip>
+              <Group gap={6} wrap="nowrap" justify="center">
+                {r.ruc && (
+                  <Badge
+                    variant="light"
+                    color="teal"
+                    size="md"
+                    radius="md"
+                    className="font-mono w-fit"
+                  >
+                    RUC: {r.ruc}
+                  </Badge>
+                )}
+                {r.dni && (
+                  <Badge
+                    variant="light"
+                    color="teal"
+                    size="md"
+                    radius="md"
+                    className="font-mono w-fit"
+                  >
+                    DNI: {r.dni}
+                  </Badge>
+                )}
+              </Group>
+            </div>
           ),
         },
         {
@@ -65,10 +89,21 @@ export const EmpresaTransporte = ({
         {
           accessor: "direccion",
           title: "Dirección",
+          textAlign: "center",
           render: (r: EmpresaTransporteResponse) => (
-            <Text size="sm" className="text-zinc-400 max-w-[200px]" truncate title={r.direccion || ""}>
-              {r.direccion || "—"}
-            </Text>
+            <Tooltip
+              label={r.direccion || ""}
+              withArrow
+              disabled={!r.direccion}
+            >
+              <Text
+                size="sm"
+                className="text-zinc-400 mx-3.5 text-center"
+                lineClamp={1}
+              >
+                {r.direccion || "—"}
+              </Text>
+            </Tooltip>
           ),
         },
         {

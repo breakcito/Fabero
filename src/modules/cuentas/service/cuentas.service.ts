@@ -3,6 +3,7 @@ import type { IRespuesta } from "../../../shared/interfaces/_response";
 import type { RES_Cuenta, RES_RolDisponible } from "./cuentas.responses";
 import type { REQ_CrearCuenta, REQ_ActualizarCuenta } from "./cuentas.requests";
 import type { RES_Empleado } from "../../../service/responses/empleado";
+import type { RES_PermisoCatalogo } from "../../../shared/interfaces/permiso";
 
 const path = "/cuentas";
 
@@ -22,6 +23,13 @@ export const CuentasService = {
 
   fetchRolesDisponibles: async () => {
     const res = await api.get<IRespuesta<RES_RolDisponible[]>>(`${path}/roles`);
+    return res.data;
+  },
+
+  fetchCatalogoPermisos: async () => {
+    const res = await api.get<IRespuesta<RES_PermisoCatalogo[]>>(
+      `${path}/permisos-catalogo`,
+    );
     return res.data;
   },
 

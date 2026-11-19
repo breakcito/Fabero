@@ -5,6 +5,19 @@ import { Schema_CrearEmpresaTransporte, type CrearEmpresaTransporteRequest } fro
 import { TipoEntidad } from "../../../shared/enums/_generic/tipo-entidad";
 import type { EmpresaTransporteResponse } from "../service/empresas-transporte.responses";
 
+const extraerMensajeError = (err: unknown, fallback: string): string => {
+  if (err && typeof err === "object" && "response" in err) {
+    const axiosErr = err as { response?: { data?: { message?: string } } };
+    if (axiosErr.response?.data?.message) {
+      return axiosErr.response.data.message;
+    }
+  }
+  if (err instanceof Error && err.message) {
+    return err.message;
+  }
+  return fallback;
+};
+
 export const useRegistroEmpresaTransporte = (
   onSuccess: (e: EmpresaTransporteResponse) => void,
   empresa?: EmpresaTransporteResponse | null
@@ -69,9 +82,12 @@ export const useRegistroEmpresaTransporte = (
         });
         onSuccess(created);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      const msg = err.response?.data?.message || (empresa ? "Ocurrió un error al actualizar la empresa" : "Ocurrió un error al registrar la empresa");
+      const fallback = empresa
+        ? "Ocurrió un error al actualizar la empresa"
+        : "Ocurrió un error al registrar la empresa";
+      const msg = extraerMensajeError(err, fallback);
       notifyError(msg);
       setError(msg);
     } finally {

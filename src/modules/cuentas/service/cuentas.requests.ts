@@ -1,9 +1,12 @@
+import type { RES_Permiso } from "../../../shared/interfaces/permiso";
+
 export interface REQ_CrearCuenta {
   id_rol: number;
   id_empleado: number;
   username: string;
   password: string;
   sucursales?: number[];
+  permisos?: RES_Permiso[];
 }
 
 export interface REQ_ActualizarCuenta {
@@ -12,4 +15,5 @@ export interface REQ_ActualizarCuenta {
   password?: string;
   estado?: string;
   sucursales?: number[];
+  permisos?: RES_Permiso[];
 }

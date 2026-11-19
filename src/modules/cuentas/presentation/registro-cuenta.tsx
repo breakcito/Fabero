@@ -6,6 +6,9 @@ import {
   Group,
   PasswordInput,
   MultiSelect,
+  Switch,
+  Text,
+  Loader,
 } from "@mantine/core";
 import {
   UserIcon,
@@ -39,8 +42,16 @@ export const RegistroCuenta = ({
   empleadosSinCuenta,
   sucursalesDisponibles,
 }: RegistroCuentaProps) => {
-  const { form, updateForm, loading, handleGuardar, isEdit } =
-    useRegistroCuenta(cuentaEdit, onClose, refresh);
+  const {
+    form,
+    updateForm,
+    togglePermiso,
+    catalogo,
+    loadingCatalogo,
+    loading,
+    handleGuardar,
+    isEdit,
+  } = useRegistroCuenta(cuentaEdit, onClose, refresh);
 
   const fieldClasses = {
     input:
@@ -146,6 +157,49 @@ export const RegistroCuenta = ({
         clearable
         hidePickedOptions
       />
+
+      {/* Permisos específicos del usuario */}
+      <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <ShieldCheckIcon className="w-4 h-4 text-indigo-400" />
+          <Text size="xs" fw={700} className="text-zinc-300 uppercase tracking-widest">
+            Permisos
+          </Text>
+        </div>
+
+        {loadingCatalogo ? (
+          <Group gap="xs" justify="center" py="md">
+            <Loader size="xs" color="indigo" />
+            <Text size="xs" className="text-zinc-500">
+              Cargando catálogo de permisos...
+            </Text>
+          </Group>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5">
+            {catalogo.map((item) => {
+              const permiso = form.permisos.find((p) => p.codigo === item.codigo);
+              return (
+                <Switch
+                  key={item.codigo}
+                  size="xs"
+                  color="indigo"
+                  radius="lg"
+                  label={item.nombre}
+                  checked={permiso?.decision ?? false}
+                  onChange={(e) =>
+                    togglePermiso(item.codigo, e.currentTarget.checked)
+                  }
+                  disabled={loading}
+                  classNames={{
+                    label: "text-zinc-300 text-xs",
+                    track: "cursor-pointer",
+                  }}
+                />
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       <Group justify="flex-end" gap="md" mt="xl">
         <Button

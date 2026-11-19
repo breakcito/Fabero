@@ -232,12 +232,30 @@ export const CuentasPage = () => {
                     >
                       Usuario
                     </Text>
-                    <Group gap="xs">
-                      <UserIcon className="w-3.5 h-3.5 text-indigo-400" />
-                      <Text size="xs" fw={700} className="text-white truncate">
-                        {cuenta.username}
-                      </Text>
-                    </Group>
+                    <div className="flex items-center justify-between gap-2">
+                      <Group gap="xs" className="min-w-0">
+                        <UserIcon className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                        <Text size="xs" fw={700} className="text-white truncate">
+                          {cuenta.username}
+                        </Text>
+                      </Group>
+                      <Tooltip
+                        label="Editar Cuenta"
+                        position="top"
+                        withArrow
+                        radius="md"
+                      >
+                        <ActionIcon
+                          variant="subtle"
+                          size="xs"
+                          color="zinc"
+                          onClick={() => handleOpenEdit(cuenta)}
+                          className="hover:bg-zinc-800 shrink-0"
+                        >
+                          <PencilSquareIcon className="w-3.5 h-3.5" />
+                        </ActionIcon>
+                      </Tooltip>
+                    </div>
                   </div>
                   <div className="bg-zinc-950/40 rounded-2xl p-3 border border-zinc-800/40">
                     <Text
@@ -248,34 +266,16 @@ export const CuentasPage = () => {
                     >
                       Contraseña
                     </Text>
-                    <div className="flex items-center justify-between">
-                      <Group gap="xs">
-                        <KeyIcon className="w-3.5 h-3.5 text-amber-400" />
-                        <Text
-                          size="xs"
-                          fw={700}
-                          className="text-zinc-200 italic"
-                        >
-                          ••••••••
-                        </Text>
-                      </Group>
-                      <Tooltip
-                        label="Cambiar Contraseña"
-                        position="top"
-                        withArrow
-                        radius="md"
+                    <Group gap="xs">
+                      <KeyIcon className="w-3.5 h-3.5 text-amber-400" />
+                      <Text
+                        size="xs"
+                        fw={700}
+                        className="text-zinc-200 italic"
                       >
-                        <ActionIcon
-                          variant="subtle"
-                          size="xs"
-                          color="zinc"
-                          onClick={() => handleOpenEdit(cuenta)}
-                          className="hover:bg-zinc-800"
-                        >
-                          <PencilSquareIcon className="w-3.5 h-3.5" />
-                        </ActionIcon>
-                      </Tooltip>
-                    </div>
+                        ••••••••
+                      </Text>
+                    </Group>
                   </div>
                 </div>
               </div>

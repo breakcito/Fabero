@@ -10,8 +10,10 @@ export interface ProveedorResponse {
   direccion: string | null;
   telefono: string | null;
   correo: string | null;
+  origen_guias: string | null;
+  destino_guias: string | null;
   cantidad_cuentas_bancarias: number;
   estado: EstadoBase;
 }
 
-export interface CuentaBancariaResponse extends CuentaBancariaItem {}
+export type CuentaBancariaResponse = CuentaBancariaItem;

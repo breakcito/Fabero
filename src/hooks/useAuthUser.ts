@@ -5,6 +5,7 @@ import { usePerfilStore } from "../modules/perfil/hooks/usePerfilStore";
 import { useUIStore } from "../stores/ui.store";
 import { useCallback, useMemo } from "react";
 import { RUTAS_LEGACY } from "../shared/variables/rutas-legacy";
+import { PERMISO_POR_RUTA } from "../shared/variables/permiso-rutas";
 
 export const useAuthUser = () => {
   const usuario = useAuthStore((state) => state.usuario);
@@ -16,6 +17,15 @@ export const useAuthUser = () => {
   const clear_sucursales = useUIStore((state) => state.clear_sucursales);
   const location = useLocation();
   const navigate = useNavigate();
+
+  /**
+   * Permisos especificos del usuario logueado.
+   * Array vacio = sin restricciones adicionales (solo manda el rol).
+   */
+  const permisos = useMemo(
+    () => usuario?.permisos ?? [],
+    [usuario],
+  );
 
   const logout = useCallback(() => {
     clearAuth();
@@ -34,6 +44,15 @@ export const useAuthUser = () => {
     // vista global de tutoriales, asi que cualquier usuario autenticado entra.
     const universallyAllowed = ["/", "/home", "/perfil", "/system", "/centro-ayuda"];
     if (universallyAllowed.includes(location.pathname)) return true;
+
+    // Permisos especificos por usuario: si el permiso de esta ruta esta
+    // listado y denegado, no se permite el acceso.
+    const rutaEfectiva = RUTAS_LEGACY[location.pathname] ?? location.pathname;
+    const codigoPermiso = PERMISO_POR_RUTA[rutaEfectiva];
+    if (codigoPermiso) {
+      const entrada = permisos.find((p) => p.codigo === codigoPermiso);
+      if (entrada && !entrada.decision) return false;
+    }
 
     // Si el menú aún no carga pero está autenticado, permitimos el paso inicial.
     if (!menu || menu.length === 0) return true;
@@ -56,17 +75,30 @@ export const useAuthUser = () => {
     });
 
     // Verificamos si la ruta actual está autorizada.
-    // Las rutas legacy (arbol anidado) se validan contra su equivalente plano.
-    const rutaEfectiva = RUTAS_LEGACY[location.pathname] ?? location.pathname;
     return authorizedUrls.some(
       (url) => rutaEfectiva === url || rutaEfectiva.startsWith(`${url}/`),
     );
-  }, [location.pathname, menu]);
+  }, [location.pathname, menu, permisos]);
+
+  /**
+   * Indica si el usuario tiene un permiso específico.
+   *
+   * Si el permiso no está listado en `usuario.permisos`, no se restringe
+   * (solo manda el rol). Si está listado, gana su `decision`.
+   */
+  const tienePermiso = useCallback(
+    (codigo: string) => {
+      const entrada = permisos.find((p) => p.codigo === codigo);
+      return entrada ? entrada.decision : true;
+    },
+    [permisos],
+  );
 
   return {
     usuario,
     isAuthenticated,
     isAuthorized,
+    tienePermiso,
     logout,
   };
 };

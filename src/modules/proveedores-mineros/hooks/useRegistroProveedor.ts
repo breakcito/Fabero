@@ -24,6 +24,8 @@ export const useRegistroProveedor = (
     direccion: proveedor?.direccion || "",
     telefono: proveedor?.telefono || "",
     correo: proveedor?.correo || "",
+    origen_guias: proveedor?.origen_guias || "",
+    destino_guias: proveedor?.destino_guias || "",
   });
 
   const handleChange = (field: keyof CrearProveedorRequest, value: string) => {
@@ -70,6 +72,8 @@ export const useRegistroProveedor = (
           direccion: "",
           telefono: "",
           correo: "",
+          origen_guias: "",
+          destino_guias: "",
         });
         onSuccess(created);
       }

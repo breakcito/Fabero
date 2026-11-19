@@ -14,6 +14,8 @@ import { SinComprobante } from "./components/sin-comprobante";
 import { SplitBar } from "./components/split-bar";
 import { StockColumn } from "./components/stock-column";
 import { useTitlePage } from "../../../hooks/useTitlePage";
+import { useAuthUser } from "../../../hooks/useAuthUser";
+import { HomePage } from "../../../presentation/pages/home/home.page";
 import { RefreshButton } from "../../../presentation/utils/refresh-button";
 import {
   COLOR_AMBER,
@@ -53,6 +55,7 @@ export const DashboardPage = () => {
     data,
     loading,
     load,
+    sinPermiso,
     meses,
     indice,
     setMesIndex,
@@ -140,6 +143,19 @@ export const DashboardPage = () => {
     if (flujoSinComprobante === "all") return lista;
     return lista.filter((d) => d.tipo === flujoSinComprobante);
   }, [sinComprobante, flujoSinComprobante]);
+
+  // --- Permiso especifico del usuario -------------------------------------
+  const { tienePermiso } = useAuthUser();
+  const puedeVerDashboard = tienePermiso("ver_dashboard");
+
+  /**
+   * Si el permiso no está concedido (o el servidor respondió 403, p. ej. por
+   * una sesión vieja con permisos desactualizados), se muestra la pantalla de
+   * Inicio con los accesos rápidos en lugar de un dashboard sin datos.
+   */
+  if (!puedeVerDashboard || sinPermiso) {
+    return <HomePage />;
+  }
 
   return (
     <div className="mx-auto w-full max-w-340 space-y-4 px-4">

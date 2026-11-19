@@ -1,3 +1,6 @@
+import type { CuentaBancariaItem } from "../../../shared/interfaces/cuenta-bancaria";
+import type { RES_Permiso } from "../../../shared/interfaces/permiso";
+
 export interface RES_Cuenta {
   id_usuario: number;
   username: string;
@@ -11,9 +14,12 @@ export interface RES_Cuenta {
   path_foto: string | null;
   empresa_pertenece: string;
   sucursales: number[];
+  permisos: RES_Permiso[];
 }
 
 export interface RES_RolDisponible {
   id: number;
   nombre: string;
 }
+
+export type CuentaBancariaResponse = CuentaBancariaItem;

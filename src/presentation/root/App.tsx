@@ -1,6 +1,4 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import { lazy, Suspense } from "react";
-import { Loader } from "@mantine/core";
 import { PublicLayout } from "../layouts/public.layout.tsx";
 import { AuthLayout } from "../layouts/auth/auth.layout.tsx";
 import { ProtectedRoute } from "./protectedRoute.tsx";
@@ -9,6 +7,7 @@ import { PublicRoute } from "./publicRoute.tsx";
 // Vistas
 import { LoginPage } from "../../modules/login/presentation/login.page.tsx";
 import { HomePage } from "../pages/home/home.page.tsx";
+import { HomeGateway } from "../pages/home/home.gateway.tsx";
 import { EmpresasPage } from "../../modules/empresas/presentation/empresas.page.tsx";
 import { PersonalPage } from "../../modules/personal/presentation/personal.page.tsx";
 import OrganigramaPage from "../../modules/organigrama/presentation/organigrama.page.tsx";
@@ -52,20 +51,6 @@ import { RUTAS_LEGACY } from "../../shared/variables/rutas-legacy";
  * enlaces guardados antes del aplanado del arbol de navegacion.
  */
 const RUTAS_LEGACY_ENTRADAS = Object.entries(RUTAS_LEGACY);
-
-// El dashboard arrastra la librería de gráficos (~500 KB), por eso se carga
-// bajo demanda para no penalizar al resto de rutas.
-const DashboardPage = lazy(() =>
-  import("../../modules/dashboard/presentation/dashboard.page.tsx").then((m) => ({
-    default: m.DashboardPage,
-  })),
-);
-
-const DashboardFallback = () => (
-  <div className="flex min-h-[60vh] items-center justify-center">
-    <Loader color="indigo" type="bars" />
-  </div>
-);
 
 export const App = () => {
   const { setModoAuditoria } = useAuditoriaStore();
@@ -112,15 +97,8 @@ export const App = () => {
       >
         {/* Inicio */}
         <Route path="/" element={<Navigate to="/home" replace />} />
-        {/* Dashboard de indicadores (reemplaza al home) */}
-        <Route
-          path="/home"
-          element={
-            <Suspense fallback={<DashboardFallback />}>
-              <DashboardPage />
-            </Suspense>
-          }
-        />
+        {/* Puerta de entrada: Dashboard si tiene `ver_dashboard`, si no Inicio */}
+        <Route path="/home" element={<HomeGateway />} />
         {/* Accesos rápidos del home (conservado) */}
         <Route path="/home/acciones" element={<HomePage />} />
 
