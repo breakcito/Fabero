@@ -138,26 +138,29 @@ export const TablaRecepciones = ({
   /**
    * Lápiz de edición por columna.
    *
-   * Si el campo se registró en una programación (recepción o despacho) queda
-   * bloqueado: el backend lo rechaza y el botón se muestra deshabilitado
-   * con la explicación.
+   * Queda bloqueado si:
+   *  - la llegada de la unidad todavía no fue confirmada (programación
+   *    pendiente), o
+   *  - el campo se registró en una programación (recepción o despacho).
    */
   const pencilCampo = (
     r: RecepcionUnidadResponse,
     campo: string,
     grupo: GrupoEdicion,
   ) => {
-    const bloqueado = (r.campos_bloqueados ?? []).includes(campo);
+    const llegadaPendiente =
+      r.es_programacion && !r.id_empleado_recepcion;
+    const bloqueadoPorProgramacion = (r.campos_bloqueados ?? []).includes(campo);
+    const bloqueado = llegadaPendiente || bloqueadoPorProgramacion;
+
+    const motivo = llegadaPendiente
+      ? "Confirme la llegada para poder editar"
+      : bloqueadoPorProgramacion
+        ? "Registrado en la programación: no se puede editar"
+        : "Editar";
 
     return (
-      <Tooltip
-        label={
-          bloqueado
-            ? "Registrado en la programación: no se puede editar"
-            : "Editar"
-        }
-        withArrow
-      >
+      <Tooltip label={motivo} withArrow>
         <ActionIcon
           variant="subtle"
           color={bloqueado ? "gray" : "indigo"}
@@ -474,6 +477,28 @@ export const TablaRecepciones = ({
               <Text size="sm" className="text-zinc-200" fw={500}>
                 {r.fecha_hora_salida ? formatFecha(r.fecha_hora_salida) : "—"}
               </Text>
+            ),
+          },
+          {
+            accessor: "guia_remitente",
+            title: "Guías",
+            textAlign: "center",
+            width: 240,
+            render: (r: RecepcionUnidadResponse) => (
+              <div className="flex flex-col gap-1 items-center">
+                <Text size="sm" className="text-white">
+                  Remitente:{" "}
+                  <span className="font-mono">
+                    {r.guia_remitente ?? "—"}
+                  </span>
+                </Text>
+                <Text size="sm" className="text-white">
+                  Transportista:{" "}
+                  <span className="font-mono">
+                    {r.guia_transportista ?? "—"}
+                  </span>
+                </Text>
+              </div>
             ),
           },
           {
