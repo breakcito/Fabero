@@ -10,7 +10,6 @@ import type {
 import type {
   ProgramacionVisitaPayload,
   RecepcionUnidadResponse,
-  TicketIngresoVehiculoData,
   VisitaVehiculoResponse,
 } from "./recepcion-unidades.responses";
 import type { IRespuesta } from "../../../shared/interfaces/_response";
@@ -244,23 +243,6 @@ export const RecepcionUnidadesService = {
       `/programar-recepcion/${id}/observacion-evidencias`,
       formData,
     );
-    return data.data;
-  },
-
-  /**
-   * Obtener los datos estructurados para imprimir el Ticket de Ingreso de Vehículos con Carga
-   */
-  getTicketIngreso: async (
-    id: number,
-    idGuia?: number,
-  ): Promise<TicketIngresoVehiculoData> => {
-    const { data } = await api.get<IRespuesta<TicketIngresoVehiculoData>>(
-      `/recepcion-unidades/${id}/ticket-ingreso`,
-      {
-        params: idGuia ? { id_guia: idGuia } : undefined,
-      },
-    );
-    assertBusinessSuccess(data);
     return data.data;
   },
 

@@ -30,6 +30,8 @@ export const CustomDatePicker = ({
   radius = "lg",
   size = "sm",
   placeholder,
+  popoverProps,
+  classNames,
   ...props
 }: CustomDatePickerProps) => {
   const ref = useRef<HTMLInputElement>(null);
@@ -152,15 +154,16 @@ export const CustomDatePicker = ({
         transitionProps: { transition: "pop", duration: 200 },
         position: "bottom-start",
         offset: 5,
+        ...popoverProps,
         classNames: {
           dropdown:
             "bg-zinc-900 border border-zinc-800 shadow-2xl rounded-xl p-4",
+          ...popoverProps?.classNames,
         },
-        ...props.popoverProps,
       }}
       classNames={{
         ...inputStyles,
-        ...props.classNames,
+        ...classNames,
       }}
       {...props}
     />

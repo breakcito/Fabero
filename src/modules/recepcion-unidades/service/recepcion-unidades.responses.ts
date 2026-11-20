@@ -59,51 +59,6 @@ export interface RecepcionUnidadResponse {
   log_cambios?: RES_CambiosLog[] | null;
 }
 
-export interface TicketIngresoVehiculoData {
-  id: number;
-  correlativo: string;
-  tiv: string;
-  numero_correlativo: number | null;
-  tipo_ingreso: string | null;
-  empresa_fabero: {
-    razon_social: string;
-    ruc: string;
-    domicilio_fiscal: string;
-    sede_productiva: string;
-  };
-  remitente: {
-    razon_social: string;
-    ruc: string;
-    procedencia: string;
-    destino: string;
-    guia_remitente: string;
-    producto: string;
-  };
-  vehiculo: {
-    placa: string;
-    marca_tracto: string;
-    placa_carreta: string;
-    marca_carreta: string;
-    subcontratista: string;
-  };
-  transportista: {
-    razon_social: string;
-    ruc: string;
-    guia_transportista: string;
-    conductor_nombre: string;
-    licencia: string;
-  };
-  generales: {
-    fecha_ingreso: string;
-    hora_ingreso: string;
-    fecha_salida: string;
-    hora_salida: string;
-    peso_guia_tm: number | null;
-    peso_vehicular_total_tm: number | null;
-  };
-  observaciones: string;
-}
-
 export interface GuiaRecepcionItem {
   id: number;
   guia_remitente: string | null;

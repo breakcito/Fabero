@@ -15,6 +15,7 @@ export interface ProgramacionListItem {
   tipo_vehiculo_nombre: string | null;
   id_conductor: number | null;
   conductor_nombre_completo: string | null;
+  conductor_numero_licencia: string | null;
   id_proveedor_minero: number | null;
   proveedor_razon_social: string | null;
   tipo_ingreso: TipoIngreso | string | null;
@@ -27,6 +28,10 @@ export interface ProgramacionListItem {
   id_empleado_recepcion: number | null;
   fecha_hora_ingreso: string | null;
   estado: string | null;
+  /** Ticket de ingreso vehicular (se genera al confirmar la llegada). */
+  id_ticket_recepcion_unidades: number | null;
+  ticket_correlativo: string | null;
+  ticket_numero_correlativo: number | null;
   created_at: string | null;
 }
 

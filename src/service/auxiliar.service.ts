@@ -591,6 +591,19 @@ export const AuxService = {
     return data;
   },
 
+  /**
+   * Historial de tipos de cambio ordenado por fecha descendente.
+   */
+  get_historial_tipo_cambio: async (
+    limit = 20,
+  ): Promise<IRespuesta<RES_TipoCambio[]>> => {
+    const { data } = await api.get<IRespuesta<RES_TipoCambio[]>>(
+      `${path}/tipo-cambio/historial`,
+      { params: { limit } },
+    );
+    return data;
+  },
+
   crear_tipo_cambio: async (payload: REQ_CrearTipoCambio): Promise<IRespuesta<RES_TipoCambio>> => {
     const { data } = await api.post<IRespuesta<RES_TipoCambio>>(`${path}/tipo-cambio`, payload);
     return data;

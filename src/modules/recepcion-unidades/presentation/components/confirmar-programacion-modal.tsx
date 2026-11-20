@@ -30,7 +30,7 @@ import {
 } from "@tabler/icons-react";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
 import { useConfirmarProgramacion } from "../../hooks/useConfirmarProgramacion";
-import { useTicketIngresoVehiculo } from "../../hooks/useTicketIngresoVehiculo";
+import { useTicketIngresoVehiculo } from "../../../../hooks/useTicketIngresoVehiculo";
 import { useNotify } from "../../../../hooks/useNotify";
 import type { RecepcionUnidadResponse } from "../../service/recepcion-unidades.responses";
 import { AgregarAcompananteModal, type DatosAcompananteForm } from "./agregar-acompanante-modal";

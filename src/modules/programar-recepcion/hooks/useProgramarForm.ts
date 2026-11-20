@@ -7,6 +7,7 @@ import type { RES_EmpresaTransporte } from "../../../service/responses/empresa-t
 import type { RES_Vehiculo } from "../../../service/responses/vehiculo";
 import type { RES_Proveedor } from "../../../service/responses/proveedor";
 import type { RES_TipoVehiculo } from "../../../service/responses/tipo-vehiculo";
+import type { RES_Conductor } from "../../../service/responses/conductor";
 import type { EmpresaTransporteResponse } from "../../empresas-transporte/service/empresas-transporte.responses";
 import type { ProveedorResponse } from "../../proveedores-mineros/service/proveedores.responses";
 import { useNotify } from "../../../hooks/useNotify";
@@ -34,33 +35,40 @@ const INITIAL_FORM: CrearProgramacionRequest = {
 
 export const useProgramarForm = (
   onSuccess: (nueva: ProgramacionDetail) => void,
+  programacion?: ProgramacionDetail | null,
 ) => {
   const { notifySuccess, notifyError } = useNotify();
   const [form, setForm] = useState<CrearProgramacionRequest>(INITIAL_FORM);
   const [loading, setLoading] = useState(false);
 
+  const esEdicion = Boolean(programacion?.id);
+
   const [empresas, setEmpresas] = useState<RES_EmpresaTransporte[]>([]);
   const [vehiculos, setVehiculos] = useState<RES_Vehiculo[]>([]);
   const [proveedores, setProveedores] = useState<RES_Proveedor[]>([]);
   const [tiposVehiculo, setTiposVehiculo] = useState<RES_TipoVehiculo[]>([]);
+  const [conductores, setConductores] = useState<RES_Conductor[]>([]);
 
   const [loadingEmpresas, setLoadingEmpresas] = useState(false);
   const [loadingVehiculos, setLoadingVehiculos] = useState(false);
   const [loadingProveedores, setLoadingProveedores] = useState(false);
   const [loadingTiposVehiculo, setLoadingTiposVehiculo] = useState(false);
+  const [loadingConductores, setLoadingConductores] = useState(false);
 
   const cargarCatalogos = useCallback(async () => {
     setLoadingEmpresas(true);
     setLoadingVehiculos(true);
     setLoadingProveedores(true);
     setLoadingTiposVehiculo(true);
+    setLoadingConductores(true);
 
     try {
-      const [emp, veh, prov, tipos] = await Promise.all([
+      const [emp, veh, prov, tipos, cond] = await Promise.all([
         AuxService.get_empresas_transporte(),
         AuxService.get_vehiculos(),
         AuxService.get_proveedores(),
         AuxService.get_tipos_vehiculo(),
+        AuxService.get_conductores(),
       ]);
       setEmpresas(Array.isArray(emp) ? emp : []);
       setVehiculos(Array.isArray(veh) ? veh : []);
@@ -70,6 +78,7 @@ export const useProgramarForm = (
         setProveedores(prov as unknown as RES_Proveedor[]);
       }
       setTiposVehiculo(Array.isArray(tipos) ? tipos : []);
+      setConductores(Array.isArray(cond) ? cond : []);
     } catch (e) {
       console.error(e);
       notifyError("Error al cargar los catálogos de programación");
@@ -78,6 +87,7 @@ export const useProgramarForm = (
       setLoadingVehiculos(false);
       setLoadingProveedores(false);
       setLoadingTiposVehiculo(false);
+      setLoadingConductores(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -105,6 +115,36 @@ export const useProgramarForm = (
     setForm(INITIAL_FORM);
   }, []);
 
+  /**
+   * Cargar en el formulario los datos de una programación existente para
+   * editarlos. `tipo_ingreso` se conserva tal cual: es un campo bloqueado.
+   */
+  const cargarProgramacion = useCallback((p: ProgramacionDetail) => {
+    // La API devuelve la fecha estimada con hora ("2026-11-25 00:00:00"); el
+    // date picker del formulario trabaja solo con "YYYY-MM-DD".
+    const fechaEstimada = p.fecha_estimada_llegada
+      ? p.fecha_estimada_llegada.slice(0, 10)
+      : "";
+
+    setForm({
+      id_empresa_transporte: p.id_empresa_transporte,
+      tipo_ingreso: p.tipo_ingreso ?? TipoIngreso.RecepcionMineral,
+      id_vehiculo: p.id_vehiculo ?? undefined,
+      id_tipo_vehiculo: p.id_tipo_vehiculo ?? undefined,
+      id_conductor: p.id_conductor ?? undefined,
+      id_proveedor_minero: p.id_proveedor_minero ?? undefined,
+      id_sucursal: p.id_sucursal ?? undefined,
+      fecha_estimada_llegada: fechaEstimada,
+      guia_remitente: p.guia_remitente ?? "",
+      guia_transportista: p.guia_transportista ?? "",
+      id_vehiculo_carreta: p.id_vehiculo_carreta ?? undefined,
+      guia_remitente_file: null,
+      guia_transportista_file: null,
+      documentos_programacion_existentes: p.documentos_programacion ?? null,
+      observacion: p.observacion ?? "",
+    });
+  }, []);
+
   const submit = async (): Promise<boolean> => {
     if (!form.id_empresa_transporte) {
       notifyError("Debe seleccionar la empresa de transporte.");
@@ -119,18 +159,30 @@ export const useProgramarForm = (
       return false;
     }
 
-    const idSucursalFinal =
-      form.id_sucursal ||
-      useUIStore.getState().sucursal_elegida?.id_sucursal ||
-      useUIStore.getState().sucursales[0]?.id_sucursal;
+    // En alta se usa la sucursal del contexto; en edición se conserva la de
+    // la programación original (viene precargada en el formulario).
+    const idSucursalFinal = esEdicion
+      ? form.id_sucursal
+      : form.id_sucursal ||
+        useUIStore.getState().sucursal_elegida?.id_sucursal ||
+        useUIStore.getState().sucursales[0]?.id_sucursal;
 
     setLoading(true);
     try {
-      const nueva = await ProgramarRecepcionService.crearProgramacion({
-        ...form,
-        id_sucursal: idSucursalFinal,
-      });
-      notifySuccess("Programación registrada correctamente");
+      const payload = { ...form, id_sucursal: idSucursalFinal };
+      const nueva =
+        esEdicion && programacion
+          ? await ProgramarRecepcionService.actualizarProgramacion(
+              programacion.id,
+              payload,
+            )
+          : await ProgramarRecepcionService.crearProgramacion(payload);
+
+      notifySuccess(
+        esEdicion
+          ? "Programación actualizada correctamente"
+          : "Programación registrada correctamente",
+      );
       onSuccess(nueva);
       reset();
       return true;
@@ -144,7 +196,9 @@ export const useProgramarForm = (
       const fallback =
         e instanceof Error && e.message
           ? e.message
-          : "Error al registrar la programación";
+          : esEdicion
+            ? "Error al actualizar la programación"
+            : "Error al registrar la programación";
       notifyError(backendMsg || fallback);
       return false;
     } finally {
@@ -197,24 +251,52 @@ export const useProgramarForm = (
     [setField],
   );
 
+  const handleTipoVehiculoCreado = useCallback(
+    (nuevo: RES_TipoVehiculo) => {
+      setTiposVehiculo((prev) => [
+        nuevo,
+        ...prev.filter((t) => t.id_tipo_vehiculo !== nuevo.id_tipo_vehiculo),
+      ]);
+      setField("id_tipo_vehiculo", nuevo.id_tipo_vehiculo);
+    },
+    [setField],
+  );
+
+  const handleConductorCreado = useCallback(
+    (nuevo: RES_Conductor) => {
+      setConductores((prev) => [
+        nuevo,
+        ...prev.filter((c) => c.id_conductor !== nuevo.id_conductor),
+      ]);
+      setField("id_conductor", nuevo.id_conductor);
+    },
+    [setField],
+  );
+
   return {
     form,
     setField,
     reset,
     submit,
     loading,
+    esEdicion,
     empresas,
     vehiculos,
     proveedores,
     tiposVehiculo,
+    conductores,
     loadingEmpresas,
     loadingVehiculos,
     loadingProveedores,
     loadingTiposVehiculo,
+    loadingConductores,
     cargarCatalogos,
+    cargarProgramacion,
     handleEmpresaCreada,
     handleVehiculoCreado,
     handleProveedorCreado,
     handleCarretaCreada,
+    handleTipoVehiculoCreado,
+    handleConductorCreado,
   };
 };

@@ -9,7 +9,7 @@ import type { RecepcionUnidadResponse, GuiaRecepcionItem } from "../../service/r
 
 import { RecepcionUnidadesService } from "../../service/recepcion-unidades.service";
 import { useNotify } from "../../../../hooks/useNotify";
-import { useTicketIngresoVehiculo } from "../../hooks/useTicketIngresoVehiculo";
+import { useTicketIngresoVehiculo } from "../../../../hooks/useTicketIngresoVehiculo";
 import { EstadoSalida } from "../../../../shared/enums/_generic/estado-salida";
 import { EstadoUnidad } from "../../../../shared/enums/_generic/estado-unidad";
 import type { GrupoEdicion } from "./modal-editar-campo-unidad";

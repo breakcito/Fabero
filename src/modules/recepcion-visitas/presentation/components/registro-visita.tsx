@@ -24,7 +24,6 @@ import {
   IconUserCheck,
   IconPhoto,
   IconPlus,
-  IconSparkles,
 } from "@tabler/icons-react";
 import { useRegistroVisita, type VisitanteFormItem } from "../../hooks/useRegistroVisita";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
@@ -32,13 +31,6 @@ import { SelectVisitante } from "../../../../presentation/utils/select-visitante
 import { RegistroMotivoIngreso } from "../../../../presentation/utils/registro-motivo-ingreso";
 import { MultiFilePicker } from "../../../../presentation/utils/archivo/multifile-picker";
 import { useNotify } from "../../../../hooks/useNotify";
-import { useAIFileAnalysis } from "../../../../hooks/ia/useAIFileAnalysis";
-import {
-  isCompleteDatos,
-  visitanteIAPrompt,
-  visitanteIASchema,
-  type IDatosVisitanteExtraidos,
-} from "../../service/visitante.ia.schema";
 import { useRecepcionVisitasContextStore } from "../../stores/recepcion-visitas-context.store";
 import type { RecepcionVisitaResponse } from "../../service/recepcion-visitas.responses";
 
@@ -134,9 +126,7 @@ export const RegistroVisita = ({ onCancel, onSuccess }: Props) => {
 
   const [visitorError, setVisitorError] = useState<string | null>(null);
 
-  const { notifySuccess, notifyInfo, notifyError } = useNotify();
-  const { analyze: analyzeDocumentoIA, loading: loadingIA, reset: resetIA } =
-    useAIFileAnalysis<IDatosVisitanteExtraidos>();
+  const { notifyError } = useNotify();
 
   const setFormEnCurso = useRecepcionVisitasContextStore(
     (s) => s.setFormEnCurso,
@@ -185,52 +175,6 @@ export const RegistroVisita = ({ onCancel, onSuccess }: Props) => {
     empleados,
     setFormEnCurso,
   ]);
-
-  const handleExtraerDatosIA = async () => {
-    if (visitorForm.fotos_documento.length === 0) {
-      notifyError("Adjunta al menos una foto del documento de identidad.");
-      return;
-    }
-    resetIA();
-    const response = await analyzeDocumentoIA({
-      archivos: visitorForm.fotos_documento,
-      prompt: visitanteIAPrompt,
-      schema: visitanteIASchema,
-      temperature: 0,
-    });
-
-    const datos = response?.structured ?? null;
-
-    if (isCompleteDatos(datos)) {
-      setVisitorForm((prev) => ({
-        ...prev,
-        dni: datos.dni,
-        nombre: datos.nombre,
-        apellido: datos.apellido,
-      }));
-      notifySuccess(
-        "Datos extraídos del documento. Verifica antes de continuar.",
-      );
-      return;
-    }
-
-    if (datos && (datos.dni || datos.nombre || datos.apellido)) {
-      setVisitorForm((prev) => ({
-        ...prev,
-        dni: datos.dni ?? prev.dni,
-        nombre: datos.nombre ?? prev.nombre,
-        apellido: datos.apellido ?? prev.apellido,
-      }));
-      notifyInfo(
-        "La IA extrajo algunos datos. Completa los campos faltantes manualmente.",
-      );
-      return;
-    }
-
-    notifyError(
-      "No se pudo leer el documento. Verifica que la foto sea clara y vuelve a intentar.",
-    );
-  };
 
   const getEmpleadosDropdown = () =>
     empleados.map((e) => ({
@@ -449,7 +393,7 @@ export const RegistroVisita = ({ onCancel, onSuccess }: Props) => {
               disabled={loading}
               className="bg-zinc-800/80! hover:bg-zinc-700/80! text-zinc-200! border-zinc-700! shadow-sm py-2"
             >
-              + Agregar Visitante
+              Agregar Visitante
             </Button>
 
             <Button
@@ -466,7 +410,7 @@ export const RegistroVisita = ({ onCancel, onSuccess }: Props) => {
               disabled={loading}
               className="bg-zinc-800/80! hover:bg-zinc-700/80! text-zinc-200! border-zinc-700! shadow-sm py-2"
             >
-              + Agregar Vehículo Acompañante
+              Agregar Vehículo Acompañante
             </Button>
           </Group>
 
@@ -914,29 +858,6 @@ export const RegistroVisita = ({ onCancel, onSuccess }: Props) => {
             label="Foto del Documento de Identidad"
             description="Suba fotografías legibles del DNI o carné"
           />
-
-          <div className="flex justify-end">
-            <Button
-              type="button"
-              size="xs"
-              radius="lg"
-              variant="light"
-              color="violet"
-              leftSection={
-                loadingIA ? (
-                  <Loader size={14} color="violet" />
-                ) : (
-                  <IconSparkles size={14} />
-                )
-              }
-              onClick={handleExtraerDatosIA}
-              loading={loadingIA}
-              disabled={loadingIA || visitorForm.fotos_documento.length === 0}
-              className="bg-violet-500/10 hover:bg-violet-500/20 text-violet-200 border border-violet-500/30 font-bold"
-            >
-              {loadingIA ? "Leyendo documento..." : "Extraer datos con IA"}
-            </Button>
-          </div>
 
           <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-zinc-800">
             <Button variant="subtle" color="gray" radius="lg" onClick={() => setOpenModalAcompanante(false)}>

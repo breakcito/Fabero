@@ -1,5 +1,5 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
-import type { TicketIngresoVehiculoData } from "../../service/recepcion-unidades.responses";
+import type { RES_TicketIngresoVehiculoData } from "../../service/responses/ticket-ingreso-vehiculo";
 
 /**
  * Ticket de Ingreso de Vehículos con Carga (Mitad de hoja / réplica fiel).
@@ -254,7 +254,7 @@ const fmtTm = (n: number | null | undefined): string => {
 };
 
 export interface TicketIngresoVehiculoPdfProps {
-  data: TicketIngresoVehiculoData;
+  data: RES_TicketIngresoVehiculoData;
 }
 
 export const TicketIngresoVehiculoPdf = ({ data }: TicketIngresoVehiculoPdfProps) => {

@@ -52,6 +52,7 @@ export const ProgramarRecepcionService = {
 
   getProgramacion: async (id: number): Promise<ProgramacionDetail> => {
     const { data } = await api.get(`/programar-recepcion/${id}`);
+    assertBusinessSuccess(data);
     return data.data;
   },
 
@@ -111,12 +112,18 @@ export const ProgramarRecepcionService = {
     appendIfDefined("id_conductor", payload.id_conductor);
     appendIfDefined("id_proveedor_minero", payload.id_proveedor_minero);
     appendIfDefined("id_sucursal", payload.id_sucursal);
-    appendIfDefined("fecha_estimada_llegada", payload.fecha_estimada_llegada);
-    appendIfDefined("guia_remitente", payload.guia_remitente);
-    appendIfDefined("guia_transportista", payload.guia_transportista);
-    appendIfDefined("id_vehiculo_carreta", payload.id_vehiculo_carreta);
-    appendIfDefined("observacion", payload.observacion);
-    appendIfDefined("tipo_ingreso", payload.tipo_ingreso);
+    // Estos campos se envían siempre (incluso vacíos) para que en la edición
+    // se pueda limpiarlos: el backend los normaliza a null.
+    fd.append("fecha_estimada_llegada", payload.fecha_estimada_llegada ?? "");
+    fd.append(
+      "id_vehiculo_carreta",
+      payload.id_vehiculo_carreta === undefined || payload.id_vehiculo_carreta === null
+        ? ""
+        : String(payload.id_vehiculo_carreta),
+    );
+    fd.append("guia_remitente", payload.guia_remitente ?? "");
+    fd.append("guia_transportista", payload.guia_transportista ?? "");
+    fd.append("observacion", payload.observacion ?? "");
     if (payload.guia_remitente_file instanceof File) {
       fd.append("guia_remitente_file", payload.guia_remitente_file);
     }
