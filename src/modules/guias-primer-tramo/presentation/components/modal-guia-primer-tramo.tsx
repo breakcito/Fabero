@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
   Stack,
   Group,
@@ -65,6 +65,7 @@ import type {
 import type { RES_GuiaPrimerTramo } from "../../service/guias-primer-tramo.responses";
 import { useValidarDuplicadoGuiaEnVivo } from "../../hooks/useValidarDuplicadoGuiaEnVivo";
 import {
+  guiasDelProveedor,
   resolverConcesionSeleccionada,
   resolverProveedorUnidad,
 } from "../utils/autocompletado-unidad";
@@ -318,6 +319,14 @@ export const ModalGuiaPrimerTramo = ({
   const [recepcionActivaKey, setRecepcionActivaKey] = useState<string | null>(
     null,
   );
+  /**
+   * Token de la búsqueda en curso.
+   *
+   * Cada cambio de unidad o proveedor dispara una búsqueda: si el operador
+   * cambia otra vez antes de que responda la anterior, la respuesta vieja
+   * debe ignorarse para no pegar guías de otro contexto.
+   */
+  const tokenBusqueda = useRef(0);
   // Mapa itemKey -> id_recepcion_unidad para agrupar items por recepción
   // y permitir autocompletar las guias cuando todos comparten una sola.
   const [recepcionesPorItem, setRecepcionesPorItem] = useState<
@@ -585,12 +594,21 @@ export const ModalGuiaPrimerTramo = ({
   /**
    * Reemplaza por completo la lista de items de la guía y recalcula los pesos
    * agregados. Se usa cuando la selección depende de la unidad/proveedor.
+   *
+   * `forzarGuias` indica que cambió el contexto (unidad o proveedor): lo que
+   * haya en los inputs de guía y en sus archivos pertenece al contexto
+   * anterior, así que se limpia y se vuelve a buscar.
+   *
+   * `forzarViaje` indica además que cambió la UNIDAD: el conductor, la carreta
+   * y la empresa de transporte pasan a ser los de esa unidad.
    */
   const reemplazarItems = (
     nuevos: ItemFormItem[],
     recepciones: Map<string, number>,
     recepcionKey: string | null,
     idProveedorGuia: number | null,
+    forzarGuias = false,
+    forzarViaje = false,
   ) => {
     setItems(nuevos);
     setRecepcionesPorItem(recepciones);
@@ -608,7 +626,13 @@ export const ModalGuiaPrimerTramo = ({
     setPesoGuiaRemision(nuevos.length > 0 ? sumGuia : null);
     setPesoVehicularTotal(nuevos.length > 0 ? sumVehicular : null);
 
-    void sincronizarGuiasPorRecepciones(nuevos, recepciones, idProveedorGuia);
+    void sincronizarGuiasPorRecepciones(
+      nuevos,
+      recepciones,
+      idProveedorGuia,
+      forzarGuias,
+      forzarViaje,
+    );
   };
 
   /**
@@ -694,9 +718,16 @@ export const ModalGuiaPrimerTramo = ({
       setIdUnidad(newVal);
       setItemsCatalogo([]);
 
+      // Cambio de unidad: las guías y sus archivos que hubiera en los inputs
+      // pertenecen a la unidad anterior.
+      setGuiaRemitente("");
+      setGuiaTransportista("");
+      setDocumentoGuiaRemitente(null);
+      setDocumentoGuiaTransportista(null);
+
       if (idUnidadNum === null) {
         setProveedoresUnidad([]);
-        reemplazarItems([], new Map(), null, null);
+        reemplazarItems([], new Map(), null, null, true, true);
         return;
       }
 
@@ -725,6 +756,8 @@ export const ModalGuiaPrimerTramo = ({
         recepcionesDeItems(autoItems),
         autoItems.length > 0 ? recepcionGroupKey(autoItems[0]) : null,
         proveedorValido,
+        true,
+        true,
       );
     };
 
@@ -770,13 +803,19 @@ export const ModalGuiaPrimerTramo = ({
     const aplicar = async () => {
       setIdProveedor(newVal);
 
+      // Cambio de proveedor: las guías y sus archivos que hubiera en los
+      // inputs son del proveedor anterior.
+      setGuiaRemitente("");
+      setGuiaTransportista("");
+      setDocumentoGuiaRemitente(null);
+      setDocumentoGuiaTransportista(null);
+
       if (idUnidad === null || newVal === null) {
         if (items.length > 0) {
-          reemplazarItems([], new Map(), null, null);
+          reemplazarItems([], new Map(), null, null, true);
         }
         return;
       }
-
       const idUnidadNum = Number(idUnidad);
       const idProveedorNum = Number(newVal);
       const catalogo = await cargarCatalogoItems(
@@ -794,6 +833,7 @@ export const ModalGuiaPrimerTramo = ({
         recepcionesDeItems(autoItems),
         autoItems.length > 0 ? recepcionGroupKey(autoItems[0]) : null,
         idProveedorNum,
+        true,
       );
     };
 
@@ -1259,6 +1299,8 @@ export const ModalGuiaPrimerTramo = ({
     itemsActuales: ItemFormItem[],
     recepcionesOverride?: Map<string, number>,
     idProveedorGuia?: number | null,
+    forzarGuias = false,
+    forzarViaje = false,
   ): Promise<void> => {
     const mapaRecepciones = recepcionesOverride ?? recepcionesPorItem;
     const recepciones = new Set<number>();
@@ -1289,6 +1331,7 @@ export const ModalGuiaPrimerTramo = ({
     // Fetch explicito al endpoint: trae vehiculo, conductor, textos (guia_remitente,
     // guia_transportista) y los archivos (array JSON `guias`) directamente desde
     // recepcion_unidad de la BD.
+    const token = ++tokenBusqueda.current;
     let dataRecepcion: RES_ArchivosGuiasRecepcion;
     try {
       dataRecepcion =
@@ -1296,6 +1339,12 @@ export const ModalGuiaPrimerTramo = ({
           unicaRecepcion,
         );
     } catch {
+      return;
+    }
+
+    // Mientras se esperaba, el operador cambió otra vez de unidad o de
+    // proveedor: esta respuesta ya no corresponde al contexto vigente.
+    if (token !== tokenBusqueda.current) {
       return;
     }
 
@@ -1309,21 +1358,28 @@ export const ModalGuiaPrimerTramo = ({
     if (!esEdicion && dataRecepcion.id_vehiculo) {
       setIdVehiculo(String(dataRecepcion.id_vehiculo));
     }
-    if (!idVehiculoCarreta && dataRecepcion.id_vehiculo_carreta) {
+    if (
+      (forzarViaje || !idVehiculoCarreta) &&
+      dataRecepcion.id_vehiculo_carreta
+    ) {
       setIdVehiculoCarreta(String(dataRecepcion.id_vehiculo_carreta));
     }
-    if (!idConductor && dataRecepcion.id_conductor) {
+    if ((forzarViaje || !idConductor) && dataRecepcion.id_conductor) {
       setIdConductor(String(dataRecepcion.id_conductor));
     }
-    if (!idEmpresaTransporte && dataRecepcion.id_empresa_transporte) {
+    if (
+      (forzarViaje || !idEmpresaTransporte) &&
+      dataRecepcion.id_empresa_transporte
+    ) {
       setIdEmpresaTransporte(String(dataRecepcion.id_empresa_transporte));
     }
 
     const inputsVacios =
-      guiaRemitente.trim() === "" &&
-      guiaTransportista.trim() === "" &&
-      documentoGuiaRemitente === null &&
-      documentoGuiaTransportista === null;
+      forzarGuias ||
+      (guiaRemitente.trim() === "" &&
+        guiaTransportista.trim() === "" &&
+        documentoGuiaRemitente === null &&
+        documentoGuiaTransportista === null);
 
     if (!inputsVacios) {
       return;
@@ -1331,15 +1387,15 @@ export const ModalGuiaPrimerTramo = ({
 
     const proveedorGuia =
       idProveedorGuia !== undefined ? idProveedorGuia : idProveedor;
-    const guiaDelProveedor = dataRecepcion.guias?.find(
-      (g) => g.id_proveedor === Number(proveedorGuia),
-    );
 
-    const textoRemitente =
-      guiaDelProveedor?.guia_remitente ?? dataRecepcion.guia_remitente;
-    const textoTransportista =
-      guiaDelProveedor?.guia_transportista ??
-      dataRecepcion.guia_transportista;
+    // Las guías y sus archivos son DEL PROVEEDOR ELEGIDO dentro de esta
+    // unidad: no se rellenan con las de otro proveedor.
+    const {
+      textoRemitente,
+      textoTransportista,
+      archivoRemitente,
+      archivoTransportista,
+    } = guiasDelProveedor(dataRecepcion, proveedorGuia === null ? null : Number(proveedorGuia));
 
     if (textoRemitente !== null && textoRemitente !== undefined) {
       setGuiaRemitente(textoRemitente);
@@ -1347,13 +1403,6 @@ export const ModalGuiaPrimerTramo = ({
     if (!sinGuiaTransportista && textoTransportista !== null && textoTransportista !== undefined) {
       setGuiaTransportista(textoTransportista);
     }
-
-    const archivoRemitente =
-      guiaDelProveedor?.guia_remitente_archivo ??
-      dataRecepcion.documentos?.guia_remitente;
-    const archivoTransportista =
-      guiaDelProveedor?.guia_transportista_archivo ??
-      dataRecepcion.documentos?.guia_transportista;
 
     if (archivoRemitente?.url) {
       const file = await descargarArchivoADocumento(archivoRemitente);

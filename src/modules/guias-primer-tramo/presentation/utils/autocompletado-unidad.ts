@@ -6,6 +6,8 @@
  * proveedor.
  */
 
+import type { IArchivo } from "../../../../shared/interfaces/archivo";
+
 /** Datos mínimos de una concesión para resolver la selección. */
 interface ConcesionSeleccionable {
   id_concesion: number;
@@ -60,4 +62,83 @@ export const resolverProveedorUnidad = (
   }
   if (proveedores.length === 1) return String(proveedores[0].id_proveedor);
   return null;
+};
+
+/** Guía de un proveedor dentro del contrato `guias` de una unidad. */
+interface GuiaDeProveedor {
+  id_proveedor: number;
+  guia_remitente: string | null;
+  guia_transportista: string | null;
+  guia_remitente_archivo?: IArchivo | null;
+  guia_transportista_archivo?: IArchivo | null;
+}
+
+/** Datos de la unidad que hacen falta para resolver las guías. */
+interface UnidadConGuias {
+  /** Guías por proveedor (contrato `guias` del modelo nuevo). */
+  guias?: readonly GuiaDeProveedor[];
+  /** Guías del proveedor principal (contrato legacy). */
+  guia_remitente?: string | null;
+  guia_transportista?: string | null;
+  /** Archivos del proveedor principal (contrato legacy). */
+  documentos?: {
+    guia_remitente?: IArchivo | null;
+    guia_transportista?: IArchivo | null;
+  } | null;
+  /** Proveedores de la carga: el primero es el principal. */
+  proveedores?: readonly ProveedorSeleccionable[];
+}
+
+/** Guías y archivos que corresponden a un proveedor de una unidad. */
+export interface GuiasDelProveedor {
+  textoRemitente: string | null;
+  textoTransportista: string | null;
+  archivoRemitente: IArchivo | null;
+  archivoTransportista: IArchivo | null;
+}
+
+/**
+ * Resuelve las guías y sus archivos de un proveedor dentro de una unidad.
+ *
+ * Las guías son DEL PROVEEDOR ELEGIDO: si ese proveedor tiene entrada en el
+ * contrato `guias` se usan sus textos y sus archivos. Solo el proveedor
+ * principal de la unidad conserva los suyos si el contrato `guias` no los
+ * trae (unidades registradas antes del modelo multi-proveedor).
+ *
+ * Con un proveedor que no tiene guías en esa unidad el resultado es vacío:
+ * no se rellena con las guías de otro proveedor.
+ */
+export const guiasDelProveedor = (
+  unidad: UnidadConGuias,
+  idProveedor: number | null,
+): GuiasDelProveedor => {
+  const vacio: GuiasDelProveedor = {
+    textoRemitente: null,
+    textoTransportista: null,
+    archivoRemitente: null,
+    archivoTransportista: null,
+  };
+
+  if (idProveedor === null) return vacio;
+
+  const guia = unidad.guias?.find((g) => g.id_proveedor === idProveedor);
+  if (guia) {
+    return {
+      textoRemitente: guia.guia_remitente ?? null,
+      textoTransportista: guia.guia_transportista ?? null,
+      archivoRemitente: guia.guia_remitente_archivo ?? null,
+      archivoTransportista: guia.guia_transportista_archivo ?? null,
+    };
+  }
+
+  const esProveedorPrincipal =
+    unidad.proveedores?.[0]?.id_proveedor === idProveedor;
+  if (!esProveedorPrincipal) return vacio;
+
+  return {
+    textoRemitente: unidad.guia_remitente ?? null,
+    textoTransportista: unidad.guia_transportista ?? null,
+    archivoRemitente: unidad.documentos?.guia_remitente ?? null,
+    archivoTransportista: unidad.documentos?.guia_transportista ?? null,
+  };
 };
