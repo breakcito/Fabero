@@ -284,6 +284,8 @@ export const TablaRecepciones = ({
                     </ActionIcon>
                   </Tooltip>
 
+                  {/* Botón de historial OCULTO: el modal sigue disponible, pero
+                      el operador no lo ve en la columna de acciones. */}
                   <Tooltip label="Ver historial de cambios" withArrow>
                     <ActionIcon
                       variant="light"
@@ -291,7 +293,7 @@ export const TablaRecepciones = ({
                       radius="xl"
                       size="lg"
                       onClick={() => onVerHistorial(r)}
-                      className="bg-zinc-700/10 hover:bg-zinc-700/20 text-zinc-400 border border-zinc-500/10 disabled:opacity-40"
+                      className="hidden bg-zinc-700/10 hover:bg-zinc-700/20 text-zinc-400 border border-zinc-500/10 disabled:opacity-40"
                     >
                       <IconHistory size={18} />
                     </ActionIcon>
