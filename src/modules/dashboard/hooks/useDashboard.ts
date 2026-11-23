@@ -1,9 +1,23 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { DashboardService } from "../service/dashboard.service";
 import type { RES_Dashboard, RES_DashboardMes } from "../service/dashboard.responses";
+import { AuxService } from "../../../service/auxiliar.service";
+import { EstadoBase } from "../../../shared/enums/_generic/estado-base";
 import { useUIStore } from "../../../stores/ui.store";
 import { useNotify } from "../../../hooks/useNotify";
 import { useAuthStore } from "../../../stores/auth.store";
+
+/** Proveedor miners para el filtro de TN recepcionadas. */
+export interface DashboardProveedor {
+  id: number;
+  razon_social: string;
+}
+
+/** Planta de destino para el filtro de TN despachadas. */
+export interface DashboardPlanta {
+  id: number;
+  razon_social: string;
+}
 
 /**
  * La ventana de análisis son los últimos 12 meses **incluyendo el mes en
@@ -28,6 +42,19 @@ export const useDashboard = () => {
    */
   const [mesIndex, setMesIndex] = useState<number | null>(null);
 
+  /**
+   * Filtros de la serie mensual. Son independientes: el proveedor acota las
+   * TN recepcionadas y la planta acota las TN despachadas.
+   */
+  const [idProveedorMinero, setIdProveedorMinero] = useState<number | null>(
+    null,
+  );
+  const [idPlantaDestino, setIdPlantaDestino] = useState<number | null>(null);
+
+  /** Catálogos de los selectores de filtro. */
+  const [proveedores, setProveedores] = useState<DashboardProveedor[]>([]);
+  const [plantas, setPlantas] = useState<DashboardPlanta[]>([]);
+
   const idSucursal = sucursal?.id_sucursal ?? null;
 
   /**
@@ -44,7 +71,11 @@ export const useDashboard = () => {
 
     setLoading(true);
     try {
-      const res = await DashboardService.get_resumen({ id_sucursal: idSucursal });
+      const res = await DashboardService.get_resumen({
+        id_sucursal: idSucursal,
+        id_proveedor_minero: idProveedorMinero,
+        id_planta_destino: idPlantaDestino,
+      });
 
       if (!res.success) {
         notifyError(res.message || "No se pudieron obtener los indicadores.");
@@ -66,11 +97,54 @@ export const useDashboard = () => {
     } finally {
       setLoading(false);
     }
-  }, [idSucursal, notifyError, puedeVerDashboard]);
+  }, [
+    idSucursal,
+    idProveedorMinero,
+    idPlantaDestino,
+    notifyError,
+    puedeVerDashboard,
+  ]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  /**
+   * Catálogos de los selectores. Se cargan una sola vez: no dependen de los
+   * filtros ni de la sucursal.
+   */
+  const cargarCatalogos = useCallback(async () => {
+    try {
+      const [resProveedores, resPlantas] = await Promise.all([
+        AuxService.get_proveedores({ estado: EstadoBase.Activo }),
+        AuxService.get_plantas_despachable(),
+      ]);
+
+      if (resProveedores.success && Array.isArray(resProveedores.data)) {
+        setProveedores(
+          resProveedores.data.map((p) => ({
+            id: p.id_proveedor,
+            razon_social: p.razon_social,
+          })),
+        );
+      }
+
+      if (Array.isArray(resPlantas)) {
+        setPlantas(
+          resPlantas.map((p) => ({
+            id: p.id,
+            razon_social: p.razon_social,
+          })),
+        );
+      }
+    } catch (e) {
+      console.error("Error al cargar los catálogos de filtros del dashboard", e);
+    }
+  }, []);
+
+  useEffect(() => {
+    void cargarCatalogos();
+  }, [cargarCatalogos]);
 
   const meses = useMemo(
     () => data?.periodo.meses ?? [],
@@ -117,5 +191,11 @@ export const useDashboard = () => {
     mesActual,
     mesAnterior,
     mismoMesAnioAnterior,
+    idProveedorMinero,
+    setIdProveedorMinero,
+    idPlantaDestino,
+    setIdPlantaDestino,
+    proveedores,
+    plantas,
   };
 };

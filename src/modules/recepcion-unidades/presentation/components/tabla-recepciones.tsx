@@ -1,19 +1,18 @@
 import { useState } from "react";
-import { Text, Button, Select, Textarea, Badge, Group, ActionIcon, Tooltip, type MantineColor } from "@mantine/core";
+import { Text, Button, Select, Textarea, Badge, Group, ActionIcon, Tooltip, Stack, type MantineColor } from "@mantine/core";
 import { DataTableEstandar } from "../../../../presentation/utils/datatable-estandar";
 import { IconPaperclip, IconClipboardCheck, IconPencil, IconHistory, IconTruck, IconPrinter, IconLock } from "@tabler/icons-react";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
 
 import { MultiFilePicker } from "../../../../presentation/utils/archivo/multifile-picker";
-import { ModalSeleccionGuiaTicket } from "../../../../presentation/utils/modal-seleccion-guia-ticket";
+import { ModalSeleccionTicketIngreso } from "../../../../presentation/utils/modal-seleccion-ticket-ingreso";
 import type { RecepcionUnidadResponse } from "../../service/recepcion-unidades.responses";
-import type { GuiaRecepcionItem } from "../../../../service/responses/ticket-ingreso-vehiculo";
+import type { RES_TicketIngresoDisponible } from "../../../../service/responses/ticket-ingreso-vehiculo";
 
 import { RecepcionUnidadesService } from "../../service/recepcion-unidades.service";
 import { useNotify } from "../../../../hooks/useNotify";
 import { useDispositivo } from "../../../../hooks/useDispositivo";
 import { useTicketIngresoVehiculo } from "../../../../hooks/useTicketIngresoVehiculo";
-import { TicketIngresoService } from "../../../../service/ticket-ingreso.service";
 import { EstadoSalida } from "../../../../shared/enums/_generic/estado-salida";
 import { EstadoUnidad } from "../../../../shared/enums/_generic/estado-unidad";
 import type { GrupoEdicion } from "./modal-editar-campo-unidad";
@@ -45,11 +44,11 @@ export const TablaRecepciones = ({
   onEditarCampo,
   onEditarGuias,
 }: Props) => {
-  const [modalSeleccionGuiaOpen, setModalSeleccionGuiaOpen] = useState(false);
-  const [guiasRecepcion, setGuiasRecepcion] = useState<GuiaRecepcionItem[]>([]);
+  const [modalSeleccionTicketOpen, setModalSeleccionTicketOpen] = useState(false);
+  const [ticketsDisponibles, setTicketsDisponibles] = useState<RES_TicketIngresoDisponible[]>([]);
   const [recepcionSeleccionadaTicket, setRecepcionSeleccionadaTicket] = useState<RecepcionUnidadResponse | null>(null);
-  const [loadingGuiasRecepcion, setLoadingGuiasRecepcion] = useState(false);
-  const [idGuiaImprimiendo, setIdGuiaImprimiendo] = useState<number | null>(null);
+  const [loadingTicketsIngreso, setLoadingTicketsIngreso] = useState(false);
+  const [idProveedorImprimiendo, setIdProveedorImprimiendo] = useState<number | null>(null);
 
   const [exitRecord, setExitRecord] = useState<RecepcionUnidadResponse | null>(null);
   const [estadoSalida, setEstadoSalida] = useState<EstadoSalida | null>(null);
@@ -57,27 +56,26 @@ export const TablaRecepciones = ({
   const [evidenciasSalida, setEvidenciasSalida] = useState<File[]>([]);
   const [savingExit, setSavingExit] = useState(false);
   const { notifySuccess, notifyError } = useNotify();
-  const { printTicketIngreso, loadingTicket } = useTicketIngresoVehiculo();
+  const { printTicketIngreso, imprimirTicketPorProveedor, loadingTicket } = useTicketIngresoVehiculo();
   const { esPantallaPequena } = useDispositivo();
 
+  /**
+   * Imprime el Ticket de Ingreso de la unidad.
+   *
+   * Una unidad puede traer la carga de varios proveedores: si hay más de un
+   * ticket disponible, el operador elige a cuál proveedor corresponde el
+   * documento. Con un solo ticket se imprime directo.
+   */
   const handlePrintTicket = async (r: RecepcionUnidadResponse) => {
+    setLoadingTicketsIngreso(true);
     try {
-      setLoadingGuiasRecepcion(true);
-      const guias = await TicketIngresoService.getGuiasRecepcion(r.id);
-      if (guias && guias.length > 1) {
+      await imprimirTicketPorProveedor(r.id, (tickets) => {
         setRecepcionSeleccionadaTicket(r);
-        setGuiasRecepcion(guias);
-        setModalSeleccionGuiaOpen(true);
-      } else if (guias && guias.length === 1) {
-        void printTicketIngreso(r.id, guias[0].id);
-      } else {
-        void printTicketIngreso(r.id);
-      }
-    } catch (e) {
-      console.error("Error al obtener guías de la recepción para imprimir ticket", e);
-      void printTicketIngreso(r.id);
+        setTicketsDisponibles(tickets);
+        setModalSeleccionTicketOpen(true);
+      });
     } finally {
-      setLoadingGuiasRecepcion(false);
+      setLoadingTicketsIngreso(false);
     }
   };
 
@@ -341,7 +339,7 @@ export const TablaRecepciones = ({
                       color="yellow"
                       radius="xl"
                       size="lg"
-                      disabled={noConfirmada || loadingTicket || loadingGuiasRecepcion}
+                      disabled={noConfirmada || loadingTicket || loadingTicketsIngreso}
                       onClick={() => handlePrintTicket(r)}
                       className="bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 disabled:opacity-40"
                     >
@@ -467,10 +465,44 @@ export const TablaRecepciones = ({
             ),
           },
           {
-            accessor: "guia_remitente",
+            accessor: "proveedores",
+            title: "Proveedor(es)",
+            textAlign: "center",
+            width: 220,
+            render: (r: RecepcionUnidadResponse) => {
+              const proveedores = r.proveedores ?? [];
+              if (proveedores.length === 0) {
+                return (
+                  <Text size="sm" c="dimmed" fs="italic">
+                    —
+                  </Text>
+                );
+              }
+              return (
+                <Group gap={6} wrap="nowrap" justify="center" align="center">
+                  <Stack gap={2} align="center">
+                    {proveedores.map((p) => (
+                      <Text
+                        key={p.id_proveedor}
+                        size="sm"
+                        className="text-white"
+                        style={{ whiteSpace: "normal", overflowWrap: "anywhere" }}
+                        title={p.razon_social}
+                      >
+                        {p.razon_social}
+                      </Text>
+                    ))}
+                  </Stack>
+                  {pencilCampo(r, "id_proveedor_minero", "proveedor")}
+                </Group>
+              );
+            },
+          },
+          {
+            accessor: "guias",
             title: "Guías",
             textAlign: "center",
-            width: 260,
+            width: 280,
             render: (r: RecepcionUnidadResponse) => {
               const bloqueados = r.campos_bloqueados ?? [];
               const remitenteBloqueado = bloqueados.includes("guia_remitente");
@@ -480,22 +512,56 @@ export const TablaRecepciones = ({
               const algunaBloqueada =
                 remitenteBloqueado || transportistaBloqueado;
 
+              const guias = r.guias ?? [];
+              if (guias.length === 0) {
+                return (
+                  <Group gap={8} wrap="nowrap" justify="center">
+                    <Text size="sm" c="dimmed" fs="italic">
+                      —
+                    </Text>
+                    <Tooltip
+                      label={algunaBloqueada ? "Las guías se registraron en la programación y no se pueden editar" : "Editar guías"}
+                      withArrow
+                    >
+                      <ActionIcon
+                        variant="subtle"
+                        color="indigo"
+                        radius="sm"
+                        size="md"
+                        onClick={() => onEditarGuias(r)}
+                        disabled={algunaBloqueada}
+                        className={
+                          algunaBloqueada
+                            ? "text-zinc-700 opacity-40 cursor-not-allowed"
+                            : "text-indigo-300 hover:bg-indigo-500/10"
+                        }
+                        aria-label="Editar guías"
+                      >
+                        <IconPencil size={16} />
+                      </ActionIcon>
+                    </Tooltip>
+                  </Group>
+                );
+              }
+
               return (
                 <Group gap={8} wrap="nowrap" justify="center">
-                  <div className="flex flex-col gap-1 items-center">
-                    <Text size="sm" className="text-white">
-                      Remitente:{" "}
-                      <span className="font-mono">
-                        {r.guia_remitente ?? "—"}
-                      </span>
-                    </Text>
-                    <Text size="sm" className="text-white">
-                      Transportista:{" "}
-                      <span className="font-mono">
-                        {r.guia_transportista ?? "—"}
-                      </span>
-                    </Text>
-                  </div>
+                  <Stack gap={2} align="center">
+                    {guias.map((g) => (
+                      <div key={g.id_proveedor} className="flex flex-col items-center">
+                        <Text size="sm" className="text-white">
+                          Remitente:{" "}
+                          <span className="font-mono">{g.guia_remitente || "—"}</span>
+                        </Text>
+                        <Text size="sm" className="text-white">
+                          Transportista:{" "}
+                          <span className="font-mono">
+                            {g.guia_transportista || "—"}
+                          </span>
+                        </Text>
+                      </div>
+                    ))}
+                  </Stack>
                   <Tooltip
                     label={
                       algunaBloqueada
@@ -661,19 +727,21 @@ export const TablaRecepciones = ({
         </div>
       </ModalEstandar>
 
-      {/* Modal para elegir guía cuando la recepción tiene múltiples guías */}
-      <ModalSeleccionGuiaTicket
-        opened={modalSeleccionGuiaOpen}
-        guias={guiasRecepcion}
-        idGuiaImprimiendo={idGuiaImprimiendo}
-        onClose={() => setModalSeleccionGuiaOpen(false)}
-        onSelect={(idGuia) => {
+      {/* Modal para elegir el proveedor cuando la unidad trae carga de varios */}
+      <ModalSeleccionTicketIngreso
+        opened={modalSeleccionTicketOpen}
+        tickets={ticketsDisponibles}
+        idImprimiendo={idProveedorImprimiendo}
+        onClose={() => setModalSeleccionTicketOpen(false)}
+        onSelect={(ticket) => {
           if (recepcionSeleccionadaTicket) {
-            setIdGuiaImprimiendo(idGuia);
-            void printTicketIngreso(recepcionSeleccionadaTicket.id, idGuia).finally(
-              () => setIdGuiaImprimiendo(null),
-            );
-            setModalSeleccionGuiaOpen(false);
+            setIdProveedorImprimiendo(ticket.id_proveedor);
+            void printTicketIngreso(
+              recepcionSeleccionadaTicket.id,
+              ticket.id_guia_primer_tramo,
+              ticket.id_proveedor,
+            ).finally(() => setIdProveedorImprimiendo(null));
+            setModalSeleccionTicketOpen(false);
           }
         }}
       />

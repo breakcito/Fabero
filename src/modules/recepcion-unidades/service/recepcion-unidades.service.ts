@@ -13,6 +13,10 @@ import type {
   VisitaVehiculoResponse,
 } from "./recepcion-unidades.responses";
 import type { IRespuesta } from "../../../shared/interfaces/_response";
+import type {
+  IGuiaRecepcion,
+  IProveedorRecepcion,
+} from "../../../shared/interfaces/guia-recepcion";
 
 /**
  * Lanza un Error con el `message` real del backend cuando `success === false`
@@ -53,13 +57,16 @@ export const RecepcionUnidadesService = {
     appendIfDefined(formData, "id_empresa_transporte", payload.id_empresa_transporte);
     appendIfDefined(formData, "id_tipo_vehiculo", payload.id_tipo_vehiculo);
     appendIfDefined(formData, "id_conductor", payload.id_conductor);
-    appendIfDefined(formData, "id_proveedor_minero", payload.id_proveedor_minero);
+    if (payload.proveedores && payload.proveedores.length > 0) {
+      formData.append("proveedores", JSON.stringify(payload.proveedores));
+    }
+    if (payload.guias && payload.guias.length > 0) {
+      formData.append("guias", JSON.stringify(payload.guias));
+    }
     appendIfDefined(formData, "tipo_ingreso", payload.tipo_ingreso);
     appendIfDefined(formData, "id_sucursal", payload.id_sucursal);
     appendIfDefined(formData, "id_vehiculo_carreta", payload.id_vehiculo_carreta);
     appendIfDefined(formData, "observacion", payload.observacion);
-    appendIfDefined(formData, "guia_remitente", payload.guia_remitente);
-    appendIfDefined(formData, "guia_transportista", payload.guia_transportista);
     appendIfDefined(formData, "id_motivo_ingreso", payload.id_motivo_ingreso);
 
     if (payload.evidencias && payload.evidencias.length > 0) {
@@ -250,4 +257,62 @@ export const RecepcionUnidadesService = {
    * Obtener las guías de primer tramo asociadas a la recepción de unidad.
    * Vive en `TicketIngresoService` (global) porque lo usan varios módulos.
    */
+
+  /**
+   * Listar los proveedores de la carga de una recepción de unidad.
+   */
+  getProveedores: async (id: number): Promise<IProveedorRecepcion[]> => {
+    const { data } = await api.get<IRespuesta<IProveedorRecepcion[]>>(
+      `/recepcion-unidades/${id}/proveedores`,
+    );
+    assertBusinessSuccess(data);
+    return data.data;
+  },
+
+  /**
+   * Sincronizar la lista de proveedores de una recepción de unidad.
+   *
+   * Reemplaza por completo la lista: los proveedores que se quitan se
+   * eliminan de la tabla puente y los nuevos se agregan al final.
+   */
+  setProveedores: async (
+    id: number,
+    proveedores: number[],
+  ): Promise<IProveedorRecepcion[]> => {
+    const { data } = await api.put<IRespuesta<IProveedorRecepcion[]>>(
+      `/recepcion-unidades/${id}/proveedores`,
+      { proveedores },
+    );
+    assertBusinessSuccess(data);
+    return data.data;
+  },
+
+  /**
+   * Obtener las guías (por proveedor) de una recepción de unidad.
+   */
+  getGuias: async (id: number): Promise<IGuiaRecepcion[]> => {
+    const { data } = await api.get<IRespuesta<IGuiaRecepcion[]>>(
+      `/recepcion-unidades/${id}/guias-recepcion`,
+    );
+    assertBusinessSuccess(data);
+    return data.data;
+  },
+
+  /**
+   * Reemplazar el array de guías de una recepción de unidad.
+   *
+   * Cada entrada corresponde a un proveedor de `proveedores`; el backend
+   * rechaza `id_proveedor` repetidos o inexistentes.
+   */
+  setGuias: async (
+    id: number,
+    guias: IGuiaRecepcion[],
+  ): Promise<IGuiaRecepcion[]> => {
+    const { data } = await api.put<IRespuesta<IGuiaRecepcion[]>>(
+      `/recepcion-unidades/${id}/guias-recepcion`,
+      { guias },
+    );
+    assertBusinessSuccess(data);
+    return data.data;
+  },
 };

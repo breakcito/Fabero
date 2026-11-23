@@ -73,8 +73,6 @@ export const ParticionCardInline = ({
           >
             {particion.correlativo}
           </Badge>
-        </Group>
-        <Group gap={2} wrap="nowrap">
           {tieneTicket && (
             <Tooltip label="Imprimir ticket de la partición" withArrow>
               <ActionIcon
@@ -83,12 +81,14 @@ export const ParticionCardInline = ({
                 radius="sm"
                 size="sm"
                 onClick={() => onImprimirTicket(particion)}
-                className="text-indigo-300 hover:bg-indigo-500/10"
+                className="text-indigo-300 hover:bg-indigo-500/10 shrink-0"
               >
                 <IconBarcode size={12} />
               </ActionIcon>
             </Tooltip>
           )}
+        </Group>
+        <Group gap={2} wrap="nowrap">
           <Tooltip label="Eliminar partición (baja lógica)" withArrow>
             <ActionIcon
               color="red"
@@ -107,7 +107,7 @@ export const ParticionCardInline = ({
 
       <div className="grid grid-cols-2 gap-1.5">
         <div className="flex items-center justify-between gap-1.5">
-          <Text size="9px" c="dimmed" className="uppercase font-semibold shrink-0">
+          <Text size="9px" c="white" className="uppercase font-bold shrink-0">
             Inicial
           </Text>
           {particion.peso_inicial !== null ? (
@@ -133,7 +133,7 @@ export const ParticionCardInline = ({
           )}
         </div>
         <div className="flex items-center justify-between gap-1.5">
-          <Text size="9px" c="dimmed" className="uppercase font-semibold shrink-0">
+          <Text size="9px" c="white" className="uppercase font-bold shrink-0">
             Final
           </Text>
           {particion.peso_final !== null ? (
@@ -157,7 +157,7 @@ export const ParticionCardInline = ({
               Pesar
             </Button>
           ) : (
-            <Text size="10px" c="dimmed">
+            <Text size="10px" c="white">
               ---
             </Text>
           )}

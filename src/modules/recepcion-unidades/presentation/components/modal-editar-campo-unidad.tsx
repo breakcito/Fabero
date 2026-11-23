@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import {
   Select,
+  MultiSelect,
   Button,
   Stack,
   Text,
@@ -69,7 +70,7 @@ export const ModalEditarCampoUnidad = ({
   const [idVehiculoCarreta, setIdVehiculoCarreta] = useState<string | null>(null);
   const [idEmpresa, setIdEmpresa] = useState<string | null>(null);
   const [idConductor, setIdConductor] = useState<string | null>(null);
-  const [idProveedor, setIdProveedor] = useState<string | null>(null);
+  const [idsProveedor, setIdsProveedor] = useState<string[]>([]);
 
   const [subModal, setSubModal] = useState<"vehiculo" | "conductor" | "empresa" | "tipo" | "proveedor" | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -113,10 +114,8 @@ export const ModalEditarCampoUnidad = ({
       setIdConductor(
         recepcion.id_conductor != null ? String(recepcion.id_conductor) : null,
       );
-      setIdProveedor(
-        recepcion.id_proveedor_minero != null
-          ? String(recepcion.id_proveedor_minero)
-          : null,
+      setIdsProveedor(
+        (recepcion.proveedores ?? []).map((p) => String(p.id_proveedor)),
       );
     }
   }
@@ -160,6 +159,39 @@ export const ModalEditarCampoUnidad = ({
   const handleGuardar = async () => {
     setSubmitting(true);
     try {
+      if (grupo === "proveedor") {
+        // El proveedor de la carga ya no es una columna de `recepcion_unidad`:
+        // se edita por su propio endpoint (tabla `proveedor_recepcion`).
+        const nuevos = await RecepcionUnidadesService.setProveedores(
+          recepcion.id,
+          idsProveedor.map((id) => Number(id)),
+        );
+
+        // Las guías de los proveedores que se quitaron dejan de corresponder
+        // a la carga: el backend las retira del contrato y aquí se refleja
+        // en la fila para que no queden guías huérfanas.
+        const idsRestantes = new Set(nuevos.map((p) => p.id_proveedor));
+        const guias = (recepcion.guias ?? []).filter(
+          (g) => g.id_proveedor === 0 || idsRestantes.has(g.id_proveedor),
+        );
+        const principal = guias.find(
+          (g) => g.id_proveedor === nuevos[0]?.id_proveedor,
+        );
+
+        notifySuccess("Proveedores actualizados correctamente");
+        onGuardada({
+          ...recepcion,
+          proveedores: nuevos,
+          guias,
+          id_proveedor_minero: nuevos[0]?.id_proveedor ?? null,
+          proveedor_razon_social: nuevos[0]?.razon_social ?? null,
+          guia_remitente: principal?.guia_remitente ?? null,
+          guia_transportista: principal?.guia_transportista ?? null,
+        });
+        onClose();
+        return;
+      }
+
       const campos: Record<string, number | null> = {};
 
       if (grupo === "vehiculo") {
@@ -170,10 +202,8 @@ export const ModalEditarCampoUnidad = ({
           : null;
       } else if (grupo === "transportista") {
         campos.id_empresa_transporte = idEmpresa ? Number(idEmpresa) : null;
-      } else if (grupo === "conductor") {
-        campos.id_conductor = idConductor ? Number(idConductor) : null;
       } else {
-        campos.id_proveedor_minero = idProveedor ? Number(idProveedor) : null;
+        campos.id_conductor = idConductor ? Number(idConductor) : null;
       }
 
       const actualizada = await RecepcionUnidadesService.actualizarCampos(
@@ -229,7 +259,7 @@ export const ModalEditarCampoUnidad = ({
         clearable
         size="md"
         radius="lg"
-        className="flex-1"
+        className="flex-1 min-w-0"
         classNames={fieldClasses}
         disabled={disabled}
         comboboxProps={{ withinPortal: true }}
@@ -243,7 +273,7 @@ export const ModalEditarCampoUnidad = ({
             size="lg"
             onClick={onPlus}
             disabled={disabled}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white"
+            className="shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white"
           >
             <IconPlus size={18} />
           </ActionIcon>
@@ -271,7 +301,7 @@ export const ModalEditarCampoUnidad = ({
         opened={opened}
         close={onClose}
         title={TITULOS[grupo]}
-        size="md"
+        size="lg"
         validateClose
       >
         <Stack gap="lg" className="p-1">
@@ -343,20 +373,38 @@ export const ModalEditarCampoUnidad = ({
           )}
 
           {grupo === "proveedor" && (
-            <>
-              <AvisoBloqueado campo="id_proveedor_minero" />
-              <SelectGrande
-                label="Proveedor Minero"
+            <div className="flex items-end gap-2">
+              <MultiSelect
+                label="Proveedores"
+                placeholder="Seleccione los proveedores"
                 data={proveedores.map((p) => ({
                   value: String(p.id_proveedor),
                   label: `${p.razon_social}${p.documento ? ` (${p.documento})` : ""}`,
                 }))}
-                value={idProveedor}
-                onChange={setIdProveedor}
-                onPlus={() => setSubModal("proveedor")}
-                disabled={bloqueado("id_proveedor_minero")}
+                value={idsProveedor}
+                onChange={setIdsProveedor}
+                searchable
+                clearable
+                hidePickedOptions
+                size="md"
+                radius="lg"
+                className="flex-1 min-w-0"
+                classNames={fieldClasses}
+                comboboxProps={{ withinPortal: true }}
               />
-            </>
+              <Tooltip label="Registrar proveedor minero" withArrow>
+                <ActionIcon
+                  variant="filled"
+                  color="indigo"
+                  radius="lg"
+                  size="lg"
+                  onClick={() => setSubModal("proveedor")}
+                  className="shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white"
+                >
+                  <IconPlus size={18} />
+                </ActionIcon>
+              </Tooltip>
+            </div>
           )}
 
           <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800">
@@ -470,7 +518,11 @@ export const ModalEditarCampoUnidad = ({
           <RegistroProveedorMineroSimple
             onCancel={() => setSubModal(null)}
             onSuccess={(p) => {
-              setIdProveedor(String(p.id_proveedor));
+              setIdsProveedor((prev) =>
+                prev.includes(String(p.id_proveedor))
+                  ? prev
+                  : [...prev, String(p.id_proveedor)],
+              );
               setSubModal(null);
             }}
           />

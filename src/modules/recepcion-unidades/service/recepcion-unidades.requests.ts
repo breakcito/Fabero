@@ -1,5 +1,5 @@
 import type { IArchivo } from "../../../shared/interfaces/archivo";
-import type { IDocumentoProgramacion } from "../../../shared/interfaces/documentos-programacion";
+import type { IGuiaRecepcion } from "../../../shared/interfaces/guia-recepcion";
 import type { TipoIngreso } from "../../../shared/enums/_generic/tipo-ingreso";
 
 export interface DTO_EditarObservacionEvidencias {
@@ -13,9 +13,10 @@ export interface DTO_EditarObservacionEvidencias {
 /**
  * Edición de campos puntuales de una recepción de unidad.
  *
- * Solo se envía el grupo editado (vehículo, transportista, conductor,
- * proveedor o guías). El backend rechaza los campos que vinieron de una
- * programación (`campos_bloqueados`).
+ * Solo se envía el grupo editado (vehículo, transportista o conductor). El
+ * backend rechaza los campos que vinieron de una programación
+ * (`campos_bloqueados`). El proveedor de la carga y las guías se editan por
+ * sus propios endpoints.
  */
 export interface DTO_ActualizarCampos {
   campos: {
@@ -24,10 +25,6 @@ export interface DTO_ActualizarCampos {
     id_vehiculo_carreta?: number | null;
     id_empresa_transporte?: number | null;
     id_conductor?: number | null;
-    id_proveedor_minero?: number | null;
-    /** Guías: serie y número (texto). */
-    guia_remitente?: string | null;
-    guia_transportista?: string | null;
   };
   motivo?: string | null;
 }
@@ -38,17 +35,19 @@ export interface CrearRecepcionRequest {
   id_empresa_transporte: number;
   id_tipo_vehiculo?: number;
   id_conductor: number;
-  id_proveedor_minero?: number;
+  /** Proveedores de la carga (modelo nuevo). */
+  proveedores?: number[];
+  /**
+   * Guías por proveedor (modelo nuevo). `id_proveedor = 0` significa
+   * "guía de la unidad": el proveedor se conoce con el registro de las
+   * cargas.
+   */
+  guias?: IGuiaRecepcion[];
   tipo_ingreso?: TipoIngreso;
   id_vehiculo_carreta?: number | null;
   observacion?: string;
   evidencias?: File[];
   id_sucursal?: number;
-  guia_remitente?: string;
-  guia_transportista?: string;
-  guia_remitente_file?: File | null;
-  guia_transportista_file?: File | null;
-  documentos_programacion_existentes?: IDocumentoProgramacion | null;
   id_motivo_ingreso?: number;
   vehiculos?: {
     id?: number;

@@ -1,5 +1,4 @@
 import { api } from "../../../service/_api";
-import type { IDocumentoProgramacion } from "../../../shared/interfaces/documentos-programacion";
 import type {
   CrearProgramacionRequest,
   ProgramacionFilters,
@@ -11,12 +10,8 @@ export interface ConfirmarProgramacionPayload {
   id_tipo_vehiculo?: number;
   id_sucursal?: number;
   id_conductor?: number;
-  id_proveedor_minero?: number;
   id_empresa_transporte?: number;
   id_vehiculo_carreta?: number | null;
-  guia_remitente?: string;
-  guia_transportista?: string;
-  documentos_programacion?: IDocumentoProgramacion | null;
   observacion?: string;
   motivo?: string;
   evidencias?: File[];
@@ -33,6 +28,48 @@ const assertBusinessSuccess = (data: { success?: boolean; message?: string | nul
   if (data.success === false) {
     throw new Error(data.message || "Operación rechazada por el servidor.");
   }
+};
+
+/**
+ * Arma el FormData de la programación.
+ *
+ * El proveedor de la carga y las guías viajan en el contrato nuevo:
+ * `proveedores` (ids) y `guias` (una entrada por proveedor). Los archivos
+ * nuevos de cada guía van aparte, indexados por la posición de la guía.
+ */
+const buildFormData = (payload: CrearProgramacionRequest): FormData => {
+  const fd = new FormData();
+  const appendIfDefined = (key: string, value: unknown): void => {
+    if (value === null || value === undefined || value === "") return;
+    fd.append(key, typeof value === "boolean" ? (value ? "1" : "0") : String(value));
+  };
+
+  appendIfDefined("id_empresa_transporte", payload.id_empresa_transporte);
+  appendIfDefined("id_vehiculo", payload.id_vehiculo);
+  appendIfDefined("id_tipo_vehiculo", payload.id_tipo_vehiculo);
+  appendIfDefined("id_conductor", payload.id_conductor);
+  appendIfDefined("id_sucursal", payload.id_sucursal);
+  appendIfDefined("id_vehiculo_carreta", payload.id_vehiculo_carreta);
+  appendIfDefined("observacion", payload.observacion);
+  appendIfDefined("tipo_ingreso", payload.tipo_ingreso);
+
+  fd.append("proveedores", JSON.stringify(payload.proveedores ?? []));
+  fd.append("guias", JSON.stringify(payload.guias ?? []));
+
+  Object.entries(payload.guias_archivos ?? {}).forEach(([indice, archivos]) => {
+    if (!archivos) return;
+    if (archivos.guia_remitente instanceof File) {
+      fd.append(`guias_archivos[${indice}][guia_remitente]`, archivos.guia_remitente);
+    }
+    if (archivos.guia_transportista instanceof File) {
+      fd.append(
+        `guias_archivos[${indice}][guia_transportista]`,
+        archivos.guia_transportista,
+      );
+    }
+  });
+
+  return fd;
 };
 
 export const ProgramarRecepcionService = {
@@ -59,35 +96,7 @@ export const ProgramarRecepcionService = {
   crearProgramacion: async (
     payload: CrearProgramacionRequest,
   ): Promise<ProgramacionDetail> => {
-    const fd = new FormData();
-    const appendIfDefined = (key: string, value: unknown): void => {
-      if (value === null || value === undefined || value === "") return;
-      fd.append(key, typeof value === "boolean" ? (value ? "1" : "0") : String(value));
-    };
-    appendIfDefined("id_empresa_transporte", payload.id_empresa_transporte);
-    appendIfDefined("id_vehiculo", payload.id_vehiculo);
-    appendIfDefined("id_tipo_vehiculo", payload.id_tipo_vehiculo);
-    appendIfDefined("id_conductor", payload.id_conductor);
-    appendIfDefined("id_proveedor_minero", payload.id_proveedor_minero);
-    appendIfDefined("id_sucursal", payload.id_sucursal);
-    appendIfDefined("fecha_estimada_llegada", payload.fecha_estimada_llegada);
-    appendIfDefined("guia_remitente", payload.guia_remitente);
-    appendIfDefined("guia_transportista", payload.guia_transportista);
-    appendIfDefined("id_vehiculo_carreta", payload.id_vehiculo_carreta);
-    appendIfDefined("observacion", payload.observacion);
-    appendIfDefined("tipo_ingreso", payload.tipo_ingreso);
-    if (payload.guia_remitente_file instanceof File) {
-      fd.append("guia_remitente_file", payload.guia_remitente_file);
-    }
-    if (payload.guia_transportista_file instanceof File) {
-      fd.append("guia_transportista_file", payload.guia_transportista_file);
-    }
-    if (payload.documentos_programacion_existentes) {
-      fd.append(
-        "documentos_programacion_existentes",
-        JSON.stringify(payload.documentos_programacion_existentes),
-      );
-    }
+    const fd = buildFormData(payload);
 
     const { data } = await api.post("/programar-recepcion", fd, {
       headers: { "Content-Type": "multipart/form-data" },
@@ -100,42 +109,8 @@ export const ProgramarRecepcionService = {
     id: number,
     payload: CrearProgramacionRequest,
   ): Promise<ProgramacionDetail> => {
-    const fd = new FormData();
+    const fd = buildFormData(payload);
     fd.append("_method", "PUT");
-    const appendIfDefined = (key: string, value: unknown): void => {
-      if (value === null || value === undefined || value === "") return;
-      fd.append(key, typeof value === "boolean" ? (value ? "1" : "0") : String(value));
-    };
-    appendIfDefined("id_empresa_transporte", payload.id_empresa_transporte);
-    appendIfDefined("id_vehiculo", payload.id_vehiculo);
-    appendIfDefined("id_tipo_vehiculo", payload.id_tipo_vehiculo);
-    appendIfDefined("id_conductor", payload.id_conductor);
-    appendIfDefined("id_proveedor_minero", payload.id_proveedor_minero);
-    appendIfDefined("id_sucursal", payload.id_sucursal);
-    // Estos campos se envían siempre (incluso vacíos) para que en la edición
-    // se pueda limpiarlos: el backend los normaliza a null.
-    fd.append("fecha_estimada_llegada", payload.fecha_estimada_llegada ?? "");
-    fd.append(
-      "id_vehiculo_carreta",
-      payload.id_vehiculo_carreta === undefined || payload.id_vehiculo_carreta === null
-        ? ""
-        : String(payload.id_vehiculo_carreta),
-    );
-    fd.append("guia_remitente", payload.guia_remitente ?? "");
-    fd.append("guia_transportista", payload.guia_transportista ?? "");
-    fd.append("observacion", payload.observacion ?? "");
-    if (payload.guia_remitente_file instanceof File) {
-      fd.append("guia_remitente_file", payload.guia_remitente_file);
-    }
-    if (payload.guia_transportista_file instanceof File) {
-      fd.append("guia_transportista_file", payload.guia_transportista_file);
-    }
-    if (payload.documentos_programacion_existentes) {
-      fd.append(
-        "documentos_programacion_existentes",
-        JSON.stringify(payload.documentos_programacion_existentes),
-      );
-    }
 
     const { data } = await api.post(`/programar-recepcion/${id}`, fd, {
       headers: { "Content-Type": "multipart/form-data" },
@@ -166,11 +141,8 @@ export const ProgramarRecepcionService = {
     appendIfDefined("id_tipo_vehiculo", payload.id_tipo_vehiculo);
     appendIfDefined("id_sucursal", payload.id_sucursal);
     appendIfDefined("id_conductor", payload.id_conductor);
-    appendIfDefined("id_proveedor_minero", payload.id_proveedor_minero);
     appendIfDefined("id_empresa_transporte", payload.id_empresa_transporte);
     appendIfDefined("id_vehiculo_carreta", payload.id_vehiculo_carreta);
-    appendIfDefined("guia_remitente", payload.guia_remitente);
-    appendIfDefined("guia_transportista", payload.guia_transportista);
     appendIfDefined("observacion", payload.observacion);
     appendIfDefined("motivo", payload.motivo);
     payload.evidencias?.forEach((file) => formData.append("evidencias[]", file));

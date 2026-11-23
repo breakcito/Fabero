@@ -14,6 +14,7 @@ import { ModalCondicionIngreso } from "./components/modal-condicion-ingreso";
 import { CardProcesoBalanza } from "./components/card-proceso-balanza";
 import { CardDistribucionBalanza } from "./components/card-distribucion-balanza";
 import { CardLotePadreParticionado } from "./components/card-lote-padre-particionado";
+import { buildLotePadreVirtual } from "./utils/lote-padre-virtual";
 import { RefreshButton } from "../../../presentation/utils/refresh-button";
 import {
   DateRangeFilter,
@@ -250,9 +251,27 @@ export const RecepcionMineralPage = () => {
             ),
             confirmLabel: "Crear Partición",
             cancelLabel: "Cancelar",
-            onConfirm: () => {
-              console.log("[DRAG-DIAG] onConfirm -> crearParticion", { idLote, idRecepcion });
-              void crearParticion(idLote, idRecepcion);
+            onConfirm: async () => {
+              const particiones = await crearParticion(idLote, idRecepcion);
+              if (!particiones || particiones.length === 0) return;
+
+              // La partición recién creada es la que quedó en la unidad
+              // destino; se abre su modal de peso inicial.
+              const nueva =
+                [...particiones]
+                  .reverse()
+                  .find((p) => p.id_recepcion_unidad === idRecepcion) ??
+                particiones[particiones.length - 1];
+
+              setActiveParticionPesoInicial({
+                particion: nueva,
+                lotePadre: buildLotePadreVirtual(
+                  idLote,
+                  nueva,
+                  unidadDestino?.id_proveedor_minero ?? null,
+                  unidadDestino ?? null,
+                ),
+              });
             },
           });
           console.log("[DRAG-DIAG] mostrarConfirmacion devolvió modalId", { modalId });
@@ -307,12 +326,29 @@ export const RecepcionMineralPage = () => {
         if (updated.id_ticket_balanza !== null) {
           printTicketBalanzaParticion(updated.id);
         }
+
+        // Con el peso inicial registrado se abre el modal del peso final de
+        // la partición: es el siguiente paso del pesaje.
+        setActiveParticionPesoInicial(null);
+        const unidadParticion =
+          enProcesoList.find((r) => r.id === updated.id_recepcion_unidad) ??
+          null;
+        setActiveParticionPesoFinal({
+          particion: updated,
+          lotePadre: buildLotePadreVirtual(
+            updated.id_lote_mineral,
+            updated,
+            unidadParticion?.id_proveedor_minero ?? null,
+            unidadParticion,
+          ),
+        });
       } catch (e) {
         console.error(e);
         notifyError("No se pudo registrar el peso inicial de la partición");
       }
     },
     [
+      enProcesoList,
       notifyError,
       notifySuccess,
       printTicketBalanzaParticion,
@@ -833,6 +869,9 @@ export const RecepcionMineralPage = () => {
                 setActiveLotePesoInicial(null);
                 if (loteActualizado) {
                   printTicketBalanza(loteActualizado.id);
+                  // Con el peso inicial registrado se abre el modal del peso
+                  // final: es el siguiente paso del pesaje.
+                  setActiveLotePesoFinal(loteActualizado);
                 }
               }
             }}

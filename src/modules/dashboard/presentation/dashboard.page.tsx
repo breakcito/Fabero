@@ -6,10 +6,13 @@ import { DashCard } from "./components/dash-card";
 import { DeltaPill } from "./components/delta-pill";
 import { DaysGauge } from "./components/days-gauge";
 import { CostRangeChart } from "./components/cost-range-chart";
+import { DetalleCuenta } from "./components/detalle-cuenta";
+import { DetalleSinComprobante } from "./components/detalle-sin-comprobante";
 import { HeroCompareChart } from "./components/hero-compare-chart";
 import { KpiDeltaCard } from "./components/kpi-delta-card";
 import { LeyBars } from "./components/ley-bars";
 import { Numero, NumeroUnidad } from "./components/numero";
+import { PopoverDetalle } from "./components/popover-detalle";
 import { SinComprobante } from "./components/sin-comprobante";
 import { SplitBar } from "./components/split-bar";
 import { StockColumn } from "./components/stock-column";
@@ -31,6 +34,9 @@ type ElementoCosto = "Au+Ag" | "Au" | "Ag";
 type BaseStock = "TMH" | "TMS";
 type SalidaDias = "all" | "b" | "d";
 type FlujoSinComprobante = "all" | "C" | "V";
+
+/** Valor centinela de los selectores que filtran "todos". */
+const VALOR_TODOS = "todos";
 
 /** Estilo del selector tipo píldora (`.pill-sel` de `dash.html`). */
 const selectClasses = {
@@ -63,6 +69,12 @@ export const DashboardPage = () => {
     mesActual,
     mesAnterior,
     mismoMesAnioAnterior,
+    idProveedorMinero,
+    setIdProveedorMinero,
+    idPlantaDestino,
+    setIdPlantaDestino,
+    proveedores,
+    plantas,
   } = useDashboard();
 
   // --- Controles locales de la vista -----------------------------------
@@ -96,6 +108,28 @@ export const DashboardPage = () => {
   const tnDespachadas = mes?.tn_despachadas ?? 0;
   const montoCompra = mes?.monto_compra_usd ?? 0;
   const montoVenta = mes?.monto_venta_usd ?? 0;
+
+  // --- Catálogos de los filtros de las tarjetas de TNI ------------------
+  const datosProveedores = useMemo(
+    () => [
+      { value: VALOR_TODOS, label: "Todos" },
+      ...proveedores.map((p) => ({
+        value: String(p.id),
+        label: p.razon_social,
+      })),
+    ],
+    [proveedores],
+  );
+  const datosPlantas = useMemo(
+    () => [
+      { value: VALOR_TODOS, label: "Todas" },
+      ...plantas.map((p) => ({
+        value: String(p.id),
+        label: p.razon_social,
+      })),
+    ],
+    [plantas],
+  );
 
   // --- Costo promedio por tonelada --------------------------------------
   const costoCompra =
@@ -135,6 +169,8 @@ export const DashboardPage = () => {
   // --- Cuentas por pagar / cobrar ----------------------------------------
   const porPagar = data?.financiero.por_pagar;
   const porCobrar = data?.financiero.por_cobrar;
+  const detallePorPagar = porPagar?.detalle ?? [];
+  const detallePorCobrar = porCobrar?.detalle ?? [];
 
   // --- Valorizaciones sin comprobante ------------------------------------
   const sinComprobante = data?.sin_comprobante;
@@ -161,7 +197,6 @@ export const DashboardPage = () => {
     <div className="mx-auto w-full max-w-340 space-y-4 px-4">
       {/* Encabezado */}
       <header className="flex flex-wrap items-end justify-between gap-3">
-  
         <div className="flex items-center gap-2">
           <Select
             aria-label="Período"
@@ -202,6 +237,30 @@ export const DashboardPage = () => {
           valor={tnReceptadas}
           unidad="t"
           loading={loading}
+          rightSection={
+            <Select
+              aria-label="Proveedor"
+              data={datosProveedores}
+              value={
+                idProveedorMinero !== null
+                  ? String(idProveedorMinero)
+                  : VALOR_TODOS
+              }
+              onChange={(v) =>
+                setIdProveedorMinero(
+                  v !== null && v !== VALOR_TODOS ? Number(v) : null,
+                )
+              }
+              disabled={loading}
+              searchable
+              nothingFoundMessage="Sin proveedores"
+              comboboxProps={{ withinPortal: true }}
+              size="xs"
+              radius="lg"
+              classNames={selectClassesSm}
+              w={112}
+            />
+          }
           deltas={[
             {
               pct: variacion(
@@ -227,6 +286,29 @@ export const DashboardPage = () => {
           valor={tnDespachadas}
           unidad="t"
           loading={loading}
+          rightSection={
+            <Select
+              aria-label="Planta de destino"
+              data={datosPlantas}
+              value={
+                idPlantaDestino !== null
+                  ? String(idPlantaDestino)
+                  : VALOR_TODOS
+              }
+              onChange={(v) =>
+                setIdPlantaDestino(
+                  v !== null && v !== VALOR_TODOS ? Number(v) : null,
+                )
+              }
+              disabled={loading}
+              nothingFoundMessage="Sin plantas"
+              comboboxProps={{ withinPortal: true }}
+              size="xs"
+              radius="lg"
+              classNames={selectClassesSm}
+              w={112}
+            />
+          }
           deltas={[
             {
               pct: variacion(
@@ -368,7 +450,7 @@ export const DashboardPage = () => {
                 if (v !== null) setBaseStock(v as BaseStock);
               }}
               comboboxProps={{ withinPortal: true }}
-              size="xs"
+              size ="xs"
               radius="lg"
               classNames={selectClassesSm}
               w={90}
@@ -400,69 +482,83 @@ export const DashboardPage = () => {
         </DashCard>
 
         {/* Fila 3 — cuentas y costo por tonelada */}
-        <DashCard
+        <PopoverDetalle
           className="col-span-12 xl:col-span-4"
-          titulo="Por pagar"
-          dot={COLOR_COMPRA}
+          titulo="Comprobantes de compra pendientes"
+          vacio="No hay comprobantes de compra pendientes."
+          contenido={
+            detallePorPagar.length > 0 ? (
+              <DetalleCuenta filas={detallePorPagar} />
+            ) : null
+          }
         >
-          <Numero>{usd(porPagar?.total_usd ?? 0)}</Numero>
-          <SplitBar
-            parts={[
-              {
-                nombre: "Neto",
-                valor: porPagar?.neto_usd ?? 0,
-                color: COLOR_COMPRA,
-              },
-              {
-                nombre: "Detracción",
-                valor: porPagar?.detraccion_usd ?? 0,
-                color: COLOR_AMBER,
-              },
-            ]}
-            format={usd}
-          />
-          <div className="text-[13px] text-zinc-300">
-            Mayor deuda:{" "}
-            <b className="font-semibold text-zinc-100">
-              {porPagar?.mayor_deudor?.nombre ?? "—"}
-              {porPagar?.mayor_deudor
-                ? ` · ${usd(porPagar.mayor_deudor.monto_usd)}`
-                : ""}
-            </b>
-          </div>
-        </DashCard>
+          <DashCard className="h-full" titulo="Por pagar" dot={COLOR_COMPRA}>
+            <Numero>{usd(porPagar?.total_usd ?? 0)}</Numero>
+            <SplitBar
+              parts={[
+                {
+                  nombre: "Neto",
+                  valor: porPagar?.neto_usd ?? 0,
+                  color: COLOR_COMPRA,
+                },
+                {
+                  nombre: "Detracción",
+                  valor: porPagar?.detraccion_usd ?? 0,
+                  color: COLOR_AMBER,
+                },
+              ]}
+              format={usd}
+            />
+            <div className="text-[13px] text-zinc-300">
+              Mayor deuda:{" "}
+              <b className="font-semibold text-zinc-100">
+                {porPagar?.mayor_deudor?.nombre ?? "—"}
+                {porPagar?.mayor_deudor
+                  ? ` · ${usd(porPagar.mayor_deudor.monto_usd)}`
+                  : ""}
+              </b>
+            </div>
+          </DashCard>
+        </PopoverDetalle>
 
-        <DashCard
+        <PopoverDetalle
           className="col-span-12 xl:col-span-4"
-          titulo="Por cobrar"
-          dot={COLOR_VENTA}
+          titulo="Comprobantes de venta pendientes"
+          vacio="No hay comprobantes de venta pendientes."
+          contenido={
+            detallePorCobrar.length > 0 ? (
+              <DetalleCuenta filas={detallePorCobrar} />
+            ) : null
+          }
         >
-          <Numero>{usd(porCobrar?.total_usd ?? 0)}</Numero>
-          <SplitBar
-            parts={[
-              {
-                nombre: "Neto",
-                valor: porCobrar?.neto_usd ?? 0,
-                color: COLOR_VENTA,
-              },
-              {
-                nombre: "Detracción",
-                valor: porCobrar?.detraccion_usd ?? 0,
-                color: COLOR_AMBER,
-              },
-            ]}
-            format={usd}
-          />
-          <div className="text-[13px] text-zinc-300">
-            Mayor saldo:{" "}
-            <b className="font-semibold text-zinc-100">
-              {porCobrar?.mayor_acreedor?.nombre ?? "—"}
-              {porCobrar?.mayor_acreedor
-                ? ` · ${usd(porCobrar.mayor_acreedor.monto_usd)}`
-                : ""}
-            </b>
-          </div>
-        </DashCard>
+          <DashCard className="h-full" titulo="Por cobrar" dot={COLOR_VENTA}>
+            <Numero>{usd(porCobrar?.total_usd ?? 0)}</Numero>
+            <SplitBar
+              parts={[
+                {
+                  nombre: "Neto",
+                  valor: porCobrar?.neto_usd ?? 0,
+                  color: COLOR_VENTA,
+                },
+                {
+                  nombre: "Detracción",
+                  valor: porCobrar?.detraccion_usd ?? 0,
+                  color: COLOR_AMBER,
+                },
+              ]}
+              format={usd}
+            />
+            <div className="text-[13px] text-zinc-300">
+              Mayor saldo:{" "}
+              <b className="font-semibold text-zinc-100">
+                {porCobrar?.mayor_acreedor?.nombre ?? "—"}
+                {porCobrar?.mayor_acreedor
+                  ? ` · ${usd(porCobrar.mayor_acreedor.monto_usd)}`
+                  : ""}
+              </b>
+            </div>
+          </DashCard>
+        </PopoverDetalle>
 
         <DashCard
           className="col-span-12 xl:col-span-4"
@@ -558,37 +654,55 @@ export const DashboardPage = () => {
           </div>
         </DashCard>
 
-        <DashCard
+        <PopoverDetalle
           className="col-span-12 xl:col-span-4"
           titulo="Valorizaciones sin comprobante"
-          dot={COLOR_ROJO}
-          rightSection={
-            <Select
-              aria-label="Flujo"
-              data={[
-                { value: "all", label: "Todas" },
-                { value: "C", label: "Compras" },
-                { value: "V", label: "Ventas" },
-              ]}
-              value={flujoSinComprobante}
-              onChange={(v) => {
-                if (v !== null)
-                  setFlujoSinComprobante(v as FlujoSinComprobante);
-              }}
-              comboboxProps={{ withinPortal: true }}
-              size="xs"
-              radius="lg"
-              classNames={selectClassesSm}
-              w={110}
-            />
+          vacio="No hay valorizaciones aprobadas sin comprobante."
+          ancho={400}
+          contenido={
+            <>
+              <div className="py-2">
+                <SegmentedControl
+                  size="xs"
+                  radius="lg"
+                  fullWidth
+                  value={flujoSinComprobante}
+                  onChange={(v) =>
+                    setFlujoSinComprobante(v as FlujoSinComprobante)
+                  }
+                  data={[
+                    { label: "Todas", value: "all" },
+                    { label: "Compras", value: "C" },
+                    { label: "Ventas", value: "V" },
+                  ]}
+                  classNames={{
+                    root: "rounded-full border border-zinc-700 bg-zinc-800/70",
+                    label:
+                      "px-2 text-[12px] font-semibold text-zinc-300 data-[active]:bg-zinc-700 data-[active]:text-zinc-50",
+                  }}
+                />
+              </div>
+              {detalleSinComprobante.length > 0 ? (
+                <DetalleSinComprobante detalle={detalleSinComprobante} />
+              ) : (
+                <p className="py-3 text-[13px] text-zinc-500">
+                  No hay valorizaciones sin comprobante para este flujo.
+                </p>
+              )}
+            </>
           }
         >
-          <SinComprobante
-            compras={sinComprobante?.compras ?? { conteo: 0, monto_usd: 0 }}
-            ventas={sinComprobante?.ventas ?? { conteo: 0, monto_usd: 0 }}
-            detalle={detalleSinComprobante}
-          />
-        </DashCard>
+          <DashCard
+            className="h-full"
+            titulo="Valorizaciones sin comprobante"
+            dot={COLOR_ROJO}
+          >
+            <SinComprobante
+              compras={sinComprobante?.compras ?? { conteo: 0, monto_usd: 0 }}
+              ventas={sinComprobante?.ventas ?? { conteo: 0, monto_usd: 0 }}
+            />
+          </DashCard>
+        </PopoverDetalle>
       </div>
     </div>
   );

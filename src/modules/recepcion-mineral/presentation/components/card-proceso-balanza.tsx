@@ -25,12 +25,15 @@ import {
 import { useNotify } from "../../../../hooks/useNotify";
 import { useTicketIngresoVehiculo } from "../../../../hooks/useTicketIngresoVehiculo";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
+import { ModalSeleccionTicketIngreso } from "../../../../presentation/utils/modal-seleccion-ticket-ingreso";
+import type { RES_TicketIngresoDisponible } from "../../../../service/responses/ticket-ingreso-vehiculo";
 import { ArchivoCard } from "../../../../presentation/utils/archivo/archivo-card";
 import { RegistroConductor } from "../../../../presentation/utils/registro-conductor";
 import { RegistroVehiculoSimple } from "../../../../presentation/utils/registro-vehiculo-simple";
 import { RegistroTipoVehiculoSimple } from "../../../../presentation/utils/registro-tipo-vehiculo-simple";
 import { RegistroEmpresaTransporte } from "../../../../presentation/utils/registro-empresa-transporte";
 import { ParticionCardInline } from "./particion-card-inline";
+import { buildLotePadreVirtual as construirLotePadreVirtual } from "../utils/lote-padre-virtual";
 import type { RES_EmpresaTransporte } from "../../../../service/responses/empresa-transporte";
 import type { RES_TipoVehiculo } from "../../../../service/responses/tipo-vehiculo";
 import type { RES_Vehiculo } from "../../../../service/responses/vehiculo";
@@ -112,8 +115,11 @@ export const CardProcesoBalanza = ({
   canCloseProcesoRecepcion,
 }: CardProcesoBalanzaProps) => {
   const { notifyError } = useNotify();
-  const { printTicketIngreso } = useTicketIngresoVehiculo();
+  const { printTicketIngreso, imprimirTicketPorProveedor } = useTicketIngresoVehiculo();
   const [imprimiendoTicket, setImprimiendoTicket] = useState(false);
+  const [modalSeleccionTicketOpen, setModalSeleccionTicketOpen] = useState(false);
+  const [ticketsDisponibles, setTicketsDisponibles] = useState<RES_TicketIngresoDisponible[]>([]);
+  const [idProveedorImprimiendo, setIdProveedorImprimiendo] = useState<number | null>(null);
 
   const itemsAMostrar = useMemo(
     () => getLotesYParticionesDeUnidad(ru),
@@ -317,7 +323,12 @@ export const CardProcesoBalanza = ({
 
   const tieneDocumentos =
     Boolean(ru.documentos_programacion?.guia_remitente) ||
-    Boolean(ru.documentos_programacion?.guia_transportista);
+    Boolean(ru.documentos_programacion?.guia_transportista) ||
+    (ru.guias ?? []).some(
+      (g) =>
+        Boolean(g.guia_remitente_archivo) ||
+        Boolean(g.guia_transportista_archivo),
+    );
   // El ticket vehicular se genera al confirmar la llegada de la unidad a
   // planta; sin ticket no hay nada que ver (y el backend no debe crearlo).
   const tieneTicket = Boolean(
@@ -329,63 +340,13 @@ export const CardProcesoBalanza = ({
    * Construye un lote padre virtual con los campos heredados que el backend
    * hidrata en cada partición. Se usa para pasar a ModalPesoParticion, que
    * requiere un RES_LoteMineral completo.
-   *
-   * `idProveedorUnidad` es el `id_proveedor_minero` de la `recepcion_unidad`
-   * donde vive la partición (`particion.id_recepcion_unidad`). Permite que el
-   * modal autocomplete el proveedor desde la unidad destino, no desde el lote
-   * padre original.
-   *
-   * Cascada de proveedor (ModalPesoInicial líneas 36-37):
-   *   1. unidad destino
-   *   2. lote padre (heredado por la partición)
-   *   3. null
    */
   const buildLotePadreVirtual = (
     idLotePadre: number,
     p: RES_ParticionBalanza,
     idProveedorUnidad: number | null,
-  ): RES_LoteMineral => ({
-    id: idLotePadre,
-    id_recepcion_unidad: null,
-    id_empleado_registro: 0,
-    correlativo: p.lote_correlativo ?? "",
-    numero_correlativo: null,
-    id_proveedor_minero: p.id_proveedor_minero ?? idProveedorUnidad ?? null,
-    id_proveedor_minero_recepcion:
-      idProveedorUnidad ?? ru.id_proveedor_minero ?? null,
-    id_zona_origen: p.id_zona_origen ?? null,
-    numero_contacto: p.numero_contacto ?? null,
-    tipo_producto: p.tipo_producto ?? null,
-    tipo_mineral: p.tipo_mineral ?? null,
-    condicion_ingreso: null,
-    evidencias: null,
-    // Pesos reales de LA PARTICIÓN (no del lote virtual) para que ModalPesoFinal
-    // los muestre correctamente al reusarse con targetIdOverride.
-    peso_inicial: p.peso_inicial ?? null,
-    fecha_hora_peso_inicial: p.fecha_hora_peso_inicial ?? null,
-    observacion_peso_inicial: null,
-    peso_final: p.peso_final ?? null,
-    fecha_hora_peso_final: p.fecha_hora_peso_final ?? null,
-    observacion_peso_final: null,
-    peso_neto: p.peso_neto ?? null,
-    peso_actual: null,
-    id_vehiculo: null,
-    vehiculo_placa: null,
-    id_empresa_transporte: null,
-    empresa_transporte_razon_social: null,
-    id_tipo_vehiculo: null,
-    tipo_vehiculo_nombre: null,
-    id_conductor: null,
-    conductor_nombre_completo: null,
-    conductor_dni: null,
-    created_at: p.fecha_hora_peso_inicial ?? "",
-    particionado_desde_balanza: true,
-    particion_finalizada: false,
-    id_empleado_fin_particion: null,
-    fecha_hora_fin_particion: null,
-    tiene_particiones: true,
-    observaciones: p.observaciones ?? null,
-  });
+  ): RES_LoteMineral =>
+    construirLotePadreVirtual(idLotePadre, p, idProveedorUnidad, ru);
 
   /**
    * Renderiza un card de LOTE regular dentro del grid unificado.
@@ -438,7 +399,7 @@ export const CardProcesoBalanza = ({
 
       <div className="grid grid-cols-2 gap-1.5 mt-1.5">
         <div className="flex items-center justify-between gap-1.5">
-          <Text size="9px" c="dimmed" className="uppercase font-semibold shrink-0">
+          <Text size="9px" c="white" className="uppercase font-bold shrink-0">
             Inicial
           </Text>
           {lote.peso_inicial !== null ? (
@@ -463,7 +424,7 @@ export const CardProcesoBalanza = ({
           )}
         </div>
         <div className="flex items-center justify-between gap-1.5">
-          <Text size="9px" c="dimmed" className="uppercase font-semibold shrink-0">
+          <Text size="9px" c="white" className="uppercase font-bold shrink-0">
             Final
           </Text>
           {lote.peso_final !== null ? (
@@ -486,7 +447,7 @@ export const CardProcesoBalanza = ({
               Pesar
             </Button>
           ) : (
-            <Text size="10px" c="dimmed">
+            <Text size="10px" c="white">
               ---
             </Text>
           )}
@@ -642,9 +603,10 @@ export const CardProcesoBalanza = ({
                     size="sm"
                     onClick={() => {
                       setImprimiendoTicket(true);
-                      void printTicketIngreso(ru.id).finally(() =>
-                        setImprimiendoTicket(false),
-                      );
+                      void imprimirTicketPorProveedor(ru.id, (tickets) => {
+                        setTicketsDisponibles(tickets);
+                        setModalSeleccionTicketOpen(true);
+                      }).finally(() => setImprimiendoTicket(false));
                     }}
                     disabled={!tieneTicket || imprimiendoTicket}
                     loading={imprimiendoTicket}
@@ -1133,6 +1095,23 @@ export const CardProcesoBalanza = ({
           </div>
         </div>
       </ModalEstandar>
+
+      {/* Modal: selección del proveedor para el ticket de ingreso vehicular */}
+      <ModalSeleccionTicketIngreso
+        opened={modalSeleccionTicketOpen}
+        tickets={ticketsDisponibles}
+        idImprimiendo={idProveedorImprimiendo}
+        onClose={() => setModalSeleccionTicketOpen(false)}
+        onSelect={(ticket) => {
+          setIdProveedorImprimiendo(ticket.id_proveedor);
+          void printTicketIngreso(
+            ru.id,
+            ticket.id_guia_primer_tramo,
+            ticket.id_proveedor,
+          ).finally(() => setIdProveedorImprimiendo(null));
+          setModalSeleccionTicketOpen(false);
+        }}
+      />
     </Paper>
   );
 };

@@ -18,7 +18,7 @@ export const ModalVerHistorial = ({ opened, recepcion, onClose }: Props) => {
     <ModalEstandar
       opened={opened && recepcion !== null}
       close={onClose}
-      title={`Historial de cambios — Recepción #${recepcion?.id ?? ""}`}
+      title="Historial de cambios de la recepción"
       size="xl"
     >
       {!recepcion ? (

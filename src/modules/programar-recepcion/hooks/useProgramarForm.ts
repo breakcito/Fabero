@@ -1,7 +1,11 @@
 import { useState, useCallback } from "react";
 import { ProgramarRecepcionService } from "../service/programar-recepcion.service";
 import { AuxService } from "../../../service/auxiliar.service";
-import type { CrearProgramacionRequest } from "../service/programar-recepcion.requests";
+import type {
+  CrearProgramacionRequest,
+  GuiaProgramacionArchivos,
+  GuiaProgramacionInput,
+} from "../service/programar-recepcion.requests";
 import type { ProgramacionDetail } from "../service/programar-recepcion.responses";
 import type { RES_EmpresaTransporte } from "../../../service/responses/empresa-transporte";
 import type { RES_Vehiculo } from "../../../service/responses/vehiculo";
@@ -15,30 +19,54 @@ import { useNotify } from "../../../hooks/useNotify";
 import { TipoIngreso } from "../../../shared/enums/_generic/tipo-ingreso";
 import { useUIStore } from "../../../stores/ui.store";
 
-const INITIAL_FORM: CrearProgramacionRequest = {
+/**
+ * Estado editable del formulario de programación.
+ *
+ * Los proveedores de la carga se derivan de `guias`: hay una entrada de
+ * guía por proveedor, en el mismo orden.
+ */
+export interface ProgramacionFormState {
+  id_empresa_transporte: number;
+  tipo_ingreso: TipoIngreso | string;
+  id_vehiculo?: number;
+  id_tipo_vehiculo?: number;
+  id_conductor?: number;
+  id_sucursal?: number;
+  fecha_estimada_llegada: string;
+  id_vehiculo_carreta?: number | null;
+  observacion: string;
+  guias: GuiaProgramacionInput[];
+}
+
+const INITIAL_FORM: ProgramacionFormState = {
   id_empresa_transporte: 0,
   tipo_ingreso: TipoIngreso.RecepcionMineral,
   id_vehiculo: undefined,
   id_tipo_vehiculo: undefined,
   id_conductor: undefined,
-  id_proveedor_minero: undefined,
   id_sucursal: undefined,
   fecha_estimada_llegada: "",
+  id_vehiculo_carreta: undefined,
+  observacion: "",
+  guias: [],
+};
+
+const guiaVacia = (idProveedor: number): GuiaProgramacionInput => ({
+  id_proveedor: idProveedor,
   guia_remitente: "",
   guia_transportista: "",
-  id_vehiculo_carreta: undefined,
+  guia_remitente_archivo: null,
+  guia_transportista_archivo: null,
   guia_remitente_file: null,
   guia_transportista_file: null,
-  documentos_programacion_existentes: null,
-  observacion: "",
-};
+});
 
 export const useProgramarForm = (
   onSuccess: (nueva: ProgramacionDetail) => void,
   programacion?: ProgramacionDetail | null,
 ) => {
   const { notifySuccess, notifyError } = useNotify();
-  const [form, setForm] = useState<CrearProgramacionRequest>(INITIAL_FORM);
+  const [form, setForm] = useState<ProgramacionFormState>(INITIAL_FORM);
   const [loading, setLoading] = useState(false);
 
   const esEdicion = Boolean(programacion?.id);
@@ -93,9 +121,9 @@ export const useProgramarForm = (
   }, []);
 
   const setField = useCallback(
-    <K extends keyof CrearProgramacionRequest>(
+    <K extends keyof ProgramacionFormState>(
       key: K,
-      value: CrearProgramacionRequest[K],
+      value: ProgramacionFormState[K],
     ) => {
       setForm((prev) => {
         const next = { ...prev, [key]: value };
@@ -116,6 +144,96 @@ export const useProgramarForm = (
   }, []);
 
   /**
+   * Sincronizar la selección de proveedores con las entradas de guía.
+   *
+   * Se conserva el orden en que se eligieron los proveedores: cada uno
+   * aporta su propia fila de guías (remitente, transportista y archivos).
+   */
+  const setProveedoresSeleccionados = useCallback((ids: string[]) => {
+    setForm((prev) => {
+      const actuales = prev.guias.map((g) => g.id_proveedor);
+      const nuevos = ids
+        .map((id) => Number(id))
+        .filter((id) => Number.isFinite(id) && id > 0);
+
+      const conservadas = prev.guias.filter((g) => nuevos.includes(g.id_proveedor));
+      const agregadas = nuevos
+        .filter((id) => !actuales.includes(id))
+        .map((id) => guiaVacia(id));
+
+      return { ...prev, guias: [...conservadas, ...agregadas] };
+    });
+  }, []);
+
+  /**
+   * Actualizar los datos editables de la guía de un proveedor.
+   */
+  const updateGuia = useCallback(
+    (
+      idProveedor: number,
+      patch: Partial<
+        Pick<
+          GuiaProgramacionInput,
+          "guia_remitente" | "guia_transportista"
+        >
+      >,
+    ) => {
+      setForm((prev) => ({
+        ...prev,
+        guias: prev.guias.map((g) =>
+          g.id_proveedor === idProveedor ? { ...g, ...patch } : g,
+        ),
+      }));
+    },
+    [],
+  );
+
+  /**
+   * Quitar un archivo ya guardado de la guía de un proveedor.
+   */
+  const removeArchivoGuia = useCallback(
+    (
+      idProveedor: number,
+      tipo: "guia_remitente" | "guia_transportista",
+    ) => {
+      setForm((prev) => ({
+        ...prev,
+        guias: prev.guias.map((g) =>
+          g.id_proveedor === idProveedor
+            ? {
+                ...g,
+                [`${tipo}_archivo`]: null,
+                [`${tipo}_file`]: null,
+              }
+            : g,
+        ),
+      }));
+    },
+    [],
+  );
+
+  /**
+   * Registrar un archivo nuevo pendiente de subir.
+   */
+  const setArchivoNuevoGuia = useCallback(
+    (
+      idProveedor: number,
+      tipo: "guia_remitente" | "guia_transportista",
+      archivo: File | null,
+    ) => {
+      setForm((prev) => ({
+        ...prev,
+        guias: prev.guias.map((g) =>
+          g.id_proveedor === idProveedor
+            ? { ...g, [`${tipo}_file`]: archivo }
+            : g,
+        ),
+      }));
+    },
+    [],
+  );
+
+  /**
    * Cargar en el formulario los datos de una programación existente para
    * editarlos. `tipo_ingreso` se conserva tal cual: es un campo bloqueado.
    */
@@ -126,22 +244,40 @@ export const useProgramarForm = (
       ? p.fecha_estimada_llegada.slice(0, 10)
       : "";
 
+    const guiasExistentes = p.guias ?? [];
+    const guiasPorProveedor = new Map(
+      guiasExistentes.map((g) => [g.id_proveedor, g] as const),
+    );
+
+    const idsProveedor = (p.proveedores ?? []).map((prov) => prov.id_proveedor);
+    const idsEnGuias = guiasExistentes.map((g) => g.id_proveedor);
+    const ordenProveedores = [
+      ...idsProveedor.filter((id) => idsEnGuias.includes(id)),
+      ...idsEnGuias.filter((id) => !idsProveedor.includes(id)),
+    ];
+
     setForm({
       id_empresa_transporte: p.id_empresa_transporte,
       tipo_ingreso: p.tipo_ingreso ?? TipoIngreso.RecepcionMineral,
       id_vehiculo: p.id_vehiculo ?? undefined,
       id_tipo_vehiculo: p.id_tipo_vehiculo ?? undefined,
       id_conductor: p.id_conductor ?? undefined,
-      id_proveedor_minero: p.id_proveedor_minero ?? undefined,
       id_sucursal: p.id_sucursal ?? undefined,
       fecha_estimada_llegada: fechaEstimada,
-      guia_remitente: p.guia_remitente ?? "",
-      guia_transportista: p.guia_transportista ?? "",
       id_vehiculo_carreta: p.id_vehiculo_carreta ?? undefined,
-      guia_remitente_file: null,
-      guia_transportista_file: null,
-      documentos_programacion_existentes: p.documentos_programacion ?? null,
       observacion: p.observacion ?? "",
+      guias: ordenProveedores.map((idProveedor) => {
+        const guia = guiasPorProveedor.get(idProveedor);
+        return {
+          id_proveedor: idProveedor,
+          guia_remitente: guia?.guia_remitente ?? "",
+          guia_transportista: guia?.guia_transportista ?? "",
+          guia_remitente_archivo: guia?.guia_remitente_archivo ?? null,
+          guia_transportista_archivo: guia?.guia_transportista_archivo ?? null,
+          guia_remitente_file: null,
+          guia_transportista_file: null,
+        };
+      }),
     });
   }, []);
 
@@ -154,8 +290,8 @@ export const useProgramarForm = (
       notifyError("Debe seleccionar el vehículo.");
       return false;
     }
-    if (!form.id_proveedor_minero) {
-      notifyError("Debe seleccionar el proveedor minero.");
+    if (form.guias.length === 0) {
+      notifyError("Debe seleccionar al menos un proveedor de la carga.");
       return false;
     }
 
@@ -167,9 +303,45 @@ export const useProgramarForm = (
         useUIStore.getState().sucursal_elegida?.id_sucursal ||
         useUIStore.getState().sucursales[0]?.id_sucursal;
 
+    const guias = form.guias.map((g) => ({
+      id_proveedor: g.id_proveedor,
+      guia_remitente: g.guia_remitente.trim().toUpperCase(),
+      guia_transportista: g.guia_transportista.trim().toUpperCase(),
+      guia_remitente_archivo: g.guia_remitente_archivo,
+      guia_transportista_archivo: g.guia_transportista_archivo,
+    }));
+
+    const guiasArchivos: GuiaProgramacionArchivos = {};
+    form.guias.forEach((g, indice) => {
+      const archivos: { guia_remitente?: File; guia_transportista?: File } = {};
+      if (g.guia_remitente_file) {
+        archivos.guia_remitente = g.guia_remitente_file;
+      }
+      if (g.guia_transportista_file) {
+        archivos.guia_transportista = g.guia_transportista_file;
+      }
+      if (Object.keys(archivos).length > 0) {
+        guiasArchivos[indice] = archivos;
+      }
+    });
+
+    const payload: CrearProgramacionRequest = {
+      id_empresa_transporte: form.id_empresa_transporte,
+      id_vehiculo: form.id_vehiculo,
+      id_tipo_vehiculo: form.id_tipo_vehiculo,
+      id_conductor: form.id_conductor,
+      id_sucursal: idSucursalFinal,
+      fecha_estimada_llegada: form.fecha_estimada_llegada,
+      id_vehiculo_carreta: form.id_vehiculo_carreta ?? null,
+      observacion: form.observacion,
+      tipo_ingreso: form.tipo_ingreso,
+      proveedores: form.guias.map((g) => g.id_proveedor),
+      guias,
+      guias_archivos: guiasArchivos,
+    };
+
     setLoading(true);
     try {
-      const payload = { ...form, id_sucursal: idSucursalFinal };
       const nueva =
         esEdicion && programacion
           ? await ProgramarRecepcionService.actualizarProgramacion(
@@ -238,9 +410,12 @@ export const useProgramarForm = (
         telefono: nuevo.telefono,
       };
       setProveedores((prev) => [resProv, ...prev.filter((p) => p.id_proveedor !== nuevo.id_proveedor)]);
-      setField("id_proveedor_minero", nuevo.id_proveedor);
+      setProveedoresSeleccionados([
+        ...form.guias.map((g) => String(g.id_proveedor)),
+        String(nuevo.id_proveedor),
+      ]);
     },
-    [setField],
+    [form.guias, setProveedoresSeleccionados],
   );
 
   const handleCarretaCreada = useCallback(
@@ -292,6 +467,10 @@ export const useProgramarForm = (
     loadingConductores,
     cargarCatalogos,
     cargarProgramacion,
+    setProveedoresSeleccionados,
+    updateGuia,
+    removeArchivoGuia,
+    setArchivoNuevoGuia,
     handleEmpresaCreada,
     handleVehiculoCreado,
     handleProveedorCreado,

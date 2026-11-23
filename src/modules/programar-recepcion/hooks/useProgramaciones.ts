@@ -55,15 +55,25 @@ export const useProgramaciones = () => {
   const programacionesFiltradas = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
     if (!q) return programaciones;
-    return programaciones.filter(
-      (p) =>
+    return programaciones.filter((p) => {
+      const proveedores = (p.proveedores ?? [])
+        .map((prov) => prov.razon_social ?? "")
+        .join(" ");
+      const guias = (p.guias ?? [])
+        .map(
+          (g) =>
+            `${g.guia_remitente ?? ""} ${g.guia_transportista ?? ""}`,
+        )
+        .join(" ");
+
+      return (
         p.empresa_transporte_razon_social.toLowerCase().includes(q) ||
         (p.vehiculo_placa ?? "").toLowerCase().includes(q) ||
         (p.conductor_nombre_completo ?? "").toLowerCase().includes(q) ||
-        (p.proveedor_razon_social ?? "").toLowerCase().includes(q) ||
-        (p.guia_remitente ?? "").toLowerCase().includes(q) ||
-        (p.guia_transportista ?? "").toLowerCase().includes(q),
-    );
+        proveedores.toLowerCase().includes(q) ||
+        guias.toLowerCase().includes(q)
+      );
+    });
   }, [programaciones, searchQuery]);
 
   const resetFilters = () => {

@@ -22,6 +22,10 @@ import type { RES_Proveedor } from "../../../../service/responses/proveedor";
 import type { RES_ZonaOrigen } from "../../../../service/responses/zona-origen";
 import type { RES_LoteMineral } from "../../service/recepcion-mineral.responses";
 import type { DTO_PesoFinal } from "../../service/recepcion-mineral.requests";
+import {
+  opcionesProveedor,
+  resolverProveedorInicial,
+} from "../utils/proveedores-sugeridos";
 import { useNotify } from "../../../../hooks/useNotify";
 
 interface Props {
@@ -52,13 +56,20 @@ export const ModalPesoFinal = ({ lote, onCancel, onSubmit, targetIdOverride }: P
 
   // Estados Formulario
   // El proveedor_minero se autocompleta con el del lote si ya fue elegido (ej. en peso inicial);
-  // si el lote no tiene aún proveedor, se sugiere el de la recepción
-  // (denormalizado como `id_proveedor_minero_recepcion` en la respuesta del lote).
+  // si el lote no tiene aún proveedor, se usa el de la UNIDAD (los proveedores
+  // de la carga, `proveedor_recepcion`).
   // El usuario puede cambiarlo libremente desde el Select en cualquier instancia.
-  const initialProveedorId =
-    lote.id_proveedor_minero ?? lote.id_proveedor_minero_recepcion ?? null;
+  const proveedoresSugeridos = lote.proveedores_recepcion ?? [];
+  const idProveedorCarga = lote.id_proveedor_minero ?? null;
+  const idProveedorUnidad = lote.id_proveedor_minero_recepcion ?? null;
+  const idProveedorSugerido =
+    lote.proveedores_recepcion?.[0]?.id_proveedor ?? null;
   const [idProveedor, setIdProveedor] = useState<string | null>(
-    initialProveedorId ? String(initialProveedorId) : null,
+    resolverProveedorInicial(
+      idProveedorCarga,
+      idProveedorUnidad,
+      idProveedorSugerido,
+    ),
   );
   const [idZona, setIdZona] = useState<string | null>(lote.id_zona_origen ? String(lote.id_zona_origen) : null);
   const [contacto, setContacto] = useState<string>(lote.numero_contacto || "");
@@ -95,9 +106,14 @@ export const ModalPesoFinal = ({ lote, onCancel, onSubmit, targetIdOverride }: P
   }, [lote.observaciones]);
 
   useEffect(() => {
-    const provId = lote.id_proveedor_minero ?? lote.id_proveedor_minero_recepcion ?? null;
-    setIdProveedor(provId ? String(provId) : null);
-  }, [lote.id, lote.id_proveedor_minero, lote.id_proveedor_minero_recepcion]);
+    setIdProveedor(
+      resolverProveedorInicial(
+        idProveedorCarga,
+        idProveedorUnidad,
+        idProveedorSugerido,
+      ),
+    );
+  }, [idProveedorCarga, idProveedorUnidad, idProveedorSugerido]);
 
   const handleProveedorChange = (val: string | null) => {
     setIdProveedor(val);
@@ -184,15 +200,7 @@ export const ModalPesoFinal = ({ lote, onCancel, onSubmit, targetIdOverride }: P
                 clearable
                 disabled={loadingCatalogos}
                 rightSection={loadingCatalogos ? <Loader size={16} /> : undefined}
-                data={proveedores
-                  .filter(
-                    (p): p is RES_Proveedor & { id_proveedor: number } =>
-                      typeof p.id_proveedor === "number",
-                  )
-                  .map((p) => ({
-                    value: String(p.id_proveedor),
-                    label: `${p.razon_social} (${p.documento})`,
-                  }))}
+                data={opcionesProveedor(proveedores, proveedoresSugeridos)}
                 value={idProveedor}
                 onChange={handleProveedorChange}
                 comboboxProps={{ withinPortal: true }}

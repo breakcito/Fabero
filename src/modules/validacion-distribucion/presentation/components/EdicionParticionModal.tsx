@@ -3,7 +3,6 @@ import {
   Button,
   Grid,
   Group,
-  Loader,
   NumberInput,
   Select,
   Stack,
@@ -22,13 +21,11 @@ import type { RES_Vehiculo } from "../../../../service/responses/vehiculo";
 import type { RES_Conductor } from "../../../../service/responses/conductor";
 import type { RES_EmpresaTransporte } from "../../../../service/responses/empresa-transporte";
 import type { RES_TipoVehiculo } from "../../../../service/responses/tipo-vehiculo";
-import type { RES_Proveedor } from "../../../../service/responses/proveedor";
 import { useNotify } from "../../../../hooks/useNotify";
 import { RegistroConductor } from "../../../../presentation/utils/registro-conductor";
 import { RegistroVehiculoSimple } from "../../../../presentation/utils/registro-vehiculo-simple";
 import { RegistroEmpresaTransporte } from "../../../../presentation/utils/registro-empresa-transporte";
 import { RegistroTipoVehiculoSimple } from "../../../../presentation/utils/registro-tipo-vehiculo-simple";
-import { RegistroProveedorMineroSimple } from "../../../../presentation/utils/registro-proveedor-minero-simple";
 
 interface Props {
   opened: boolean;
@@ -43,8 +40,7 @@ type SubModal =
   | "vehiculo_carreta"
   | "conductor"
   | "empresa"
-  | "tipo_vehiculo"
-  | "proveedor";
+  | "tipo_vehiculo";
 
 export const EdicionParticionModal = ({
   opened,
@@ -67,11 +63,6 @@ export const EdicionParticionModal = ({
   );
   const [idTipoVehiculo, setIdTipoVehiculo] = useState<string | null>(
     particion.id_tipo_vehiculo != null ? String(particion.id_tipo_vehiculo) : null
-  );
-  const [idProveedorMinero, setIdProveedorMinero] = useState<string | null>(
-    particion.id_proveedor_minero != null
-      ? String(particion.id_proveedor_minero)
-      : null
   );
   const [idVehiculoCarreta, setIdVehiculoCarreta] = useState<string | null>(
     particion.id_vehiculo_carreta != null
@@ -97,21 +88,18 @@ export const EdicionParticionModal = ({
     RES_EmpresaTransporte[]
   >([]);
   const [tiposVehiculo, setTiposVehiculo] = useState<RES_TipoVehiculo[]>([]);
-  const [proveedores, setProveedores] = useState<RES_Proveedor[]>([]);
 
   const [loadingVehiculos, setLoadingVehiculos] = useState(false);
   const [loadingConductores, setLoadingConductores] = useState(false);
   const [loadingEmpresasTransporte, setLoadingEmpresasTransporte] =
     useState(false);
   const [loadingTiposVehiculo, setLoadingTiposVehiculo] = useState(false);
-  const [loadingProveedores, setLoadingProveedores] = useState(false);
 
   const catalogsLoading =
     loadingVehiculos ||
     loadingConductores ||
     loadingEmpresasTransporte ||
-    loadingTiposVehiculo ||
-    loadingProveedores;
+    loadingTiposVehiculo;
 
   const [subModal, setSubModal] = useState<SubModal>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -156,11 +144,6 @@ export const EdicionParticionModal = ({
           ? String(particion.id_tipo_vehiculo)
           : null
       );
-      setIdProveedorMinero(
-        particion.id_proveedor_minero != null
-          ? String(particion.id_proveedor_minero)
-          : null
-      );
       setIdVehiculoCarreta(
         particion.id_vehiculo_carreta != null
           ? String(particion.id_vehiculo_carreta)
@@ -192,7 +175,6 @@ export const EdicionParticionModal = ({
     setLoadingVehiculos(true);
     setLoadingConductores(true);
     setLoadingEmpresasTransporte(true);
-    setLoadingProveedores(true);
     setLoadingTiposVehiculo(true);
 
     AuxService.get_vehiculos()
@@ -218,13 +200,6 @@ export const EdicionParticionModal = ({
       )
       .finally(() => setLoadingEmpresasTransporte(false));
 
-    AuxService.get_proveedores()
-      .then((res) => {
-        setProveedores(res.data ?? (res as unknown as RES_Proveedor[]));
-      })
-      .catch(() => notifyError("No se pudo cargar el catálogo de proveedores."))
-      .finally(() => setLoadingProveedores(false));
-
     AuxService.get_tipos_vehiculo()
       .then((data) => {
         setTiposVehiculo(data as RES_TipoVehiculo[]);
@@ -239,7 +214,6 @@ export const EdicionParticionModal = ({
       else if (kind === "conductor") setLoadingConductores(val);
       else if (kind === "empresa") setLoadingEmpresasTransporte(val);
       else if (kind === "tipo_vehiculo") setLoadingTiposVehiculo(val);
-      else if (kind === "proveedor") setLoadingProveedores(val);
     };
 
     setLoading(true);
@@ -256,9 +230,6 @@ export const EdicionParticionModal = ({
       } else if (kind === "tipo_vehiculo") {
         const data = await AuxService.get_tipos_vehiculo();
         setTiposVehiculo(data as RES_TipoVehiculo[]);
-      } else if (kind === "proveedor") {
-        const res = await AuxService.get_proveedores();
-        setProveedores(res.data ?? (res as unknown as RES_Proveedor[]));
       }
     } catch {
       /* silent */
@@ -296,12 +267,8 @@ export const EdicionParticionModal = ({
             ? Number(idEmpresaTransporte)
             : null,
           id_tipo_vehiculo: idTipoVehiculo ? Number(idTipoVehiculo) : null,
-          // El proveedor va BLOQUEADO: se muestra el heredado del lote padre
-          // (el backend lo resuelve con COALESCE) y se envía tal cual para
-          // materializarlo en la recepcion de la particion.
-          id_proveedor_minero: idProveedorMinero
-            ? Number(idProveedorMinero)
-            : null,
+          // El proveedor NO se envía: la partición lo hereda del lote padre
+          // y el backend lo resuelve al leer.
           fecha_hora_ingreso: fechaHoraIngreso
             ? fechaHoraIngreso.toISOString()
             : null,
@@ -450,19 +417,22 @@ export const EdicionParticionModal = ({
             </Grid.Col>
             
             <Grid.Col span={{ base: 12, sm: 6 }}>
-              <SelectField
-                label="Proveedor minero"
-                data={proveedores.map((p) => ({
-                  value: String(p.id_proveedor),
-                  label: `${p.razon_social}${p.documento ? ` (${p.documento})` : ""}`,
-                }))}
-                value={idProveedorMinero}
-                onChange={setIdProveedorMinero}
-                onPlus={() => setSubModal("proveedor")}
-                loading={loadingProveedores}
-                locked
-                hint="Heredado del lote padre. No se puede modificar."
-              />
+              <Stack gap={4}>
+                <Text size="xs" c="dimmed">
+                  Proveedor minero
+                </Text>
+                <Group gap={4} align="center">
+                  <Text size="xs" c="zinc-200">
+                    {particion.proveedor_razon_social ?? "—"}
+                  </Text>
+                  <Tooltip label="Heredado del lote padre. No se puede modificar." withArrow>
+                    <IconLock size={13} className="text-zinc-500" />
+                  </Tooltip>
+                </Group>
+                <Text size="10px" c="dimmed">
+                  Heredado del lote padre. No se puede modificar.
+                </Text>
+              </Stack>
             </Grid.Col>
             {/* Celda vacía para empujar las fechas a la última fila y mantenerlas juntas. */}
             <Grid.Col span={{ base: 0, sm: 6 }} aria-hidden="true" />
@@ -619,25 +589,6 @@ export const EdicionParticionModal = ({
           />
         </ModalEstandar>
       )}
-
-      {subModal === "proveedor" && (
-        <ModalEstandar
-          opened
-          close={() => setSubModal(null)}
-          title="Registrar proveedor minero"
-          size="sm"
-          validateClose
-        >
-          <RegistroProveedorMineroSimple
-            onCancel={() => setSubModal(null)}
-            onSuccess={(p) => {
-              setIdProveedorMinero(String(p.id_proveedor));
-              void refreshCatalog("proveedor");
-              setSubModal(null);
-            }}
-          />
-        </ModalEstandar>
-      )}
     </>
   );
 };
@@ -650,13 +601,6 @@ interface SelectFieldProps {
   onPlus: () => void;
   loading: boolean;
   placeholder?: string;
-  /**
-   * Campo bloqueado: muestra el valor pero no se puede cambiar. Se usa para
-   * los datos que la partición hereda del lote padre (p.ej. el proveedor).
-   */
-  locked?: boolean;
-  /** Texto auxiliar bajo el campo (p.ej. el origen del valor heredado). */
-  hint?: string;
 }
 
 const SelectField = ({
@@ -667,8 +611,6 @@ const SelectField = ({
   onPlus,
   loading,
   placeholder,
-  locked = false,
-  hint,
 }: SelectFieldProps) => {
   return (
     <Stack gap={4}>
@@ -682,48 +624,26 @@ const SelectField = ({
           value={value}
           onChange={onChange}
           searchable
-          clearable={!locked}
-          readOnly={locked}
+          clearable
           radius="lg"
           size="xs"
           style={{ flex: 1 }}
           disabled={loading}
-          rightSection={
-            loading ? (
-              <Loader size={16} />
-            ) : locked ? (
-              <IconLock size={13} className="text-zinc-500" />
-            ) : undefined
-          }
-          // El combobox deshabilitado impide abrir el desplegable: el valor se
-          // muestra pero no se puede cambiar.
-          comboboxProps={{ withinPortal: true, disabled: locked }}
+          comboboxProps={{ withinPortal: true }}
         />
-        <Tooltip
-          label={
-            locked
-              ? `${label}: heredado del lote padre`
-              : `Registrar ${label.toLowerCase()}`
-          }
-          withArrow
-        >
+        <Tooltip label={`Registrar ${label.toLowerCase()}`} withArrow>
           <ActionIcon
             variant="subtle"
             color="gray"
             size="sm"
             onClick={onPlus}
-            disabled={loading || locked}
+            disabled={loading}
             aria-label={`Agregar ${label}`}
           >
             <IconPlus size={16} />
           </ActionIcon>
         </Tooltip>
       </Group>
-      {hint && (
-        <Text size="10px" c="dimmed">
-          {hint}
-        </Text>
-      )}
     </Stack>
   );
 };

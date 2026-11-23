@@ -34,6 +34,20 @@ export const usd = (v: number): string => {
   return `$${fmt(valor)}`;
 };
 
+/**
+ * Monto en dólares con dos decimales.
+ *
+ * El detalle de facturas necesita la cifra exacta: la versión compacta
+ * (`usd`) redondea a miles y escondería centavos en el popover.
+ */
+export const usdExacto = (v: number): string => {
+  const valor = Number.isFinite(v) ? v : 0;
+  return `$${new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(valor)}`;
+};
+
 /** Etiqueta de un mes: "Oct 2026". */
 export const etiquetaMes = (anio: number, mes: number): string =>
   `${MESES_CORTOS[mes - 1] ?? ""} ${anio}`;

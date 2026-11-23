@@ -1,5 +1,9 @@
 import type { IArchivo } from "../../../shared/interfaces/archivo";
 import type { IDocumentoProgramacion } from "../../../shared/interfaces/documentos-programacion";
+import type {
+  IGuiaRecepcion,
+  IProveedorRecepcion,
+} from "../../../shared/interfaces/guia-recepcion";
 import type { RES_CambiosLog } from "../../../service/responses/_generic/cambios-log";
 import type { TipoIngreso } from "../../../shared/enums/_generic/tipo-ingreso";
 import type { EstadoUnidad } from "../../../shared/enums/_generic/estado-unidad";
@@ -34,6 +38,11 @@ export interface RecepcionUnidadResponse {
   fecha_hora_inicio_pesaje?: string | null;
   fecha_hora_final_pesaje?: string | null;
   estado_pesaje: EstadoPesaje | string | null;
+  /**
+   * Proveedor principal de la recepción (el primero de `proveedores`).
+   * Derivado del modelo nuevo; se mantiene `id_proveedor_minero` por
+   * compatibilidad con los consumidores que aún lo usan.
+   */
   id_proveedor_minero: number | null;
   proveedor_razon_social: string | null;
   proveedor_ruc: string | null;
@@ -43,8 +52,27 @@ export interface RecepcionUnidadResponse {
   empleado_recepcion_nombre: string | null;
   es_programacion: boolean;
   fecha_estimada_llegada: string | null;
+  /**
+   * Guías por proveedor de la carga (modelo nuevo).
+   */
+  guias: IGuiaRecepcion[];
+  /**
+   * Proveedores de la carga de la unidad (modelo nuevo).
+   */
+  proveedores: IProveedorRecepcion[];
+  /**
+   * Proveedor principal (el primero de `proveedores`), si existe.
+   */
+  proveedor_principal?: IProveedorRecepcion | null;
+  /**
+   * Guías de la unidad como texto plano (derivadas de `guias`).
+   */
   guia_remitente: string | null;
   guia_transportista: string | null;
+  /**
+   * @deprecated La columna `documentos_programacion` fue eliminada: los
+   *             archivos por proveedor están en `guias`.
+   */
   documentos_programacion: IDocumentoProgramacion | null;
   es_recepcion_ficticia: boolean;
   id_ticket_recepcion_unidades?: number | null;

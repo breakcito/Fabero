@@ -3,6 +3,10 @@ import type { EstadoBase } from "../../../shared/enums/_generic/estado-base";
 import type { IDocumentoProgramacion } from "../../../shared/interfaces/documentos-programacion";
 import type { DistribucionDetalleItem } from "../../programacion-despachos/service/programacion-despachos.responses";
 import type { IArchivo } from "../../../shared/interfaces/archivo";
+import type {
+  IGuiaRecepcion,
+  IProveedorRecepcion,
+} from "../../../shared/interfaces/guia-recepcion";
 
 export interface RES_LoteMineral {
   id: number;
@@ -12,8 +16,18 @@ export interface RES_LoteMineral {
   id_proveedor_minero: number | null;
   proveedor_nombre?: string;
   proveedor_telefono?: string;
+  /**
+   * Proveedor de la UNIDAD a la que pertenece el lote (modelo nuevo): el
+   * proveedor principal de `proveedor_recepcion`, o el proveedor de la carga
+   * del propio lote si la unidad no tiene proveedores registrados.
+   */
   id_proveedor_minero_recepcion: number | null;
   proveedor_nombre_recepcion?: string;
+  /**
+   * Proveedores de la CARGA que trajo la unidad (`proveedor_recepcion`).
+   * En el pesaje se sugieren PRIMERO; el resto del catálogo sigue disponible.
+   */
+  proveedores_recepcion?: IProveedorRecepcion[];
   id_empleado_registro: number;
   empleado_registro_nombre?: string;
   id_zona_origen: number | null;
@@ -155,7 +169,29 @@ export interface RecepcionMineralResponse {
   id_distribucion: number | null;
   lotes: RES_LoteMineral[];
   distribucion_detalles: DistribucionDetalleItem[];
+  /**
+   * Archivos de las guías de la recepción, derivados del array `guias`.
+   * @deprecated La columna `documentos_programacion` fue eliminada: los
+   *             archivos por proveedor están en `guias`.
+   */
   documentos_programacion: IDocumentoProgramacion | null;
+  /**
+   * Guías de la carga por proveedor (modelo nuevo).
+   */
+  guias: IGuiaRecepcion[];
+  /**
+   * Proveedores de la carga que trajo la unidad (modelo nuevo).
+   */
+  proveedores: IProveedorRecepcion[];
+  /**
+   * Proveedor principal (el primero de `proveedores`), si existe.
+   */
+  proveedor_principal?: IProveedorRecepcion | null;
+  /**
+   * Guías de la unidad como texto plano (derivadas de `guias`).
+   */
+  guia_remitente: string | null;
+  guia_transportista: string | null;
   /**
    * Ticket de Ingreso Vehicular (T.I.V.). Se genera al confirmar la llegada
    * de la unidad a planta; si es null, la unidad todavía no tiene ticket.
@@ -164,10 +200,9 @@ export interface RecepcionMineralResponse {
   ticket_correlativo: string | null;
   log_cambios?: RES_CambiosLog[] | null;
   /**
-   * Proveedor denormalizado desde `recepcion_unidad.id_proveedor_minero`. Se usa
-   * como fuente principal del autocomplete de proveedor al pesar una PARTICIÓN
-   * (cascada: unidad → lote padre → vacío). Viene del backend en
-   * `get_recepciones_mineral` vía `LEFT JOIN proveedor`.
+   * Proveedor principal de la UNIDAD (derivado de `proveedor_recepcion`). Se
+   * usa como fuente principal del autocomplete de proveedor al pesar una
+   * PARTICIÓN (cascada: carga → unidad → vacío).
    */
   id_proveedor_minero: number | null;
   proveedor_nombre_recepcion_unidad?: string;

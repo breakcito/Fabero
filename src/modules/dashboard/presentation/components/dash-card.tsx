@@ -33,7 +33,7 @@ export const DashCard = ({
             style={{ background: dot }}
           />
         )}
-        {titulo}
+        <span className="truncate">{titulo}</span>
       </h2>
       {rightSection && <div className="shrink-0">{rightSection}</div>}
     </header>

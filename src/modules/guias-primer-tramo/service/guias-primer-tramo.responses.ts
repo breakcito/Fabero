@@ -3,6 +3,10 @@ import type { CondicionIngreso } from "../../../shared/enums/_generic/condicion-
 import { EstadoBase } from "../../../shared/enums/_generic/estado-base";
 import type { TipoProducto } from "../../../shared/enums/_generic/tipo-producto";
 import type { EstadoGuiaPrimerTramo } from "../../../shared/enums/_generic/estado-guia-primer-tramo";
+import type {
+  IGuiaRecepcion,
+  IProveedorRecepcion,
+} from "../../../shared/interfaces/guia-recepcion";
 
 export interface RES_ConcesionPorProveedor {
   id_concesion: number;
@@ -147,6 +151,31 @@ export interface RES_ArchivosGuiasRecepcion {
   guia_remitente: string | null;
   guia_transportista: string | null;
   documentos: RES_GuiaDocumentos | null;
+  /** Guías de la unidad, una entrada por proveedor (modelo nuevo). */
+  guias?: IGuiaRecepcion[];
+  /** Proveedores de la carga de la unidad. */
+  proveedores?: IProveedorRecepcion[];
+}
+
+/**
+ * Unidad vehicular (recepción de unidad) con items de mineral pendientes de
+ * asociar a una guía de primer tramo.
+ */
+export interface RES_UnidadGuia {
+  id: number;
+  placa: string | null;
+  fecha_hora_ingreso: string | null;
+}
+
+/**
+ * Proveedor de la carga de una unidad. Es un subconjunto de `RES_Proveedor`:
+ * el catálogo de guías solo necesita el id y la razón social para armar el
+ * filtro del selector de proveedor.
+ */
+export interface RES_ProveedorUnidad {
+  id_proveedor: number;
+  razon_social: string;
+  ruc: string | null;
 }
 
 export interface RES_FiltrosMetadataGuia {

@@ -16,6 +16,8 @@ export interface KpiDeltaCardProps {
   formato?: (valor: number) => string;
   /** Variaciones a mostrar: porcentaje y su leyenda. */
   deltas: { pct: number; etiqueta: string }[];
+  /** Controles a la derecha del encabezado (filtros). */
+  rightSection?: ReactNode;
   /** Contenido extra al final de la fila de píldoras. */
   extra?: ReactNode;
   /** Clases extra del contenedor (para spans dentro de un grid). */
@@ -36,11 +38,17 @@ export const KpiDeltaCard = ({
   decimales = 0,
   formato,
   deltas,
+  rightSection,
   extra,
   className = "",
   loading = false,
 }: KpiDeltaCardProps) => (
-  <DashCard titulo={titulo} dot={dot} className={className}>
+  <DashCard
+    titulo={titulo}
+    dot={dot}
+    rightSection={rightSection}
+    className={className}
+  >
     <div>
       {loading ? (
         <Numero color="var(--mantine-color-zinc-700)">—</Numero>

@@ -66,6 +66,30 @@ export interface RES_DashboardContraparte {
   monto_usd: number;
 }
 
+/**
+ * Comprobante pendiente de una cuenta (por pagar / por cobrar).
+ *
+ * Es la fila que muestra el popover de detalle de cada tarjeta.
+ */
+export interface RES_DashboardDetalleCuenta {
+  /** Número de factura/comprobante. */
+  documento: string;
+  /** Proveedor (compras) o planta destino (ventas). */
+  contraparte: string;
+  /** Correlativo de la valorización que originó el comprobante. */
+  valorizacion: string | null;
+  /** Fecha de emisión del comprobante. */
+  fecha: string | null;
+  /** Saldo pendiente neto (USD). */
+  neto_usd: number;
+  /** Saldo pendiente de detracción, normalizado a USD. */
+  detraccion_usd: number;
+  /** neto + detracción. */
+  total_usd: number;
+  /** Estado del comprobante (En Espera / En Proceso / Pagado). */
+  estado: string;
+}
+
 /** Cuentas por pagar (compras) o por cobrar (ventas). */
 export interface RES_DashboardCuenta {
   /** Saldo pendiente neto en USD. */
@@ -76,6 +100,8 @@ export interface RES_DashboardCuenta {
   total_usd: number;
   mayor_deudor?: RES_DashboardContraparte | null;
   mayor_acreedor?: RES_DashboardContraparte | null;
+  /** Comprobantes pendientes, ordenados por saldo pendiente descendente. */
+  detalle: RES_DashboardDetalleCuenta[];
 }
 
 export interface RES_DashboardTipoCambio {

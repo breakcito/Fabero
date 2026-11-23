@@ -13,9 +13,8 @@ import { FiltrosProgramaciones } from "./components/filtros-programaciones";
 import { TablaProgramaciones } from "./components/tabla-programaciones";
 import { ProgramarRecepcionModal } from "./components/programar-modal";
 import { useTicketIngresoVehiculo } from "../../../hooks/useTicketIngresoVehiculo";
-import { TicketIngresoService } from "../../../service/ticket-ingreso.service";
-import { ModalSeleccionGuiaTicket } from "../../../presentation/utils/modal-seleccion-guia-ticket";
-import type { GuiaRecepcionItem } from "../../../service/responses/ticket-ingreso-vehiculo";
+import { ModalSeleccionTicketIngreso } from "../../../presentation/utils/modal-seleccion-ticket-ingreso";
+import type { RES_TicketIngresoDisponible } from "../../../service/responses/ticket-ingreso-vehiculo";
 import { RefreshButton } from "../../../presentation/utils/refresh-button";
 import { LimpiarFiltrosButton } from "../../../presentation/utils/limpiar-filtros-button";
 import {
@@ -36,6 +35,8 @@ const toListItem = (nueva: ProgramacionDetail): ProgramacionListItem => ({
   id_conductor: nueva.id_conductor,
   conductor_nombre_completo: nueva.conductor_nombre_completo,
   conductor_numero_licencia: nueva.conductor_numero_licencia ?? null,
+  guias: nueva.guias ?? [],
+  proveedores: nueva.proveedores ?? [],
   id_proveedor_minero: nueva.id_proveedor_minero,
   proveedor_razon_social: nueva.proveedor_razon_social,
   tipo_ingreso: nueva.tipo_ingreso,
@@ -80,15 +81,15 @@ export const ProgramarRecepcionPage = () => {
     useState<ProgramacionDetail | null>(null);
   const [editandoId, setEditandoId] = useState<number | null>(null);
   const [viendoTicketId, setViendoTicketId] = useState<number | null>(null);
-  const [modalSeleccionGuiaOpen, setModalSeleccionGuiaOpen] = useState(false);
-  const [guiasTicket, setGuiasTicket] = useState<GuiaRecepcionItem[]>([]);
+  const [modalSeleccionTicketOpen, setModalSeleccionTicketOpen] = useState(false);
+  const [ticketsDisponibles, setTicketsDisponibles] = useState<RES_TicketIngresoDisponible[]>([]);
   const [programacionTicket, setProgramacionTicket] =
     useState<ProgramacionListItem | null>(null);
-  const [idGuiaImprimiendo, setIdGuiaImprimiendo] = useState<number | null>(
+  const [idProveedorImprimiendo, setIdProveedorImprimiendo] = useState<number | null>(
     null,
   );
 
-  const { printTicketIngreso } = useTicketIngresoVehiculo();
+  const { printTicketIngreso, imprimirTicketPorProveedor } = useTicketIngresoVehiculo();
 
   const defaultInicio = defaultFechaInicio();
   const defaultFin = defaultFechaFin();
@@ -137,30 +138,17 @@ export const ProgramarRecepcionPage = () => {
    * El ticket de ingreso vehicular se muestra como PDF en otra pestaña
    * (mismo flujo que el botón de impresión de Recepción de Unidades).
    *
-   * Si la unidad tiene varias guías de primer tramo registradas, primero se
-   * pregunta cuál usar; con una sola se imprime directamente.
+   * Si la unidad trae la carga de varios proveedores, primero se pregunta
+   * cuál corresponde al ticket a imprimir; con uno solo se imprime directo.
    */
   const abrirTicket = async (programacion: ProgramacionListItem) => {
     setViendoTicketId(programacion.id);
     try {
-      const guias = await TicketIngresoService.getGuiasRecepcion(
-        programacion.id,
-      );
-      if (guias.length > 1) {
+      await imprimirTicketPorProveedor(programacion.id, (tickets) => {
         setProgramacionTicket(programacion);
-        setGuiasTicket(guias);
-        setModalSeleccionGuiaOpen(true);
-      } else if (guias.length === 1) {
-        await printTicketIngreso(programacion.id, guias[0].id);
-      } else {
-        await printTicketIngreso(programacion.id);
-      }
-    } catch (e) {
-      console.error(
-        "Error al obtener las guías de la unidad para imprimir el ticket",
-        e,
-      );
-      await printTicketIngreso(programacion.id);
+        setTicketsDisponibles(tickets);
+        setModalSeleccionTicketOpen(true);
+      });
     } finally {
       setViendoTicketId(null);
     }
@@ -223,18 +211,20 @@ export const ProgramarRecepcionPage = () => {
         }}
       />
 
-      <ModalSeleccionGuiaTicket
-        opened={modalSeleccionGuiaOpen}
-        guias={guiasTicket}
-        idGuiaImprimiendo={idGuiaImprimiendo}
-        onClose={() => setModalSeleccionGuiaOpen(false)}
-        onSelect={(idGuia) => {
+      <ModalSeleccionTicketIngreso
+        opened={modalSeleccionTicketOpen}
+        tickets={ticketsDisponibles}
+        idImprimiendo={idProveedorImprimiendo}
+        onClose={() => setModalSeleccionTicketOpen(false)}
+        onSelect={(ticket) => {
           if (programacionTicket) {
-            setIdGuiaImprimiendo(idGuia);
-            void printTicketIngreso(programacionTicket.id, idGuia).finally(() =>
-              setIdGuiaImprimiendo(null),
-            );
-            setModalSeleccionGuiaOpen(false);
+            setIdProveedorImprimiendo(ticket.id_proveedor);
+            void printTicketIngreso(
+              programacionTicket.id,
+              ticket.id_guia_primer_tramo,
+              ticket.id_proveedor,
+            ).finally(() => setIdProveedorImprimiendo(null));
+            setModalSeleccionTicketOpen(false);
           }
         }}
       />

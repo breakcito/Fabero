@@ -88,6 +88,8 @@ export const RecepcionUnidadesPage = () => {
             fecha_hora_final_pesaje: full.fecha_hora_final_pesaje,
             estado: full.estado,
             fecha_hora_ingreso: full.fecha_hora_ingreso,
+            guias: full.guias ?? programacionAConfirmar.guias ?? [],
+            proveedores: full.proveedores ?? programacionAConfirmar.proveedores ?? [],
             guia_remitente: full.guia_remitente,
             guia_transportista: full.guia_transportista,
             documentos_programacion:

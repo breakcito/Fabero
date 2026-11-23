@@ -271,13 +271,17 @@ export const useRecepcionMineral = () => {
     },
   ): Promise<RES_LoteMineral | null> => {
     const tempId = -Date.now();
+    const recepcionOrigen =
+      enProcesoList.find((r) => r.id === id) ??
+      (selectedRecepcion?.id === id ? selectedRecepcion : null);
     const tempLote: RES_LoteMineral = {
       id: tempId,
       id_recepcion_unidad: id,
       id_empleado_registro: 0,
       id_empresa: idEmpresa,
       id_proveedor_minero: null,
-      id_proveedor_minero_recepcion: null,
+      id_proveedor_minero_recepcion: recepcionOrigen?.id_proveedor_minero ?? null,
+      proveedores_recepcion: recepcionOrigen?.proveedores ?? [],
       id_zona_origen: null,
       correlativo: TEMP_LOTE_CORRELATIVO,
       numero_correlativo: null,

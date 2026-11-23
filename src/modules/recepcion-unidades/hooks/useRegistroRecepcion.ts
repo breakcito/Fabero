@@ -44,13 +44,12 @@ export const useRegistroRecepcion = (
     id_empresa_transporte: 0,
     id_tipo_vehiculo: 0,
     id_conductor: 0,
-    id_proveedor_minero: undefined,
     tipo_ingreso: TipoIngreso.RecepcionMineral,
     id_vehiculo_carreta: null,
     observacion: "",
     evidencias: [],
-    guia_remitente: "",
-    guia_transportista: "",
+    proveedores: [],
+    guias: [],
     id_motivo_ingreso: undefined,
   });
 
@@ -347,11 +346,33 @@ export const useRegistroRecepcion = (
 
       const hasVisitaInfo = visitantesValidos.length > 0 || vehiculos.length > 0;
 
+      // En el ingreso directo solo se capturan las guías (sin archivos): el
+      // proveedor de la carga se conoce después, con el registro de las
+      // cargas. `id_proveedor = 0` marca la "guía de la unidad".
+      const guiaRemitente = (payload.guias?.[0]?.guia_remitente ?? "").trim().toUpperCase();
+      const guiaTransportista = (payload.guias?.[0]?.guia_transportista ?? "")
+        .trim()
+        .toUpperCase();
+      const guias =
+        guiaRemitente !== "" || guiaTransportista !== ""
+          ? [
+              {
+                id_proveedor: 0,
+                guia_remitente: guiaRemitente,
+                guia_transportista: guiaTransportista,
+                guia_remitente_archivo: null,
+                guia_transportista_archivo: null,
+              },
+            ]
+          : [];
+
       const finalPayload: CrearRecepcionRequest = {
         ...payload,
         id_vehiculo: finalVehiculoId,
         id_sucursal: sucursalTarget.id_sucursal,
         placa: (placaBusqueda || `${serieBusqueda}-${numeroBusqueda}`).trim().toUpperCase(),
+        proveedores: payload.proveedores ?? [],
+        guias,
         id_motivo_ingreso: hasVisitaInfo ? payload.id_motivo_ingreso : undefined,
         vehiculos: vehiculos.map((v) => ({
           id: v.id,

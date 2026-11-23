@@ -85,7 +85,9 @@ export const RegistrarOcupanteModal = ({
     <ModalEstandar
       opened={opened}
       close={handleClose}
-      title={`Ocupante #${numeroSlot ?? 1} - Vehículo ${placaVehiculo ?? ""}`}
+      title={`Ocupante ${String.fromCharCode(
+        65 + Math.max(0, (numeroSlot ?? 1) - 1),
+      )} - Vehículo ${placaVehiculo ?? ""}`}
       size="md"
       validateClose
     >

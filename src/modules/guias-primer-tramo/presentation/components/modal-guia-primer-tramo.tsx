@@ -46,6 +46,8 @@ import type { RES_ConcesionPorProveedor } from "../../service/guias-primer-tramo
 import type {
   RES_ArchivosGuiasRecepcion,
   RES_ItemMineralDisponible,
+  RES_ProveedorUnidad,
+  RES_UnidadGuia,
 } from "../../service/guias-primer-tramo.responses";
 import type { RES_Proveedor } from "../../../../service/responses/proveedor";
 import type { ProveedorResponse } from "../../../proveedores-mineros/service/proveedores.responses";
@@ -62,6 +64,10 @@ import type {
 } from "../../service/guias-primer-tramo.requests";
 import type { RES_GuiaPrimerTramo } from "../../service/guias-primer-tramo.responses";
 import { useValidarDuplicadoGuiaEnVivo } from "../../hooks/useValidarDuplicadoGuiaEnVivo";
+import {
+  resolverConcesionSeleccionada,
+  resolverProveedorUnidad,
+} from "../utils/autocompletado-unidad";
 
 interface Props {
   opened: boolean;
@@ -114,6 +120,36 @@ const itemKey = (i: {
 };
 
 
+/**
+ * Un item pertenece a la unidad cuando su recepción (o la de su lote padre,
+ * que puede ser una recepción ficticia creada al particionar) coincide con la
+ * unidad seleccionada.
+ */
+const perteneceAUnidad = (
+  i: { id_recepcion_unidad: number; id_recepcion_unidad_padre?: number | null },
+  idUnidad: number,
+): boolean =>
+  i.id_recepcion_unidad === idUnidad ||
+  (i.id_recepcion_unidad_padre ?? null) === idUnidad;
+
+/**
+ * Items de una unidad que pertenecen a un proveedor concreto.
+ *
+ * Se excluyen los que ya están en una guía activa: si al mineral ya se le
+ * hizo la guía, no debe volver a ofrecerse ni colocarse solo.
+ */
+const itemsDeUnidadProveedor = (
+  items: RES_ItemMineralDisponible[],
+  idUnidad: number,
+  idProveedor: number,
+): RES_ItemMineralDisponible[] =>
+  items.filter(
+    (i) =>
+      i.id_proveedor_minero === idProveedor &&
+      !i.en_guia &&
+      perteneceAUnidad(i, idUnidad),
+  );
+
 /** Timestamp de creación del item. Valores no parseables caen en 0. */
 const tsCreacion = (createdAt: string): number => {
   const t = Date.parse(createdAt);
@@ -139,6 +175,19 @@ const splitFechaHora = (
 const normalizarFechaHora = (fh: string | null | undefined): string => {
   if (!fh) return "";
   return fh.trim().replace("T", " ").slice(0, 16);
+};
+
+/**
+ * Formatea un datetime del backend ("2026-11-21 01:08:21") como "21/11/2026".
+ * Se separa por partes en vez de usar `new Date(string)` porque el formato
+ * con espacio no es ISO.
+ */
+const formatFechaCorta = (valor: string | null | undefined): string => {
+  if (!valor) return "—";
+  const [fecha = ""] = valor.trim().split(" ");
+  const [anio, mes, dia] = fecha.split("-");
+  if (!anio || !mes || !dia) return fecha || "—";
+  return `${dia}/${mes}/${anio}`;
 };
 
 const recepcionGroupKey = (i: {
@@ -244,12 +293,27 @@ export const ModalGuiaPrimerTramo = ({
 
   const [items, setItems] = useState<ItemFormItem[]>([]);
   const [openItemModal, setOpenItemModal] = useState(false);
-  const [itemsDisponibles, setItemsDisponibles] = useState<
+  // Catálogo crudo de items disponibles (filtrado solo por fecha y proveedor).
+  // El recorte por unidad y por items ya seleccionados se aplica en el
+  // `useMemo` de `itemsDisponibles`.
+  const [itemsCatalogo, setItemsCatalogo] = useState<
     RES_ItemMineralDisponible[]
   >([]);
   const [loadingItems, setLoadingItems] = useState(false);
   const [itemsFechaInicio, setItemsFechaInicio] = useState<string>(todayIso());
   const [itemsFechaFin, setItemsFechaFin] = useState<string>(todayIso());
+
+  // Unidades (recepciones de unidad) con items de mineral pendientes de guía.
+  const [unidades, setUnidades] = useState<RES_UnidadGuia[]>([]);
+  const [loadingUnidades, setLoadingUnidades] = useState(false);
+  const [idUnidad, setIdUnidad] = useState<string | null>(null);
+  // Proveedores de la carga de la unidad seleccionada.
+  const [proveedoresUnidad, setProveedoresUnidad] = useState<
+    RES_ProveedorUnidad[]
+  >([]);
+  const [loadingProveedoresUnidad, setLoadingProveedoresUnidad] =
+    useState(false);
+
   // Clave de la recepción activa seleccionada en la guía ("PLACA|FECHA_INGRESO").
   const [recepcionActivaKey, setRecepcionActivaKey] = useState<string | null>(
     null,
@@ -301,6 +365,49 @@ export const ModalGuiaPrimerTramo = ({
       ),
     );
   }, [items]);
+
+  /**
+   * Items que puede mostrar el sub-modal de selección: los del catálogo que
+   * todavía no están agregados a la guía, no están en otra guía y pertenecen a
+   * la unidad seleccionada (cuando hay una).
+   */
+  const itemsDisponibles = useMemo(() => {
+    const yaSeleccionados = new Set(items.map(itemKey));
+    const idUnidadNum = idUnidad !== null ? Number(idUnidad) : null;
+
+    return itemsCatalogo.filter((i) => {
+      if (i.en_guia) return false;
+      if (yaSeleccionados.has(itemKey(i))) return false;
+      if (idUnidadNum !== null && !perteneceAUnidad(i, idUnidadNum)) return false;
+      return true;
+    });
+  }, [itemsCatalogo, items, idUnidad]);
+
+  /** Opciones del selector de unidades de la cabecera del modal. */
+  const unidadesOptions = useMemo(() => {
+    const opciones = unidades.map((u) => ({
+      value: String(u.id),
+      label: `${(u.placa ?? `Unidad #${u.id}`).toUpperCase()} · ${formatFechaCorta(u.fecha_hora_ingreso)}`,
+    }));
+
+    // En edición la unidad puede ya tener guía y por tanto no figurar entre
+    // las disponibles: se agrega una opción sintética para no perder el valor.
+    if (idUnidad !== null && !unidades.some((u) => String(u.id) === idUnidad)) {
+      opciones.unshift({ value: idUnidad, label: `Unidad #${idUnidad}` });
+    }
+
+    return opciones;
+  }, [unidades, idUnidad]);
+
+  /**
+   * Catálogo de proveedores del selector. Con unidad seleccionada se muestran
+   * solo los proveedores de la carga de esa unidad.
+   */
+  const proveedoresDisponibles = useMemo(() => {
+    if (idUnidad === null || proveedoresUnidad.length === 0) return proveedores;
+    const ids = new Set(proveedoresUnidad.map((p) => p.id_proveedor));
+    return proveedores.filter((p) => ids.has(p.id_proveedor));
+  }, [proveedores, proveedoresUnidad, idUnidad]);
 
   /**
    * Actualiza el peso documentario de un item (lote o partición) en la guía,
@@ -384,10 +491,9 @@ export const ModalGuiaPrimerTramo = ({
   const [openedModalProveedor, setOpenedModalProveedor] = useState(false);
   const [openedModalConcesion, setOpenedModalConcesion] = useState(false);
 
-  // Para distinguir tractor/carreta cuando se registra un vehículo o empresa
-  const [openedModalVehiculo, setOpenedModalVehiculo] = useState<
-    null | "tractor" | "carreta"
-  >(null);
+  // Submodal de registro de vehículo carreta. El tractor ya no se registra
+  // desde acá: se autocompleta desde la unidad.
+  const [openedModalVehiculo, setOpenedModalVehiculo] = useState(false);
   const [openedModalEmpresa, setOpenedModalEmpresa] = useState<
     null | "tractor" | "carreta"
   >(null);
@@ -442,19 +548,257 @@ export const ModalGuiaPrimerTramo = ({
     }
   };
 
+  /** Convierte un item disponible del catálogo en la fila editable del modal. */
+  const aItemForm = (i: RES_ItemMineralDisponible): ItemFormItem => ({
+    tempId: `${itemKey(i)}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    id_lote_mineral: i.tipo_item === "PARTICION" ? null : i.id_lote_mineral,
+    id_particion_lote_mineral:
+      i.tipo_item === "LOTE" ? null : i.id_particion_lote_mineral,
+    tipo_item: i.tipo_item,
+    correlativo: i.correlativo,
+    peso_inicial: i.peso_inicial,
+    peso_final: i.peso_final,
+    peso_neto: i.peso_neto,
+    tipo_producto: i.tipo_producto,
+    tipo_mineral: i.tipo_mineral,
+    balanza_peso_inicial: i.balanza_peso_inicial ?? i.peso_inicial ?? null,
+    balanza_peso_final: i.balanza_peso_final ?? i.peso_final ?? null,
+    balanza_peso_neto: i.balanza_peso_neto ?? i.peso_neto ?? null,
+  });
+
+  /**
+   * Mapa itemKey -> id_recepcion_unidad de los items indicados. Para las
+   * particiones se usa la recepción del lote padre: es donde se capturaron
+   * las guías del viaje.
+   */
+  const recepcionesDeItems = (
+    seleccionados: RES_ItemMineralDisponible[],
+  ): Map<string, number> => {
+    const mapa = new Map<string, number>();
+    for (const i of seleccionados) {
+      const idRecep = i.id_recepcion_unidad_padre ?? i.id_recepcion_unidad;
+      if (idRecep) mapa.set(itemKey(i), idRecep);
+    }
+    return mapa;
+  };
+
+  /**
+   * Reemplaza por completo la lista de items de la guía y recalcula los pesos
+   * agregados. Se usa cuando la selección depende de la unidad/proveedor.
+   */
+  const reemplazarItems = (
+    nuevos: ItemFormItem[],
+    recepciones: Map<string, number>,
+    recepcionKey: string | null,
+    idProveedorGuia: number | null,
+  ) => {
+    setItems(nuevos);
+    setRecepcionesPorItem(recepciones);
+    setRecepcionActivaKey(recepcionKey);
+
+    const sumGuia = round2(
+      nuevos.reduce((acc, it) => acc + (it.peso_neto ?? 0), 0),
+    );
+    const sumVehicular = round2(
+      nuevos.reduce(
+        (acc, it) => acc + (it.balanza_peso_neto ?? it.peso_neto ?? 0),
+        0,
+      ),
+    );
+    setPesoGuiaRemision(nuevos.length > 0 ? sumGuia : null);
+    setPesoVehicularTotal(nuevos.length > 0 ? sumVehicular : null);
+
+    void sincronizarGuiasPorRecepciones(nuevos, recepciones, idProveedorGuia);
+  };
+
+  /**
+   * Carga el catálogo de items disponibles y lo deja en `itemsCatalogo`.
+   * Devuelve los items recibidos para poder trabajar con ellos sin esperar al
+   * siguiente render.
+   */
+  const cargarCatalogoItems = async (
+    fechaInicio: string,
+    fechaFin: string,
+    idProveedorFiltro?: number | null,
+  ): Promise<RES_ItemMineralDisponible[]> => {
+    setLoadingItems(true);
+    try {
+      const data = await ItemsMineralService.get_items_disponibles(
+        idSucursal,
+        idProveedorFiltro ?? undefined,
+        fechaInicio,
+        fechaFin,
+      );
+      setItemsCatalogo(data);
+      return data;
+    } catch (e) {
+      console.error("Error al cargar items disponibles", e);
+      notifyError("No se pudieron cargar los items de mineral disponibles.");
+      return [];
+    } finally {
+      setLoadingItems(false);
+    }
+  };
+
+  /** Carga los proveedores de la carga de una unidad. */
+  const cargarProveedoresUnidad = async (
+    idUnidadSel: number,
+  ): Promise<RES_ProveedorUnidad[]> => {
+    setLoadingProveedoresUnidad(true);
+    try {
+      const data = await GuiasPrimerTramoService.get_proveedores_unidad(
+        idUnidadSel,
+      );
+      setProveedoresUnidad(data);
+      return data;
+    } catch (e) {
+      console.error("Error al cargar proveedores de la unidad", e);
+      return [];
+    } finally {
+      setLoadingProveedoresUnidad(false);
+    }
+  };
+
+  /**
+   * Ventana de fechas que cubre el ingreso de la unidad seleccionada. Los
+   * items de una unidad se filtran por la fecha de ingreso del vehículo, así
+   * que la ventana debe incluir ese día.
+   */
+  const ventanaFechasUnidad = (
+    unidad: RES_UnidadGuia | undefined,
+  ): { inicio: string; fin: string } => {
+    const hoy = todayIso();
+    const fechaUnidad = (unidad?.fecha_hora_ingreso ?? "").trim().slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaUnidad)) {
+      return { inicio: hoy, fin: hoy };
+    }
+    return fechaUnidad <= hoy
+      ? { inicio: fechaUnidad, fin: hoy }
+      : { inicio: hoy, fin: fechaUnidad };
+  };
+
+  /**
+   * Handler del Select de unidades de la cabecera.
+   *
+   * Al elegir una unidad: se cargan sus proveedores (que filtran el selector
+   * de proveedor), se recargan los items dentro de la ventana de fechas de la
+   * unidad y se liberan los items de la unidad anterior. Si el proveedor
+   * actual sigue siendo válido, sus items se vuelven a colocar.
+   */
+  const handleUnidadChange = (newVal: string | null) => {
+    if (newVal === idUnidad) return;
+
+    const aplicar = async () => {
+      const idUnidadNum = newVal !== null ? Number(newVal) : null;
+
+      setIdUnidad(newVal);
+      setItemsCatalogo([]);
+
+      if (idUnidadNum === null) {
+        setProveedoresUnidad([]);
+        reemplazarItems([], new Map(), null, null);
+        return;
+      }
+
+      const unidad = unidades.find((u) => u.id === idUnidadNum);
+      const provs = await cargarProveedoresUnidad(idUnidadNum);
+
+      const { inicio, fin } = ventanaFechasUnidad(unidad);
+      setItemsFechaInicio(inicio);
+      setItemsFechaFin(fin);
+
+      const catalogo = await cargarCatalogoItems(inicio, fin, null);
+
+      const proveedorResuelto = resolverProveedorUnidad(provs, idProveedor);
+      setIdProveedor(proveedorResuelto);
+
+      const proveedorValido =
+        proveedorResuelto !== null ? Number(proveedorResuelto) : null;
+
+      const autoItems =
+        proveedorValido !== null
+          ? itemsDeUnidadProveedor(catalogo, idUnidadNum, proveedorValido)
+          : [];
+
+      reemplazarItems(
+        autoItems.map(aItemForm),
+        recepcionesDeItems(autoItems),
+        autoItems.length > 0 ? recepcionGroupKey(autoItems[0]) : null,
+        proveedorValido,
+      );
+    };
+
+    if (items.length === 0) {
+      void aplicar();
+      return;
+    }
+
+    mostrarConfirmacion({
+      title: "Cambiar de unidad y limpiar items",
+      confirmLabel: "Sí, limpiar y cambiar",
+      cancelLabel: "Cancelar",
+      message: (
+        <>
+          Cambiar la unidad eliminará los{" "}
+          <strong className="text-rose-400">{items.length}</strong> item(s)
+          actualmente seleccionados y las guías/autocompletados asociados.
+          ¿Desea continuar?
+        </>
+      ),
+      onConfirm: () => {
+        void aplicar();
+      },
+    });
+  };
+
   /**
    * Handler del Select de proveedor. Si ya hay items cargados y el operador
    * cambia a otro proveedor, pide confirmacion previa: al confirmar, limpia
    * los items, recepcionesPorItem, pesosOficialesPorLote y los inputs de guias
    * (autocompletados desde la recepcion) via `sincronizarGuiasPorRecepciones([])`.
    *
+   * Cuando hay una unidad seleccionada, los items de esa unidad que pertenecen
+   * al proveedor elegido se agregan automáticamente.
+   *
    * Si no hay items o el valor no cambia, asigna directamente. Esto incluye
    * el caso del autocompletado (que setea idProveedor desde handleAgregarItems
    * y NO pasa por aqui).
    */
   const handleProveedorChange = (newVal: string | null) => {
-    if (newVal === idProveedor || items.length === 0) {
+    if (newVal === idProveedor) return;
+
+    const aplicar = async () => {
       setIdProveedor(newVal);
+
+      if (idUnidad === null || newVal === null) {
+        if (items.length > 0) {
+          reemplazarItems([], new Map(), null, null);
+        }
+        return;
+      }
+
+      const idUnidadNum = Number(idUnidad);
+      const idProveedorNum = Number(newVal);
+      const catalogo = await cargarCatalogoItems(
+        itemsFechaInicio,
+        itemsFechaFin,
+        idProveedorNum,
+      );
+      const autoItems = itemsDeUnidadProveedor(
+        catalogo,
+        idUnidadNum,
+        idProveedorNum,
+      );
+      reemplazarItems(
+        autoItems.map(aItemForm),
+        recepcionesDeItems(autoItems),
+        autoItems.length > 0 ? recepcionGroupKey(autoItems[0]) : null,
+        idProveedorNum,
+      );
+    };
+
+    if (items.length === 0) {
+      void aplicar();
       return;
     }
 
@@ -471,48 +815,22 @@ export const ModalGuiaPrimerTramo = ({
         </>
       ),
       onConfirm: () => {
-        setItems([]);
-        setRecepcionesPorItem(new Map());
-        // Al limpiar los items se libera también el ancla de recepción.
-        setRecepcionActivaKey(null);
-        setIdProveedor(newVal);
-        void sincronizarGuiasPorRecepciones([]);
+        void aplicar();
       },
     });
   };
 
   // Refresca el catálogo de vehículos (tractores/carretas) tras un registro exitoso
-  const handleVehiculoCreado = async (
-    vehiculo: { id_vehiculo: number; es_carreta?: number | boolean | null },
-    destino: "tractor" | "carreta",
-  ) => {
-    // Re-cargar ambos catálogos desde el backend
-    const [tractorRes, carretaRes] = await Promise.all([
-      AuxService.get_vehiculos(),
-      AuxService.get_vehiculos(),
-    ]);
+  const handleVehiculoCreado = async (vehiculo: RES_Vehiculo) => {
+    const res = await AuxService.get_vehiculos();
     setVehiculos(
-      tractorRes.filter((v) => !v.es_carreta || Number(v.es_carreta) === 0),
+      res.filter((v) => !v.es_carreta || Number(v.es_carreta) === 0),
     );
     setCarretas(
-      carretaRes.filter((v) => !!v.es_carreta && Number(v.es_carreta) === 1),
+      res.filter((v) => !!v.es_carreta && Number(v.es_carreta) === 1),
     );
-    const idStr = String(vehiculo.id_vehiculo);
-    if (destino === "tractor") {
-      setIdVehiculo(idStr);
-      // Auto-completar empresa si aún no hay
-      if (!idEmpresaTransporte) {
-        const v = tractorRes.find(
-          (x) => x.id_vehiculo === vehiculo.id_vehiculo,
-        );
-        if (v && v.id_empresa_transporte) {
-          setIdEmpresaTransporte(String(v.id_empresa_transporte));
-        }
-      }
-    } else {
-      setIdVehiculoCarreta(idStr);
-    }
-    setOpenedModalVehiculo(null);
+    setIdVehiculoCarreta(String(vehiculo.id_vehiculo));
+    setOpenedModalVehiculo(false);
   };
 
   // Abre el submodal de registro de vehículo carreta. El id_tipo_vehiculo ya
@@ -529,7 +847,7 @@ export const ModalGuiaPrimerTramo = ({
       );
       return;
     }
-    setOpenedModalVehiculo("carreta");
+    setOpenedModalVehiculo(true);
   };
 
   const handleEmpresaCreada = async (
@@ -619,6 +937,12 @@ export const ModalGuiaPrimerTramo = ({
             : null,
         );
         setIdRecepcionUnidad(guia.id_recepcion_unidad ?? null);
+        setIdUnidad(
+          guia.id_recepcion_unidad ? String(guia.id_recepcion_unidad) : null,
+        );
+        if (guia.id_recepcion_unidad) {
+          void cargarProveedoresUnidad(guia.id_recepcion_unidad);
+        }
         setDocumentoNotaNoConformidad(null);
 
         const mappedItems: ItemFormItem[] = (guia.lotes || []).map((l) => ({
@@ -657,6 +981,20 @@ export const ModalGuiaPrimerTramo = ({
         console.error("Error al cargar proveedores", e);
       } finally {
         if (isMounted) setLoadingProveedores(false);
+      }
+    };
+
+    const loadUnidades = async () => {
+      setLoadingUnidades(true);
+      try {
+        const res = await GuiasPrimerTramoService.get_unidades_disponibles(
+          idSucursal,
+        );
+        if (isMounted) setUnidades(res);
+      } catch (e) {
+        console.error("Error al cargar unidades disponibles", e);
+      } finally {
+        if (isMounted) setLoadingUnidades(false);
       }
     };
 
@@ -734,6 +1072,7 @@ export const ModalGuiaPrimerTramo = ({
     };
 
     loadProveedores();
+    loadUnidades();
     loadVehiculos();
     loadEmpresas();
     loadConductores();
@@ -742,9 +1081,12 @@ export const ModalGuiaPrimerTramo = ({
     return () => {
       isMounted = false;
     };
-  }, [opened]);
+  }, [opened, idSucursal]);
 
-  // Cargar concesiones cuando cambia el proveedor
+  // Cargar concesiones cuando cambia el proveedor.
+  // Al cargar el listado se autocompleta la concesión: se conserva la que ya
+  // estaba seleccionada si sigue existiendo, y si no se toma la primera del
+  // proveedor.
   useEffect(() => {
     let isMounted = true;
     const load = async () => {
@@ -761,15 +1103,9 @@ export const ModalGuiaPrimerTramo = ({
           );
         if (isMounted) {
           setConcesiones(data);
-          setIdConcesion((current) => {
-            if (
-              current &&
-              data.find((c) => String(c.id_concesion) === current)
-            ) {
-              return current;
-            }
-            return null;
-          });
+          setIdConcesion((current) =>
+            resolverConcesionSeleccionada(data, current),
+          );
         }
       } catch (e) {
         console.error("Error al cargar concesiones del proveedor", e);
@@ -823,24 +1159,11 @@ export const ModalGuiaPrimerTramo = ({
     setItemsFechaInicio(inicio);
     setItemsFechaFin(fin);
     setOpenItemModal(true);
-    setLoadingItems(true);
-    try {
-      const data = await ItemsMineralService.get_items_disponibles(
-        idSucursal,
-        idProveedor ? Number(idProveedor) : undefined,
-        inicio,
-        fin,
-      );
-      const yaSeleccionados = new Set(items.map(itemKey));
-      setItemsDisponibles(
-        data.filter((i) => !yaSeleccionados.has(itemKey(i)) && !i.en_guia),
-      );
-    } catch (e) {
-      console.error("Error al cargar items disponibles", e);
-      notifyError("No se pudieron cargar los items de mineral disponibles.");
-    } finally {
-      setLoadingItems(false);
-    }
+    await cargarCatalogoItems(
+      inicio,
+      fin,
+      idProveedor ? Number(idProveedor) : undefined,
+    );
   };
 
   const handleAgregarItems = (seleccionados: RES_ItemMineralDisponible[]) => {
@@ -856,22 +1179,7 @@ export const ModalGuiaPrimerTramo = ({
       }
     }
 
-    const nuevos: ItemFormItem[] = seleccionados.map((i) => ({
-      tempId: `${itemKey(i)}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      id_lote_mineral: i.tipo_item === "PARTICION" ? null : i.id_lote_mineral,
-      id_particion_lote_mineral:
-        i.tipo_item === "LOTE" ? null : i.id_particion_lote_mineral,
-      tipo_item: i.tipo_item,
-      correlativo: i.correlativo,
-      peso_inicial: i.peso_inicial,
-      peso_final: i.peso_final,
-      peso_neto: i.peso_neto,
-      tipo_producto: i.tipo_producto,
-      tipo_mineral: i.tipo_mineral,
-      balanza_peso_inicial: i.balanza_peso_inicial ?? i.peso_inicial ?? null,
-      balanza_peso_final: i.balanza_peso_final ?? i.peso_final ?? null,
-      balanza_peso_neto: i.balanza_peso_neto ?? i.peso_neto ?? null,
-    }));
+    const nuevos: ItemFormItem[] = seleccionados.map(aItemForm);
     const merged: ItemFormItem[] = [...items, ...nuevos];
     setItems(merged);
 
@@ -940,12 +1248,17 @@ export const ModalGuiaPrimerTramo = ({
    *   recepcion unica. Si ya estan poblados, no tocar.
    * - size !== 1 (mezcla de recepciones o 0 items): limpiar los 4 inputs.
    *
+   * Cada proveedor de la carga tiene su propio par de guias (array JSON
+   * `guias` de la recepcion). Cuando hay un proveedor indicado se usan sus
+   * guias; si no, se recurre a la guia principal de la unidad.
+   *
    * Centraliza la logica para que se aplique consistente desde
    * handleAgregarItems y handleEliminarItem.
    */
   const sincronizarGuiasPorRecepciones = async (
     itemsActuales: ItemFormItem[],
     recepcionesOverride?: Map<string, number>,
+    idProveedorGuia?: number | null,
   ): Promise<void> => {
     const mapaRecepciones = recepcionesOverride ?? recepcionesPorItem;
     const recepciones = new Set<number>();
@@ -974,8 +1287,8 @@ export const ModalGuiaPrimerTramo = ({
     setIdRecepcionUnidad(unicaRecepcion);
 
     // Fetch explicito al endpoint: trae vehiculo, conductor, textos (guia_remitente,
-    // guia_transportista) y los archivos (documentos_programacion)
-    // directamente desde recepcion_unidad de la BD.
+    // guia_transportista) y los archivos (array JSON `guias`) directamente desde
+    // recepcion_unidad de la BD.
     let dataRecepcion: RES_ArchivosGuiasRecepcion;
     try {
       dataRecepcion =
@@ -986,8 +1299,14 @@ export const ModalGuiaPrimerTramo = ({
       return;
     }
 
-    // Autocompletar vehiculo (tractor), carreta, conductor y empresa si estan vacios
-    if (!idVehiculo && dataRecepcion.id_vehiculo) {
+    // Autocompletar el viaje de los ítems: vehiculo (tractor), carreta,
+    // conductor y empresa.
+    //
+    // El tractor NO lo elige el operador (se quitó su selector): siempre
+    // refleja el vehículo de la unidad a la que pertenecen los ítems. En
+    // EDICIÓN se respeta el que ya tiene la guía guardada.
+    const esEdicion = guia != null;
+    if (!esEdicion && dataRecepcion.id_vehiculo) {
       setIdVehiculo(String(dataRecepcion.id_vehiculo));
     }
     if (!idVehiculoCarreta && dataRecepcion.id_vehiculo_carreta) {
@@ -1010,39 +1329,42 @@ export const ModalGuiaPrimerTramo = ({
       return;
     }
 
-    if (
-      dataRecepcion.guia_remitente !== null &&
-      dataRecepcion.guia_remitente !== undefined
-    ) {
-      // console.log("[autocompletar] SET guiaRemitente =", dataRecepcion.guia_remitente);
-      setGuiaRemitente(dataRecepcion.guia_remitente);
+    const proveedorGuia =
+      idProveedorGuia !== undefined ? idProveedorGuia : idProveedor;
+    const guiaDelProveedor = dataRecepcion.guias?.find(
+      (g) => g.id_proveedor === Number(proveedorGuia),
+    );
+
+    const textoRemitente =
+      guiaDelProveedor?.guia_remitente ?? dataRecepcion.guia_remitente;
+    const textoTransportista =
+      guiaDelProveedor?.guia_transportista ??
+      dataRecepcion.guia_transportista;
+
+    if (textoRemitente !== null && textoRemitente !== undefined) {
+      setGuiaRemitente(textoRemitente);
     }
-    if (
-      !sinGuiaTransportista &&
-      dataRecepcion.guia_transportista !== null &&
-      dataRecepcion.guia_transportista !== undefined
-    ) {
-      // console.log("[autocompletar] SET guiaTransportista =", dataRecepcion.guia_transportista);
-      setGuiaTransportista(dataRecepcion.guia_transportista);
+    if (!sinGuiaTransportista && textoTransportista !== null && textoTransportista !== undefined) {
+      setGuiaTransportista(textoTransportista);
     }
 
-    const docs = dataRecepcion.documentos;
-    if (!docs) return;
+    const archivoRemitente =
+      guiaDelProveedor?.guia_remitente_archivo ??
+      dataRecepcion.documentos?.guia_remitente;
+    const archivoTransportista =
+      guiaDelProveedor?.guia_transportista_archivo ??
+      dataRecepcion.documentos?.guia_transportista;
 
-    if (docs.guia_remitente?.url) {
-      // console.log("[autocompletar] descargar archivo remitente", docs.guia_remitente);
-      const file = await descargarArchivoADocumento(docs.guia_remitente);
-      // console.log("[autocompletar] archivo remitente descargado?", !!file);
+    if (archivoRemitente?.url) {
+      const file = await descargarArchivoADocumento(archivoRemitente);
       if (file) setDocumentoGuiaRemitente(file);
     }
     if (
       !sinGuiaTransportista &&
-      docs.guia_transportista?.url &&
+      archivoTransportista?.url &&
       !documentoGuiaTransportista
     ) {
-      // console.log("[autocompletar] descargar archivo transportista", docs.guia_transportista);
-      const file = await descargarArchivoADocumento(docs.guia_transportista);
-      // console.log("[autocompletar] archivo transportista descargado?", !!file);
+      const file = await descargarArchivoADocumento(archivoTransportista);
       if (file) setDocumentoGuiaTransportista(file);
     }
   };
@@ -1270,6 +1592,9 @@ export const ModalGuiaPrimerTramo = ({
     setDocumentoNotaNoConformidad(null);
     setItems([]);
     setRecepcionesPorItem(new Map());
+    setItemsCatalogo([]);
+    setIdUnidad(null);
+    setProveedoresUnidad([]);
     // Liberar el ancla de recepción: sin items la guía no pertenece a ninguna
     // recepción. Si queda pegada, el selector de items deshabilita todo lo que
     // no sea de esa recepción (aunque la lista esté vacía).
@@ -1511,6 +1836,35 @@ export const ModalGuiaPrimerTramo = ({
     </div>
   );
 
+  const unidadHeader = (
+    <div className="flex items-center gap-1.5">
+      <span className="text-[11px] font-semibold text-zinc-400 whitespace-nowrap">
+        Unidad:
+      </span>
+      <Select
+        placeholder={loadingUnidades ? "Cargando..." : "Seleccione la unidad"}
+        searchable
+        clearable
+        data={unidadesOptions}
+        value={idUnidad}
+        onChange={handleUnidadChange}
+        classNames={fieldClasses}
+        radius="md"
+        size="xs"
+        disabled={loadingUnidades}
+        rightSection={loadingUnidades ? <Loader size={14} /> : undefined}
+        style={{ width: 220 }}
+      />
+    </div>
+  );
+
+  const modalHeaderRight = (
+    <div className="flex items-center gap-4">
+      {unidadHeader}
+      {fechasHeader}
+    </div>
+  );
+
   return (
     <>
       <ModalEstandar
@@ -1518,7 +1872,7 @@ export const ModalGuiaPrimerTramo = ({
         close={handleClose}
         title={guia ? "Editar Guía" : "Registrar Guía"}
         size="78rem"
-        rightSection={fechasHeader}
+        rightSection={modalHeaderRight}
         validateClose
       >
         <Stack
@@ -1533,11 +1887,13 @@ export const ModalGuiaPrimerTramo = ({
                 <Select
                   label="Proveedor:"
                   placeholder={
-                    loadingProveedores ? "Cargando..." : "Seleccione"
+                    loadingProveedores || loadingProveedoresUnidad
+                      ? "Cargando..."
+                      : "Seleccione"
                   }
                   searchable
                   clearable
-                  data={proveedores.map((p) => ({
+                  data={proveedoresDisponibles.map((p) => ({
                     value: String(p.id_proveedor),
                     label:
                       p.razon_social + (p.documento ? ` (${p.documento})` : ""),
@@ -1547,9 +1903,11 @@ export const ModalGuiaPrimerTramo = ({
                   classNames={fieldClasses}
                   radius="lg"
                   size="sm"
-                  disabled={loadingProveedores}
+                  disabled={loadingProveedores || loadingProveedoresUnidad}
                   rightSection={
-                    loadingProveedores ? <Loader size={16} /> : undefined
+                    loadingProveedores || loadingProveedoresUnidad ? (
+                      <Loader size={16} />
+                    ) : undefined
                   }
                   required
                   className="flex-1"
@@ -1696,45 +2054,8 @@ export const ModalGuiaPrimerTramo = ({
           )}
 
           {/* ========== 2. Vehículos y Conductor ========== */}
-          <Grid columns={10} gutter="xs">
-            <Grid.Col span={{ base: 10, sm: 2 }}>
-              <Group gap={6} align="flex-end" wrap="nowrap">
-                <Select
-                  label="Vehículo (Tractor):"
-                  placeholder={loadingVehiculos ? "Cargando..." : "Seleccione"}
-                  searchable
-                  clearable
-                  data={vehiculos.map((v) => ({
-                    value: String(v.id_vehiculo),
-                    label: String(v.placa || `Vehículo #${v.id_vehiculo}`),
-                  }))}
-                  value={idVehiculo}
-                  onChange={setIdVehiculo}
-                  classNames={fieldClasses}
-                  radius="lg"
-                  size="sm"
-                  disabled={loadingVehiculos}
-                  rightSection={
-                    loadingVehiculos ? <Loader size={16} /> : undefined
-                  }
-                  required
-                  className="flex-1 min-w-0"
-                />
-                <Tooltip label="Registrar nuevo Vehículo" withArrow radius="md">
-                  <ActionIcon
-                    size="32px"
-                    radius="lg"
-                    variant="filled"
-                    color="indigo"
-                    onClick={() => setOpenedModalVehiculo("tractor")}
-                    className="mb-0.5 shrink-0"
-                  >
-                    <IconPlus size={16} />
-                  </ActionIcon>
-                </Tooltip>
-              </Group>
-            </Grid.Col>
-            <Grid.Col span={{ base: 10, sm: 2 }}>
+          <Grid columns={8} gutter="xs">
+            <Grid.Col span={{ base: 12, sm: 2 }}>
               <Group gap={6} align="flex-end" wrap="nowrap">
                 <Select
                   label="Empresa Transporte:"
@@ -1776,7 +2097,7 @@ export const ModalGuiaPrimerTramo = ({
                 </Tooltip>
               </Group>
             </Grid.Col>
-            <Grid.Col span={{ base: 10, sm: 2 }}>
+            <Grid.Col span={{ base: 12, sm: 2 }}>
               <Group gap={6} align="flex-end" wrap="nowrap">
                 <Select
                   label="Vehículo Carreta:"
@@ -1820,7 +2141,7 @@ export const ModalGuiaPrimerTramo = ({
                 </Tooltip>
               </Group>
             </Grid.Col>
-            <Grid.Col span={{ base: 10, sm: 2 }}>
+            <Grid.Col span={{ base: 12, sm: 2 }}>
               <Group gap={6} align="flex-end" wrap="nowrap">
                 <Select
                   label="Empresa Carreta:"
@@ -1864,7 +2185,7 @@ export const ModalGuiaPrimerTramo = ({
                 </Tooltip>
               </Group>
             </Grid.Col>
-            <Grid.Col span={{ base: 10, sm: 2 }}>
+            <Grid.Col span={{ base: 12, sm: 2 }}>
               <Group gap={6} align="flex-end" wrap="nowrap">
                 <Select
                   label="Conductor:"
@@ -2395,15 +2716,11 @@ export const ModalGuiaPrimerTramo = ({
         />
       )}
 
-      {/* Submodal para registrar un vehículo (tractor o carreta) */}
+      {/* Submodal para registrar un vehículo carreta */}
       <ModalEstandar
-        opened={openedModalVehiculo !== null}
-        close={() => setOpenedModalVehiculo(null)}
-        title={
-          openedModalVehiculo === "carreta"
-            ? "Registrar Vehículo Carreta"
-            : "Registrar Vehículo Tractor"
-        }
+        opened={openedModalVehiculo}
+        close={() => setOpenedModalVehiculo(false)}
+        title="Registrar Vehículo Carreta"
         size="md"
         validateClose
       >
@@ -2411,13 +2728,9 @@ export const ModalGuiaPrimerTramo = ({
           idEmpresaTransporte={
             idEmpresaTransporte ? Number(idEmpresaTransporte) : null
           }
-          idTipoVehiculo={
-            openedModalVehiculo === "carreta" ? idTipoVehiculoCarreta : null
-          }
-          onCancel={() => setOpenedModalVehiculo(null)}
-          onSuccess={(vehiculo) =>
-            handleVehiculoCreado(vehiculo, openedModalVehiculo ?? "tractor")
-          }
+          idTipoVehiculo={idTipoVehiculoCarreta}
+          onCancel={() => setOpenedModalVehiculo(false)}
+          onSuccess={handleVehiculoCreado}
         />
       </ModalEstandar>
 
@@ -2468,53 +2781,19 @@ export const ModalGuiaPrimerTramo = ({
         onConfirm={handleAgregarItems}
         onFechaInicioChange={async (nuevaFecha) => {
           setItemsFechaInicio(nuevaFecha);
-          setLoadingItems(true);
-          try {
-            const data = await ItemsMineralService.get_items_disponibles(
-              idSucursal,
-              idProveedor ? Number(idProveedor) : undefined,
-              nuevaFecha,
-              itemsFechaFin,
-            );
-            const yaSeleccionados = new Set(items.map(itemKey));
-            setItemsDisponibles(
-              data.filter(
-                (i) => !yaSeleccionados.has(itemKey(i)) && !i.en_guia,
-              ),
-            );
-          } catch (e) {
-            console.error("Error al cargar items disponibles", e);
-            notifyError(
-              "No se pudieron cargar los items de mineral disponibles.",
-            );
-          } finally {
-            setLoadingItems(false);
-          }
+          await cargarCatalogoItems(
+            nuevaFecha,
+            itemsFechaFin,
+            idProveedor ? Number(idProveedor) : undefined,
+          );
         }}
         onFechaFinChange={async (nuevaFecha) => {
           setItemsFechaFin(nuevaFecha);
-          setLoadingItems(true);
-          try {
-            const data = await ItemsMineralService.get_items_disponibles(
-              idSucursal,
-              idProveedor ? Number(idProveedor) : undefined,
-              itemsFechaInicio,
-              nuevaFecha,
-            );
-            const yaSeleccionados = new Set(items.map(itemKey));
-            setItemsDisponibles(
-              data.filter(
-                (i) => !yaSeleccionados.has(itemKey(i)) && !i.en_guia,
-              ),
-            );
-          } catch (e) {
-            console.error("Error al cargar items disponibles", e);
-            notifyError(
-              "No se pudieron cargar los items de mineral disponibles.",
-            );
-          } finally {
-            setLoadingItems(false);
-          }
+          await cargarCatalogoItems(
+            itemsFechaInicio,
+            nuevaFecha,
+            idProveedor ? Number(idProveedor) : undefined,
+          );
         }}
       />
     </>

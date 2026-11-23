@@ -2,6 +2,10 @@ import { useState, useMemo, useEffect } from "react";
 import { Select, Button, Checkbox, TextInput, NumberInput, Stack, Grid } from "@mantine/core";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
 import { CondicionIngreso } from "../../../../shared/enums/_generic/condicion-ingreso";
+import {
+  payloadCorrelativoLote,
+  reconstruirCorrelativo as reconstruirCorrelativoBase,
+} from "../../../../shared/functions/correlativo-lote";
 import { RecepcionMineralService } from "../../service/recepcion-mineral.service";
 import type { RES_Empresa } from "../../../../service/responses/empresa";
 
@@ -35,7 +39,18 @@ export const ModalCondicionIngreso = ({
   const [correlativoAuto, setCorrelativoAuto] = useState("");
   const [correlativo, setCorrelativo] = useState("");
   const [numeroCorrelativo, setNumeroCorrelativo] = useState<string>("");
+  const [numeroCorrelativoAuto, setNumeroCorrelativoAuto] = useState("");
   const [loadingCorrelativo, setLoadingCorrelativo] = useState(false);
+
+  /**
+   * Modo de correlativo manual.
+   *
+   * - Marcado: el N° correlativo va en NULL y el correlativo se escribe a
+   *   mano (código que no pertenece a la secuencia oficial).
+   * - Desmarcado: el correlativo va con la secuencia y lo que se ajusta es el
+   *   N° correlativo.
+   */
+  const [correlativoManual, setCorrelativoManual] = useState(false);
 
   // Identifica la empresa Fabero por coincidencia en razon_social.
   // Heurística estable: primera empresa cuya razón social contiene "fabero"
@@ -77,6 +92,8 @@ export const ModalCondicionIngreso = ({
         setCorrelativoAuto("");
         setCorrelativo("");
         setNumeroCorrelativo("");
+        setNumeroCorrelativoAuto("");
+        setCorrelativoManual(false);
       }
     } else if (opened) {
       // Llegó (o cambió) la empresa Fabero mientras el modal está abierto:
@@ -111,6 +128,7 @@ export const ModalCondicionIngreso = ({
         if (resp.success && resp.data) {
           setCorrelativoAuto(resp.data.correlativo);
           setCorrelativo(resp.data.correlativo);
+          setNumeroCorrelativoAuto(String(resp.data.numero_correlativo));
           setNumeroCorrelativo(String(resp.data.numero_correlativo));
         }
       } catch (e) {
@@ -128,19 +146,36 @@ export const ModalCondicionIngreso = ({
   }, [opened, idEmpresa, condicion]);
 
   /**
-   * Reconstruye el correlativo conservando el año y el prefijo cuando el
-   * usuario edita el número (ej. `26-FB-005` -> `26-FB-012`).
+   * Reconstruye el correlativo conservando el año, el prefijo y el ancho de
+   * ceros del correlativo generado (ej. `26-FB-00005` -> `26-FB-00012`).
    */
-  const reconstruirCorrelativo = (numero: number) => {
-    const partes = correlativoAuto.split("-");
-    if (partes.length < 3) return correlativoAuto;
-    const [anio, prefijo] = partes;
-    return `${anio}-${prefijo}-${String(numero).padStart(3, "0")}`;
+  const reconstruirCorrelativo = (numero: number) =>
+    reconstruirCorrelativoBase(correlativoAuto, numero);
+
+  /**
+   * Cambia el modo del correlativo.
+   *
+   * - Manual: el N° correlativo va en NULL y el correlativo se escribe a mano.
+   * - Secuencia: se restaura el correlativo generado y el N° con el que
+   *   venía.
+   */
+  const handleCambiarModoCorrelativo = (manual: boolean) => {
+    setCorrelativoManual(manual);
+
+    if (manual) {
+      setNumeroCorrelativo("");
+      return;
+    }
+
+    setCorrelativo(correlativoAuto);
+    setNumeroCorrelativo(numeroCorrelativoAuto);
   };
 
   const handleNumeroChange = (valor: string | number) => {
     const texto = String(valor);
     setNumeroCorrelativo(texto);
+    if (correlativoManual) return;
+
     const numero = Number(texto);
     if (texto !== "" && !Number.isNaN(numero) && numero > 0) {
       setCorrelativo(reconstruirCorrelativo(numero));
@@ -148,15 +183,12 @@ export const ModalCondicionIngreso = ({
   };
 
   /**
-   * Al escribir un correlativo propio, el N° correlativo se borra: la tabla
-   * admite `numero_correlativo` NULL para los códigos ingresados a mano.
+   * El correlativo solo se escribe a mano en modo manual. En modo secuencia
+   * se recalcula a partir del N° correlativo.
    */
   const handleCorrelativoChange = (valor: string) => {
-    const texto = valor.toUpperCase();
-    setCorrelativo(texto);
-    if (texto !== correlativoAuto) {
-      setNumeroCorrelativo("");
-    }
+    if (!correlativoManual) return;
+    setCorrelativo(valor.toUpperCase());
   };
 
   const handleConfirm = () => {
@@ -172,20 +204,19 @@ export const ModalCondicionIngreso = ({
       payload.particionar = true;
     }
 
-    // Solo se envía si el usuario ajustó el correlativo generado.
-    const correlativoIngresado = correlativo.trim().toUpperCase();
-    if (correlativoIngresado && correlativoIngresado !== correlativoAuto) {
-      payload.correlativo = correlativoIngresado;
-      const numero = Number(numeroCorrelativo);
-      if (numero > 0) {
-        payload.numero_correlativo = numero;
-      }
-    }
+    Object.assign(
+      payload,
+      payloadCorrelativoLote({
+        manual: correlativoManual,
+        correlativo,
+        numeroCorrelativo,
+        numeroCorrelativoAuto,
+        correlativoAuto,
+      }),
+    );
 
     onConfirm(condicion, Number(idEmpresa), payload);
-  };
-
-  const fieldClasses = {
+  };  const fieldClasses = {
     input:
       "bg-zinc-900/50 border-zinc-800 text-white focus:border-indigo-500",
     label: "text-zinc-300 font-semibold text-xs mb-1.5",
@@ -248,7 +279,17 @@ export const ModalCondicionIngreso = ({
           radius="md"
         />
 
-        {/* Correlativo que se generará (editable) */}
+        {/* Modo del correlativo: manual (N° correlativo en NULL) o secuencia */}
+        <Checkbox
+          label="Correlativo manual"
+          checked={correlativoManual}
+          onChange={(e) => handleCambiarModoCorrelativo(e.currentTarget.checked)}
+          color="indigo"
+          disabled={loadingCorrelativo}
+          classNames={{ label: "text-zinc-200 text-sm font-semibold" }}
+        />
+
+        {/* Correlativo y N° correlativo: solo uno de los dos es editable */}
         <Grid gutter="xs">
           <Grid.Col span={{ base: 12, sm: 8 }}>
             <TextInput
@@ -256,7 +297,7 @@ export const ModalCondicionIngreso = ({
               placeholder={loadingCorrelativo ? "Generando..." : "Ej: 26-FB-005"}
               value={correlativo}
               onChange={(e) => handleCorrelativoChange(e.target.value)}
-              disabled={loadingCorrelativo}
+              disabled={loadingCorrelativo || !correlativoManual}
               classNames={fieldClasses}
               radius="md"
             />
@@ -264,11 +305,11 @@ export const ModalCondicionIngreso = ({
           <Grid.Col span={{ base: 12, sm: 4 }}>
             <NumberInput
               label="N° Correlativo"
-              placeholder={loadingCorrelativo ? "..." : "5"}
+              placeholder=""
               value={numeroCorrelativo}
               onChange={handleNumeroChange}
               min={1}
-              disabled={loadingCorrelativo}
+              disabled={loadingCorrelativo || correlativoManual}
               classNames={fieldClasses}
               radius="md"
             />
@@ -281,7 +322,11 @@ export const ModalCondicionIngreso = ({
           </Button>
           <Button
             color="indigo"
-            disabled={!idEmpresa || loadingCorrelativo}
+            disabled={
+              !idEmpresa ||
+              loadingCorrelativo ||
+              (correlativoManual && !correlativo.trim())
+            }
             onClick={handleConfirm}
           >
             Generar Lote

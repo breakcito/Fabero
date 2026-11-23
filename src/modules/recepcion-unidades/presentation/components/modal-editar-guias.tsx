@@ -1,13 +1,23 @@
 import { useState } from "react";
-import { Alert, Button, Group, Stack, Text, TextInput } from "@mantine/core";
+import {
+  Alert,
+  Button,
+  Group,
+  Paper,
+  Stack,
+  Text,
+  TextInput,
+} from "@mantine/core";
 import {
   IconAlertCircle,
   IconDeviceFloppy,
   IconLock,
+  IconUser,
 } from "@tabler/icons-react";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
 import { RecepcionUnidadesService } from "../../service/recepcion-unidades.service";
 import type { RecepcionUnidadResponse } from "../../service/recepcion-unidades.responses";
+import type { IGuiaRecepcion } from "../../../../shared/interfaces/guia-recepcion";
 import { useNotify } from "../../../../hooks/useNotify";
 
 interface Props {
@@ -23,9 +33,12 @@ const fieldClasses = {
   label: "text-zinc-200 mb-1.5 font-semibold text-sm",
 };
 
+type GuiasEditables = Record<number, { remitente: string; transportista: string }>;
+
 /**
- * Edición de las guías de una recepción de unidad (serie y número).
+ * Edición de las guías de una recepción de unidad.
  *
+ * Cada proveedor de la carga tiene su propio par de guías (serie y número).
  * Si la guía se registró en una PROGRAMACIÓN queda bloqueada: el backend lo
  * rechaza con `campos_bloqueados`, así que aquí solo se muestra el valor.
  */
@@ -37,8 +50,7 @@ export const ModalEditarGuias = ({
 }: Props) => {
   const { notifySuccess, notifyError } = useNotify();
 
-  const [guiaRemitente, setGuiaRemitente] = useState("");
-  const [guiaTransportista, setGuiaTransportista] = useState("");
+  const [guias, setGuias] = useState<IGuiaRecepcion[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
   // Precarga al abrir (ajuste durante el render, igual que el modal de campos).
@@ -53,8 +65,15 @@ export const ModalEditarGuias = ({
     setPrevRecepcionId(recepcion?.id ?? null);
 
     if (opened && recepcion) {
-      setGuiaRemitente(recepcion.guia_remitente ?? "");
-      setGuiaTransportista(recepcion.guia_transportista ?? "");
+      setGuias(
+        (recepcion.guias ?? []).map((g) => ({
+          id_proveedor: g.id_proveedor,
+          guia_remitente: g.guia_remitente ?? "",
+          guia_transportista: g.guia_transportista ?? "",
+          guia_remitente_archivo: g.guia_remitente_archivo ?? null,
+          guia_transportista_archivo: g.guia_transportista_archivo ?? null,
+        })),
+      );
     }
   }
 
@@ -65,36 +84,61 @@ export const ModalEditarGuias = ({
   const transportistaBloqueado = bloqueados.includes("guia_transportista");
   const algunaBloqueada = remitenteBloqueado || transportistaBloqueado;
 
+  const proveedores = recepcion.proveedores ?? [];
+  const razonSocialProveedor = (idProveedor: number): string =>
+    proveedores.find((p) => p.id_proveedor === idProveedor)?.razon_social ??
+    (idProveedor === 0
+      ? "Guías de la unidad (sin proveedor)"
+      : "Proveedor de la carga");
+
+  const valores: GuiasEditables = guias.reduce<GuiasEditables>(
+    (acc, guia) => {
+      acc[guia.id_proveedor] = {
+        remitente: guia.guia_remitente,
+        transportista: guia.guia_transportista,
+      };
+      return acc;
+    },
+    {},
+  );
+
+  const setGuia = (
+    idProveedor: number,
+    campo: "remitente" | "transportista",
+    valor: string,
+  ) => {
+    setGuias((prev) =>
+      prev.map((g) => {
+        if (g.id_proveedor !== idProveedor) return g;
+        if (campo === "remitente") {
+          return { ...g, guia_remitente: valor };
+        }
+        return { ...g, guia_transportista: valor };
+      }),
+    );
+  };
+
   const handleGuardar = async () => {
     setSubmitting(true);
     try {
-      const campos: {
-        guia_remitente?: string | null;
-        guia_transportista?: string | null;
-      } = {};
+      const actualizadas = guias.map((g) => ({
+        ...g,
+        guia_remitente: g.guia_remitente.trim().toUpperCase(),
+        guia_transportista: g.guia_transportista.trim().toUpperCase(),
+      }));
 
-      if (! remitenteBloqueado) {
-        campos.guia_remitente = guiaRemitente.trim()
-          ? guiaRemitente.trim().toUpperCase()
-          : null;
-      }
-      if (! transportistaBloqueado) {
-        campos.guia_transportista = guiaTransportista.trim()
-          ? guiaTransportista.trim().toUpperCase()
-          : null;
-      }
-
-      if (Object.keys(campos).length === 0) {
-        notifyError("Las guías están bloqueadas: fueron registradas en la programación.");
-        return;
-      }
-
-      const actualizada = await RecepcionUnidadesService.actualizarCampos(
-        recepcion.id,
-        { campos, motivo: "Edición de guías de la recepción de unidad" },
-      );
+      await RecepcionUnidadesService.setGuias(recepcion.id, actualizadas);
       notifySuccess("Guías actualizadas correctamente");
-      onGuardada(actualizada);
+      onGuardada({
+        ...recepcion,
+        guias: actualizadas,
+        guia_remitente:
+          actualizadas.find((g) => g.id_proveedor === proveedores[0]?.id_proveedor)
+            ?.guia_remitente ?? null,
+        guia_transportista:
+          actualizadas.find((g) => g.id_proveedor === proveedores[0]?.id_proveedor)
+            ?.guia_transportista ?? null,
+      });
       onClose();
     } catch (e) {
       console.error(e);
@@ -132,37 +176,71 @@ export const ModalEditarGuias = ({
           </Alert>
         )}
 
-        <TextInput
-          label="Guía Remitente (serie-número)"
-          placeholder="Ej. 001-123456"
-          size="md"
-          radius="lg"
-          value={guiaRemitente}
-          onChange={(e) => setGuiaRemitente(e.currentTarget.value)}
-          disabled={remitenteBloqueado || submitting}
-          rightSection={
-            remitenteBloqueado ? (
-              <IconLock size={14} className="text-zinc-500" />
-            ) : undefined
-          }
-          classNames={fieldClasses}
-        />
+        {guias.length === 0 ? (
+          <Text size="xs" c="dimmed" fs="italic" ta="center">
+            La unidad no tiene guías registradas.
+          </Text>
+        ) : (
+          guias.map((guia) => (
+            <Paper
+              key={guia.id_proveedor}
+              p="sm"
+              radius="lg"
+              className="bg-zinc-900/30 border border-zinc-800/80 space-y-2"
+            >
+              <Group gap="xs">
+                <IconUser className="w-4 h-4 text-zinc-500" />
+                <Text size="xs" fw={700} className="text-zinc-200">
+                  {razonSocialProveedor(guia.id_proveedor)}
+                </Text>
+              </Group>
 
-        <TextInput
-          label="Guía Transportista (serie-número)"
-          placeholder="Ej. 001-123456"
-          size="md"
-          radius="lg"
-          value={guiaTransportista}
-          onChange={(e) => setGuiaTransportista(e.currentTarget.value)}
-          disabled={transportistaBloqueado || submitting}
-          rightSection={
-            transportistaBloqueado ? (
-              <IconLock size={14} className="text-zinc-500" />
-            ) : undefined
-          }
-          classNames={fieldClasses}
-        />
+              <TextInput
+                label="Guía Remitente (serie-número)"
+                placeholder="Ej. 001-123456"
+                size="md"
+                radius="lg"
+                value={valores[guia.id_proveedor]?.remitente ?? ""}
+                onChange={(e) =>
+                  setGuia(
+                    guia.id_proveedor,
+                    "remitente",
+                    e.currentTarget.value.toUpperCase(),
+                  )
+                }
+                disabled={remitenteBloqueado || submitting}
+                rightSection={
+                  remitenteBloqueado ? (
+                    <IconLock size={14} className="text-zinc-500" />
+                  ) : undefined
+                }
+                classNames={fieldClasses}
+              />
+
+              <TextInput
+                label="Guía Transportista (serie-número)"
+                placeholder="Ej. 001-123456"
+                size="md"
+                radius="lg"
+                value={valores[guia.id_proveedor]?.transportista ?? ""}
+                onChange={(e) =>
+                  setGuia(
+                    guia.id_proveedor,
+                    "transportista",
+                    e.currentTarget.value.toUpperCase(),
+                  )
+                }
+                disabled={transportistaBloqueado || submitting}
+                rightSection={
+                  transportistaBloqueado ? (
+                    <IconLock size={14} className="text-zinc-500" />
+                  ) : undefined
+                }
+                classNames={fieldClasses}
+              />
+            </Paper>
+          ))
+        )}
 
         <Text size="xs" c="dimmed">
           La guía no puede repetirse en dos recepciones del mismo proveedor.
@@ -184,7 +262,7 @@ export const ModalEditarGuias = ({
             <Button
               onClick={handleGuardar}
               loading={submitting}
-              disabled={algunaBloqueada}
+              disabled={algunaBloqueada || guias.length === 0}
               size="sm"
               radius="lg"
               leftSection={<IconDeviceFloppy size={16} />}

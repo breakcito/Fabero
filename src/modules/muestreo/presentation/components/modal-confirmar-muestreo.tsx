@@ -10,11 +10,17 @@ import {
   Table,
   Text,
   Badge,
+  Checkbox,
 } from "@mantine/core";
 import { IconCheck } from "@tabler/icons-react";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
 import { TipoProducto } from "../../../../shared/enums/_generic/tipo-producto";
 import { TipoMineral } from "../../../../shared/enums/_generic/tipo-mineral";
+import {
+  modoCorrelativoInicial,
+  payloadCorrelativoMuestreo,
+  reconstruirCorrelativo as reconstruirCorrelativoBase,
+} from "../../../../shared/functions/correlativo-lote";
 import type { DTO_ConfirmarMuestreo } from "../../service/muestreo.requests";
 import type { RES_LoteMuestreo } from "../../service/muestreo.responses";
 
@@ -40,6 +46,18 @@ export const ModalConfirmarMuestreo = ({
   const [tipoMineral, setTipoMineral] = useState<string | null>(null);
   const [correlativo, setCorrelativo] = useState<string>("");
   const [numeroCorrelativo, setNumeroCorrelativo] = useState<string>("");
+  const [numeroCorrelativoInicial, setNumeroCorrelativoInicial] = useState("");
+
+  /**
+   * Modo del correlativo.
+   *
+   * - Manual: el N° correlativo va en NULL y el correlativo se escribe a mano.
+   * - Secuencia: el correlativo no se edita y lo que se ajusta es el N°.
+   *
+   * Arranca en manual si el lote ya tiene el N° correlativo en NULL: es la
+   * marca de "código escrito a mano".
+   */
+  const [correlativoManual, setCorrelativoManual] = useState(false);
 
   /**
    * Al abrir el modal se precargan los valores actuales del lote. El
@@ -70,33 +88,83 @@ export const ModalConfirmarMuestreo = ({
       setNumeroCorrelativo(
         lote.numero_correlativo !== null ? String(lote.numero_correlativo) : "",
       );
+      setNumeroCorrelativoInicial(
+        lote.numero_correlativo !== null ? String(lote.numero_correlativo) : "",
+      );
+      setCorrelativoManual(
+        modoCorrelativoInicial(lote.numero_correlativo ?? null),
+      );
     }
   }
 
   if (!lote) return null;
 
+  /**
+   * Reconstruye el correlativo conservando el año, el prefijo y el ancho de
+   * ceros del correlativo actual (ej. `26-FB-00005` -> `26-FB-00012`).
+   */
+  const reconstruirCorrelativo = (numero: number): string =>
+    reconstruirCorrelativoBase(correlativo, numero);
+
+  /**
+   * Cambia el modo del correlativo.
+   *
+   * - Manual: el N° correlativo va en NULL y el correlativo se escribe a mano.
+   * - Secuencia: se restaura el N° con el que venía el lote y el correlativo
+   *   vuelve a derivarse de él.
+   */
+  const handleCambiarModoCorrelativo = (manual: boolean) => {
+    setCorrelativoManual(manual);
+
+    if (manual) {
+      setNumeroCorrelativo("");
+      return;
+    }
+
+    const numero = Number(numeroCorrelativoInicial);
+    setNumeroCorrelativo(numeroCorrelativoInicial);
+    if (numero > 0) {
+      setCorrelativo(reconstruirCorrelativo(numero));
+    }
+  };
+
   const handleNumeroChange = (valor: string | number) => {
     const texto = String(valor);
     setNumeroCorrelativo(texto);
+    if (correlativoManual) return;
+
+    const numero = Number(texto);
+    if (texto !== "" && !Number.isNaN(numero) && numero > 0) {
+      setCorrelativo(reconstruirCorrelativo(numero));
+    }
+  };
+
+  const handleCorrelativoChange = (valor: string) => {
+    if (!correlativoManual) return;
+    setCorrelativo(valor.toUpperCase());
   };
 
   const handleConfirm = () => {
     if (!tipoProducto || !tipoMineral) return;
     if (!correlativo.trim()) return;
 
-    const numero = Number(numeroCorrelativo);
-
     onConfirm({
       tipo_producto: tipoProducto,
       tipo_mineral: tipoMineral,
-      correlativo: correlativo.trim().toUpperCase(),
-      numero_correlativo: numero > 0 ? numero : null,
+      ...payloadCorrelativoMuestreo({
+        manual: correlativoManual,
+        correlativo,
+        numeroCorrelativo,
+      }),
       id_particion: lote?.id_particion ?? null,
     });
   };
 
   const puedeConfirmar =
-    !!tipoProducto && !!tipoMineral && !!correlativo.trim() && !submitting;
+    !!tipoProducto &&
+    !!tipoMineral &&
+    !!correlativo.trim() &&
+    !submitting;
 
   const fieldClasses = {
     input:
@@ -182,14 +250,28 @@ export const ModalConfirmarMuestreo = ({
           </Grid.Col>
         </Grid>
 
+        {/* Modo del correlativo: manual (N° correlativo en NULL) o secuencia */}
+        <Checkbox
+          label="Correlativo manual"
+          checked={correlativoManual}
+          onChange={(e) => handleCambiarModoCorrelativo(e.currentTarget.checked)}
+          color="indigo"
+          classNames={{ label: "text-zinc-200 text-sm font-semibold" }}
+        />
+
         <Grid gutter="xs">
           <Grid.Col span={{ base: 12, sm: 8 }}>
             <TextInput
               label="Correlativo"
-              description="Puedes mantenerlo o corregirlo. El cambio se aplica también a las particiones."
+              description={
+                correlativoManual
+                  ? "Escribe el correlativo del lote. El cambio se aplica también a las particiones."
+                  : "El correlativo se deriva del N° correlativo. El cambio se aplica también a las particiones."
+              }
               placeholder="Ej: 26-FB-00005"
               value={correlativo}
-              onChange={(e) => setCorrelativo(e.target.value.toUpperCase())}
+              onChange={(e) => handleCorrelativoChange(e.target.value)}
+              disabled={!correlativoManual}
               classNames={fieldClasses}
               radius="md"
             />
@@ -197,11 +279,12 @@ export const ModalConfirmarMuestreo = ({
           <Grid.Col span={{ base: 12, sm: 4 }}>
             <NumberInput
               label="N° Correlativo"
-              placeholder="5"
+              placeholder=""
               value={numeroCorrelativo}
               onChange={handleNumeroChange}
               min={1}
               allowDecimal={false}
+              disabled={correlativoManual}
               classNames={fieldClasses}
               radius="md"
             />

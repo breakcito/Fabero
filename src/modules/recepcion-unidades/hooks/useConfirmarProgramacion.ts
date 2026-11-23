@@ -14,8 +14,8 @@ import type {
 import type { ProgramacionDetail } from "../../programar-recepcion/service/programar-recepcion.responses";
 import type { RES_MotivoIngreso } from "../../../service/responses/auxiliar-visitas";
 import type { IDocumentoProgramacion } from "../../../shared/interfaces/documentos-programacion";
+import type { IGuiaRecepcion } from "../../../shared/interfaces/guia-recepcion";
 import { useNotify } from "../../../hooks/useNotify";
-import { useDispositivo } from "../../../hooks/useDispositivo";
 
 import type { RES_EmpresaTransporte } from "../../../service/responses/empresa-transporte";
 import type { RES_Vehiculo } from "../../../service/responses/vehiculo";
@@ -50,9 +50,47 @@ interface Props {
   opened?: boolean;
 }
 
+/**
+ * Guías con las que abre la confirmación de llegada.
+ *
+ * Se arma un par de guías por cada proveedor de la carga: si la programación
+ * lo registró se respeta tal cual, si la agenda lo dejó vacío el operador
+ * completa el número de guía al confirmar. Las guías sin proveedor asignado
+ * (guía de la unidad) se conservan al final.
+ */
+const guiasBaseDe = (
+  programacion?: RecepcionUnidadResponse | null,
+): IGuiaRecepcion[] => {
+  const guias = programacion?.guias ?? [];
+  const proveedores = programacion?.proveedores ?? [];
+
+  if (proveedores.length === 0) {
+    return guias;
+  }
+
+  const porProveedor = proveedores.map((p) => {
+    const registrada = guias.find((g) => g.id_proveedor === p.id_proveedor);
+
+    return (
+      registrada ?? {
+        id_proveedor: p.id_proveedor,
+        guia_remitente: "",
+        guia_transportista: "",
+        guia_remitente_archivo: null,
+        guia_transportista_archivo: null,
+      }
+    );
+  });
+
+  const sinProveedor = guias.filter(
+    (g) => !proveedores.some((p) => p.id_proveedor === g.id_proveedor),
+  );
+
+  return [...porProveedor, ...sinProveedor];
+};
+
 export const useConfirmarProgramacion = ({ programacion, opened = true }: Props) => {
   const { notifySuccess, notifyError } = useNotify();
-  const { esMovil } = useDispositivo();
 
   const [motivos, setMotivos] = useState<RES_MotivoIngreso[]>([]);
   const [loadingMotivos, setLoadingMotivos] = useState(false);
@@ -76,7 +114,6 @@ export const useConfirmarProgramacion = ({ programacion, opened = true }: Props)
   const [idVehiculoCarreta, setIdVehiculoCarreta] = useState<number | null>(
     programacion?.id_vehiculo_carreta ?? null,
   );
-  const [idProveedorMineroEditado, setIdProveedorMineroEditado] = useState<number | null>(null);
   const [idTipoVehiculoEditado, setIdTipoVehiculoEditado] = useState<number | null>(null);
 
   const [idMotivoIngreso, setIdMotivoIngreso] = useState<number | null>(
@@ -87,11 +124,81 @@ export const useConfirmarProgramacion = ({ programacion, opened = true }: Props)
   );
 
   const [guiaRemitente, setGuiaRemitente] = useState<string>(
-    programacion?.guia_remitente ?? "",
+    programacion?.guias?.[0]?.guia_remitente ?? "",
   );
   const [guiaTransportista, setGuiaTransportista] = useState<string>(
-    programacion?.guia_transportista ?? "",
+    programacion?.guias?.[0]?.guia_transportista ?? "",
   );
+
+  /**
+   * Guías de la programación, editables SOLO las que llegaron vacías.
+   *
+   * Cada proveedor tiene su propio par de guías. Si la programación ya
+   * registró la guía, queda bloqueada; si la dejó vacía, el operador puede
+   * completarla al confirmar la llegada.
+   */
+  const [guiasConfirmacion, setGuiasConfirmacion] = useState<IGuiaRecepcion[]>(
+    () => guiasBaseDe(programacion),
+  );
+
+  const setGuiaConfirmacion = useCallback(
+    (idProveedor: number, campo: "guia_remitente" | "guia_transportista", valor: string) => {
+      setGuiasConfirmacion((prev) =>
+        prev.map((g) =>
+          g.id_proveedor === idProveedor
+            ? { ...g, [campo]: valor.toUpperCase() }
+            : g,
+        ),
+      );
+    },
+    [],
+  );
+
+  /** Guía de un proveedor con el valor capturado (para el modal). */
+  const guiaConfirmacionDe = useCallback(
+    (idProveedor: number): IGuiaRecepcion | undefined =>
+      guiasConfirmacion.find((g) => g.id_proveedor === idProveedor),
+    [guiasConfirmacion],
+  );
+
+  /**
+   * La guía llegó con número desde la programación: no se puede cambiar.
+   *
+   * Las guías que la agenda dejó vacías sí las completa el operador al
+   * confirmar la llegada. El bloqueo es por campo (remitente / transportista)
+   * para que un proveedor con guía cargada no impida completar la del otro.
+   */
+  const guiaBloqueadaDe = useCallback(
+    (
+      idProveedor: number,
+      campo: "guia_remitente" | "guia_transportista",
+    ): boolean => {
+      const previa = guiasBaseDe(programacion).find(
+        (p) => p.id_proveedor === idProveedor,
+      );
+      if (!previa) {
+        return false;
+      }
+      return previa[campo].trim() !== "";
+    },
+    [programacion],
+  );
+
+  /** ¿El operador capturó alguna guía que la programación dejó vacía? */
+  const guiasCapturadasEnConfirmacion = useCallback((): boolean => {
+    const base = guiasBaseDe(programacion);
+    return guiasConfirmacion.some((g) => {
+      const previa = base.find((p) => p.id_proveedor === g.id_proveedor);
+      const remitentePrevio = (previa?.guia_remitente ?? "").trim();
+      const transportistaPrevio = (previa?.guia_transportista ?? "").trim();
+      const remitenteActual = g.guia_remitente.trim();
+      const transportistaActual = g.guia_transportista.trim();
+      return (
+        (remitentePrevio === "" && remitenteActual !== "") ||
+        (transportistaPrevio === "" && transportistaActual !== "")
+      );
+    });
+  }, [guiasConfirmacion, programacion]);
 
   const lockedConductor = Boolean(programacion?.id_conductor);
 
@@ -101,13 +208,15 @@ export const useConfirmarProgramacion = ({ programacion, opened = true }: Props)
       setIdEmpresaTransporteEditado(null);
       setIdVehiculoEditado(null);
       setIdVehiculoCarreta(programacion?.id_vehiculo_carreta ?? null);
-      setIdProveedorMineroEditado(null);
       setIdTipoVehiculoEditado(null);
       setIdConductor(programacion?.id_conductor ?? null);
       setIdMotivoIngreso(programacion?.visita?.id_motivo_ingreso ?? null);
       setObservacion(programacion?.visita?.observacion ?? programacion?.observacion ?? "");
-      setGuiaRemitente(programacion?.guia_remitente ?? "");
-      setGuiaTransportista(programacion?.guia_transportista ?? "");
+      // En la confirmación las guías vienen de la programación; las que
+      // llegaron vacías las completa el operador al confirmar.
+      setGuiaRemitente(programacion?.guias?.[0]?.guia_remitente ?? "");
+      setGuiaTransportista(programacion?.guias?.[0]?.guia_transportista ?? "");
+      setGuiasConfirmacion(guiasBaseDe(programacion));
       setVehiculos(programacion?.visita?.vehiculos ?? []);
       setVisitantes(
         programacion?.visita?.detalles?.map((d: VisitaDetalleResponse) => ({
@@ -269,11 +378,8 @@ export const useConfirmarProgramacion = ({ programacion, opened = true }: Props)
       telefono: nuevo.telefono,
     };
     setProveedoresCatalog((prev) => [resProv, ...prev.filter((p) => p.id_proveedor !== nuevo.id_proveedor)]);
-    if (!programacion?.id_proveedor_minero) {
-      setIdProveedorMineroEditado(nuevo.id_proveedor);
-    }
     notifySuccess(`Proveedor ${nuevo.razon_social} registrado`);
-  }, [notifySuccess, programacion?.id_proveedor_minero]);
+  }, [notifySuccess]);
 
   const eliminarVehiculo = useCallback(
     async (idVehiculoParam: number) => {
@@ -461,14 +567,8 @@ export const useConfirmarProgramacion = ({ programacion, opened = true }: Props)
     const idEmp = programacion?.id_empresa_transporte ?? idEmpresaTransporteEditado ?? null;
     const idVeh = programacion?.id_vehiculo ?? idVehiculoEditado ?? null;
     const idTip = programacion?.id_tipo_vehiculo ?? idTipoVehiculoEditado ?? null;
-    // En móvil el proveedor minero no se registra (no aparece en el wizard),
-    // por eso nunca se envía: el backend lo acepta como `nullable` y, si la
-    // fila ya tenía un proveedor, conserva el valor existente.
-    const idProv = esMovil
-      ? null
-      : (programacion?.id_proveedor_minero ?? idProveedorMineroEditado ?? null);
-    const gRemitente = programacion?.guia_remitente ?? guiaRemitente ?? "";
-    const gTransportista = programacion?.guia_transportista ?? guiaTransportista ?? "";
+    const gRemitente = (guiaRemitente ?? "").trim().toUpperCase();
+    const gTransportista = (guiaTransportista ?? "").trim().toUpperCase();
 
     if (idVeh && idTip != null) {
       const vFound = vehiculosCatalog.find((v) => v.id_vehiculo === idVeh);
@@ -508,17 +608,42 @@ export const useConfirmarProgramacion = ({ programacion, opened = true }: Props)
         1;
 
       if (programacion) {
-        // MODO 1: Confirmar Programación existente
+        // MODO 1: Confirmar Programación existente.
+        // El proveedor y las guías ya viven en la programación (misma fila de
+        // `recepcion_unidad`): aquí solo se confirma la llegada.
+        //
+        // Si el operador completó alguna guía que la programación dejó vacía,
+        // se guarda ANTES de confirmar: mientras la programación está
+        // pendiente sus guías no están bloqueadas.
+        if (guiasCapturadasEnConfirmacion()) {
+          try {
+            await RecepcionUnidadesService.setGuias(
+              programacion.id,
+              guiasConfirmacion,
+            );
+          } catch (e) {
+            console.error("No se pudieron guardar las guías capturadas:", e);
+            const axiosLike = e as {
+              response?: { data?: { message?: string } };
+              message?: string;
+            };
+            notifyError(
+              axiosLike?.response?.data?.message ||
+                (e instanceof Error
+                  ? e.message
+                  : "No se pudieron guardar las guías capturadas."),
+            );
+            return null;
+          }
+        }
+
         const updated: ProgramacionDetail = await ProgramarRecepcionService.confirmarProgramacion(programacion.id, {
           id_empresa_transporte: idEmp ?? undefined,
           id_vehiculo: idVeh ?? undefined,
           id_tipo_vehiculo: idTip ?? undefined,
           id_sucursal: idSucursal ?? undefined,
           id_conductor: idConductor ?? undefined,
-          id_proveedor_minero: idProv ?? undefined,
           id_vehiculo_carreta: idVehiculoCarreta ?? undefined,
-          guia_remitente: gRemitente || undefined,
-          guia_transportista: gTransportista || undefined,
           observacion: observacion || undefined,
           motivo: 'Confirmación inicial',
           evidencias: evidencias.length > 0 ? evidencias : undefined,
@@ -559,6 +684,13 @@ export const useConfirmarProgramacion = ({ programacion, opened = true }: Props)
           estado_pesaje: updated.estado_pesaje,
           es_programacion: updated.es_programacion,
           fecha_estimada_llegada: updated.fecha_estimada_llegada,
+          guias:
+            updated.guias && updated.guias.length > 0
+              ? updated.guias
+              : guiasConfirmacion.length > 0
+                ? guiasConfirmacion
+                : (programacion.guias ?? []),
+          proveedores: updated.proveedores ?? programacion.proveedores ?? [],
           guia_remitente: updated.guia_remitente,
           guia_transportista: updated.guia_transportista,
           documentos_programacion: (updated.documentos_programacion as IDocumentoProgramacion | null) ?? programacion.documentos_programacion ?? null,
@@ -603,7 +735,9 @@ export const useConfirmarProgramacion = ({ programacion, opened = true }: Props)
           visita = await RecepcionUnidadesService.crearVisitaParaProgramacion(payload);
         }
 
-        notifySuccess("Recepción confirmada correctamente");
+        notifySuccess(
+          "Recepción confirmada correctamente. Los tickets de ingreso están disponibles en la columna Ticket.",
+        );
         setEvidencias([]);
         return { visita, updatedRecepcion };
       } else {
@@ -626,18 +760,33 @@ export const useConfirmarProgramacion = ({ programacion, opened = true }: Props)
 
         const hasVisitaInfo = visitantesValidos.length > 0 || vehiculos.length > 0;
 
+        // En el ingreso directo solo se capturan las guías: el proveedor de
+        // la carga se conoce después, con el registro de los lotes. Por eso
+        // la guía se envía con `id_proveedor = 0` ("guía de la unidad").
+        const guias =
+          gRemitente !== "" || gTransportista !== ""
+            ? [
+                {
+                  id_proveedor: 0,
+                  guia_remitente: gRemitente,
+                  guia_transportista: gTransportista,
+                  guia_remitente_archivo: null,
+                  guia_transportista_archivo: null,
+                },
+              ]
+            : [];
+
         const payload: CrearRecepcionRequest = {
           id_vehiculo: idVeh,
           placa: placa || undefined,
           id_empresa_transporte: idEmp,
           id_tipo_vehiculo: idTip || undefined,
           id_conductor: idConductor,
-          id_proveedor_minero: idProv || undefined,
           id_vehiculo_carreta: idVehiculoCarreta ?? null,
           id_sucursal: sucursalTarget,
           tipo_ingreso: TipoIngreso.RecepcionMineral,
-          guia_remitente: gRemitente || undefined,
-          guia_transportista: gTransportista || undefined,
+          proveedores: [],
+          guias,
           id_motivo_ingreso: hasVisitaInfo ? motivoFinal : undefined,
           observacion: observacion || undefined,
           evidencias,
@@ -651,7 +800,9 @@ export const useConfirmarProgramacion = ({ programacion, opened = true }: Props)
         };
 
         const created = await RecepcionUnidadesService.crearRecepcion(payload);
-        notifySuccess("Recepción de unidad registrada correctamente");
+        notifySuccess(
+          "Recepción de unidad registrada correctamente. Los tickets de ingreso están disponibles en la columna Ticket.",
+        );
         setEvidencias([]);
         return { updatedRecepcion: created };
       }
@@ -694,8 +845,6 @@ export const useConfirmarProgramacion = ({ programacion, opened = true }: Props)
     setIdVehiculoEditado,
     idVehiculoCarreta,
     setIdVehiculoCarreta,
-    idProveedorMineroEditado,
-    setIdProveedorMineroEditado,
     idTipoVehiculoEditado,
     setIdTipoVehiculoEditado,
     idMotivoIngreso,
@@ -706,6 +855,10 @@ export const useConfirmarProgramacion = ({ programacion, opened = true }: Props)
     setGuiaRemitente,
     guiaTransportista,
     setGuiaTransportista,
+    guiasConfirmacion,
+    setGuiaConfirmacion,
+    guiaConfirmacionDe,
+    guiaBloqueadaDe,
     evidencias,
     setEvidencias,
     handleConductorCreado,

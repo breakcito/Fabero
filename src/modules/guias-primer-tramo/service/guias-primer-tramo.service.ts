@@ -10,6 +10,8 @@ import type {
   RES_FiltrosMetadataGuia,
   RES_GuiaPrimerTramo,
   RES_ItemMineralDisponible,
+  RES_ProveedorUnidad,
+  RES_UnidadGuia,
   RES_ValidarDuplicadoGuia,
 } from "./guias-primer-tramo.responses";
 
@@ -183,6 +185,29 @@ export const GuiasPrimerTramoService = {
     dto: DTO_ValidarDuplicadoGuia,
   ): Promise<RES_ValidarDuplicadoGuia> => {
     const { data } = await api.post(`${PATH}/validar-duplicado`, dto);
+    return data.data;
+  },
+
+  /**
+   * Unidades (recepciones de unidad) con items de mineral pendientes de guía.
+   */
+  get_unidades_disponibles: async (
+    idSucursal?: number | null,
+  ): Promise<RES_UnidadGuia[]> => {
+    const { data } = await api.get(`${PATH}/unidades`, {
+      params: { id_sucursal: idSucursal ?? undefined },
+    });
+    return data.data;
+  },
+
+  /**
+   * Proveedores de la carga de una unidad. Alimenta el filtro del selector de
+   * proveedor cuando ya se eligió la unidad en el modal de guía.
+   */
+  get_proveedores_unidad: async (
+    idUnidad: number,
+  ): Promise<RES_ProveedorUnidad[]> => {
+    const { data } = await api.get(`${PATH}/unidades/${idUnidad}/proveedores`);
     return data.data;
   },
 };

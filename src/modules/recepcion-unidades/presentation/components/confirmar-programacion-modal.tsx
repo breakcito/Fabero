@@ -16,6 +16,7 @@ import {
   Progress,
   ThemeIcon,
   UnstyledButton,
+  Paper,
 } from "@mantine/core";
 import {
   IconTrash,
@@ -36,7 +37,6 @@ import {
 } from "@tabler/icons-react";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
 import { useConfirmarProgramacion } from "../../hooks/useConfirmarProgramacion";
-import { useTicketIngresoVehiculo } from "../../../../hooks/useTicketIngresoVehiculo";
 import { useNotify } from "../../../../hooks/useNotify";
 import { useDispositivo } from "../../../../hooks/useDispositivo";
 import type { RecepcionUnidadResponse } from "../../service/recepcion-unidades.responses";
@@ -48,7 +48,6 @@ import { RegistroConductor } from "../../../../presentation/utils/registro-condu
 import { RegistroVehiculoSimple } from "../../../../presentation/utils/registro-vehiculo-simple";
 import { RegistroTipoVehiculoSimple } from "../../../../presentation/utils/registro-tipo-vehiculo-simple";
 import { RegistroEmpresaTransporte } from "../../../../presentation/utils/registro-empresa-transporte";
-import { ModalRegistroProveedor } from "../../../../presentation/utils/modal-registro-proveedor";
 import { MultiFilePicker } from "../../../../presentation/utils/archivo/multifile-picker";
 import { ArchivoCard } from "../../../../presentation/utils/archivo/archivo-card";
 
@@ -64,6 +63,15 @@ const fieldClasses = {
     "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 focus:ring-1 focus:ring-zinc-300 transition-all",
   label: "text-zinc-300 mb-1 font-medium text-xs",
 };
+
+/**
+ * Letra que identifica una posición (A, B, C...).
+ *
+ * Los puestos de ocupante se identifican con letras para no exponer
+ * numerales de base de datos en la interfaz.
+ */
+const letraPosicion = (indice: number): string =>
+  String.fromCharCode(65 + Math.max(0, indice));
 
 /**
  * Pasos del formulario en móvil. El escritorio mantiene el layout de una
@@ -84,7 +92,6 @@ export const ConfirmarProgramacionModal = ({
   onConfirmada,
 }: Props) => {
   const ctrl = useConfirmarProgramacion({ programacion, opened });
-  const { printTicketIngreso } = useTicketIngresoVehiculo();
   const { notifyError } = useNotify();
   const { esMovil } = useDispositivo();
 
@@ -94,7 +101,6 @@ export const ConfirmarProgramacionModal = ({
   const [openVehiculoSimpleModal, setOpenVehiculoSimpleModal] = useState(false);
   const [openTipoVehiculoModal, setOpenTipoVehiculoModal] = useState(false);
   const [openEmpresaModal, setOpenEmpresaModal] = useState(false);
-  const [openProveedorModal, setOpenProveedorModal] = useState(false);
   const [openCarretaModal, setOpenCarretaModal] = useState(false);
 
   const [editingAcompanante, setEditingAcompanante] = useState<{
@@ -137,7 +143,7 @@ export const ConfirmarProgramacionModal = ({
     .filter((v) => !v.es_carreta || Number(v.es_carreta) === 0)
     .map((v) => ({
       value: String(v.id_vehiculo),
-      label: v.placa || `Vehículo #${v.id_vehiculo}`,
+      label: v.placa || "Vehículo sin placa",
     }));
 
   const conductoresOptions = (ctrl.conductoresCatalog ?? []).map((c) => ({
@@ -145,13 +151,16 @@ export const ConfirmarProgramacionModal = ({
     label: c.dni ? `${c.nombre_completo} (${c.dni})` : c.nombre_completo,
   }));
 
-  const proveedoresOptions = (ctrl.proveedoresCatalog ?? []).map((p) => ({
-    value: String(p.id_proveedor),
-    label: p.razon_social,
-  }));
-
   const esDespacho =
     ctrl.programacion?.tipo_ingreso === "Despacho de Mineral";
+
+  const guiasProgramacion = ctrl.guiasConfirmacion;
+  const proveedoresProgramacion = ctrl.programacion?.proveedores ?? [];
+
+  const razonSocialProveedor = (idProveedor: number): string =>
+    proveedoresProgramacion.find((p) => p.id_proveedor === idProveedor)
+      ?.razon_social ??
+    (idProveedor === 0 ? "Guías de la unidad" : "Proveedor de la carga");
 
   const tiposVehiculoOptions = (ctrl.tiposVehiculoCatalog ?? []).map((tv) => ({
     value: String(tv.id_tipo_vehiculo),
@@ -164,7 +173,7 @@ export const ConfirmarProgramacionModal = ({
     .filter((v) => Number(v.es_carreta) === 1)
     .map((v) => ({
       value: String(v.id_vehiculo),
-      label: v.placa || `Vehículo #${v.id_vehiculo}`,
+      label: v.placa || "Vehículo sin placa",
     }));
 
   // id_tipo_vehiculo del TipoVehiculo con es_carreta=1, para pre-asignar al sub-modal de registro.
@@ -186,11 +195,6 @@ export const ConfirmarProgramacionModal = ({
           visita,
         }
       : updatedRecepcion;
-
-    const targetId = finalRecepcion?.id || programacion?.id;
-    if (targetId) {
-      void printTicketIngreso(targetId);
-    }
 
     onConfirmada(finalRecepcion);
     onClose();
@@ -428,56 +432,6 @@ export const ConfirmarProgramacionModal = ({
     </div>
   );
 
-  const campoProveedor = (
-    <div className="flex gap-2 items-end">
-      <Select
-        label="Proveedor Minero"
-        placeholder={ctrl.loadingCatalogos ? "Cargando..." : "Seleccione proveedor"}
-        data={proveedoresOptions}
-        withAsterisk
-        required
-        value={
-          ctrl.programacion?.id_proveedor_minero
-            ? String(ctrl.programacion.id_proveedor_minero)
-            : ctrl.idProveedorMineroEditado
-              ? String(ctrl.idProveedorMineroEditado)
-              : null
-        }
-        onChange={(val) => ctrl.setIdProveedorMineroEditado(val ? Number(val) : null)}
-        leftSection={<IconUser className="w-4 h-4 text-zinc-500" />}
-        searchable
-        radius="xl"
-        className="flex-1"
-        disabled={confirmando}
-        readOnly={Boolean(ctrl.programacion?.id_proveedor_minero)}
-        rightSection={
-          ctrl.programacion?.id_proveedor_minero ? (
-            <IconLock size={14} className="text-zinc-500" />
-          ) : ctrl.loadingCatalogos ? (
-            <Loader size={16} />
-          ) : undefined
-        }
-        classNames={fieldClasses}
-      />
-      {!ctrl.programacion?.id_proveedor_minero && (
-        <Tooltip label="Registrar Nuevo Proveedor Minero" withArrow>
-          <ActionIcon
-            type="button"
-            variant="filled"
-            color="zinc"
-            radius="xl"
-            size="lg"
-            disabled={confirmando}
-            onClick={() => setOpenProveedorModal(true)}
-            className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 mb-0.5"
-          >
-            <IconPlus size={18} />
-          </ActionIcon>
-        </Tooltip>
-      )}
-    </div>
-  );
-
   const campoTipoVehiculo = (
     <div className="flex gap-2 items-end">
       <Select
@@ -589,12 +543,164 @@ export const ConfirmarProgramacionModal = ({
     </div>
   );
 
-  const bloqueGuias = (
+  /**
+   * Guías de la unidad.
+   *
+   * - Al CONFIRMAR la llegada las guías que la programación dejó vacías las
+   *   completa el operador; las que ya venían con número quedan bloqueadas.
+   *   Los archivos se muestran aparte, en solo lectura.
+   * - Al registrar la recepción DIRECTA solo se capturan las guías (sin
+   *   archivos): el proveedor de la carga se conoce con las cargas.
+   */
+  const bloqueGuias = ctrl.programacion ? (
+    <div className="pt-3 border-t border-zinc-800 space-y-3">
+      <Group gap="xs">
+        <IconFileText className="w-4 h-4 text-indigo-400" />
+        <Text size="xs" fw={600} className="text-zinc-300">
+          Guías de la carga
+        </Text>
+      </Group>
+
+      {guiasProgramacion.length === 0 ? (
+        <Text size="xs" c="zinc.5" fs="italic">
+          La carga no tiene proveedores asignados: registra las guías de cada
+          proveedor al confirmar la llegada.
+        </Text>
+      ) : (
+        <>
+          {guiasProgramacion.some(
+            (g) =>
+              g.guia_remitente.trim() === "" ||
+              g.guia_transportista.trim() === "",
+          ) && (
+            <Text size="xs" c="zinc.5" fs="italic">
+              Completa el número de guía de las que quedaron vacías en la
+              programación.
+            </Text>
+          )}
+
+          {guiasProgramacion.map((guia) => {
+            const remitenteBloqueado = ctrl.guiaBloqueadaDe(
+              guia.id_proveedor,
+              "guia_remitente",
+            );
+            const transportistaBloqueado = ctrl.guiaBloqueadaDe(
+              guia.id_proveedor,
+              "guia_transportista",
+            );
+
+            return (
+              <Paper
+                key={guia.id_proveedor}
+                p="sm"
+                radius="lg"
+                className="bg-zinc-900/30 border border-zinc-800/80 space-y-2"
+              >
+                <Group gap="xs">
+                  <IconUser className="w-4 h-4 text-zinc-500" />
+                  <Text size="xs" fw={700} className="text-zinc-200">
+                    {razonSocialProveedor(guia.id_proveedor)}
+                  </Text>
+                </Group>
+
+                <Grid gutter="sm">
+                  <Grid.Col span={{ base: 12, sm: 6 }}>
+                    <TextInput
+                      label="Guía Remitente"
+                      placeholder="Ej. 001-123456"
+                      radius="xl"
+                      value={guia.guia_remitente}
+                      onChange={(e) =>
+                        ctrl.setGuiaConfirmacion(
+                          guia.id_proveedor,
+                          "guia_remitente",
+                          e.currentTarget.value,
+                        )
+                      }
+                      readOnly={remitenteBloqueado}
+                      disabled={confirmando}
+                      rightSection={
+                        remitenteBloqueado ? (
+                          <IconLock size={14} className="text-zinc-500" />
+                        ) : undefined
+                      }
+                      classNames={fieldClasses}
+                    />
+                  </Grid.Col>
+                  <Grid.Col span={{ base: 12, sm: 6 }}>
+                    <TextInput
+                      label="Guía Transportista"
+                      placeholder="Ej. 001-123456"
+                      radius="xl"
+                      value={guia.guia_transportista}
+                      onChange={(e) =>
+                        ctrl.setGuiaConfirmacion(
+                          guia.id_proveedor,
+                          "guia_transportista",
+                          e.currentTarget.value,
+                        )
+                      }
+                      readOnly={transportistaBloqueado}
+                      disabled={confirmando}
+                      rightSection={
+                        transportistaBloqueado ? (
+                          <IconLock size={14} className="text-zinc-500" />
+                        ) : undefined
+                      }
+                      classNames={fieldClasses}
+                    />
+                  </Grid.Col>
+                </Grid>
+
+                {(guia.guia_remitente_archivo ||
+                  guia.guia_transportista_archivo) && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="space-y-2">
+                      <Text
+                        size="10px"
+                        fw={700}
+                        className="text-zinc-500 uppercase tracking-widest"
+                      >
+                        Guía Remitente
+                      </Text>
+                      {guia.guia_remitente_archivo ? (
+                        <ArchivoCard archivo={guia.guia_remitente_archivo} />
+                      ) : (
+                        <Text size="xs" c="zinc.6" fs="italic">
+                          Sin archivo adjunto.
+                        </Text>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Text
+                        size="10px"
+                        fw={700}
+                        className="text-zinc-500 uppercase tracking-widest"
+                      >
+                        Guía Transportista
+                      </Text>
+                      {guia.guia_transportista_archivo ? (
+                        <ArchivoCard archivo={guia.guia_transportista_archivo} />
+                      ) : (
+                        <Text size="xs" c="zinc.6" fs="italic">
+                          Sin archivo adjunto.
+                        </Text>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </Paper>
+            );
+          })}
+        </>
+      )}
+    </div>
+  ) : (
     <div className="pt-3 border-t border-zinc-800 space-y-2">
       <Group gap="xs">
         <IconFileText className="w-4 h-4 text-indigo-400" />
         <Text size="xs" fw={600} className="text-zinc-300">
-          Guías (opcional)
+          Guías de la unidad (opcional)
         </Text>
       </Group>
       <Grid gutter="sm">
@@ -603,11 +709,11 @@ export const ConfirmarProgramacionModal = ({
             label="Guía Remitente"
             placeholder="Ej. 001-123456"
             radius="xl"
-            value={ctrl.programacion?.guia_remitente ?? ctrl.guiaRemitente}
-            onChange={(e) => ctrl.setGuiaRemitente(e.currentTarget.value)}
-            readOnly={Boolean(ctrl.programacion?.guia_remitente)}
+            value={ctrl.guiaRemitente}
+            onChange={(e) =>
+              ctrl.setGuiaRemitente(e.currentTarget.value.toUpperCase())
+            }
             disabled={confirmando}
-            rightSection={ctrl.programacion?.guia_remitente ? <IconLock size={14} className="text-zinc-500" /> : undefined}
             classNames={fieldClasses}
           />
         </Grid.Col>
@@ -616,51 +722,18 @@ export const ConfirmarProgramacionModal = ({
             label="Guía Transportista"
             placeholder="Ej. 001-123456"
             radius="xl"
-            value={ctrl.programacion?.guia_transportista ?? ctrl.guiaTransportista}
-            onChange={(e) => ctrl.setGuiaTransportista(e.currentTarget.value)}
-            readOnly={Boolean(ctrl.programacion?.guia_transportista)}
+            value={ctrl.guiaTransportista}
+            onChange={(e) =>
+              ctrl.setGuiaTransportista(e.currentTarget.value.toUpperCase())
+            }
             disabled={confirmando}
-            rightSection={ctrl.programacion?.guia_transportista ? <IconLock size={14} className="text-zinc-500" /> : undefined}
             classNames={fieldClasses}
           />
         </Grid.Col>
       </Grid>
-
-      {/* Documentos de programación (archivos subidos al programar) */}
-      {ctrl.programacion?.documentos_programacion && (
-        <div className="pt-2 space-y-2">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <div className="space-y-2">
-              <Text size="10px" fw={700} className="text-zinc-500 uppercase tracking-widest">
-                Guía Remitente
-              </Text>
-              {ctrl.programacion.documentos_programacion.guia_remitente ? (
-                <ArchivoCard
-                  archivo={ctrl.programacion.documentos_programacion.guia_remitente}
-                />
-              ) : (
-                <Text size="xs" c="zinc.6" fs="italic">
-                  Sin archivo adjunto.
-                </Text>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Text size="10px" fw={700} className="text-zinc-500 uppercase tracking-widest">
-                Guía Transportista
-              </Text>
-              {ctrl.programacion.documentos_programacion.guia_transportista ? (
-                <ArchivoCard
-                  archivo={ctrl.programacion.documentos_programacion.guia_transportista}
-                />
-              ) : (
-                <Text size="xs" c="zinc.6" fs="italic">
-                  Sin archivo adjunto.
-                </Text>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <Text size="xs" c="zinc.6" fs="italic">
+        El proveedor de la carga se registra con las cargas de la unidad.
+      </Text>
     </div>
   );
 
@@ -956,7 +1029,7 @@ export const ConfirmarProgramacionModal = ({
                             ) : (
                               <Group gap="xs">
                                 <Badge color="yellow" variant="dot" size="xs">
-                                  Ocupante #{slotIdx + 1}
+                                  Ocupante {letraPosicion(slotIdx)}
                                 </Badge>
                                 <Text size="xs" c="zinc.5">
                                   Sin datos completados
@@ -1222,7 +1295,7 @@ export const ConfirmarProgramacionModal = ({
     <ModalEstandar
       opened={opened}
       close={onClose}
-      title={programacion ? `Confirmar Programación #${programacion.id}` : "Registrar Recepción de Unidad"}
+      title={programacion ? "Confirmar Programación" : "Registrar Recepción de Unidad"}
       size="xl"
       fullScreen={esMovil}
       validateClose
@@ -1268,12 +1341,6 @@ export const ConfirmarProgramacionModal = ({
                 <Grid.Col span={{ base: 12, sm: 6 }}>
                   {campoConductor}
                 </Grid.Col>
-
-                {!esDespacho && (
-                  <Grid.Col span={{ base: 12, sm: 6 }}>
-                    {campoProveedor}
-                  </Grid.Col>
-                )}
 
                 <Grid.Col span={{ base: 12, sm: 6 }}>
                   {campoTipoVehiculo}
@@ -1434,16 +1501,6 @@ export const ConfirmarProgramacionModal = ({
             }}
           />
         </ModalEstandar>
-
-        {/* Modal: Registro Rápido de Proveedor Minero */}
-        <ModalRegistroProveedor
-          opened={openProveedorModal}
-          onClose={() => setOpenProveedorModal(false)}
-          onSuccess={(p) => {
-            ctrl.handleProveedorCreado(p);
-            setOpenProveedorModal(false);
-          }}
-        />
 
         {/* Modal: Registro Rápido de Vehículo Carreta */}
         <ModalEstandar

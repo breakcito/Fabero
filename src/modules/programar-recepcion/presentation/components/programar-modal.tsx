@@ -2,12 +2,16 @@ import {
   Stack,
   Group,
   Select,
+  MultiSelect,
   TextInput,
   Button,
   Loader,
   Grid,
   ActionIcon,
-  Tooltip
+  Tooltip,
+  Paper,
+  Text,
+  Badge,
 } from "@mantine/core";
 import { CustomDatePicker } from "../../../../presentation/utils/date-picker-input";
 import "@mantine/dates/styles.css";
@@ -19,7 +23,8 @@ import {
   IconCalendarTime,
   IconCheck,
   IconPlus,
-  IconLock
+  IconLock,
+  IconFileText,
 } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
@@ -88,6 +93,10 @@ export const ProgramarRecepcionModal = ({
     cargarCatalogos,
     cargarProgramacion,
     reset,
+    setProveedoresSeleccionados,
+    updateGuia,
+    removeArchivoGuia,
+    setArchivoNuevoGuia,
     handleEmpresaCreada,
     handleVehiculoCreado,
     handleProveedorCreado,
@@ -117,13 +126,17 @@ export const ProgramarRecepcionModal = ({
     .filter((v) => !v.es_carreta || Number(v.es_carreta) === 0)
     .map((v) => ({
       value: String(v.id_vehiculo),
-      label: v.placa || `Vehículo #${v.id_vehiculo}`,
+      label: v.placa || "Vehículo sin placa",
     }));
 
   const proveedoresData = (proveedores ?? []).map((p) => ({
     value: String(p.id_proveedor),
     label: p.razon_social,
   }));
+
+  const razonSocialProveedor = (idProveedor: number): string =>
+    proveedoresData.find((p) => p.value === String(idProveedor))?.label ??
+    "Proveedor de la carga";
 
   const tiposVehiculoData = (tiposVehiculo ?? []).map((t) => ({
     value: String(t.id_tipo_vehiculo),
@@ -143,7 +156,7 @@ export const ProgramarRecepcionModal = ({
 
   const carretasData = vehiculosCarreta.map((v) => ({
     value: String(v.id_vehiculo),
-    label: v.placa || `Vehículo #${v.id_vehiculo}`,
+    label: v.placa || "Vehículo sin placa",
   }));
 
   // id_tipo_vehiculo del TipoVehiculo con es_carreta=1, para pre-asignar al sub-modal de registro.
@@ -153,6 +166,8 @@ export const ProgramarRecepcionModal = ({
   // El tipo de ingreso es un campo bloqueado: en edición muestra el valor
   // que ya tenía la programación.
   const tipoIngresoValor = form.tipo_ingreso ?? TipoIngreso.RecepcionMineral;
+
+  const proveedoresSeleccionados = form.guias.map((g) => String(g.id_proveedor));
 
   return (
     <>
@@ -220,7 +235,10 @@ export const ProgramarRecepcionModal = ({
               />
             </Grid.Col>
 
-            {/* Fila 2: Vehículo + Proveedor */}
+            {/* Fila 2: Vehículo + Fecha Estimada de Llegada.
+                La fecha va en la misma fila que el vehículo; el resto de
+                campos (Tipo de Vehículo / Conductor / Carreta) solo aparece
+                en EDICIÓN. */}
             <Grid.Col span={{ base: 12, sm: 6 }}>
               <div className="flex gap-2 items-end">
                 <Select
@@ -257,44 +275,25 @@ export const ProgramarRecepcionModal = ({
             </Grid.Col>
 
             <Grid.Col span={{ base: 12, sm: 6 }}>
-              <div className="flex gap-2 items-end">
-                <Select
-                  label="Proveedor Minero"
-                  placeholder={loadingProveedores ? "Cargando proveedores..." : "Seleccione el proveedor"}
-                  data={proveedoresData}
-                  value={form.id_proveedor_minero ? String(form.id_proveedor_minero) : null}
-                  onChange={(val) => setField("id_proveedor_minero", val ? Number(val) : undefined)}
-                  leftSection={<IconUser className="w-4 h-4 text-zinc-500" />}
-                  searchable
-                  withAsterisk
-                  required
-                  radius="xl"
-                  disabled={loadingProveedores || loading}
-                  rightSection={loadingProveedores ? <Loader size={16} /> : undefined}
-                  classNames={fieldClasses}
-                  className="flex-1"
-                />
-                <Tooltip label="Registrar nuevo proveedor minero">
-                  <ActionIcon
-                    type="button"
-                    variant="filled"
-                    color="zinc"
-                    radius="xl"
-                    size="lg"
-                    disabled={loading}
-                    onClick={() => setOpenProveedorModal(true)}
-                    className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 mb-0.5"
-                  >
-                    <IconPlus size={18} />
-                  </ActionIcon>
-                </Tooltip>
-              </div>
+              <CustomDatePicker
+                label="Fecha Estimada de Llegada"
+                placeholder="Seleccione fecha (opcional)"
+                value={form.fecha_estimada_llegada ? parseLocalDate(form.fecha_estimada_llegada) : null}
+                onChange={(val: unknown) => {
+                  if (!val) {
+                    setField("fecha_estimada_llegada", "");
+                    return;
+                  }
+                  const d = typeof val === "string" ? new Date(val) : (val as Date);
+                  setField("fecha_estimada_llegada", formatLocalDate(d));
+                }}
+                disabled={loading}
+                clearable
+                radius="xl"
+                size="sm"
+              />
             </Grid.Col>
 
-            {/* Fila 3: Tipo de vehículo + Conductor
-                Solo en EDICIÓN: al programar, el encargado de agenda no
-                conoce el conductor ni el tipo de vehículo (se definen al
-                confirmar la llegada). */}
             {esEdicion && (
               <>
                 <Grid.Col span={{ base: 12, sm: 6 }}>
@@ -372,7 +371,9 @@ export const ProgramarRecepcionModal = ({
                       radius="xl"
                       disabled={loadingConductores || loading}
                       rightSection={
-                        loadingConductores ? <Loader size={16} /> : undefined
+                        loadingConductores ? (
+                          <Loader size={16} />
+                        ) : undefined
                       }
                       classNames={fieldClasses}
                       className="flex-1"
@@ -395,30 +396,6 @@ export const ProgramarRecepcionModal = ({
                 </Grid.Col>
               </>
             )}
-
-            {/* Fila 4: Fecha + Vehículo Carreta (opcional)
-                La carreta solo se define en EDICIÓN (en el alta no la
-                conoce el encargado de agenda), así que en el alta la fecha
-                ocupa la fila completa. */}
-            <Grid.Col span={{ base: 12, sm: esEdicion ? 6 : 12 }}>
-              <CustomDatePicker
-                label="Fecha Estimada de Llegada"
-                placeholder="Seleccione fecha (opcional)"
-                value={form.fecha_estimada_llegada ? parseLocalDate(form.fecha_estimada_llegada) : null}
-                onChange={(val: unknown) => {
-                  if (!val) {
-                    setField("fecha_estimada_llegada", undefined);
-                    return;
-                  }
-                  const d = typeof val === "string" ? new Date(val) : (val as Date);
-                  setField("fecha_estimada_llegada", formatLocalDate(d));
-                }}
-                disabled={loading}
-                clearable
-                radius="xl"
-                size="sm"
-              />
-            </Grid.Col>
 
             {esEdicion && (
               <Grid.Col span={{ base: 12, sm: 6 }}>
@@ -479,88 +456,180 @@ export const ProgramarRecepcionModal = ({
                 </div>
               </Grid.Col>
             )}
-
-            {/* Fila 4: Guías (TextInputs serie-numero) */}
-            <Grid.Col span={{ base: 12, sm: 6 }}>
-              <TextInput
-                label="Guía Remitente (serie-número)"
-                placeholder="Ej. 001-123456"
-                radius="xl"
-                value={form.guia_remitente ?? ""}
-                onChange={(e) => setField("guia_remitente", e.currentTarget.value.toUpperCase())}
-                disabled={loading}
-                classNames={fieldClasses}
-              />
-            </Grid.Col>
-
-            <Grid.Col span={{ base: 12, sm: 6 }}>
-              <TextInput
-                label="Guía Transportista (serie-número)"
-                placeholder="Ej. 001-123456"
-                radius="xl"
-                value={form.guia_transportista ?? ""}
-                onChange={(e) => setField("guia_transportista", e.currentTarget.value.toUpperCase())}
-                disabled={loading}
-                classNames={fieldClasses}
-              />
-            </Grid.Col>
           </Grid>
 
-          <div className="border-t border-zinc-800 pt-3 space-y-2">
+          {/* Proveedores de la carga + guías por proveedor */}
+          <div className="border-t border-zinc-800 pt-3 space-y-3">
             <Grid gutter="sm">
-              <Grid.Col span={{ base: 12, sm: 6 }}>
-                <MultiFilePicker
-                  label="Archivo Guía Remitente"
-                  description="1 archivo (PDF o imagen)."
-                  files={form.guia_remitente_file ? [form.guia_remitente_file] : []}
-                  onFilesChange={(files) =>
-                    setField("guia_remitente_file", files[0] ?? null)
-                  }
-                  existingFiles={form.documentos_programacion_existentes?.guia_remitente
-                    ? [form.documentos_programacion_existentes.guia_remitente]
-                    : []}
-                  onRemoveExisting={() => {
-                    const prev = form.documentos_programacion_existentes ?? {
-                      guia_remitente: null,
-                      guia_transportista: null,
-                    };
-                    setField("documentos_programacion_existentes", {
-                      ...prev,
-                      guia_remitente: null,
-                    });
-                  }}
-                  multiple={false}
-                  maxFiles={1}
-                  accept="application/pdf,image/*"
-                />
-              </Grid.Col>
-              <Grid.Col span={{ base: 12, sm: 6 }}>
-                <MultiFilePicker
-                  label="Archivo Guía Transportista"
-                  description="1 archivo (PDF o imagen)."
-                  files={form.guia_transportista_file ? [form.guia_transportista_file] : []}
-                  onFilesChange={(files) =>
-                    setField("guia_transportista_file", files[0] ?? null)
-                  }
-                  existingFiles={form.documentos_programacion_existentes?.guia_transportista
-                    ? [form.documentos_programacion_existentes.guia_transportista]
-                    : []}
-                  onRemoveExisting={() => {
-                    const prev = form.documentos_programacion_existentes ?? {
-                      guia_remitente: null,
-                      guia_transportista: null,
-                    };
-                    setField("documentos_programacion_existentes", {
-                      ...prev,
-                      guia_transportista: null,
-                    });
-                  }}
-                  multiple={false}
-                  maxFiles={1}
-                  accept="application/pdf,image/*"
-                />
+              <Grid.Col span={12}>
+                <div className="flex gap-2 items-end">
+                  <MultiSelect
+                    label="Proveedores"
+                    placeholder={
+                      loadingProveedores
+                        ? "Cargando proveedores..."
+                        : "Seleccione los proveedores"
+                    }
+                    data={proveedoresData}
+                    value={proveedoresSeleccionados}
+                    onChange={setProveedoresSeleccionados}
+                    leftSection={<IconUser className="w-4 h-4 text-zinc-500" />}
+                    searchable
+                    clearable
+                    hidePickedOptions
+                    withAsterisk
+                    required
+                    radius="xl"
+                    disabled={loadingProveedores || loading}
+                    rightSection={loadingProveedores ? <Loader size={16} /> : undefined}
+                    classNames={fieldClasses}
+                    className="flex-1"
+                  />
+                  <Tooltip label="Registrar nuevo proveedor minero">
+                    <ActionIcon
+                      type="button"
+                      variant="filled"
+                      color="zinc"
+                      radius="xl"
+                      size="lg"
+                      disabled={loading}
+                      onClick={() => setOpenProveedorModal(true)}
+                      className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 mb-0.5"
+                    >
+                      <IconPlus size={18} />
+                    </ActionIcon>
+                  </Tooltip>
+                </div>
               </Grid.Col>
             </Grid>
+
+            {form.guias.length === 0 ? (
+              <Paper
+                p="md"
+                radius="md"
+                className="bg-zinc-900/20 border border-dashed border-zinc-800/80"
+              >
+                <Text size="xs" c="zinc.5" fw={600} fs="italic" ta="center">
+                  Cada proveedor aporta su propia guía de remisión y de transporte.
+                </Text>
+              </Paper>
+            ) : (
+              form.guias.map((guia, indice) => (
+                <Paper
+                  key={guia.id_proveedor}
+                  p="md"
+                  radius="lg"
+                  className="bg-zinc-900/30 border border-zinc-800/80 space-y-3"
+                >
+                  <Group gap="xs">
+                    <IconFileText className="w-4 h-4 text-indigo-400" />
+                    <Text size="xs" fw={700} className="text-zinc-200">
+                      {razonSocialProveedor(guia.id_proveedor)}
+                    </Text>
+                    <Badge size="xs" variant="light" color="indigo" radius="sm">
+                      Proveedor {indice + 1}
+                    </Badge>
+                  </Group>
+
+                  <Grid gutter="sm">
+                    <Grid.Col span={{ base: 12, sm: 6 }}>
+                      <TextInput
+                        label="Guía Remitente (serie-número)"
+                        placeholder="Ej. 001-123456"
+                        radius="xl"
+                        value={guia.guia_remitente}
+                        onChange={(e) =>
+                          updateGuia(guia.id_proveedor, {
+                            guia_remitente: e.currentTarget.value.toUpperCase(),
+                          })
+                        }
+                        disabled={loading}
+                        classNames={fieldClasses}
+                      />
+                    </Grid.Col>
+
+                    <Grid.Col span={{ base: 12, sm: 6 }}>
+                      <TextInput
+                        label="Guía Transportista (serie-número)"
+                        placeholder="Ej. 001-123456"
+                        radius="xl"
+                        value={guia.guia_transportista}
+                        onChange={(e) =>
+                          updateGuia(guia.id_proveedor, {
+                            guia_transportista: e.currentTarget.value.toUpperCase(),
+                          })
+                        }
+                        disabled={loading}
+                        classNames={fieldClasses}
+                      />
+                    </Grid.Col>
+
+                    <Grid.Col span={{ base: 12, sm: 6 }}>
+                      <MultiFilePicker
+                        label="Archivo Guía Remitente"
+                        description="1 archivo (PDF o imagen)."
+                        files={
+                          guia.guia_remitente_file
+                            ? [guia.guia_remitente_file]
+                            : []
+                        }
+                        onFilesChange={(files) =>
+                          setArchivoNuevoGuia(
+                            guia.id_proveedor,
+                            "guia_remitente",
+                            files[0] ?? null,
+                          )
+                        }
+                        existingFiles={
+                          guia.guia_remitente_archivo
+                            ? [guia.guia_remitente_archivo]
+                            : []
+                        }
+                        onRemoveExisting={() =>
+                          removeArchivoGuia(guia.id_proveedor, "guia_remitente")
+                        }
+                        multiple={false}
+                        maxFiles={1}
+                        accept="application/pdf,image/*"
+                      />
+                    </Grid.Col>
+
+                    <Grid.Col span={{ base: 12, sm: 6 }}>
+                      <MultiFilePicker
+                        label="Archivo Guía Transportista"
+                        description="1 archivo (PDF o imagen)."
+                        files={
+                          guia.guia_transportista_file
+                            ? [guia.guia_transportista_file]
+                            : []
+                        }
+                        onFilesChange={(files) =>
+                          setArchivoNuevoGuia(
+                            guia.id_proveedor,
+                            "guia_transportista",
+                            files[0] ?? null,
+                          )
+                        }
+                        existingFiles={
+                          guia.guia_transportista_archivo
+                            ? [guia.guia_transportista_archivo]
+                            : []
+                        }
+                        onRemoveExisting={() =>
+                          removeArchivoGuia(
+                            guia.id_proveedor,
+                            "guia_transportista",
+                          )
+                        }
+                        multiple={false}
+                        maxFiles={1}
+                        accept="application/pdf,image/*"
+                      />
+                    </Grid.Col>
+                  </Grid>
+                </Paper>
+              ))
+            )}
           </div>
 
           <Group justify="flex-end" gap="md" mt="xl">

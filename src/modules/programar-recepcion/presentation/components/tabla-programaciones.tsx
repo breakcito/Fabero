@@ -1,4 +1,4 @@
-import { Text, Badge, Group, ActionIcon, Tooltip } from "@mantine/core";
+import { Text, Badge, Group, ActionIcon, Tooltip, Stack } from "@mantine/core";
 import { IconEdit, IconEye } from "@tabler/icons-react";
 import { DataTableEstandar } from "../../../../presentation/utils/datatable-estandar";
 import { EstadoUnidad } from "../../../../shared/enums/_generic/estado-unidad";
@@ -219,43 +219,72 @@ export const TablaProgramaciones = ({
           ),
         },
         {
-          accessor: "proveedor_razon_social",
-          title: "Proveedor",
-          width: 200,
+          accessor: "proveedores",
+          title: "Proveedores",
+          width: 220,
           textAlign: "center",
-          render: (r: ProgramacionListItem) => (
-            <Text
-              size="sm"
-              className="text-white"
-              fw={500}
-              truncate
-              title={r.proveedor_razon_social ?? ""}
-            >
-              {r.proveedor_razon_social ?? "—"}
-            </Text>
-          ),
+          render: (r: ProgramacionListItem) => {
+            const proveedores = r.proveedores ?? [];
+            if (proveedores.length === 0) {
+              return (
+                <Text size="sm" className="text-zinc-400 italic">
+                  —
+                </Text>
+              );
+            }
+            return (
+              <Stack gap={2} align="center">
+                {proveedores.map((p) => (
+                  <Text
+                    key={p.id_proveedor}
+                    size="sm"
+                    className="text-white"
+                    fw={500}
+                    truncate
+                    title={p.razon_social}
+                  >
+                    {p.razon_social}
+                  </Text>
+                ))}
+              </Stack>
+            );
+          },
         },
         {
-          accessor: "guia_remitente",
+          accessor: "guias",
           title: "Guías",
-          width: 200,
+          width: 240,
           textAlign: "center",
-          render: (r: ProgramacionListItem) => (
-            <div className="flex flex-col items-center gap-0.5">
-              <Text size="sm" className="text-white">
-                Remitente:{" "}
-                <span className="font-mono font-semibold text-indigo-300">
-                  {r.guia_remitente ?? "—"}
-                </span>
-              </Text>
-              <Text size="sm" className="text-white">
-                Transportista:{" "}
-                <span className="font-mono font-semibold text-indigo-300">
-                  {r.guia_transportista ?? "—"}
-                </span>
-              </Text>
-            </div>
-          ),
+          render: (r: ProgramacionListItem) => {
+            const guias = r.guias ?? [];
+            if (guias.length === 0) {
+              return (
+                <Text size="sm" className="text-zinc-400 italic">
+                  —
+                </Text>
+              );
+            }
+            return (
+              <Stack gap={4} align="center">
+                {guias.map((g) => (
+                  <div key={g.id_proveedor} className="flex flex-col items-center">
+                    <Text size="sm" className="text-white">
+                      Remitente:{" "}
+                      <span className="font-mono font-semibold text-indigo-300">
+                        {g.guia_remitente || "—"}
+                      </span>
+                    </Text>
+                    <Text size="sm" className="text-white">
+                      Transportista:{" "}
+                      <span className="font-mono font-semibold text-indigo-300">
+                        {g.guia_transportista || "—"}
+                      </span>
+                    </Text>
+                  </div>
+                ))}
+              </Stack>
+            );
+          },
         },
         {
           accessor: "estado",

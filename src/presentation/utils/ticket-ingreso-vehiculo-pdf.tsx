@@ -13,6 +13,9 @@ import type { RES_TicketIngresoVehiculoData } from "../../service/responses/tick
  *      3. DATOS DEL TRANSPORTISTA
  *      4. DATOS GENERALES
  *  - Barra inferior amarilla: "OBSERVACIONES:"
+ *
+ * El documento corresponde a UN solo proveedor de la carga: el backend arma
+ * `remitente`/`transportista` con los datos del proveedor elegido.
  */
 
 // Paleta de colores exacta de la imagen de referencia

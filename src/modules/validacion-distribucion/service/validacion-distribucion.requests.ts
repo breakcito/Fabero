@@ -6,7 +6,6 @@ export interface DTO_RecepcionFicticia {
   id_sucursal?: number | null;
   id_empleado_registro?: number | null;
   id_empleado_autoriza?: number | null;
-  id_proveedor_minero?: number | null;
   fecha_hora_ingreso?: string | null;
   id_vehiculo_carreta?: number | null;
 }
@@ -45,7 +44,6 @@ export interface DTO_UpdateParticion {
     id_sucursal?: number | null;
     id_empresa_transporte?: number | null;
     id_tipo_vehiculo?: number | null;
-    id_proveedor_minero?: number | null;
     fecha_hora_ingreso?: string | null;
     fecha_hora_salida?: string | null;
   };

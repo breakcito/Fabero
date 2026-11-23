@@ -1,5 +1,9 @@
 import type { IArchivo } from "../../../shared/interfaces/archivo";
 import type { IDocumentoProgramacion } from "../../../shared/interfaces/documentos-programacion";
+import type {
+  IGuiaRecepcion,
+  IProveedorRecepcion,
+} from "../../../shared/interfaces/guia-recepcion";
 import type { RES_CambiosLog } from "../../../service/responses/_generic/cambios-log";
 import type { TipoIngreso } from "../../../shared/enums/_generic/tipo-ingreso";
 
@@ -16,11 +20,31 @@ export interface ProgramacionListItem {
   id_conductor: number | null;
   conductor_nombre_completo: string | null;
   conductor_numero_licencia: string | null;
-  id_proveedor_minero: number | null;
-  proveedor_razon_social: string | null;
   tipo_ingreso: TipoIngreso | string | null;
+  /** Guías por proveedor de la carga (modelo nuevo). */
+  guias: IGuiaRecepcion[];
+  /** Proveedores de la carga (modelo nuevo). */
+  proveedores: IProveedorRecepcion[];
+  /**
+   * @deprecated Derivado del proveedor principal: usar `proveedores`.
+   */
+  id_proveedor_minero: number | null;
+  /**
+   * @deprecated Derivado del proveedor principal: usar `proveedores`.
+   */
+  proveedor_razon_social: string | null;
+  /**
+   * @deprecated Derivado de la guía principal: usar `guias`.
+   */
   guia_remitente: string | null;
+  /**
+   * @deprecated Derivado de la guía principal: usar `guias`.
+   */
   guia_transportista: string | null;
+  /**
+   * @deprecated La columna `documentos_programacion` fue eliminada: los
+   *             archivos por proveedor están en `guias`.
+   */
   documentos_programacion: IDocumentoProgramacion | null;
   fecha_estimada_llegada: string | null;
   observacion: string | null;
@@ -95,16 +119,36 @@ export interface ProgramacionDetail {
   fecha_hora_inicio_pesaje: string | null;
   fecha_hora_final_pesaje: string | null;
   estado_pesaje: string | null;
-  id_proveedor_minero: number | null;
-  proveedor_razon_social: string | null;
   id_empleado_autoriza: number | null;
   empleado_autoriza_nombre: string | null;
   id_empleado_recepcion: number | null;
   empleado_recepcion_nombre: string | null;
   es_programacion: boolean;
   fecha_estimada_llegada: string | null;
+  /** Guías por proveedor de la carga (modelo nuevo). */
+  guias: IGuiaRecepcion[];
+  /** Proveedores de la carga (modelo nuevo). */
+  proveedores: IProveedorRecepcion[];
+  /**
+   * @deprecated Derivado del proveedor principal: usar `proveedores`.
+   */
+  id_proveedor_minero: number | null;
+  /**
+   * @deprecated Derivado del proveedor principal: usar `proveedores`.
+   */
+  proveedor_razon_social: string | null;
+  /**
+   * @deprecated Derivado de la guía principal: usar `guias`.
+   */
   guia_remitente: string | null;
+  /**
+   * @deprecated Derivado de la guía principal: usar `guias`.
+   */
   guia_transportista: string | null;
+  /**
+   * @deprecated La columna `documentos_programacion` fue eliminada: los
+   *             archivos por proveedor están en `guias`.
+   */
   documentos_programacion: IDocumentoProgramacion | null;
   es_recepcion_ficticia: boolean;
   /** Ticket de ingreso vehicular (se genera al confirmar la llegada). */
