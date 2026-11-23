@@ -534,6 +534,7 @@ export const AuxService = {
   ): Promise<IRespuesta<Array<{
     id: number;
     numero_correlativo: string;
+    correlativo: string;
     tipo_pago: string;
     fecha_hora_aprobacion: string;
     estado: string;
@@ -549,6 +550,7 @@ export const AuxService = {
     const { data } = await api.get<IRespuesta<Array<{
       id: number;
       numero_correlativo: string;
+      correlativo: string;
       tipo_pago: string;
       fecha_hora_aprobacion: string;
       estado: string;

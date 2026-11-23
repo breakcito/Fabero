@@ -61,6 +61,12 @@ export const ModalAnularComprobante = ({
   if (!comprobante) return null;
 
   const isVenta = "id_planta_destino" in comprobante;
+
+  /** Total del comprobante: compra usa `total`, venta usa `total_dolares`. */
+  const totalComprobante =
+    "total" in comprobante
+      ? Number(comprobante.total ?? 0)
+      : Number(comprobante.total_dolares ?? 0);
   const entidadNombre = isVenta
     ? (comprobante as RES_ComprobanteVenta).planta_nombre
     : (comprobante as RES_ComprobanteCompra).proveedor_nombre;
@@ -125,7 +131,7 @@ export const ModalAnularComprobante = ({
               Total ($)
             </Text>
             <Text size="sm" fw={800} c="white" className="font-mono">
-              $ {('total' in comprobante && (comprobante as any).total !== undefined ? Number((comprobante as any).total) : Number((comprobante as any).total_dolares || 0)).toFixed(2)}
+              $ {totalComprobante.toFixed(2)}
             </Text>
           </Group>
         </div>

@@ -4,6 +4,7 @@ import {
   MagnifyingGlassIcon,
   PlusIcon,
 } from "@heroicons/react/24/outline";
+import { IconPrinter, IconX } from "@tabler/icons-react";
 
 import { useTitlePage } from "../../../hooks/useTitlePage";
 import { useCierreLeyes } from "../hooks/useCierreLeyes";
@@ -11,6 +12,7 @@ import { useReporteCierreLeyes } from "../hooks/useReporteCierreLeyes";
 import { useReporteMuestrasExternas } from "../hooks/useReporteMuestrasExternas";
 import { TablaCierreLeyes } from "./components/tabla-cierre-leyes";
 import { TablaMuestrasExternas } from "./components/tabla-muestras-externas";
+import { mostrarConfirmacion } from "../../../presentation/utils/modal-confirmacion";
 import { ModalAgregarGrupo } from "./components/modal-agregar-grupo";
 import { ModalAgregarMuestra } from "./components/modal-agregar-muestra";
 import { ModalAgregarAnalisis } from "./components/modal-agregar-analisis";
@@ -59,20 +61,77 @@ export const CierreLeyesPage = () => {
   const [fechaFin, setFechaFin] = useState<string | null>(defaultFechaFin());
   const [busqueda, setBusqueda] = useState("");
 
+  /** Grupos marcados en la tabla para imprimir juntos. */
+  const [gruposSeleccionados, setGruposSeleccionados] = useState<number[]>([]);
+
   const { printReporte } = useReporteCierreLeyes();
   const { printReporteMuestras } = useReporteMuestrasExternas();
 
-  const handleImprimirGrupo = (lote: LoteCierreResponse, grupo?: GrupoAnalisisLoteResponse) => {
-    const grupoAImprimir = grupo || lote.grupo_analisis;
-    if (!grupoAImprimir) {
-      notifyWarning("Este lote no tiene grupo de análisis para imprimir");
+  /** Groups seleccionados con su lote de origen. */
+  const gruposSeleccionadosDetalle = useMemo(() => {
+    const detalle: { lote: LoteCierreResponse; grupo: GrupoAnalisisLoteResponse }[] = [];
+
+    for (const lote of ctrl.lotes) {
+      const grupos =
+        lote.grupos_analisis && lote.grupos_analisis.length > 0
+          ? lote.grupos_analisis
+          : lote.grupo_analisis
+          ? [lote.grupo_analisis]
+          : [];
+
+      for (const grupo of grupos) {
+        if (gruposSeleccionados.includes(grupo.id)) {
+          detalle.push({ lote, grupo });
+        }
+      }
+    }
+
+    return detalle;
+  }, [ctrl.lotes, gruposSeleccionados]);
+
+  const handleToggleSeleccionGrupo = (idGrupo: number) => {
+    setGruposSeleccionados((prev) =>
+      prev.includes(idGrupo) ? prev.filter((id) => id !== idGrupo) : [...prev, idGrupo],
+    );
+  };
+
+  /**
+   * Imprime varios grupos en un solo reporte. Solo se permite si todos
+   * pertenecen al mismo proveedor: mezclar proveedores en un mismo reporte
+   * daría leyes de cierre de lotes distintos.
+   */
+  const handleImprimirGruposSeleccionados = () => {
+    if (gruposSeleccionadosDetalle.length === 0) {
+      notifyWarning("Selecciona al menos un grupo para imprimir");
       return;
     }
-    const loteConGrupo: LoteCierreResponse = {
-      ...lote,
-      grupo_analisis: grupoAImprimir,
-    };
-    printReporte([loteConGrupo]);
+
+    const proveedores = new Set(
+      gruposSeleccionadosDetalle.map(({ lote }) => lote.id_proveedor_minero ?? null),
+    );
+
+    if (proveedores.size > 1) {
+      const nombres = [
+        ...new Set(
+          gruposSeleccionadosDetalle.map(
+            ({ lote }) => lote.proveedor_razon_social || "Sin Proveedor",
+          ),
+        ),
+      ];
+      notifyWarning(
+        `Solo se pueden imprimir juntos grupos del mismo proveedor. La selección incluye grupos de: ${nombres.join(", ")}.`,
+      );
+      return;
+    }
+
+    const lotesParaImprimir: LoteCierreResponse[] = gruposSeleccionadosDetalle.map(
+      ({ lote, grupo }) => ({
+        ...lote,
+        grupo_analisis: grupo,
+      }),
+    );
+
+    printReporte(lotesParaImprimir);
   };
 
   const filtrosActuales: FiltrosLotesSugeridos = useMemo(
@@ -174,6 +233,33 @@ export const CierreLeyesPage = () => {
         </div>
 
         <div className="flex items-center gap-2 shrink-0 pb-0.5 self-end lg:self-end">
+          {gruposSeleccionados.length > 0 && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-indigo-700/60 bg-indigo-950/50 shadow-lg shadow-indigo-950/40 animate-fade-in">
+              <span className="text-[11px] font-semibold text-indigo-100 whitespace-nowrap">
+                {gruposSeleccionados.length}{" "}
+                {gruposSeleccionados.length === 1 ? "grupo" : "grupos"}
+              </span>
+              <Button
+                size="compact-xs"
+                radius="lg"
+                variant="light"
+                color="cyan"
+                leftSection={<IconPrinter size={13} />}
+                onClick={handleImprimirGruposSeleccionados}
+              >
+                Imprimir seleccionados ({gruposSeleccionados.length})
+              </Button>
+              <button
+                type="button"
+                onClick={() => setGruposSeleccionados([])}
+                className="p-1 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 transition-all cursor-pointer"
+                title="Limpiar selección"
+              >
+                <IconX size={13} />
+              </button>
+            </div>
+          )}
+
           <Button
             leftSection={<PlusIcon className="w-4 h-4" />}
             onClick={() => {
@@ -249,11 +335,12 @@ export const CierreLeyesPage = () => {
               onSubirDocumentos={ctrl.subirDocumentos}
               muestrasAsociadasPorGrupo={ctrl.muestrasAsociadasPorGrupo}
               onCargarMuestrasAsociadas={ctrl.cargarMuestrasAsociadas}
-              onImprimirGrupo={handleImprimirGrupo}
               onConfirmarLote={ctrl.confirmarLote}
               confirmandoLote={ctrl.confirmandoLote}
               onAsociarMuestrasMultiples={ctrl.asociarMuestrasMultiplesAGrupo}
               onAsociarAGrupo={ctrl.asociarMuestraAGrupo}
+              gruposSeleccionados={gruposSeleccionados}
+              onToggleSeleccionGrupo={handleToggleSeleccionGrupo}
             />
           </div>
 
@@ -278,6 +365,33 @@ export const CierreLeyesPage = () => {
                 }}
                 onEliminarAnalisis={ctrl.eliminarAnalisis}
                 eliminandoAnalisis={ctrl.eliminandoAnalisis}
+                onEliminarMuestra={(m) => {
+                  const nombre = m.correlativo || m.codigo_cliente || m.nombre;
+                  const cantidad = (m.analisis ?? []).length;
+                  mostrarConfirmacion({
+                    title: "Eliminar muestra externa",
+                    tipo: "peligro",
+                    confirmLabel: "Eliminar",
+                    message: (
+                      <>
+                        Se eliminará físicamente la muestra{" "}
+                        <strong className="text-white">{nombre}</strong>
+                        {cantidad > 0 && (
+                          <>
+                            {" "}y sus {cantidad} ensayo
+                            {cantidad === 1 ? "" : "s"} (incluidos sus archivos de
+                            evidencia)
+                          </>
+                        )}
+                        . Esta acción no se puede deshacer.
+                      </>
+                    ),
+                    onConfirm: async () => {
+                      await ctrl.eliminarMuestraExterna(m.id_muestra_externa);
+                    },
+                  });
+                }}
+                eliminandoMuestraExterna={ctrl.eliminandoMuestraExterna}
                 onAsociarAGrupo={ctrl.asociarMuestraAGrupo}
                 onAsociarMuestrasMultiples={ctrl.asociarMuestrasMultiplesAGrupo}
                 onSubirDocumentos={ctrl.subirDocumentos}

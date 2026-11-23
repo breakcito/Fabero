@@ -43,6 +43,15 @@ const toDateString = (value: unknown): string => {
   return d.format("YYYY-MM-DD");
 };
 
+/**
+ * Formatea un importe en moneda operativa (USD) con separador de miles.
+ */
+const formatMoneda = (valor: number): string =>
+  Number(valor || 0).toLocaleString("es-PE", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
 interface ModalRegistroComprobanteProps {
   opened: boolean;
   onClose: () => void;
@@ -66,6 +75,7 @@ export const ModalRegistroComprobante = ({
   const [valorizaciones, setValorizaciones] = useState<Array<{
     id: number;
     numero_correlativo: string;
+    correlativo: string;
     id_cuenta_bancaria: number | null;
     monto_penalidad: number;
     monto_flete: number;
@@ -82,16 +92,19 @@ export const ModalRegistroComprobante = ({
   const [porcentajeIgv, setPorcentajeIgv] = useState<number | string>(18);
   const [porcentajeDetraccion, setPorcentajeDetraccion] = useState<number | string>(10);
   const [metodoPago, setMetodoPago] = useState<string>("Transferencia");
-  const [condicionPago, setCondicionPago] = useState<"contado" | "credito">("contado");
-  const [plazoCredito, setPlazoCredito] = useState<number | string>("");
+  const [condicionPago, setCondicionPago] = useState<"contado" | "credito">("credito");
+  const [plazoCredito, setPlazoCredito] = useState<number | string>(15);
   const [plazoCreditoPeriodo, setPlazoCreditoPeriodo] = useState<string>("Días");
   const [totalCuotas, setTotalCuotas] = useState<number | string>(1);
   const [evidencias, setEvidencias] = useState<File[]>([]);
 
+  /** Tipo de cambio REGISTRADO para la fecha de emisión (trazabilidad). */
   const [tipoCambio, setTipoCambio] = useState<{
     id: number;
     valor_venta: number;
   } | null>(null);
+  /** Valor del tipo de cambio APLICADO al comprobante (editable por el operador). */
+  const [valorTipoCambio, setValorTipoCambio] = useState<number | string>("");
   const [loadingTipoCambio, setLoadingTipoCambio] = useState(false);
 
   const fechaEmisionStr = toDateString(fechaEmision);
@@ -108,12 +121,13 @@ export const ModalRegistroComprobante = ({
       setPorcentajeIgv(18);
       setPorcentajeDetraccion(10);
       setMetodoPago("Transferencia");
-      setCondicionPago("contado");
-      setPlazoCredito("");
+      setCondicionPago("credito");
+      setPlazoCredito(15);
       setPlazoCreditoPeriodo("Días");
       setTotalCuotas(1);
       setEvidencias([]);
       setTipoCambio(null);
+      setValorTipoCambio("");
     });
   }, [opened]);
 
@@ -142,10 +156,15 @@ export const ModalRegistroComprobante = ({
    * Lookup del Tipo de Cambio por la fecha_emision.
    * - Se dispara al abrir el modal (opened=true) o al cambiar la fecha.
    * - Usa un token de cancelación para evitar race conditions al cambiar rápido la fecha.
+   * - El TC registrado se conserva para trazabilidad; el valor aplicado al
+   *   comprobante se autocompleta y puede ser ajustado por el operador.
    */
   const consultarTipoCambio = useCallback((fechaStr: string) => {
     if (!fechaStr) {
-      queueMicrotask(() => setTipoCambio(null));
+      queueMicrotask(() => {
+        setTipoCambio(null);
+        setValorTipoCambio("");
+      });
       return;
     }
     queueMicrotask(() => setLoadingTipoCambio(true));
@@ -154,9 +173,16 @@ export const ModalRegistroComprobante = ({
       .then((res) => {
         if (cancelled) return;
         if (res.success && res.data) {
-          setTipoCambio({ id: res.data.id, valor_venta: Number(res.data.valor_venta) || 0 });
+          const valor = Number(res.data.valor_venta);
+          const valorValido = Number.isFinite(valor) ? valor : null;
+          setTipoCambio({
+            id: res.data.id,
+            valor_venta: valorValido ?? 0,
+          });
+          setValorTipoCambio(valorValido ?? "");
         } else {
           setTipoCambio(null);
+          setValorTipoCambio("");
         }
       })
       .catch((e) => console.error("Error tipo cambio:", e))
@@ -172,7 +198,10 @@ export const ModalRegistroComprobante = ({
   useEffect(() => {
     if (!opened) return;
     if (!fechaEmisionStr) {
-      queueMicrotask(() => setTipoCambio(null));
+      queueMicrotask(() => {
+        setTipoCambio(null);
+        setValorTipoCambio("");
+      });
       return;
     }
     const cancel = consultarTipoCambio(fechaEmisionStr);
@@ -186,8 +215,19 @@ export const ModalRegistroComprobante = ({
     [valorizaciones, idValorizacion],
   );
 
+  /** Valor del tipo de cambio que se aplicara al comprobante (editable). */
+  const tipoCambioAplicado = useMemo(() => {
+    if (valorTipoCambio === "" || valorTipoCambio === null || valorTipoCambio === undefined) {
+      return null;
+    }
+    const n = Number(valorTipoCambio);
+    return Number.isFinite(n) ? n : null;
+  }, [valorTipoCambio]);
+
+  const tieneTipoCambio = tipoCambioAplicado !== null && tipoCambioAplicado > 0;
+
   const resumenCalcs = useMemo(() => {
-    if (!valorizacionSeleccionada || !tipoCambio) {
+    if (!valorizacionSeleccionada || !tieneTipoCambio || tipoCambioAplicado === null) {
       return null;
     }
     const subtotalSinDescuento = Number(
@@ -197,7 +237,7 @@ export const ModalRegistroComprobante = ({
       Number(valorizacionSeleccionada.monto_penalidad ?? 0) +
       Number(valorizacionSeleccionada.monto_flete ?? 0);
     const totalAnticipos = Number(valorizacionSeleccionada.monto_anticipos ?? 0);
-    const tcVenta = Number(tipoCambio.valor_venta) || 0;
+    const tcVenta = tipoCambioAplicado;
 
     // Formulas:
     // valor_venta: subtotal_sin_descuento - descuento - monto_pagado_anticipos
@@ -223,7 +263,7 @@ export const ModalRegistroComprobante = ({
       montoNeto,
       tcVenta,
     };
-  }, [valorizacionSeleccionada, tipoCambio, porcentajeIgv, porcentajeDetraccion]);
+  }, [valorizacionSeleccionada, tieneTipoCambio, tipoCambioAplicado, porcentajeIgv, porcentajeDetraccion]);
 
   const handleClose = () => {
     onClose();
@@ -234,8 +274,8 @@ export const ModalRegistroComprobante = ({
       notifyError("Complete todos los campos requeridos.");
       return;
     }
-    if (!tipoCambio) {
-      notifyError("Debe existir un tipo de cambio registrado para la fecha de emisión.");
+    if (!tieneTipoCambio || tipoCambioAplicado === null) {
+      notifyError("Ingrese un tipo de cambio de venta válido para la fecha de emisión.");
       return;
     }
 
@@ -272,6 +312,7 @@ export const ModalRegistroComprobante = ({
       plazo_credito_periodo: condicionPago === "credito" ? plazoCreditoPeriodo : null,
       total_cuotas: condicionPago === "credito" ? Number(totalCuotas) : null,
       metodo_pago: metodoPago,
+      tipo_cambio_venta: tipoCambioAplicado,
       evidencias: evidencias.length > 0 ? evidencias : undefined,
     });
 
@@ -354,7 +395,7 @@ export const ModalRegistroComprobante = ({
                 }
                 data={valorizaciones.map((v) => ({
                   value: String(v.id),
-                  label: `${v.numero_correlativo} — Total $${v.total_dolares.toFixed(2)}`,
+                  label: `${v.correlativo?.trim() || v.numero_correlativo} — Total a pagar $ ${formatMoneda(v.total_dolares)}`,
                 }))}
                 value={idValorizacion}
                 onChange={setIdValorizacion}
@@ -395,16 +436,24 @@ export const ModalRegistroComprobante = ({
             />
             <NumberInput
               label="Tipo de Cambio (Venta)"
-              value={tipoCambio ? tipoCambio.valor_venta : ""}
-              readOnly
+              value={valorTipoCambio}
+              onChange={setValorTipoCambio}
               decimalScale={3}
               fixedDecimalScale
+              min={0.001}
+              step={0.001}
               size="xs"
               radius="lg"
               rightSection={loadingTipoCambio ? <Loader size={16} /> : undefined}
-              placeholder={loadingTipoCambio ? "Buscando..." : "No registra"}
+              placeholder={loadingTipoCambio ? "Buscando..." : "Ingrese el tipo de cambio"}
             />
           </Group>
+
+          <Text fz={11} c="dimmed">
+            {tipoCambio
+              ? `Autocompletado con el tipo de cambio registrado (TC ${tipoCambio.id}). Puedes ajustarlo para este comprobante.`
+              : "No hay tipo de cambio registrado para la fecha: ingresa el valor que se aplicará a este comprobante."}
+          </Text>
 
           {/* Método de Pago y Condición de Pago */}
           <Grid gutter="sm">
@@ -483,7 +532,8 @@ export const ModalRegistroComprobante = ({
 
           {!tipoCambio && fechaEmisionStr && (
             <Alert color="yellow" variant="light" icon={<IconAlertCircle size={16} />}>
-              No existe tipo de cambio registrado para la fecha ({fechaEmisionStr}). Verifique el registro global en el encabezado.
+              No existe tipo de cambio registrado para la fecha ({fechaEmisionStr}). Verifique el registro global
+              en el encabezado: sin ese registro, el comprobante quedará sin referencia de trazabilidad.
             </Alert>
           )}
 
@@ -546,7 +596,7 @@ export const ModalRegistroComprobante = ({
               loading={submitting}
               radius="lg"
               size="xs"
-              disabled={!idProveedor || !idValorizacion || !tipoCambio}
+              disabled={!idProveedor || !idValorizacion || !tieneTipoCambio}
             >
               Grabar Comprobante
             </Button>

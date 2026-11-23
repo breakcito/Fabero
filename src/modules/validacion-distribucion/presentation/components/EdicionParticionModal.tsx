@@ -12,7 +12,7 @@ import {
   ActionIcon,
 } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
-import { IconPlus } from "@tabler/icons-react";
+import { IconLock, IconPlus } from "@tabler/icons-react";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
 import { AuxService } from "../../../../service/auxiliar.service";
 import { ValidacionDistribucionService } from "../../service/validacion-distribucion.service";
@@ -296,8 +296,12 @@ export const EdicionParticionModal = ({
             ? Number(idEmpresaTransporte)
             : null,
           id_tipo_vehiculo: idTipoVehiculo ? Number(idTipoVehiculo) : null,
-          // El proveedor NO se envía: la partición lo hereda del lote padre y
-          // el select está bloqueado. El backend lo resuelve con un COALESCE.
+          // El proveedor va BLOQUEADO: se muestra el heredado del lote padre
+          // (el backend lo resuelve con COALESCE) y se envía tal cual para
+          // materializarlo en la recepcion de la particion.
+          id_proveedor_minero: idProveedorMinero
+            ? Number(idProveedorMinero)
+            : null,
           fecha_hora_ingreso: fechaHoraIngreso
             ? fechaHoraIngreso.toISOString()
             : null,
@@ -457,6 +461,7 @@ export const EdicionParticionModal = ({
                 onPlus={() => setSubModal("proveedor")}
                 loading={loadingProveedores}
                 locked
+                hint="Heredado del lote padre. No se puede modificar."
               />
             </Grid.Col>
             {/* Celda vacía para empujar las fechas a la última fila y mantenerlas juntas. */}
@@ -650,6 +655,8 @@ interface SelectFieldProps {
    * los datos que la partición hereda del lote padre (p.ej. el proveedor).
    */
   locked?: boolean;
+  /** Texto auxiliar bajo el campo (p.ej. el origen del valor heredado). */
+  hint?: string;
 }
 
 const SelectField = ({
@@ -661,6 +668,7 @@ const SelectField = ({
   loading,
   placeholder,
   locked = false,
+  hint,
 }: SelectFieldProps) => {
   return (
     <Stack gap={4}>
@@ -680,10 +688,25 @@ const SelectField = ({
           size="xs"
           style={{ flex: 1 }}
           disabled={loading}
-          rightSection={loading ? <Loader size={16} /> : undefined}
-          comboboxProps={{ withinPortal: true }}
+          rightSection={
+            loading ? (
+              <Loader size={16} />
+            ) : locked ? (
+              <IconLock size={13} className="text-zinc-500" />
+            ) : undefined
+          }
+          // El combobox deshabilitado impide abrir el desplegable: el valor se
+          // muestra pero no se puede cambiar.
+          comboboxProps={{ withinPortal: true, disabled: locked }}
         />
-        <Tooltip label={`Registrar ${label.toLowerCase()}`} withArrow>
+        <Tooltip
+          label={
+            locked
+              ? `${label}: heredado del lote padre`
+              : `Registrar ${label.toLowerCase()}`
+          }
+          withArrow
+        >
           <ActionIcon
             variant="subtle"
             color="gray"
@@ -696,6 +719,11 @@ const SelectField = ({
           </ActionIcon>
         </Tooltip>
       </Group>
+      {hint && (
+        <Text size="10px" c="dimmed">
+          {hint}
+        </Text>
+      )}
     </Stack>
   );
 };

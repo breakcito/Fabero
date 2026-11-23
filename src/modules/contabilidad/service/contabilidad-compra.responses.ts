@@ -83,8 +83,9 @@ export interface RES_ComprobanteCompra {
   valorizacion_correlativo: string;
   valorizacion_correlativo_dirimencia?: string | null;
   valorizacion_con_dirimencia?: boolean;
-  id_tipo_cambio: number;
-  tipo_cambio_fecha: string;
+  /** Referencia al tipo de cambio registrado. Null si se usó un valor manual. */
+  id_tipo_cambio: number | null;
+  tipo_cambio_fecha: string | null;
   id_empleado_registro: number;
   id_empleado_anulacion: number | null;
   serie: string;

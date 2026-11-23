@@ -4,12 +4,14 @@ import { useRecepciones } from "../hooks/useRecepciones";
 import { Filtros } from "./components/filtros";
 import { TablaRecepciones } from "./components/tabla-recepciones";
 import { ConfirmarProgramacionModal } from "./components/confirmar-programacion-modal";
-import { ModalEditarObservacion } from "./components/modal-editar-observacion";
+import { ModalEditarObservacion, type CampoObservacion } from "./components/modal-editar-observacion";
+import { ModalEditarGuias } from "./components/modal-editar-guias";
 import { ModalGestionarEvidencias } from "./components/modal-gestionar-evidencias";
 import { ModalEditarCampoUnidad, type GrupoEdicion } from "./components/modal-editar-campo-unidad";
 import { ModalVerHistorial } from "./components/modal-ver-historial";
 import { RefreshButton } from "../../../presentation/utils/refresh-button";
 import { LimpiarFiltrosButton } from "../../../presentation/utils/limpiar-filtros-button";
+import { useDispositivo } from "../../../hooks/useDispositivo";
 import { useEffect, useMemo, useState } from "react";
 import { IconPlus } from "@tabler/icons-react";
 import {
@@ -23,6 +25,7 @@ import type { RecepcionUnidadResponse } from "../service/recepcion-unidades.resp
 
 export const RecepcionUnidadesPage = () => {
   useTitlePage("Recepción de Unidades", true);
+  const { esPantallaPequena } = useDispositivo();
 
   const {
     recepciones,
@@ -44,10 +47,15 @@ export const RecepcionUnidadesPage = () => {
     useState<RecepcionUnidadResponse | null>(null);
   const [programacionConfirmadaFull, setProgramacionConfirmadaFull] =
     useState<RecepcionUnidadResponse | null>(null);
-  const [recepcionAEditar, setRecepcionAEditar] = useState<RecepcionUnidadResponse | null>(null);
+  const [recepcionAEditar, setRecepcionAEditar] = useState<{
+    recepcion: RecepcionUnidadResponse;
+    campo: CampoObservacion;
+  } | null>(null);
   const [recepcionAEvidencias, setRecepcionAEvidencias] =
     useState<RecepcionUnidadResponse | null>(null);
   const [recepcionAVerHistorial, setRecepcionAVerHistorial] =
+    useState<RecepcionUnidadResponse | null>(null);
+  const [recepcionAGuias, setRecepcionAGuias] =
     useState<RecepcionUnidadResponse | null>(null);
 
   // Edición por columna (vehículo / transportista / conductor / proveedor).
@@ -118,8 +126,8 @@ export const RecepcionUnidadesPage = () => {
 
   return (
     <div className="space-y-6 animate-fadeIn">
-      <div className="flex flex-col xl:flex-row gap-4 items-end justify-between w-full">
-        <div className="flex-1 w-full">
+      <div className="flex flex-col xl:flex-row gap-4 items-stretch xl:items-end justify-between w-full">
+        <div className="flex-1 w-full min-w-0">
           <Filtros
             filters={filters}
             handleFilterChange={handleFilterChange}
@@ -129,7 +137,13 @@ export const RecepcionUnidadesPage = () => {
           />
         </div>
 
-        <div className="flex items-center gap-2 shrink-0 pb-0.5">
+        <div
+          className={
+            esPantallaPequena
+              ? "flex w-full items-center gap-2"
+              : "flex items-center gap-2 shrink-0 pb-0.5"
+          }
+        >
           <LimpiarFiltrosButton
             onClick={clearFilters}
             disabled={!hasActiveFilters}
@@ -143,9 +157,15 @@ export const RecepcionUnidadesPage = () => {
             size="sm"
             leftSection={<IconPlus size={18} />}
             onClick={() => setOpenRegistro(true)}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-900/20 shrink-0 h-9.5 px-6 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+            className={
+              esPantallaPequena
+                ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-900/20 flex-1 min-w-0 h-11 px-3 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+                : "bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-900/20 shrink-0 h-9.5 px-6 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+            }
           >
-            Nueva Recepción
+            <span className="inline-block max-w-full truncate align-middle">
+              Nueva Recepción
+            </span>
           </Button>
         </div>
       </div>
@@ -156,10 +176,13 @@ export const RecepcionUnidadesPage = () => {
           loading={loading}
           onUpdateRecepcion={updateRecepcion}
           onConfirmarProgramacion={(r) => setProgramacionAConfirmar(r)}
-          onEditarObservacionEvidencias={(r) => setRecepcionAEditar(r)}
+          onEditarObservacionEvidencias={(r, campo) =>
+            setRecepcionAEditar({ recepcion: r, campo })
+          }
           onGestionarEvidencias={(r) => setRecepcionAEvidencias(r)}
           onVerHistorial={(r) => setRecepcionAVerHistorial(r)}
           onEditarCampo={(r, grupo) => setCampoAEditar({ recepcion: r, grupo })}
+          onEditarGuias={(r) => setRecepcionAGuias(r)}
         />
       </Stack>
 
@@ -187,7 +210,8 @@ export const RecepcionUnidadesPage = () => {
 
       <ModalEditarObservacion
         opened={!!recepcionAEditar}
-        recepcion={recepcionAEditar}
+        recepcion={recepcionAEditar?.recepcion ?? null}
+        campo={recepcionAEditar?.campo ?? "observacion"}
         onClose={() => setRecepcionAEditar(null)}
         onGuardada={(actualizada) => {
           updateRecepcion(actualizada);
@@ -214,6 +238,15 @@ export const RecepcionUnidadesPage = () => {
         recepcion={campoAEditar?.recepcion ?? null}
         grupo={campoAEditar?.grupo ?? "vehiculo"}
         onClose={() => setCampoAEditar(null)}
+        onGuardada={(actualizada) => {
+          updateRecepcion(actualizada);
+        }}
+      />
+
+      <ModalEditarGuias
+        opened={!!recepcionAGuias}
+        recepcion={recepcionAGuias}
+        onClose={() => setRecepcionAGuias(null)}
         onGuardada={(actualizada) => {
           updateRecepcion(actualizada);
         }}

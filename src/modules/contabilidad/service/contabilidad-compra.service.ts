@@ -7,6 +7,7 @@ import type {
   REQ_AprobarComprobante,
   REQ_CrearComprobante,
   REQ_FiltroComprobantes,
+  REQ_GestionarEvidenciasComprobante,
   REQ_RegistrarNotaComprobante,
   REQ_RegistrarPago,
 } from "./contabilidad-compra.requests";
@@ -52,6 +53,9 @@ export const ContabilidadCompraService = {
     if (payload.porcentaje_detraccion != null) {
       formData.append("porcentaje_detraccion", String(payload.porcentaje_detraccion));
     }
+    if (payload.tipo_cambio_venta != null) {
+      formData.append("tipo_cambio_venta", String(payload.tipo_cambio_venta));
+    }
     if (payload.es_al_contado != null) {
       formData.append("es_al_contado", payload.es_al_contado ? "1" : "0");
     }
@@ -79,6 +83,33 @@ export const ContabilidadCompraService = {
       `${basePath}/comprobantes`,
       formData,
       { headers: { "Content-Type": "multipart/form-data" } },
+    );
+    return data;
+  },
+
+  /**
+   * Gestionar las evidencias de un comprobante: agrega archivos nuevos y/o
+   * elimina los existentes (por su `path_relativo`).
+   *
+   * Se envía por POST con `_method=PUT` porque el cuerpo es multipart y el
+   * navegador no puede emitir PUT con FormData de forma nativa.
+   */
+  gestionarEvidencias: async (
+    id: number,
+    payload: REQ_GestionarEvidenciasComprobante,
+  ): Promise<IRespuesta<RES_ComprobanteCompra>> => {
+    const formData = new FormData();
+    formData.append("_method", "PUT");
+    (payload.eliminar ?? []).forEach((path) => {
+      formData.append("eliminar[]", path);
+    });
+    (payload.evidencias ?? []).forEach((file) => {
+      formData.append("evidencias[]", file);
+    });
+
+    const { data } = await api.post<IRespuesta<RES_ComprobanteCompra>>(
+      `${basePath}/comprobantes/${id}/evidencias`,
+      formData,
     );
     return data;
   },

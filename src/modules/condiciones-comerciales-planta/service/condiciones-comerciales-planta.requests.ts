@@ -9,6 +9,7 @@ export interface DTO_CrearCondicionComercialPlanta {
   recuperacion?: number | null;
   consumo?: number | null;
   riesgo_comercial?: number | null;
+  observacion?: string | null;
 }
 
 export interface DTO_ActualizarCondicionComercialPlanta {
@@ -19,4 +20,5 @@ export interface DTO_ActualizarCondicionComercialPlanta {
   recuperacion?: number | null;
   consumo?: number | null;
   riesgo_comercial?: number | null;
+  observacion?: string | null;
 }

@@ -86,7 +86,34 @@ export const ModalAgregarAnalisis = ({
       return;
     }
 
+    // Sin evidencia adjunta no se puede registrar NINGUNA ley: se valida
+    // cada ítem del borrador antes de enviar.
+    const itemSinEvidencia = analisisItems.find(
+      (it) =>
+        it.documentos.length === 0 &&
+        ((it.ley_oro !== null && it.ley_oro !== undefined && it.ley_oro > 0) ||
+          (it.ley_plata !== null &&
+            it.ley_plata !== undefined &&
+            it.ley_plata > 0) ||
+          (it.ley_humedad !== null &&
+            it.ley_humedad !== undefined &&
+            it.ley_humedad > 0) ||
+          (it.ley_recuperacion !== null &&
+            it.ley_recuperacion !== undefined &&
+            it.ley_recuperacion > 0)),
+    );
+
+    if (itemSinEvidencia) {
+      notifyError(
+        "Adjunta al menos un archivo de evidencia para poder registrar las leyes.",
+      );
+      return;
+    }
+
     const payload = {
+      // El borrador guarda humedad y recuperación en DECIMAL (la conversión
+      // desde el porcentaje ocurre en el formulario del ítem), así que el
+      // payload viaja en el mismo formato que usa el API.
       analisis: analisisItems.map((it) => ({
         id_laboratorio: it.id_laboratorio,
         asumido_por: it.asumido_por,

@@ -20,8 +20,10 @@ import {
   IconBuildingFactory,
   IconCar,
   IconFileText,
+  IconTicket,
 } from "@tabler/icons-react";
 import { useNotify } from "../../../../hooks/useNotify";
+import { useTicketIngresoVehiculo } from "../../../../hooks/useTicketIngresoVehiculo";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
 import { ArchivoCard } from "../../../../presentation/utils/archivo/archivo-card";
 import { RegistroConductor } from "../../../../presentation/utils/registro-conductor";
@@ -110,6 +112,8 @@ export const CardProcesoBalanza = ({
   canCloseProcesoRecepcion,
 }: CardProcesoBalanzaProps) => {
   const { notifyError } = useNotify();
+  const { printTicketIngreso } = useTicketIngresoVehiculo();
+  const [imprimiendoTicket, setImprimiendoTicket] = useState(false);
 
   const itemsAMostrar = useMemo(
     () => getLotesYParticionesDeUnidad(ru),
@@ -314,6 +318,11 @@ export const CardProcesoBalanza = ({
   const tieneDocumentos =
     Boolean(ru.documentos_programacion?.guia_remitente) ||
     Boolean(ru.documentos_programacion?.guia_transportista);
+  // El ticket vehicular se genera al confirmar la llegada de la unidad a
+  // planta; sin ticket no hay nada que ver (y el backend no debe crearlo).
+  const tieneTicket = Boolean(
+    ru.id_ticket_recepcion_unidades && ru.ticket_correlativo,
+  );
   const placaHeader = formatPlacaInput(ru.vehiculo_placa || "");
 
   /**
@@ -614,6 +623,39 @@ export const CardProcesoBalanza = ({
                     aria-label="Documentos de programación"
                   >
                     <IconFileText size={12} />
+                  </ActionIcon>
+                </Tooltip>
+                <Tooltip
+                  label={
+                    tieneTicket
+                      ? `Ver ticket de ingreso vehicular${
+                          ru.ticket_correlativo ? ` · ${ru.ticket_correlativo}` : ""
+                        }`
+                      : "Esta unidad todavía no tiene ticket de ingreso vehicular"
+                  }
+                  withArrow
+                >
+                  <ActionIcon
+                    variant="subtle"
+                    color="indigo"
+                    radius="sm"
+                    size="sm"
+                    onClick={() => {
+                      setImprimiendoTicket(true);
+                      void printTicketIngreso(ru.id).finally(() =>
+                        setImprimiendoTicket(false),
+                      );
+                    }}
+                    disabled={!tieneTicket || imprimiendoTicket}
+                    loading={imprimiendoTicket}
+                    className={
+                      tieneTicket
+                        ? "text-indigo-300 hover:bg-indigo-500/10"
+                        : "text-zinc-700 opacity-30 cursor-not-allowed"
+                    }
+                    aria-label="Ticket de ingreso vehicular"
+                  >
+                    <IconTicket size={12} />
                   </ActionIcon>
                 </Tooltip>
               </Group>

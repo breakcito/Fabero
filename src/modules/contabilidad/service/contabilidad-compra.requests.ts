@@ -17,6 +17,11 @@ export interface REQ_CrearComprobante {
   fecha_emision: string;
   porcentaje_igv?: number;
   porcentaje_detraccion?: number;
+  /**
+   * Tipo de cambio de venta APLICADO al comprobante. Si se omite, el backend
+   * usa el valor de venta del tipo de cambio registrado para la fecha de emisión.
+   */
+  tipo_cambio_venta?: number;
   es_al_contado?: boolean;
   es_al_credito?: boolean;
   plazo_credito?: number | null;
@@ -24,6 +29,15 @@ export interface REQ_CrearComprobante {
   total_cuotas?: number | null;
   metodo_pago?: string;
   evidencias?: File[];
+}
+
+/**
+ * Gestión de evidencias de un comprobante ya creado: archivos nuevos a adjuntar
+ * y `path_relativo` de las evidencias existentes a quitar.
+ */
+export interface REQ_GestionarEvidenciasComprobante {
+  evidencias?: File[];
+  eliminar?: string[];
 }
 
 export interface REQ_AprobarComprobante {

@@ -91,6 +91,9 @@ export const ModalAgregarGrupo = ({
     const ok = await ctrl.crearGrupo({
       id_lote_mineral: Number(idLoteSeleccionado),
       nombre: nombreGrupo.trim(),
+      // El borrador guarda humedad y recuperación en DECIMAL (la conversión
+      // desde el porcentaje ocurre en el formulario del ítem), así que el
+      // payload viaja en el mismo formato que usa el API.
       analisis: analisisItems.map((it) => ({
         id_laboratorio: it.id_laboratorio,
         asumido_por: it.asumido_por,

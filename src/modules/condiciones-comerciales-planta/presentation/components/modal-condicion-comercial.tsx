@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { NumberInput, Button, Select, Stack, Group, Text } from "@mantine/core";
+import { NumberInput, Button, Select, Stack, Group, Text, Textarea } from "@mantine/core";
 import { z } from "zod";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
 import type { RES_CondicionComercialPlanta } from "../../service/condiciones-comerciales-planta.responses";
@@ -40,6 +40,11 @@ const formSchema = z
       .optional(),
     consumo: z.number().min(0).optional(),
     riesgo_comercial: z.number().min(0).optional(),
+    observacion: z
+      .string()
+      .max(1000, "La observación no debe superar los 1000 caracteres")
+      .nullable()
+      .optional(),
   })
   .refine((data) => {
     if (data.ley_inicio !== undefined && data.ley_fin !== undefined) {
@@ -59,6 +64,7 @@ const opcionesElemento = [
 const fieldInputClass =
   "bg-zinc-950 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 focus:ring-1 focus:ring-zinc-300 transition-all h-[38px] rounded-xl";
 const fieldLabelClass = "text-zinc-300 mb-1 font-medium text-xs";
+const fieldDescriptionClass = "text-zinc-500 text-[11px] mt-1";
 
 export const ModalCondicionComercialPlanta = ({
   opened,
@@ -82,6 +88,7 @@ export const ModalCondicionComercialPlanta = ({
     recuperacion: string | number;
     consumo: string | number;
     riesgo_comercial: string | number;
+    observacion: string;
   };
 
   const [form, setForm] = useState<FormShape>({
@@ -93,6 +100,7 @@ export const ModalCondicionComercialPlanta = ({
     recuperacion: "",
     consumo: "",
     riesgo_comercial: "",
+    observacion: "",
   });
 
   const [prevModalKey, setPrevModalKey] = useState("");
@@ -111,6 +119,7 @@ export const ModalCondicionComercialPlanta = ({
           recuperacion: condicionEditar.recuperacion ?? "",
           consumo: condicionEditar.consumo ?? "",
           riesgo_comercial: condicionEditar.riesgo_comercial ?? "",
+          observacion: condicionEditar.observacion ?? "",
         });
       } else {
         setForm({
@@ -122,6 +131,7 @@ export const ModalCondicionComercialPlanta = ({
           recuperacion: "",
           consumo: "",
           riesgo_comercial: "",
+          observacion: "",
         });
       }
     }
@@ -147,6 +157,7 @@ export const ModalCondicionComercialPlanta = ({
       recuperacion: normalizeNumeric(form.recuperacion),
       consumo: normalizeNumeric(form.consumo),
       riesgo_comercial: normalizeNumeric(form.riesgo_comercial),
+      observacion: form.observacion.trim() === "" ? null : form.observacion.trim(),
     };
 
     const result = formSchema.safeParse(normalizedForm);
@@ -252,7 +263,8 @@ export const ModalCondicionComercialPlanta = ({
             classNames={{ input: fieldInputClass, label: fieldLabelClass }}
           />
           <NumberInput
-            label="Recuperación (%):"
+            label="Recuperación Máxima (%):"
+            description="Es el máximo permitido. En la valorización puede usarse un valor menor, nunca mayor."
             min={0}
             max={100}
             decimalScale={3}
@@ -260,7 +272,11 @@ export const ModalCondicionComercialPlanta = ({
             onChange={(val) =>
               setForm((prev) => ({ ...prev, recuperacion: val ?? "" }))
             }
-            classNames={{ input: fieldInputClass, label: fieldLabelClass }}
+            classNames={{
+              input: fieldInputClass,
+              label: fieldLabelClass,
+              description: fieldDescriptionClass,
+            }}
           />
         </Group>
 
@@ -286,6 +302,24 @@ export const ModalCondicionComercialPlanta = ({
             classNames={{ input: fieldInputClass, label: fieldLabelClass }}
           />
         </Group>
+
+        <Textarea
+          label="Observación:"
+          placeholder="Detalle adicional de la condición comercial (opcional)"
+          autosize
+          minRows={2}
+          maxRows={5}
+          maxLength={1000}
+          value={form.observacion}
+          onChange={(event) =>
+            setForm((prev) => ({ ...prev, observacion: event.currentTarget.value }))
+          }
+          classNames={{
+            input: `${fieldInputClass} h-auto min-h-[70px] py-2`,
+            label: fieldLabelClass,
+            description: fieldDescriptionClass,
+          }}
+        />
 
         <Group justify="end" gap="xs" mt="sm">
           <Button

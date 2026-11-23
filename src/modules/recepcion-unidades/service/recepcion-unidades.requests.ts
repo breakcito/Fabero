@@ -13,8 +13,8 @@ export interface DTO_EditarObservacionEvidencias {
 /**
  * Edición de campos puntuales de una recepción de unidad.
  *
- * Solo se envía el grupo editado (vehículo, transportista, conductor o
- * proveedor). El backend rechaza los campos que vinieron de una
+ * Solo se envía el grupo editado (vehículo, transportista, conductor,
+ * proveedor o guías). El backend rechaza los campos que vinieron de una
  * programación (`campos_bloqueados`).
  */
 export interface DTO_ActualizarCampos {
@@ -25,6 +25,9 @@ export interface DTO_ActualizarCampos {
     id_empresa_transporte?: number | null;
     id_conductor?: number | null;
     id_proveedor_minero?: number | null;
+    /** Guías: serie y número (texto). */
+    guia_remitente?: string | null;
+    guia_transportista?: string | null;
   };
   motivo?: string | null;
 }

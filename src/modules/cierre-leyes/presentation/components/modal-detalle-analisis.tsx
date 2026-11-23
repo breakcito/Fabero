@@ -96,10 +96,12 @@ export const ModalDetalleAnalisis = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
               <div className="p-2 rounded-lg bg-zinc-950/60 border border-zinc-800/80">
                 <span className="text-[10px] text-zinc-500 uppercase font-semibold block">
-                  Código Cliente
+                  RC / Código Cliente
                 </span>
                 <span className="text-white font-bold text-xs">
-                  {analisis.muestra_codigo_cliente || analisis.muestra_correlativo || `#${analisis.id_muestra_externa}`}
+                  {analisis.muestra_correlativo ||
+                    analisis.muestra_codigo_cliente ||
+                    `#${analisis.id_muestra_externa}`}
                 </span>
               </div>
 

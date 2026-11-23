@@ -253,10 +253,15 @@ const styles = StyleSheet.create({
   // ========== FIRMAS AL PIE ==========
   signaturesSection: {
     flexDirection: "row",
-    justifyContent: "space-around",
+    // El bloque de firmas se ancla a la izquierda (antes se repartía con
+    // space-around, dejándolo muy pegado al centro de la hoja).
+    justifyContent: "flex-start",
     alignItems: "flex-end",
-    marginTop: 20,
-    paddingHorizontal: 40,
+    // Más aire arriba: baja el bloque de firmas respecto al resumen económico.
+    marginTop: 32,
+    paddingLeft: 45,
+    paddingRight: 0,
+    gap: 120,
   },
   signatureBox: {
     alignItems: "center",

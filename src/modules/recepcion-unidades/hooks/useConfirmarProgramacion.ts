@@ -15,6 +15,7 @@ import type { ProgramacionDetail } from "../../programar-recepcion/service/progr
 import type { RES_MotivoIngreso } from "../../../service/responses/auxiliar-visitas";
 import type { IDocumentoProgramacion } from "../../../shared/interfaces/documentos-programacion";
 import { useNotify } from "../../../hooks/useNotify";
+import { useDispositivo } from "../../../hooks/useDispositivo";
 
 import type { RES_EmpresaTransporte } from "../../../service/responses/empresa-transporte";
 import type { RES_Vehiculo } from "../../../service/responses/vehiculo";
@@ -51,6 +52,7 @@ interface Props {
 
 export const useConfirmarProgramacion = ({ programacion, opened = true }: Props) => {
   const { notifySuccess, notifyError } = useNotify();
+  const { esMovil } = useDispositivo();
 
   const [motivos, setMotivos] = useState<RES_MotivoIngreso[]>([]);
   const [loadingMotivos, setLoadingMotivos] = useState(false);
@@ -459,7 +461,12 @@ export const useConfirmarProgramacion = ({ programacion, opened = true }: Props)
     const idEmp = programacion?.id_empresa_transporte ?? idEmpresaTransporteEditado ?? null;
     const idVeh = programacion?.id_vehiculo ?? idVehiculoEditado ?? null;
     const idTip = programacion?.id_tipo_vehiculo ?? idTipoVehiculoEditado ?? null;
-    const idProv = programacion?.id_proveedor_minero ?? idProveedorMineroEditado ?? null;
+    // En móvil el proveedor minero no se registra (no aparece en el wizard),
+    // por eso nunca se envía: el backend lo acepta como `nullable` y, si la
+    // fila ya tenía un proveedor, conserva el valor existente.
+    const idProv = esMovil
+      ? null
+      : (programacion?.id_proveedor_minero ?? idProveedorMineroEditado ?? null);
     const gRemitente = programacion?.guia_remitente ?? guiaRemitente ?? "";
     const gTransportista = programacion?.guia_transportista ?? guiaTransportista ?? "";
 

@@ -83,11 +83,6 @@ export const ModalAgregarMuestra = ({
   const handleSubmit = async () => {
     if (ctrl.iniciandoMuestra) return;
 
-    if (!codigoCliente.trim()) {
-      notifyError("Ingresa el código de cliente para la muestra");
-      return;
-    }
-
     if (!idProveedor) {
       notifyError("Selecciona el proveedor minero para la muestra");
       return;
@@ -99,12 +94,19 @@ export const ModalAgregarMuestra = ({
         ? dayjs(fechaHoraIngreso).format("YYYY-MM-DD HH:mm:ss")
         : getFechaHoraActual();
 
+    // El código cliente es opcional: si no se ingresa, la muestra se
+    // identifica por su RC (correlativo).
+    const codigo = codigoCliente.trim();
+
     const ok = await ctrl.iniciarMuestraExterna({
-      codigo_cliente: codigoCliente.trim(),
-      nombre: codigoCliente.trim(),
+      codigo_cliente: codigo || undefined,
+      nombre: codigo || undefined,
       id_proveedor: Number(idProveedor),
       proveedor_nombre: proveedorObj?.razon_social,
       fecha: fechaFormateada,
+      // El borrador guarda humedad y recuperación en DECIMAL (la conversión
+      // desde el porcentaje ocurre en el formulario del ítem), así que el
+      // payload viaja en el mismo formato que usa el API.
       analisis: analisisItems.map((it) => ({
         id_laboratorio: it.id_laboratorio,
         asumido_por: it.asumido_por,
@@ -148,12 +150,11 @@ export const ModalAgregarMuestra = ({
         <Stack gap="sm">
           <div className="grid grid-cols-1 sm:grid-cols-[0.85fr_1.05fr_1.3fr] gap-2.5 items-end">
             <TextInput
-              label="Código Cliente"
+              label="Código Cliente (opcional)"
               placeholder="Ej: M-101..."
               value={codigoCliente}
               onChange={(e) => setCodigoCliente(e.currentTarget.value)}
               maxLength={20}
-              required
               autoFocus
               size="xs"
               radius="lg"
@@ -235,7 +236,7 @@ export const ModalAgregarMuestra = ({
               radius="lg"
               onClick={handleSubmit}
               loading={ctrl.iniciandoMuestra}
-              disabled={!codigoCliente.trim() || !idProveedor || ctrl.iniciandoMuestra}
+              disabled={!idProveedor || ctrl.iniciandoMuestra}
             >
               {analisisItems.length > 0
                 ? `Crear Muestra (${analisisItems.length} análisis)`

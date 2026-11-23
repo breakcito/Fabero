@@ -1,5 +1,6 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 import type { LoteCierreResponse } from "../../service/cierre-leyes.responses";
+import { decimalAPorcentaje } from "../utils/porcentaje";
 
 const OZT_TO_GRAMS = 34.2856;
 
@@ -92,7 +93,7 @@ const formatFecha = (isoString: string | null | undefined): string => {
 };
 
 const num = (v: number | null | undefined, decimals: number = 3): string => {
-  if (v === null || v === undefined || isNaN(v)) return "0.000";
+  if (v === null || v === undefined || isNaN(v)) return (0).toFixed(decimals);
   return v.toFixed(decimals);
 };
 
@@ -110,6 +111,7 @@ export const ReporteCierreLeyesPdf = ({ lotes }: ReporteCierreLeyesPdfProps) => 
   const cols: { key: string; flex: number; label: string; alt: boolean }[] = [
     { key: "item", flex: 4, label: "Item", alt: false },
     { key: "codigo", flex: 9, label: "Código Cliente", alt: false },
+    { key: "grupo", flex: 8, label: "Grupo", alt: false },
     { key: "fecha", flex: 9, label: "Fecha de Ingreso", alt: false },
     { key: "tmh", flex: 7, label: "TMH aprox", alt: true },
     { key: "h2o", flex: 7, label: "% H2O aprox", alt: false },
@@ -128,12 +130,14 @@ export const ReporteCierreLeyesPdf = ({ lotes }: ReporteCierreLeyesPdfProps) => 
         ? numInt(idx + 1)
         : colKey === "codigo"
         ? lote?.correlativo ?? ""
+        : colKey === "grupo"
+        ? lote?.grupo_analisis?.nombre ?? ""
         : colKey === "fecha"
         ? formatFecha(lote?.created_at)
         : colKey === "tmh"
         ? num(lote?.peso_neto, 3)
         : colKey === "h2o"
-        ? num(lote?.grupo_analisis?.ley_humedad_cierre, 3)
+        ? num(decimalAPorcentaje(lote?.grupo_analisis?.ley_humedad_cierre), 2)
         : colKey === "au"
         ? num(lote?.grupo_analisis?.ley_oro_cierre, 3)
         : colKey === "auGr"
@@ -143,7 +147,7 @@ export const ReporteCierreLeyesPdf = ({ lotes }: ReporteCierreLeyesPdfProps) => 
         : colKey === "agGr"
         ? num((lote?.grupo_analisis?.ley_plata_cierre ?? 0) * OZT_TO_GRAMS, 3)
         : colKey === "recAu"
-        ? num(lote?.grupo_analisis?.ley_recuperacion_cierre, 2)
+        ? num(decimalAPorcentaje(lote?.grupo_analisis?.ley_recuperacion_cierre), 2)
         : "";
     return <Text style={baseStyle}>{text}</Text>;
   };

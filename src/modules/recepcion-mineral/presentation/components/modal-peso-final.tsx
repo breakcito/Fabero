@@ -174,116 +174,108 @@ export const ModalPesoFinal = ({ lote, onCancel, onSubmit, targetIdOverride }: P
     <>
       <Stack gap="md" className="max-h-[80vh] overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
         <Grid gutter="md">
-          {/* Columna Izquierda */}
-          <Grid.Col span={{ base: 12, md: 6 }}>
-            <Stack gap="md">
-              {/* Proveedor Minero + Botón Agregar */}
-              <div>
-                <Group gap="xs" align="flex-end" wrap="nowrap">
-                  <Select
-                    label="Proveedor Minero:"
-                    placeholder={loadingCatalogos ? "Cargando..." : "Seleccione proveedor"}
-                    searchable
-                    clearable
-                    disabled={loadingCatalogos}
-                    rightSection={loadingCatalogos ? <Loader size={16} /> : undefined}
-                    data={proveedores
-                      .filter(
-                        (p): p is RES_Proveedor & { id_proveedor: number } =>
-                          typeof p.id_proveedor === "number",
-                      )
-                      .map((p) => ({
-                        value: String(p.id_proveedor),
-                        label: `${p.razon_social} (${p.documento})`,
-                      }))}
-                    value={idProveedor}
-                    onChange={handleProveedorChange}
-                    comboboxProps={{ withinPortal: true }}
-                    classNames={fieldClasses}
-                    radius="lg"
-                    className="flex-1"
-                  />
-                  <Tooltip label="Registrar Proveedor Minero" withArrow>
-                    <ActionIcon
-                      type="button"
-                      variant="filled"
-                      color="indigo"
-                      radius="lg"
-                      size="lg"
-                      onClick={() => setOpenProveedorModal(true)}
-                      className="bg-indigo-600 hover:bg-indigo-700 text-white h-9.5 w-9.5 mb-0.5"
-                    >
-                      <IconUserPlus size={16} />
-                    </ActionIcon>
-                  </Tooltip>
-                </Group>
-              </div>
-
-              {/* N° Contacto */}
-              <TextInput
-                label="N° Contacto:"
-                placeholder="Autocompletado con teléfono del proveedor"
-                type="tel"
-                inputMode="tel"
-                maxLength={20}
-                value={contacto}
-                onChange={(e) => {
-                  const sanitizado = e.target.value.replace(/[^0-9+\-\s()]/g, "");
-                  setContacto(sanitizado);
-                }}
-                onKeyDown={(e) => {
-                  if (
-                    !/[0-9+\-\s()\bBackspace\bDelete\bArrowLeft\bArrowRight\bTab\bEnter]/.test(e.key)
-                  ) {
-                    e.preventDefault();
-                  }
-                }}
-                onPaste={(e) => {
-                  const textoPegado = e.clipboardData.getData("text");
-                  if (/[a-zA-Z]/.test(textoPegado)) {
-                    e.preventDefault();
-                  }
-                }}
+          {/* Fila 1: Proveedor Minero a todo el ancho */}
+          <Grid.Col span={12}>
+            <Group gap="xs" align="flex-end" wrap="nowrap">
+              <Select
+                label="Proveedor Minero:"
+                placeholder={loadingCatalogos ? "Cargando..." : "Seleccione proveedor"}
+                searchable
+                clearable
+                disabled={loadingCatalogos}
+                rightSection={loadingCatalogos ? <Loader size={16} /> : undefined}
+                data={proveedores
+                  .filter(
+                    (p): p is RES_Proveedor & { id_proveedor: number } =>
+                      typeof p.id_proveedor === "number",
+                  )
+                  .map((p) => ({
+                    value: String(p.id_proveedor),
+                    label: `${p.razon_social} (${p.documento})`,
+                  }))}
+                value={idProveedor}
+                onChange={handleProveedorChange}
+                comboboxProps={{ withinPortal: true }}
                 classNames={fieldClasses}
                 radius="lg"
+                className="flex-1"
               />
-            </Stack>
+              <Tooltip label="Registrar Proveedor Minero" withArrow>
+                <ActionIcon
+                  type="button"
+                  variant="filled"
+                  color="indigo"
+                  radius="lg"
+                  size="lg"
+                  onClick={() => setOpenProveedorModal(true)}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white h-9.5 w-9.5 mb-0.5"
+                >
+                  <IconUserPlus size={16} />
+                </ActionIcon>
+              </Tooltip>
+            </Group>
           </Grid.Col>
 
-          {/* Columna Derecha */}
+          {/* Fila 2: N° Contacto | Zona Origen */}
           <Grid.Col span={{ base: 12, md: 6 }}>
-            <Stack gap="md">
-              {/* Zona Origen + Botón Agregar */}
-              <Group gap="xs" align="flex-end" wrap="nowrap">
-                <Select
-                  label="Zona Origen:"
-                  placeholder={loadingCatalogos ? "Cargando..." : "Elija una opción..."}
-                  searchable
-                  disabled={loadingCatalogos}
-                  rightSection={loadingCatalogos ? <Loader size={16} /> : undefined}
-                  data={zonas.map((z) => ({ value: String(z.id), label: z.nombre }))}
-                  value={idZona}
-                  onChange={setIdZona}
-                  classNames={fieldClasses}
-                  radius="lg"
-                  className="flex-1"
-                />
-                <Tooltip label="Agregar Zona de Origen" withArrow>
-                  <ActionIcon
-                    type="button"
-                    variant="filled"
-                    color="indigo"
-                    radius="lg"
-                    size="lg"
-                    onClick={() => setOpenZonaModal(true)}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white mb-0.5"
-                  >
-                    <IconPlus size={16} />
-                  </ActionIcon>
-                </Tooltip>
-              </Group>
+            <TextInput
+              label="N° Contacto:"
+              placeholder="Autocompletado con teléfono del proveedor"
+              type="tel"
+              inputMode="tel"
+              maxLength={20}
+              value={contacto}
+              onChange={(e) => {
+                const sanitizado = e.target.value.replace(/[^0-9+\-\s()]/g, "");
+                setContacto(sanitizado);
+              }}
+              onKeyDown={(e) => {
+                if (
+                  !/[0-9+\-\s()\bBackspace\bDelete\bArrowLeft\bArrowRight\bTab\bEnter]/.test(e.key)
+                ) {
+                  e.preventDefault();
+                }
+              }}
+              onPaste={(e) => {
+                const textoPegado = e.clipboardData.getData("text");
+                if (/[a-zA-Z]/.test(textoPegado)) {
+                  e.preventDefault();
+                }
+              }}
+              classNames={fieldClasses}
+              radius="lg"
+            />
+          </Grid.Col>
 
-            </Stack>
+          <Grid.Col span={{ base: 12, md: 6 }}>
+            <Group gap="xs" align="flex-end" wrap="nowrap">
+              <Select
+                label="Zona Origen:"
+                placeholder={loadingCatalogos ? "Cargando..." : "Elija una opción..."}
+                searchable
+                disabled={loadingCatalogos}
+                rightSection={loadingCatalogos ? <Loader size={16} /> : undefined}
+                data={zonas.map((z) => ({ value: String(z.id), label: z.nombre }))}
+                value={idZona}
+                onChange={setIdZona}
+                classNames={fieldClasses}
+                radius="lg"
+                className="flex-1"
+              />
+              <Tooltip label="Agregar Zona de Origen" withArrow>
+                <ActionIcon
+                  type="button"
+                  variant="filled"
+                  color="indigo"
+                  radius="lg"
+                  size="lg"
+                  onClick={() => setOpenZonaModal(true)}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white mb-0.5"
+                >
+                  <IconPlus size={16} />
+                </ActionIcon>
+              </Tooltip>
+            </Group>
           </Grid.Col>
 
           {/* Fila inferior de ancho completo */}

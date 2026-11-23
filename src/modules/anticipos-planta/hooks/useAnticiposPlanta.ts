@@ -116,6 +116,16 @@ export const useAnticiposPlanta = () => {
     }
   };
 
+  // Refrescar una fila puntual tras una mutación (ej. gestión de evidencias).
+  const actualizarAnticipoEnLista = useCallback(
+    (actualizado: RES_AnticipoPlanta) => {
+      setAnticipos((prev) =>
+        prev.map((a) => (a.id === actualizado.id ? actualizado : a)),
+      );
+    },
+    [],
+  );
+
   return {
     anticipos,
     loading,
@@ -130,5 +140,6 @@ export const useAnticiposPlanta = () => {
     fetchAnticipos,
     crearAnticipo,
     anularAnticipo,
+    actualizarAnticipoEnLista,
   };
 };

@@ -12,18 +12,18 @@ import {
 } from "@mantine/core";
 import {
   IconPlus,
-  IconHistory,
   IconBan,
   IconFiles,
   IconReceipt2,
+  IconTrash,
 } from "@tabler/icons-react";
 import { useTitlePage } from "../../../hooks/useTitlePage";
+import { useNotify } from "../../../hooks/useNotify";
 import { DataTableEstandar } from "../../../presentation/utils/datatable-estandar";
 import { ModalEstandar } from "../../../presentation/utils/modal-estandar";
-import { CambiosLogViewer } from "../../../presentation/utils/cambios-log-viewer";
 import { ArchivoCard } from "../../../presentation/utils/archivo/archivo-card";
+import { MultiFilePicker } from "../../../presentation/utils/archivo/multifile-picker";
 import { EstadoAnticipoProveedor } from "../../../shared/enums/_generic/estado-anticipo-proveedor";
-import type { RES_CambiosLog } from "../../../service/responses/_generic/cambios-log";
 import type { IArchivo } from "../../../shared/interfaces/archivo";
 
 import { useAnticiposProveedor } from "../hooks/useAnticiposProveedor";
@@ -85,6 +85,8 @@ const getArchivoObj = (item: unknown): IArchivo => {
 export default function AnticiposProveedorPage() {
   useTitlePage("Anticipos Proveedor");
 
+  const { notifySuccess, notifyError } = useNotify();
+
   const {
     anticipos,
     loading,
@@ -98,6 +100,7 @@ export default function AnticiposProveedorPage() {
     anulandoId,
     crearAnticipo,
     anularAnticipo,
+    actualizarAnticipoEnLista,
   } = useAnticiposProveedor();
 
   const [modalCrearOpened, setModalCrearOpened] = useState(false);
@@ -106,68 +109,86 @@ export default function AnticiposProveedorPage() {
     proveedor: string;
     saldo: number;
   } | null>(null);
-  const [modalLogInfo, setModalLogInfo] = useState<RES_CambiosLog[] | null>(null);
-  const [modalEvidenciasInfo, setModalEvidenciasInfo] = useState<(IArchivo | string)[] | null>(null);
 
-  const [modalTransaccionesInfo, setModalTransaccionesInfo] = useState<RES_AnticipoProveedor | null>(null);
-  const [loadingLogId, setLoadingLogId] = useState<number | null>(null);
+  const [modalTransaccionesInfo, setModalTransaccionesInfo] =
+    useState<RES_AnticipoProveedor | null>(null);
 
-  // Filtra el historial del anticipo para mostrar solo los eventos relevantes:
-  //  - Transición de estado a "Sin Saldo" o "Anulado".
-  //  - Descarta cambios puros de saldo_actual (esos viven ahora en valorización).
-  // TODO: cuando el backend solo registre Sin Saldo / Anulado, este filtro deja de ser necesario.
-  const filterHistorialAnticipo = (cambios: RES_CambiosLog[] | null): RES_CambiosLog[] => {
-    if (!cambios || cambios.length === 0) return [];
-    const estadosRelevantes = new Set(["Sin Saldo", "Anulado"]);
+  // Gestor de evidencias: `archivos` son las que quedan tras quitar,
+  // `nuevos` los archivos por subir y `eliminados` los paths a retirar.
+  const [modalEvidencias, setModalEvidencias] = useState<{
+    anticipo: RES_AnticipoProveedor;
+    archivos: IArchivo[];
+    nuevos: File[];
+    eliminados: string[];
+  } | null>(null);
+  const [guardandoEvidencias, setGuardandoEvidencias] = useState(false);
 
-    const filtrados = cambios.filter((log) => {
-      const lista = log.cambios || [];
-      // Mantener si contiene una transición de estado relevante.
-      const tieneCambioEstadoRelevante = lista.some(
-        (c) =>
-          c.campo_bd === "estado" &&
-          estadosRelevantes.has(String(c.valor_nuevo ?? "")),
-      );
-      if (tieneCambioEstadoRelevante) return true;
-
-      // Mantener si contiene un cambio de saldo_actual cuyo nuevo valor sea 0 (caso Sin Saldo sin campo estado).
-      const saldoLlegoACero = lista.some(
-        (c) =>
-          c.campo_bd === "saldo_actual" &&
-          (c.valor_nuevo === 0 ||
-            c.valor_nuevo === "0" ||
-            c.valor_nuevo === "0.00" ||
-            c.valor_nuevo === 0.0),
-      );
-      if (saldoLlegoACero) return true;
-
-      // Descartar logs cuyo único cambio sea saldo_actual (los cambios de transacción ahora se ven en valorización).
-      return false;
+  const handleAbrirEvidencias = (anticipo: RES_AnticipoProveedor) => {
+    setModalEvidencias({
+      anticipo,
+      archivos: (anticipo.evidencias ?? []).map((evidencia) =>
+        getArchivoObj(evidencia),
+      ),
+      nuevos: [],
+      eliminados: [],
     });
+  };
 
-    // Ordenar del más reciente al más antiguo.
-    return filtrados.sort(
-      (a, b) =>
-        new Date(b.update_at || 0).getTime() - new Date(a.update_at || 0).getTime(),
+  const handleQuitarEvidencia = (pathRelativo: string) => {
+    setModalEvidencias((prev) =>
+      prev
+        ? {
+            ...prev,
+            archivos: prev.archivos.filter(
+              (archivo) => archivo.path_relativo !== pathRelativo,
+            ),
+            eliminados: prev.eliminados.includes(pathRelativo)
+              ? prev.eliminados
+              : [...prev.eliminados, pathRelativo],
+          }
+        : prev,
     );
   };
 
-  const handleAbrirHistorialCombinado = async (id: number) => {
-    setLoadingLogId(id);
+  const handleNuevasEvidencias = (files: File[]) => {
+    setModalEvidencias((prev) => (prev ? { ...prev, nuevos: files } : prev));
+  };
+
+  const handleGuardarEvidencias = async () => {
+    if (!modalEvidencias) return;
+
+    setGuardandoEvidencias(true);
     try {
-      const res = await AnticiposProveedorService.get_historial_combinado(id);
+      const res = await AnticiposProveedorService.gestionarEvidencias(
+        modalEvidencias.anticipo.id,
+        {
+          evidencias: modalEvidencias.nuevos,
+          eliminar: modalEvidencias.eliminados,
+        },
+      );
+
       if (res.success && res.data) {
-        setModalLogInfo(filterHistorialAnticipo(res.data));
+        actualizarAnticipoEnLista(res.data);
+        notifySuccess(res.message || "Evidencias actualizadas correctamente.");
+        setModalEvidencias(null);
       } else {
-        setModalLogInfo([]);
+        notifyError(res.message || "No se pudieron actualizar las evidencias.");
       }
     } catch (e) {
-      console.error("Error al obtener el historial de cambios unificado", e);
-      setModalLogInfo([]);
+      console.error(e);
+      notifyError(
+        e instanceof Error
+          ? e.message
+          : "No se pudieron actualizar las evidencias.",
+      );
     } finally {
-      setLoadingLogId(null);
+      setGuardandoEvidencias(false);
     }
   };
+
+  const hayCambiosEvidencias =
+    modalEvidencias !== null &&
+    (modalEvidencias.nuevos.length > 0 || modalEvidencias.eliminados.length > 0);
 
   const getBadgeEstado = (estado: string) => {
     switch (estado) {
@@ -340,7 +361,7 @@ export default function AnticiposProveedorPage() {
             accessor: "acciones",
             title: "Acciones",
             textAlign: "center",
-            width: 150,
+            width: 120,
             render: (r: RES_AnticipoProveedor) => (
               <Group gap={6} justify="center">
                 {/* Ver Transacciones */}
@@ -356,33 +377,16 @@ export default function AnticiposProveedorPage() {
                   </ActionIcon>
                 </Tooltip>
 
-                {/* Ver evidencias */}
-                {r.evidencias && r.evidencias.length > 0 && (
-                  <Tooltip label="Ver Evidencias">
-                    <ActionIcon
-                      variant="light"
-                      color="indigo"
-                      size="sm"
-                      radius="md"
-                      onClick={() => setModalEvidenciasInfo(r.evidencias)}
-                    >
-                      <IconFiles size={14} />
-                    </ActionIcon>
-                  </Tooltip>
-                )}
-
-                {/* Registro / Historial de cambios unificado */}
-                <Tooltip label="Historial de Cambios">
+                {/* Gestionar evidencias */}
+                <Tooltip label="Gestionar Evidencias">
                   <ActionIcon
                     variant="light"
-                    color="amber"
+                    color="indigo"
                     size="sm"
                     radius="md"
-                    loading={loadingLogId === r.id}
-                    disabled={loadingLogId === r.id}
-                    onClick={() => handleAbrirHistorialCombinado(r.id)}
+                    onClick={() => handleAbrirEvidencias(r)}
                   >
-                    <IconHistory size={14} />
+                    <IconFiles size={14} />
                   </ActionIcon>
                 </Tooltip>
 
@@ -446,34 +450,91 @@ export default function AnticiposProveedorPage() {
         anticipoInfo={modalAnularInfo}
       />
 
-      {/* Modal Log de Cambios */}
+      {/* Modal Evidencias (gestor) */}
       <ModalEstandar
-        opened={modalLogInfo !== null}
-        close={() => setModalLogInfo(null)}
-        title="Registro de Cambios del Anticipo"
+        opened={modalEvidencias !== null}
+        close={() => setModalEvidencias(null)}
+        title="Gestión de Evidencias"
         size="lg"
+        validateClose={hayCambiosEvidencias}
+        closeConfirmationTitle="Cerrar sin guardar"
+        closeConfirmationMessage="Tienes cambios sin guardar en las evidencias. ¿Quieres cerrar de todos modos?"
       >
-        <CambiosLogViewer cambios={modalLogInfo} />
-      </ModalEstandar>
+        {modalEvidencias && (
+          <Stack gap="md">
+            {/* Evidencias actuales */}
+            <Stack gap="xs">
+              <Text
+                size="xs"
+                fw={800}
+                className="text-zinc-100 uppercase tracking-wider"
+              >
+                Evidencias actuales
+              </Text>
 
-      {/* Modal Evidencias */}
-      <ModalEstandar
-        opened={modalEvidenciasInfo !== null}
-        close={() => setModalEvidenciasInfo(null)}
-        title="Evidencias / Documentos Adjuntos"
-        size="md"
-      >
-        <Stack gap="xs">
-          {modalEvidenciasInfo && modalEvidenciasInfo.length > 0 ? (
-            modalEvidenciasInfo.map((filepath, idx) => (
-              <ArchivoCard key={idx} archivo={getArchivoObj(filepath)} />
-            ))
-          ) : (
-            <Text size="xs" c="dimmed">
-              No se adjuntaron archivos.
-            </Text>
-          )}
-        </Stack>
+              {modalEvidencias.archivos.length > 0 ? (
+                modalEvidencias.archivos.map((archivo) => (
+                  <Group
+                    key={archivo.path_relativo}
+                    gap="xs"
+                    wrap="nowrap"
+                    align="center"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <ArchivoCard archivo={archivo} />
+                    </div>
+                    <Tooltip label="Eliminar evidencia">
+                      <ActionIcon
+                        variant="light"
+                        color="red"
+                        size="md"
+                        radius="md"
+                        onClick={() => handleQuitarEvidencia(archivo.path_relativo)}
+                      >
+                        <IconTrash size={16} />
+                      </ActionIcon>
+                    </Tooltip>
+                  </Group>
+                ))
+              ) : (
+                <Text size="xs" c="dimmed" fs="italic">
+                  No se adjuntaron archivos.
+                </Text>
+              )}
+            </Stack>
+
+            {/* Archivos nuevos */}
+            <MultiFilePicker
+              files={modalEvidencias.nuevos}
+              onFilesChange={handleNuevasEvidencias}
+              label="Adjuntar evidencias"
+              description="Puedes subir archivos nuevos al anticipo."
+            />
+
+            <Group justify="end" mt="md" gap="xs">
+              <Button
+                variant="subtle"
+                color="gray"
+                size="xs"
+                radius="lg"
+                onClick={() => setModalEvidencias(null)}
+                disabled={guardandoEvidencias}
+              >
+                Cancelar
+              </Button>
+              <Button
+                color="indigo"
+                size="xs"
+                radius="lg"
+                onClick={handleGuardarEvidencias}
+                loading={guardandoEvidencias}
+                disabled={!hayCambiosEvidencias}
+              >
+                Guardar
+              </Button>
+            </Group>
+          </Stack>
+        )}
       </ModalEstandar>
     </Stack>
   );

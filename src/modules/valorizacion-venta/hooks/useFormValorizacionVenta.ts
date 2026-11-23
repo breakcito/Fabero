@@ -113,6 +113,19 @@ const mapEvidenciasToArchivos = (evidencias: unknown): IArchivo[] => {
   return result;
 };
 
+const extraerMensajeError = (err: unknown, fallback: string): string => {
+  if (err && typeof err === "object" && "response" in err) {
+    const axiosErr = err as { response?: { data?: { message?: string } } };
+    if (axiosErr.response?.data?.message) {
+      return axiosErr.response.data.message;
+    }
+  }
+  if (err instanceof Error && err.message) {
+    return err.message;
+  }
+  return fallback;
+};
+
 export const useFormValorizacionVenta = ({
   opened,
   valorizacionEditar,
@@ -266,7 +279,7 @@ export const useFormValorizacionVenta = ({
       onSuccess();
     } catch (err) {
       notifyError(
-        err instanceof Error ? err.message : "Error al guardar la valorización",
+        extraerMensajeError(err, "Error al guardar la valorización"),
       );
     } finally {
       setLoadingSubmit(false);

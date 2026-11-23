@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { NumberInput, Button, Select } from "@mantine/core";
+import { NumberInput, Button, Select, Textarea } from "@mantine/core";
 import { z } from "zod";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
 import type { RES_Proveedor } from "../../../../service/responses/proveedor";
@@ -29,6 +29,11 @@ const formSchema = z.object({
   recuperacion: z.number().min(0, "La recuperación debe ser entre 0 y 100").max(100, "La recuperación debe ser entre 0 y 100"),
   consumo: z.number().min(0, "El consumo no puede ser menor a 0"),
   riesgo_comercial: z.number().min(0, "El riesgo comercial no puede ser menor a 0"),
+  observacion: z
+    .string()
+    .max(1000, "La observación no debe superar los 1000 caracteres")
+    .nullable()
+    .optional(),
 }).refine((data) => data.ley_inicio <= data.ley_fin, {
   message: "La ley inicio no puede ser mayor que la ley fin",
   path: ["ley_fin"],
@@ -42,6 +47,7 @@ const opcionesElemento = [
 const fieldInputClass =
   "bg-zinc-950 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 focus:ring-1 focus:ring-zinc-300 transition-all h-[38px] rounded-xl";
 const fieldLabelClass = "text-zinc-300 mb-1 font-medium text-xs";
+const fieldDescriptionClass = "text-zinc-500 text-[11px] mt-1";
 
 export const ModalCondicionComercial = ({
   opened,
@@ -65,6 +71,7 @@ export const ModalCondicionComercial = ({
     recuperacion: 0,
     consumo: 0,
     riesgo_comercial: 0,
+    observacion: "",
   });
 
   const [prevModalKey, setPrevModalKey] = useState("");
@@ -83,6 +90,7 @@ export const ModalCondicionComercial = ({
           recuperacion: condicionEditar.recuperacion,
           consumo: condicionEditar.consumo,
           riesgo_comercial: condicionEditar.riesgo_comercial,
+          observacion: condicionEditar.observacion ?? "",
         });
       } else {
         setForm({
@@ -94,6 +102,7 @@ export const ModalCondicionComercial = ({
           recuperacion: 0,
           consumo: 0,
           riesgo_comercial: 0,
+          observacion: "",
         });
       }
     }
@@ -102,7 +111,10 @@ export const ModalCondicionComercial = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const result = formSchema.safeParse(form);
+    const result = formSchema.safeParse({
+      ...form,
+      observacion: form.observacion.trim() === "" ? null : form.observacion.trim(),
+    });
     if (!result.success) {
       const msg = result.error.issues[0]?.message || "Por favor revise los campos ingresados";
       notifyError(msg);
@@ -219,7 +231,8 @@ export const ModalCondicionComercial = ({
           />
 
           <NumberInput
-            label="Recuperación (%)"
+            label="Recuperación Máxima (%)"
+            description="Es el máximo permitido. En la valorización puede usarse un valor menor, nunca mayor."
             value={form.recuperacion}
             onChange={(val) => setForm((prev) => ({ ...prev, recuperacion: typeof val === "number" ? val : 0 }))}
             min={0}
@@ -231,6 +244,7 @@ export const ModalCondicionComercial = ({
             classNames={{
               input: fieldInputClass,
               label: fieldLabelClass,
+              description: fieldDescriptionClass,
             }}
           />
         </div>
@@ -267,6 +281,27 @@ export const ModalCondicionComercial = ({
             }}
           />
         </div>
+
+        {/* Observación */}
+        <Textarea
+          label="Observación"
+          placeholder="Detalle adicional de la condición comercial (opcional)"
+          autosize
+          minRows={2}
+          maxRows={5}
+          maxLength={1000}
+          value={form.observacion}
+          onChange={(event) =>
+            setForm((prev) => ({ ...prev, observacion: event.currentTarget.value }))
+          }
+          size="xs"
+          radius="lg"
+          classNames={{
+            input: `${fieldInputClass} h-auto min-h-[70px] py-2`,
+            label: fieldLabelClass,
+            description: fieldDescriptionClass,
+          }}
+        />
 
         {/* Action Buttons */}
         <div className="flex justify-end gap-2 pt-3">

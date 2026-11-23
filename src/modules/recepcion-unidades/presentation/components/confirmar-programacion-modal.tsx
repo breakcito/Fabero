@@ -5,6 +5,7 @@ import {
   Button,
   Select,
   TextInput,
+  Textarea,
   Loader,
   Text,
   ActionIcon,
@@ -12,6 +13,9 @@ import {
   Divider,
   Grid,
   Tooltip,
+  Progress,
+  ThemeIcon,
+  UnstyledButton,
 } from "@mantine/core";
 import {
   IconTrash,
@@ -27,11 +31,14 @@ import {
   IconEdit,
   IconPhoto,
   IconPlus,
+  IconChevronLeft,
+  IconChevronRight,
 } from "@tabler/icons-react";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
 import { useConfirmarProgramacion } from "../../hooks/useConfirmarProgramacion";
 import { useTicketIngresoVehiculo } from "../../../../hooks/useTicketIngresoVehiculo";
 import { useNotify } from "../../../../hooks/useNotify";
+import { useDispositivo } from "../../../../hooks/useDispositivo";
 import type { RecepcionUnidadResponse } from "../../service/recepcion-unidades.responses";
 import { AgregarAcompananteModal, type DatosAcompananteForm } from "./agregar-acompanante-modal";
 import { AgregarVehiculoModal, type DatosVehiculoForm } from "./agregar-vehiculo-modal";
@@ -58,6 +65,18 @@ const fieldClasses = {
   label: "text-zinc-300 mb-1 font-medium text-xs",
 };
 
+/**
+ * Pasos del formulario en móvil. El escritorio mantiene el layout de una
+ * sola página; el móvil lo recorre paso a paso para no saturar la pantalla
+ * con la pantalla de un celular en planta.
+ */
+const PASOS_WIZARD = [
+  { titulo: "Transporte", descripcion: "Empresa de transporte y conductor" },
+  { titulo: "Vehículo", descripcion: "Vehículo, tipo de vehículo y carreta" },
+  { titulo: "Guías", descripcion: "Guías de remisión y de transporte" },
+  { titulo: "Cierre", descripcion: "Evidencias, observación y acompañantes" },
+] as const;
+
 export const ConfirmarProgramacionModal = ({
   opened,
   programacion,
@@ -67,6 +86,7 @@ export const ConfirmarProgramacionModal = ({
   const ctrl = useConfirmarProgramacion({ programacion, opened });
   const { printTicketIngreso } = useTicketIngresoVehiculo();
   const { notifyError } = useNotify();
+  const { esMovil } = useDispositivo();
 
   const [openModalAcompanante, setOpenModalAcompanante] = useState(false);
   const [openModalVehiculo, setOpenModalVehiculo] = useState(false);
@@ -97,6 +117,16 @@ export const ConfirmarProgramacionModal = ({
     fotosExistentes?: string[];
   } | null>(null);
   const [confirmando, setConfirmando] = useState(false);
+  const [paso, setPaso] = useState(0);
+  const [abiertoAnterior, setAbiertoAnterior] = useState(opened);
+
+  // Cada apertura del modal arranca en el primer paso del wizard móvil.
+  // Se ajusta durante el render (no en un efecto) para evitar renders
+  // en cascada: sólo cambia cuando el estado de `opened` cambia.
+  if (opened !== abiertoAnterior) {
+    setAbiertoAnterior(opened);
+    if (opened) setPaso(0);
+  }
 
   const empresasOptions = (ctrl.empresasCatalog ?? []).map((e) => ({
     value: String(e.id_empresa_transporte),
@@ -115,13 +145,13 @@ export const ConfirmarProgramacionModal = ({
     label: c.dni ? `${c.nombre_completo} (${c.dni})` : c.nombre_completo,
   }));
 
-const proveedoresOptions = (ctrl.proveedoresCatalog ?? []).map((p) => ({
-  value: String(p.id_proveedor),
-  label: p.razon_social,
-}));
+  const proveedoresOptions = (ctrl.proveedoresCatalog ?? []).map((p) => ({
+    value: String(p.id_proveedor),
+    label: p.razon_social,
+  }));
 
-const esDespacho =
-  ctrl.programacion?.tipo_ingreso === "Despacho de Mineral";
+  const esDespacho =
+    ctrl.programacion?.tipo_ingreso === "Despacho de Mineral";
 
   const tiposVehiculoOptions = (ctrl.tiposVehiculoCatalog ?? []).map((tv) => ({
     value: String(tv.id_tipo_vehiculo),
@@ -168,494 +198,665 @@ const esDespacho =
 
   const visitantesPrincipal = ctrl.visitantes.filter((v) => !v.id_visita_vehiculo);
 
-  return (
-    <ModalEstandar
-      opened={opened}
-      close={onClose}
-      title={programacion ? `Confirmar Programación #${programacion.id}` : "Registrar Recepción de Unidad"}
-      size="xl"
-      validateClose
-    >
-      <Stack gap="md">
-        {/* Datos de la Programación y Unidad */}
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4 space-y-3">
-          <Group justify="space-between">
-            <Group gap="xs">
-              <IconTruck className="w-4 h-4 text-indigo-400" />
-              <Text size="xs" fw={700} className="text-zinc-300 uppercase tracking-wider">
-                Datos de la Unidad y Transporte
+  // Valores efectivos (bloqueados por programación o elegibles por el usuario).
+  const empresaSeleccionada =
+    ctrl.programacion?.id_empresa_transporte ?? ctrl.idEmpresaTransporteEditado ?? null;
+  const vehiculoSeleccionado =
+    ctrl.programacion?.id_vehiculo ?? ctrl.idVehiculoEditado ?? null;
+  const tipoVehiculoSeleccionado =
+    ctrl.programacion?.id_tipo_vehiculo ?? ctrl.idTipoVehiculoEditado ?? null;
+  const conductorSeleccionado = ctrl.idConductor ?? null;
+
+  /**
+   * Validación por paso del wizard móvil. El proveedor no se exige: en
+   * móvil no se registra y el backend lo acepta como `nullable`.
+   */
+  const validarPaso = (indice: number): boolean => {
+    if (indice === 0) {
+      if (!empresaSeleccionada) {
+        notifyError("Debe seleccionar la Empresa de Transporte");
+        return false;
+      }
+      if (!conductorSeleccionado) {
+        notifyError("Debe seleccionar el Conductor");
+        return false;
+      }
+    }
+
+    if (indice === 1) {
+      if (!vehiculoSeleccionado) {
+        notifyError("Debe seleccionar el Vehículo");
+        return false;
+      }
+      if (!tipoVehiculoSeleccionado) {
+        notifyError("Debe seleccionar el Tipo de Vehículo");
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  const avanzarPaso = () => {
+    if (!validarPaso(paso)) return;
+    if (paso < PASOS_WIZARD.length - 1) setPaso(paso + 1);
+  };
+
+  const retrocederPaso = () => {
+    if (paso > 0) setPaso(paso - 1);
+  };
+
+  const irAPaso = (destino: number) => {
+    if (destino === paso) return;
+    if (destino < paso) {
+      setPaso(destino);
+      return;
+    }
+    for (let i = paso; i < destino; i += 1) {
+      if (!validarPaso(i)) {
+        setPaso(i);
+        return;
+      }
+    }
+    setPaso(destino);
+  };
+
+  const handleSubmitWizard = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (confirmando) return;
+    if (paso < PASOS_WIZARD.length - 1) {
+      avanzarPaso();
+      return;
+    }
+    void handleConfirmar();
+  };
+
+  /**
+   * Evita el envío implícito del formulario con la tecla Enter (por ejemplo
+   * dentro del buscador de un Select): en el último paso dispararía el
+   * registro sin que el operador haya tocado "Registrar".
+   */
+  const handleKeyDownWizard = (event: React.KeyboardEvent<HTMLFormElement>) => {
+    if (event.key === "Enter" && event.target instanceof HTMLInputElement) {
+      event.preventDefault();
+    }
+  };
+
+  /* --------------------------------------------------------------------- */
+  /* Fragmentos de formulario (compartidos por escritorio y móvil)          */
+  /* --------------------------------------------------------------------- */
+
+  const campoEmpresaTransporte = (
+    <div className="flex gap-2 items-end">
+      <Select
+        label="Empresa de Transporte"
+        placeholder={ctrl.loadingCatalogos ? "Cargando..." : "Seleccione la empresa"}
+        data={empresasOptions}
+        value={
+          ctrl.programacion?.id_empresa_transporte
+            ? String(ctrl.programacion.id_empresa_transporte)
+            : ctrl.idEmpresaTransporteEditado
+              ? String(ctrl.idEmpresaTransporteEditado)
+              : null
+        }
+        onChange={(val) => ctrl.setIdEmpresaTransporteEditado(val ? Number(val) : null)}
+        leftSection={<IconBuildingFactory className="w-4 h-4 text-zinc-500" />}
+        searchable
+        withAsterisk
+        required
+        radius="xl"
+        className="flex-1"
+        disabled={confirmando}
+        readOnly={Boolean(ctrl.programacion?.id_empresa_transporte)}
+        rightSection={
+          ctrl.programacion?.id_empresa_transporte ? (
+            <IconLock size={14} className="text-zinc-500" />
+          ) : ctrl.loadingCatalogos ? (
+            <Loader size={16} />
+          ) : undefined
+        }
+        classNames={fieldClasses}
+      />
+      {!ctrl.programacion?.id_empresa_transporte && (
+        <Tooltip label="Nueva Empresa de Transporte" withArrow>
+          <ActionIcon
+            type="button"
+            variant="filled"
+            color="zinc"
+            radius="xl"
+            size="lg"
+            disabled={confirmando}
+            onClick={() => setOpenEmpresaModal(true)}
+            className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 mb-0.5"
+          >
+            <IconPlus size={18} />
+          </ActionIcon>
+        </Tooltip>
+      )}
+    </div>
+  );
+
+  const campoVehiculo = (
+    <div className="flex gap-2 items-end">
+      <Select
+        label="Vehículo"
+        placeholder={ctrl.loadingCatalogos ? "Cargando..." : "Seleccione vehículo"}
+        data={vehiculosOptions}
+        withAsterisk
+        required
+        value={
+          ctrl.programacion?.id_vehiculo
+            ? String(ctrl.programacion.id_vehiculo)
+            : ctrl.idVehiculoEditado
+              ? String(ctrl.idVehiculoEditado)
+              : null
+        }
+        onChange={(val) => ctrl.setIdVehiculoEditado(val ? Number(val) : null)}
+        leftSection={<IconTruck className="w-4 h-4 text-zinc-500" />}
+        searchable
+        radius="xl"
+        className="flex-1"
+        disabled={confirmando}
+        readOnly={Boolean(ctrl.programacion?.id_vehiculo)}
+        rightSection={
+          ctrl.programacion?.id_vehiculo ? (
+            <IconLock size={14} className="text-zinc-500" />
+          ) : ctrl.loadingCatalogos ? (
+            <Loader size={16} />
+          ) : undefined
+        }
+        classNames={fieldClasses}
+      />
+      {!ctrl.programacion?.id_vehiculo && (
+        <Tooltip label="Registrar Nuevo Vehículo" withArrow>
+          <ActionIcon
+            type="button"
+            variant="filled"
+            color="zinc"
+            radius="xl"
+            size="lg"
+            disabled={confirmando}
+            onClick={() => setOpenVehiculoSimpleModal(true)}
+            className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700"
+          >
+            <IconPlus size={18} />
+          </ActionIcon>
+        </Tooltip>
+      )}
+    </div>
+  );
+
+  const campoConductor = (
+    <div className="flex gap-2 items-end">
+      <Select
+        label="Conductor"
+        placeholder={ctrl.loadingCatalogos ? "Cargando..." : "Seleccione conductor"}
+        data={conductoresOptions}
+        value={ctrl.idConductor ? String(ctrl.idConductor) : null}
+        onChange={(val) => ctrl.setIdConductor(val ? Number(val) : null)}
+        leftSection={<IconUserCheck className="w-4 h-4 text-zinc-500" />}
+        searchable
+        clearable={!ctrl.lockedConductor}
+        radius="xl"
+        className="flex-1"
+        disabled={ctrl.lockedConductor || ctrl.loadingCatalogos || confirmando}
+        rightSection={
+          ctrl.lockedConductor ? (
+            <IconLock size={14} className="text-zinc-500" />
+          ) : ctrl.loadingCatalogos ? (
+            <Loader size={16} />
+          ) : undefined
+        }
+        classNames={fieldClasses}
+      />
+      {!ctrl.lockedConductor && (
+        <Tooltip label="Registrar Nuevo Conductor" withArrow>
+          <ActionIcon
+            type="button"
+            variant="filled"
+            color="zinc"
+            radius="xl"
+            size="lg"
+            disabled={confirmando}
+            onClick={() => setOpenConductorModal(true)}
+            className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700"
+          >
+            <IconPlus size={18} />
+          </ActionIcon>
+        </Tooltip>
+      )}
+    </div>
+  );
+
+  const campoProveedor = (
+    <div className="flex gap-2 items-end">
+      <Select
+        label="Proveedor Minero"
+        placeholder={ctrl.loadingCatalogos ? "Cargando..." : "Seleccione proveedor"}
+        data={proveedoresOptions}
+        withAsterisk
+        required
+        value={
+          ctrl.programacion?.id_proveedor_minero
+            ? String(ctrl.programacion.id_proveedor_minero)
+            : ctrl.idProveedorMineroEditado
+              ? String(ctrl.idProveedorMineroEditado)
+              : null
+        }
+        onChange={(val) => ctrl.setIdProveedorMineroEditado(val ? Number(val) : null)}
+        leftSection={<IconUser className="w-4 h-4 text-zinc-500" />}
+        searchable
+        radius="xl"
+        className="flex-1"
+        disabled={confirmando}
+        readOnly={Boolean(ctrl.programacion?.id_proveedor_minero)}
+        rightSection={
+          ctrl.programacion?.id_proveedor_minero ? (
+            <IconLock size={14} className="text-zinc-500" />
+          ) : ctrl.loadingCatalogos ? (
+            <Loader size={16} />
+          ) : undefined
+        }
+        classNames={fieldClasses}
+      />
+      {!ctrl.programacion?.id_proveedor_minero && (
+        <Tooltip label="Registrar Nuevo Proveedor Minero" withArrow>
+          <ActionIcon
+            type="button"
+            variant="filled"
+            color="zinc"
+            radius="xl"
+            size="lg"
+            disabled={confirmando}
+            onClick={() => setOpenProveedorModal(true)}
+            className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 mb-0.5"
+          >
+            <IconPlus size={18} />
+          </ActionIcon>
+        </Tooltip>
+      )}
+    </div>
+  );
+
+  const campoTipoVehiculo = (
+    <div className="flex gap-2 items-end">
+      <Select
+        label="Tipo de Vehículo"
+        placeholder={ctrl.loadingCatalogos ? "Cargando..." : "Seleccione tipo de vehículo"}
+        data={tiposVehiculoOptions}
+        value={
+          ctrl.programacion?.id_tipo_vehiculo
+            ? String(ctrl.programacion.id_tipo_vehiculo)
+            : ctrl.idTipoVehiculoEditado
+              ? String(ctrl.idTipoVehiculoEditado)
+              : null
+        }
+        onChange={(val) => ctrl.setIdTipoVehiculoEditado(val ? Number(val) : null)}
+        leftSection={<IconTruck className="w-4 h-4 text-zinc-500" />}
+        searchable
+        radius="xl"
+        className="flex-1"
+        disabled={confirmando}
+        readOnly={Boolean(ctrl.programacion?.id_tipo_vehiculo)}
+        rightSection={
+          ctrl.programacion?.id_tipo_vehiculo ? (
+            <IconLock size={14} className="text-zinc-500" />
+          ) : ctrl.loadingCatalogos ? (
+            <Loader size={16} />
+          ) : undefined
+        }
+        classNames={fieldClasses}
+      />
+      {!ctrl.programacion?.id_tipo_vehiculo && (
+        <Tooltip label="Registrar Tipo de Vehículo" withArrow>
+          <ActionIcon
+            type="button"
+            variant="filled"
+            color="zinc"
+            radius="xl"
+            size="lg"
+            disabled={confirmando}
+            onClick={() => setOpenTipoVehiculoModal(true)}
+            className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700"
+          >
+            <IconPlus size={18} />
+          </ActionIcon>
+        </Tooltip>
+      )}
+    </div>
+  );
+
+  const campoVehiculoCarreta = (
+    <div className="flex gap-2 items-end">
+      <Select
+        label="Vehículo Carreta (opcional)"
+        placeholder={
+          ctrl.loadingCatalogos
+            ? "Cargando..."
+            : vehiculosCarretaOptions.length === 0
+              ? "Sin vehículos carreta registrados"
+              : "Seleccione (opcional)"
+        }
+        data={vehiculosCarretaOptions}
+        value={
+          ctrl.programacion?.id_vehiculo_carreta
+            ? String(ctrl.programacion.id_vehiculo_carreta)
+            : ctrl.idVehiculoCarreta
+              ? String(ctrl.idVehiculoCarreta)
+              : null
+        }
+        onChange={(val) => ctrl.setIdVehiculoCarreta(val ? Number(val) : null)}
+        leftSection={<IconTruck className="w-4 h-4 text-zinc-500" />}
+        searchable
+        clearable
+        radius="xl"
+        className="flex-1"
+        disabled={confirmando}
+        readOnly={Boolean(ctrl.programacion?.id_vehiculo_carreta)}
+        rightSection={
+          ctrl.programacion?.id_vehiculo_carreta ? (
+            <IconLock size={14} className="text-zinc-500" />
+          ) : ctrl.loadingCatalogos ? (
+            <Loader size={16} />
+          ) : undefined
+        }
+        classNames={fieldClasses}
+      />
+      {!ctrl.programacion?.id_vehiculo_carreta && (
+        <Tooltip label="Registrar Vehículo Carreta" withArrow>
+          <ActionIcon
+            type="button"
+            variant="filled"
+            color="zinc"
+            radius="xl"
+            size="lg"
+            disabled={confirmando}
+            onClick={() => {
+              if (idTipoVehiculoCarreta === null) {
+                notifyError(
+                  "No existe un Tipo de Vehículo marcado como 'Carreta'. Créelo en Gestión de Tipos de Vehículo antes de continuar.",
+                );
+                return;
+              }
+              setOpenCarretaModal(true);
+            }}
+            className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700"
+          >
+            <IconPlus size={18} />
+          </ActionIcon>
+        </Tooltip>
+      )}
+    </div>
+  );
+
+  const bloqueGuias = (
+    <div className="pt-3 border-t border-zinc-800 space-y-2">
+      <Group gap="xs">
+        <IconFileText className="w-4 h-4 text-indigo-400" />
+        <Text size="xs" fw={600} className="text-zinc-300">
+          Guías (opcional)
+        </Text>
+      </Group>
+      <Grid gutter="sm">
+        <Grid.Col span={{ base: 12, sm: 6 }}>
+          <TextInput
+            label="Guía Remitente"
+            placeholder="Ej. 001-123456"
+            radius="xl"
+            value={ctrl.programacion?.guia_remitente ?? ctrl.guiaRemitente}
+            onChange={(e) => ctrl.setGuiaRemitente(e.currentTarget.value)}
+            readOnly={Boolean(ctrl.programacion?.guia_remitente)}
+            disabled={confirmando}
+            rightSection={ctrl.programacion?.guia_remitente ? <IconLock size={14} className="text-zinc-500" /> : undefined}
+            classNames={fieldClasses}
+          />
+        </Grid.Col>
+        <Grid.Col span={{ base: 12, sm: 6 }}>
+          <TextInput
+            label="Guía Transportista"
+            placeholder="Ej. 001-123456"
+            radius="xl"
+            value={ctrl.programacion?.guia_transportista ?? ctrl.guiaTransportista}
+            onChange={(e) => ctrl.setGuiaTransportista(e.currentTarget.value)}
+            readOnly={Boolean(ctrl.programacion?.guia_transportista)}
+            disabled={confirmando}
+            rightSection={ctrl.programacion?.guia_transportista ? <IconLock size={14} className="text-zinc-500" /> : undefined}
+            classNames={fieldClasses}
+          />
+        </Grid.Col>
+      </Grid>
+
+      {/* Documentos de programación (archivos subidos al programar) */}
+      {ctrl.programacion?.documentos_programacion && (
+        <div className="pt-2 space-y-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="space-y-2">
+              <Text size="10px" fw={700} className="text-zinc-500 uppercase tracking-widest">
+                Guía Remitente
               </Text>
-            </Group>
-            <Badge variant="subtle" color="zinc" size="xs">
-              {programacion
-                ? "Los datos previamente ingresados se mantienen bloqueados"
-                : "Ingreso directo de unidad a planta"}
-            </Badge>
-          </Group>
-
-          <Grid gutter="sm">
-            <Grid.Col span={{ base: 12, sm: 6 }}>
-              <div className="flex gap-2 items-end">
-                <Select
-                  label="Empresa de Transporte"
-                  placeholder={ctrl.loadingCatalogos ? "Cargando..." : "Seleccione la empresa"}
-                  data={empresasOptions}
-                  value={
-                    ctrl.programacion?.id_empresa_transporte
-                      ? String(ctrl.programacion.id_empresa_transporte)
-                      : ctrl.idEmpresaTransporteEditado
-                        ? String(ctrl.idEmpresaTransporteEditado)
-                        : null
-                  }
-                  onChange={(val) => ctrl.setIdEmpresaTransporteEditado(val ? Number(val) : null)}
-                  leftSection={<IconBuildingFactory className="w-4 h-4 text-zinc-500" />}
-                  searchable
-                  withAsterisk
-                  required
-                  radius="xl"
-                  className="flex-1"
-                  disabled={confirmando}
-                  readOnly={Boolean(ctrl.programacion?.id_empresa_transporte)}
-                  rightSection={
-                    ctrl.programacion?.id_empresa_transporte ? (
-                      <IconLock size={14} className="text-zinc-500" />
-                    ) : ctrl.loadingCatalogos ? (
-                      <Loader size={16} />
-                    ) : undefined
-                  }
-                  classNames={fieldClasses}
+              {ctrl.programacion.documentos_programacion.guia_remitente ? (
+                <ArchivoCard
+                  archivo={ctrl.programacion.documentos_programacion.guia_remitente}
                 />
-                {!ctrl.programacion?.id_empresa_transporte && (
-                  <Tooltip label="Nueva Empresa de Transporte" withArrow>
-                    <ActionIcon
-                      type="button"
-                      variant="filled"
-                      color="zinc"
-                      radius="xl"
-                      size="lg"
-                      disabled={confirmando}
-                      onClick={() => setOpenEmpresaModal(true)}
-                      className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 mb-0.5"
-                    >
-                      <IconPlus size={18} />
-                    </ActionIcon>
-                  </Tooltip>
-                )}
-              </div>
-            </Grid.Col>
-
-            <Grid.Col span={{ base: 12, sm: 6 }}>
-              <div className="flex gap-2 items-end">
-                <Select
-                  label="Vehículo"
-                  placeholder={ctrl.loadingCatalogos ? "Cargando..." : "Seleccione vehículo"}
-                  data={vehiculosOptions}
-                  withAsterisk
-                  required
-                  value={
-                    ctrl.programacion?.id_vehiculo
-                      ? String(ctrl.programacion.id_vehiculo)
-                      : ctrl.idVehiculoEditado
-                        ? String(ctrl.idVehiculoEditado)
-                        : null
-                  }
-                  onChange={(val) => ctrl.setIdVehiculoEditado(val ? Number(val) : null)}
-                  leftSection={<IconTruck className="w-4 h-4 text-zinc-500" />}
-                  searchable
-                  radius="xl"
-                  className="flex-1"
-                  disabled={confirmando}
-                  readOnly={Boolean(ctrl.programacion?.id_vehiculo)}
-                  rightSection={
-                    ctrl.programacion?.id_vehiculo ? (
-                      <IconLock size={14} className="text-zinc-500" />
-                    ) : ctrl.loadingCatalogos ? (
-                      <Loader size={16} />
-                    ) : undefined
-                  }
-                  classNames={fieldClasses}
-                />
-                {!ctrl.programacion?.id_vehiculo && (
-                  <Tooltip label="Registrar Nuevo Vehículo" withArrow>
-                    <ActionIcon
-                      type="button"
-                      variant="filled"
-                      color="zinc"
-                      radius="xl"
-                      size="lg"
-                      disabled={confirmando}
-                      onClick={() => setOpenVehiculoSimpleModal(true)}
-                      className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700"
-                    >
-                      <IconPlus size={18} />
-                    </ActionIcon>
-                  </Tooltip>
-                )}
-              </div>
-            </Grid.Col>
-
-            <Grid.Col span={{ base: 12, sm: 6 }}>
-              <div className="flex gap-2 items-end">
-                <Select
-                  label="Conductor"
-                  placeholder={ctrl.loadingCatalogos ? "Cargando..." : "Seleccione conductor"}
-                  data={conductoresOptions}
-                  value={ctrl.idConductor ? String(ctrl.idConductor) : null}
-                  onChange={(val) => ctrl.setIdConductor(val ? Number(val) : null)}
-                  leftSection={<IconUserCheck className="w-4 h-4 text-zinc-500" />}
-                  searchable
-                  clearable={!ctrl.lockedConductor}
-                  radius="xl"
-                  className="flex-1"
-                  disabled={ctrl.lockedConductor || ctrl.loadingCatalogos || confirmando}
-                  rightSection={
-                    ctrl.lockedConductor ? (
-                      <IconLock size={14} className="text-zinc-500" />
-                    ) : ctrl.loadingCatalogos ? (
-                      <Loader size={16} />
-                    ) : undefined
-                  }
-                  classNames={fieldClasses}
-                />
-                {!ctrl.lockedConductor && (
-                  <Tooltip label="Registrar Nuevo Conductor" withArrow>
-                    <ActionIcon
-                      type="button"
-                      variant="filled"
-                      color="zinc"
-                      radius="xl"
-                      size="lg"
-                      disabled={confirmando}
-                      onClick={() => setOpenConductorModal(true)}
-                      className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700"
-                    >
-                      <IconPlus size={18} />
-                    </ActionIcon>
-                  </Tooltip>
-                )}
-              </div>
-            </Grid.Col>
-
-            {!esDespacho && (
-              <Grid.Col span={{ base: 12, sm: 6 }}>
-                <div className="flex gap-2 items-end">
-                  <Select
-                    label="Proveedor Minero"
-                    placeholder={ctrl.loadingCatalogos ? "Cargando..." : "Seleccione proveedor"}
-                    data={proveedoresOptions}
-                    withAsterisk
-                    required
-                    value={
-                      ctrl.programacion?.id_proveedor_minero
-                        ? String(ctrl.programacion.id_proveedor_minero)
-                        : ctrl.idProveedorMineroEditado
-                          ? String(ctrl.idProveedorMineroEditado)
-                          : null
-                    }
-                    onChange={(val) => ctrl.setIdProveedorMineroEditado(val ? Number(val) : null)}
-                    leftSection={<IconUser className="w-4 h-4 text-zinc-500" />}
-                    searchable
-                    radius="xl"
-                    className="flex-1"
-                    disabled={confirmando}
-                    readOnly={Boolean(ctrl.programacion?.id_proveedor_minero)}
-                    rightSection={
-                      ctrl.programacion?.id_proveedor_minero ? (
-                        <IconLock size={14} className="text-zinc-500" />
-                      ) : ctrl.loadingCatalogos ? (
-                        <Loader size={16} />
-                      ) : undefined
-                    }
-                    classNames={fieldClasses}
-                  />
-                  {!ctrl.programacion?.id_proveedor_minero && (
-                    <Tooltip label="Registrar Nuevo Proveedor Minero" withArrow>
-                      <ActionIcon
-                        type="button"
-                        variant="filled"
-                        color="zinc"
-                        radius="xl"
-                        size="lg"
-                        disabled={confirmando}
-                        onClick={() => setOpenProveedorModal(true)}
-                        className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 mb-0.5"
-                      >
-                        <IconPlus size={18} />
-                      </ActionIcon>
-                    </Tooltip>
-                  )}
-                </div>
-              </Grid.Col>
-            )}
-
-            <Grid.Col span={{ base: 12, sm: 6 }}>
-              <div className="flex gap-2 items-end">
-                <Select
-                  label="Tipo de Vehículo"
-                  placeholder={ctrl.loadingCatalogos ? "Cargando..." : "Seleccione tipo de vehículo"}
-                  data={tiposVehiculoOptions}
-                  value={
-                    ctrl.programacion?.id_tipo_vehiculo
-                      ? String(ctrl.programacion.id_tipo_vehiculo)
-                      : ctrl.idTipoVehiculoEditado
-                        ? String(ctrl.idTipoVehiculoEditado)
-                        : null
-                  }
-                  onChange={(val) => ctrl.setIdTipoVehiculoEditado(val ? Number(val) : null)}
-                  leftSection={<IconTruck className="w-4 h-4 text-zinc-500" />}
-                  searchable
-                  radius="xl"
-                  className="flex-1"
-                  disabled={confirmando}
-                  readOnly={Boolean(ctrl.programacion?.id_tipo_vehiculo)}
-                  rightSection={
-                    ctrl.programacion?.id_tipo_vehiculo ? (
-                      <IconLock size={14} className="text-zinc-500" />
-                    ) : ctrl.loadingCatalogos ? (
-                      <Loader size={16} />
-                    ) : undefined
-                  }
-                  classNames={fieldClasses}
-                />
-                {!ctrl.programacion?.id_tipo_vehiculo && (
-                  <Tooltip label="Registrar Tipo de Vehículo" withArrow>
-                    <ActionIcon
-                      type="button"
-                      variant="filled"
-                      color="zinc"
-                      radius="xl"
-                      size="lg"
-                      disabled={confirmando}
-                      onClick={() => setOpenTipoVehiculoModal(true)}
-                      className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700"
-                    >
-                      <IconPlus size={18} />
-                    </ActionIcon>
-                  </Tooltip>
-                )}
-              </div>
-            </Grid.Col>
-
-            <Grid.Col span={{ base: 12, sm: 6 }}>
-              <div className="flex gap-2 items-end">
-                <Select
-                  label="Vehículo Carreta (opcional)"
-                  placeholder={
-                    ctrl.loadingCatalogos
-                      ? "Cargando..."
-                      : vehiculosCarretaOptions.length === 0
-                        ? "Sin vehículos carreta registrados"
-                        : "Seleccione (opcional)"
-                  }
-                  data={vehiculosCarretaOptions}
-                  value={
-                    ctrl.programacion?.id_vehiculo_carreta
-                      ? String(ctrl.programacion.id_vehiculo_carreta)
-                      : ctrl.idVehiculoCarreta
-                        ? String(ctrl.idVehiculoCarreta)
-                        : null
-                  }
-                  onChange={(val) => ctrl.setIdVehiculoCarreta(val ? Number(val) : null)}
-                  leftSection={<IconTruck className="w-4 h-4 text-zinc-500" />}
-                  searchable
-                  clearable
-                  radius="xl"
-                  className="flex-1"
-                  disabled={confirmando}
-                  readOnly={Boolean(ctrl.programacion?.id_vehiculo_carreta)}
-                  rightSection={
-                    ctrl.programacion?.id_vehiculo_carreta ? (
-                      <IconLock size={14} className="text-zinc-500" />
-                    ) : ctrl.loadingCatalogos ? (
-                      <Loader size={16} />
-                    ) : undefined
-                  }
-                  classNames={fieldClasses}
-                />
-                {!ctrl.programacion?.id_vehiculo_carreta && (
-                  <Tooltip label="Registrar Vehículo Carreta" withArrow>
-                    <ActionIcon
-                      type="button"
-                      variant="filled"
-                      color="zinc"
-                      radius="xl"
-                      size="lg"
-                      disabled={confirmando}
-                      onClick={() => {
-                        if (idTipoVehiculoCarreta === null) {
-                          notifyError(
-                            "No existe un Tipo de Vehículo marcado como 'Carreta'. Créelo en Gestión de Tipos de Vehículo antes de continuar.",
-                          );
-                          return;
-                        }
-                        setOpenCarretaModal(true);
-                      }}
-                      className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700"
-                    >
-                      <IconPlus size={18} />
-                    </ActionIcon>
-                  </Tooltip>
-                )}
-              </div>
-            </Grid.Col>
-          </Grid>
-
-          {/* Guías */}
-          {!esDespacho && (
-            <div className="pt-3 border-t border-zinc-800 space-y-2">
-              <Group gap="xs">
-                <IconFileText className="w-4 h-4 text-indigo-400" />
-                <Text size="xs" fw={600} className="text-zinc-300">
-                  Guías (opcional)
+              ) : (
+                <Text size="xs" c="zinc.6" fs="italic">
+                  Sin archivo adjunto.
                 </Text>
-              </Group>
-              <Grid gutter="sm">
-                <Grid.Col span={{ base: 12, sm: 6 }}>
-                  <TextInput
-                    label="Guía Remitente"
-                    placeholder="Ej. 001-123456"
-                    radius="xl"
-                    value={ctrl.programacion?.guia_remitente ?? ctrl.guiaRemitente}
-                    onChange={(e) => ctrl.setGuiaRemitente(e.currentTarget.value)}
-                    readOnly={Boolean(ctrl.programacion?.guia_remitente)}
-                    disabled={confirmando}
-                    rightSection={ctrl.programacion?.guia_remitente ? <IconLock size={14} className="text-zinc-500" /> : undefined}
-                    classNames={fieldClasses}
-                  />
-                </Grid.Col>
-                <Grid.Col span={{ base: 12, sm: 6 }}>
-                  <TextInput
-                    label="Guía Transportista"
-                    placeholder="Ej. 001-123456"
-                    radius="xl"
-                    value={ctrl.programacion?.guia_transportista ?? ctrl.guiaTransportista}
-                    onChange={(e) => ctrl.setGuiaTransportista(e.currentTarget.value)}
-                    readOnly={Boolean(ctrl.programacion?.guia_transportista)}
-                    disabled={confirmando}
-                    rightSection={ctrl.programacion?.guia_transportista ? <IconLock size={14} className="text-zinc-500" /> : undefined}
-                    classNames={fieldClasses}
-                  />
-                </Grid.Col>
-              </Grid>
-
-              {/* Documentos de programación (archivos subidos al programar) */}
-              {ctrl.programacion?.documentos_programacion && (
-                <div className="pt-2 space-y-2">
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <div className="space-y-2">
-                      <Text size="10px" fw={700} className="text-zinc-500 uppercase tracking-widest">
-                        Guía Remitente
-                      </Text>
-                      {ctrl.programacion.documentos_programacion.guia_remitente ? (
-                        <ArchivoCard
-                          archivo={ctrl.programacion.documentos_programacion.guia_remitente}
-                        />
-                      ) : (
-                        <Text size="xs" c="zinc.6" fs="italic">
-                          Sin archivo adjunto.
-                        </Text>
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      <Text size="10px" fw={700} className="text-zinc-500 uppercase tracking-widest">
-                        Guía Transportista
-                      </Text>
-                      {ctrl.programacion.documentos_programacion.guia_transportista ? (
-                        <ArchivoCard
-                          archivo={ctrl.programacion.documentos_programacion.guia_transportista}
-                        />
-                      ) : (
-                        <Text size="xs" c="zinc.6" fs="italic">
-                          Sin archivo adjunto.
-                        </Text>
-                      )}
-                    </div>
-                  </div>
-                </div>
               )}
             </div>
-          )}
-
-         
+            <div className="space-y-2">
+              <Text size="10px" fw={700} className="text-zinc-500 uppercase tracking-widest">
+                Guía Transportista
+              </Text>
+              {ctrl.programacion.documentos_programacion.guia_transportista ? (
+                <ArchivoCard
+                  archivo={ctrl.programacion.documentos_programacion.guia_transportista}
+                />
+              ) : (
+                <Text size="xs" c="zinc.6" fs="italic">
+                  Sin archivo adjunto.
+                </Text>
+              )}
+            </div>
+          </div>
         </div>
+      )}
+    </div>
+  );
 
-        {/* Evidencias de la Recepción */}
-        <div className="bg-zinc-900/30 border border-zinc-800/80 p-4 rounded-2xl">
-          <MultiFilePicker
-            files={ctrl.evidencias}
-            onFilesChange={ctrl.setEvidencias}
-            label="Evidencias de la Recepción"
-            description="Fotografías de la unidad, guía de remisión o documentos adjuntos"
-          />
-        </div>
+  const bloqueEvidencias = (
+    <div className="bg-zinc-900/30 border border-zinc-800/80 p-4 rounded-2xl">
+      <MultiFilePicker
+        files={ctrl.evidencias}
+        onFilesChange={ctrl.setEvidencias}
+        label="Evidencias de la Recepción"
+        description="Fotografías de la unidad, guía de remisión o documentos adjuntos"
+      />
+    </div>
+  );
 
-        <Divider
-          label="Acompañantes y Vehículos de la Recepción"
-          labelPosition="left"
-          classNames={{ label: "text-zinc-500 font-medium text-xs uppercase tracking-wider" }}
-        />
+  const bloqueObservacion = (
+    <div className="bg-zinc-900/30 border border-zinc-800/80 p-4 rounded-2xl">
+      <Textarea
+        label="Observación"
+        placeholder="Registre cualquier novedad del ingreso (opcional)"
+        radius="xl"
+        minRows={3}
+        autosize
+        maxRows={6}
+        value={ctrl.observacion}
+        onChange={(e) => ctrl.setObservacion(e.currentTarget.value)}
+        disabled={confirmando}
+        classNames={fieldClasses}
+      />
+    </div>
+  );
 
-        {/* Botones principales */}
-        <Group grow gap="md">
-          <Button
-            radius="xl"
-            variant="default"
-            size="sm"
-            leftSection={<IconUserPlus size={18} className="text-indigo-400" />}
-            onClick={() => setOpenModalAcompanante(true)}
-            disabled={confirmando}
-            className="bg-zinc-800/80! hover:bg-zinc-700/80! text-zinc-200! border-zinc-700! shadow-sm py-2"
-          >
-            + Agregar Acompañante de Unidad
-          </Button>
+  const separadorAcompanantes = (
+    <Divider
+      label="Acompañantes y Vehículos de la Recepción"
+      labelPosition="left"
+      classNames={{ label: "text-zinc-500 font-medium text-xs uppercase tracking-wider" }}
+    />
+  );
 
-          <Button
-            radius="xl"
-            variant="default"
-            size="sm"
-            leftSection={<IconTruck size={18} className="text-indigo-400" />}
-            onClick={() => setOpenModalVehiculo(true)}
-            disabled={confirmando}
-            className="bg-zinc-800/80! hover:bg-zinc-700/80! text-zinc-200! border-zinc-700! shadow-sm py-2"
-          >
-            + Agregar Vehículo Acompañante
-          </Button>
-        </Group>
+  const botonesAcompanantes = (
+    <Group grow gap="md">
+      <Button
+        type="button"
+        radius="xl"
+        variant="default"
+        size="sm"
+        leftSection={<IconUserPlus size={18} className="text-indigo-400" />}
+        onClick={() => setOpenModalAcompanante(true)}
+        disabled={confirmando}
+        className="bg-zinc-800/80! hover:bg-zinc-700/80! text-zinc-200! border-zinc-700! shadow-sm py-2"
+      >
+        + Agregar Acompañante de Unidad
+      </Button>
 
-        {/* Sección Acompañantes de la Unidad Principal */}
-        {visitantesPrincipal.length > 0 && (
-          <div className="space-y-2">
-            <Text size="xs" fw={700} className="text-zinc-400 uppercase tracking-wider">
-              Acompañantes del Vehículo Principal ({visitantesPrincipal.length})
-            </Text>
-            <Stack gap="xs">
-              {ctrl.visitantes.map((v, index) => {
-                if (v.id_visita_vehiculo) return null;
-                return (
-                  <div
-                    key={`main-${index}`}
-                    className="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900/40 p-3"
-                  >
-                    <Group gap="sm">
-                      <IconUserCheck className="w-5 h-5 text-indigo-400" />
-                      <div>
-                        <Group gap="xs">
-                          <Text size="sm" fw={600} className="text-zinc-100">
-                            {v.nombre} {v.apellido ?? ""}
-                          </Text>
-                          <Badge color="indigo" variant="light" size="xs">
-                            Acompañante
-                          </Badge>
-                        </Group>
-                        <Text size="xs" c="zinc.5">
-                          {v.dni ? `DNI: ${v.dni}` : "Sin DNI"}{" "}
-                          {v.telefono ? `• Tel: ${v.telefono}` : ""}
+      <Button
+        type="button"
+        radius="xl"
+        variant="default"
+        size="sm"
+        leftSection={<IconTruck size={18} className="text-indigo-400" />}
+        onClick={() => setOpenModalVehiculo(true)}
+        disabled={confirmando}
+        className="bg-zinc-800/80! hover:bg-zinc-700/80! text-zinc-200! border-zinc-700! shadow-sm py-2"
+      >
+        + Agregar Vehículo Acompañante
+      </Button>
+    </Group>
+  );
+
+  const listaAcompanantes = (
+    <>
+      {/* Sección Acompañantes de la Unidad Principal */}
+      {visitantesPrincipal.length > 0 && (
+        <div className="space-y-2">
+          <Text size="xs" fw={700} className="text-zinc-400 uppercase tracking-wider">
+            Acompañantes del Vehículo Principal ({visitantesPrincipal.length})
+          </Text>
+          <Stack gap="xs">
+            {ctrl.visitantes.map((v, index) => {
+              if (v.id_visita_vehiculo) return null;
+              return (
+                <div
+                  key={`main-${index}`}
+                  className="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900/40 p-3"
+                >
+                  <Group gap="sm">
+                    <IconUserCheck className="w-5 h-5 text-indigo-400" />
+                    <div>
+                      <Group gap="xs">
+                        <Text size="sm" fw={600} className="text-zinc-100">
+                          {v.nombre} {v.apellido ?? ""}
                         </Text>
-                      </div>
-                    </Group>
+                        <Badge color="indigo" variant="light" size="xs">
+                          Acompañante
+                        </Badge>
+                      </Group>
+                      <Text size="xs" c="zinc.5">
+                        {v.dni ? `DNI: ${v.dni}` : "Sin DNI"}{" "}
+                        {v.telefono ? `• Tel: ${v.telefono}` : ""}
+                      </Text>
+                    </div>
+                  </Group>
+                  <Group gap="xs">
+                    {(Boolean(v.foto_documento?.length) || Boolean(v.foto_documento_existente)) ? (
+                      <Button
+                        variant="subtle"
+                        size="compact-xs"
+                        color="blue"
+                        leftSection={<IconPhoto size={12} />}
+                        onClick={() =>
+                          setVisualizarFotos({
+                            title: `Fotos de ${v.nombre}`,
+                            fotosNuevas: v.foto_documento,
+                            fotosExistentes: typeof v.foto_documento_existente === "string" ? [v.foto_documento_existente] : (Array.isArray(v.foto_documento_existente) ? v.foto_documento_existente : []),
+                          })
+                        }
+                      >
+                        Ver {(v.foto_documento?.length ?? 0) + (v.foto_documento_existente ? 1 : 0)} foto(s)
+                      </Button>
+                    ) : (
+                      <Text size="xs" c="zinc.6" fs="italic">
+                        Sin fotos
+                      </Text>
+                    )}
+                    <Button
+                      variant="subtle"
+                      size="compact-xs"
+                      color="indigo"
+                      leftSection={<IconEdit size={12} />}
+                      onClick={() =>
+                        setEditingAcompanante({
+                          index,
+                          datos: {
+                            nombre: v.nombre,
+                            apellido: v.apellido,
+                            dni: v.dni,
+                            telefono: v.telefono,
+                            foto_documento: v.foto_documento,
+                            id_visitante: v.id_visitante,
+                          },
+                        })
+                      }
+                    >
+                      Editar
+                    </Button>
+                    <ActionIcon
+                      variant="subtle"
+                      color="red"
+                      onClick={() => ctrl.eliminarVisitante(index)}
+                      disabled={confirmando}
+                    >
+                      <IconTrash size={16} />
+                    </ActionIcon>
+                  </Group>
+                </div>
+              );
+            })}
+          </Stack>
+        </div>
+      )}
+    </>
+  );
+
+  const listaVehiculosAcompanantes = (
+    <>
+      {/* Sección Vehículos Acompañantes */}
+      {ctrl.vehiculos.length > 0 && (
+        <div className="space-y-3">
+          <Text size="xs" fw={700} className="text-zinc-400 uppercase tracking-wider">
+            Vehículos Acompañantes ({ctrl.vehiculos.length})
+          </Text>
+          <Stack gap="sm">
+            {ctrl.vehiculos.map((v) => {
+              const ocupantesDeVeh = ctrl.visitantes.filter((vis) => vis.id_visita_vehiculo === v.id);
+              const fotosLocalesVeh = v.archivos ?? [];
+              const fotosExistentesVeh = Array.isArray(v.url_foto)
+                ? v.url_foto
+                : v.url_foto
+                  ? [String(v.url_foto)]
+                  : [];
+              const totalFotosVeh = fotosLocalesVeh.length + fotosExistentesVeh.length;
+              return (
+                <div
+                  key={v.id}
+                  className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 space-y-3"
+                >
+                  <div className="flex items-center justify-between border-b border-zinc-800/80 pb-2">
                     <Group gap="xs">
-                      {(Boolean(v.foto_documento?.length) || Boolean(v.foto_documento_existente)) ? (
+                      <IconTruck className="w-5 h-5 text-indigo-400" />
+                      <Text size="sm" fw={700} className="text-zinc-100 font-mono uppercase tracking-wider">
+                        Placa: {v.placa}
+                      </Text>
+                      <Badge variant="subtle" color="indigo" size="xs">
+                        {ocupantesDeVeh.length} ocupante(s)
+                      </Badge>
+                      {totalFotosVeh > 0 ? (
                         <Button
                           variant="subtle"
                           size="compact-xs"
@@ -663,13 +864,13 @@ const esDespacho =
                           leftSection={<IconPhoto size={12} />}
                           onClick={() =>
                             setVisualizarFotos({
-                              title: `Fotos de ${v.nombre}`,
-                              fotosNuevas: v.foto_documento,
-                              fotosExistentes: typeof v.foto_documento_existente === "string" ? [v.foto_documento_existente] : (Array.isArray(v.foto_documento_existente) ? v.foto_documento_existente : []),
+                              title: `Fotos del Vehículo ${v.placa}`,
+                              fotosNuevas: fotosLocalesVeh,
+                              fotosExistentes: fotosExistentesVeh,
                             })
                           }
                         >
-                          Ver {(v.foto_documento?.length ?? 0) + (v.foto_documento_existente ? 1 : 0)} foto(s)
+                          Ver {totalFotosVeh} foto(s) vehículo
                         </Button>
                       ) : (
                         <Text size="xs" c="zinc.6" fs="italic">
@@ -682,223 +883,427 @@ const esDespacho =
                         color="indigo"
                         leftSection={<IconEdit size={12} />}
                         onClick={() =>
-                          setEditingAcompanante({
-                            index,
+                          setEditingVehiculo({
+                            id: v.id,
                             datos: {
-                              nombre: v.nombre,
-                              apellido: v.apellido,
-                              dni: v.dni,
-                              telefono: v.telefono,
-                              foto_documento: v.foto_documento,
-                              id_visitante: v.id_visitante,
+                              placa: v.placa,
+                              fotos: v.archivos,
+                              cantidadPersonas: v.cantidad_personas ?? ocupantesDeVeh.length,
                             },
                           })
                         }
                       >
                         Editar
                       </Button>
-                      <ActionIcon
-                        variant="subtle"
-                        color="red"
-                        onClick={() => ctrl.eliminarVisitante(index)}
-                        disabled={confirmando}
-                      >
-                        <IconTrash size={16} />
-                      </ActionIcon>
                     </Group>
+                    <ActionIcon
+                      variant="subtle"
+                      color="red"
+                      onClick={() => ctrl.eliminarVehiculo(v.id)}
+                      disabled={ctrl.loadingVehiculo || confirmando}
+                    >
+                      <IconTrash size={16} />
+                    </ActionIcon>
                   </div>
-                );
-              })}
-            </Stack>
-          </div>
-        )}
 
-        {/* Sección Vehículos Acompañantes */}
-        {ctrl.vehiculos.length > 0 && (
-          <div className="space-y-3">
-            <Text size="xs" fw={700} className="text-zinc-400 uppercase tracking-wider">
-              Vehículos Acompañantes ({ctrl.vehiculos.length})
-            </Text>
-            <Stack gap="sm">
-              {ctrl.vehiculos.map((v) => {
-                const ocupantesDeVeh = ctrl.visitantes.filter((vis) => vis.id_visita_vehiculo === v.id);
-                const fotosLocalesVeh = v.archivos ?? [];
-                const fotosExistentesVeh = Array.isArray(v.url_foto)
-                  ? v.url_foto
-                  : v.url_foto
-                    ? [String(v.url_foto)]
-                    : [];
-                const totalFotosVeh = fotosLocalesVeh.length + fotosExistentesVeh.length;
-                return (
-                  <div
-                    key={v.id}
-                    className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 space-y-3"
-                  >
-                    <div className="flex items-center justify-between border-b border-zinc-800/80 pb-2">
-                      <Group gap="xs">
-                        <IconTruck className="w-5 h-5 text-indigo-400" />
-                        <Text size="sm" fw={700} className="text-zinc-100 font-mono uppercase tracking-wider">
-                          Placa: {v.placa}
-                        </Text>
-                        <Badge variant="subtle" color="indigo" size="xs">
-                          {ocupantesDeVeh.length} ocupante(s)
-                        </Badge>
-                        {totalFotosVeh > 0 ? (
-                          <Button
-                            variant="subtle"
-                            size="compact-xs"
-                            color="blue"
-                            leftSection={<IconPhoto size={12} />}
-                            onClick={() =>
-                              setVisualizarFotos({
-                                title: `Fotos del Vehículo ${v.placa}`,
-                                fotosNuevas: fotosLocalesVeh,
-                                fotosExistentes: fotosExistentesVeh,
-                              })
-                            }
+                  {ocupantesDeVeh.length > 0 ? (
+                    <div className="space-y-2 pl-2">
+                      {ocupantesDeVeh.map((oc, slotIdx) => {
+                        const idxOriginal = ctrl.visitantes.findIndex((vis) => vis === oc);
+                        const tieneDatos = Boolean(oc.nombre && oc.nombre.trim());
+                        return (
+                          <div
+                            key={`veh-${v.id}-${idxOriginal}`}
+                            className="flex items-center justify-between rounded-lg border border-zinc-800/60 bg-zinc-900/60 p-2 px-3"
                           >
-                            Ver {totalFotosVeh} foto(s) vehículo
-                          </Button>
-                        ) : (
-                          <Text size="xs" c="zinc.6" fs="italic">
-                            Sin fotos
-                          </Text>
-                        )}
-                        <Button
-                          variant="subtle"
-                          size="compact-xs"
-                          color="indigo"
-                          leftSection={<IconEdit size={12} />}
-                          onClick={() =>
-                            setEditingVehiculo({
-                              id: v.id,
-                              datos: {
-                                placa: v.placa,
-                                fotos: v.archivos,
-                                cantidadPersonas: v.cantidad_personas ?? ocupantesDeVeh.length,
-                              },
-                            })
-                          }
-                        >
-                          Editar
-                        </Button>
-                      </Group>
-                      <ActionIcon
-                        variant="subtle"
-                        color="red"
-                        onClick={() => ctrl.eliminarVehiculo(v.id)}
-                        disabled={ctrl.loadingVehiculo || confirmando}
-                      >
-                        <IconTrash size={16} />
-                      </ActionIcon>
-                    </div>
-
-                    {ocupantesDeVeh.length > 0 ? (
-                      <div className="space-y-2 pl-2">
-                        {ocupantesDeVeh.map((oc, slotIdx) => {
-                          const idxOriginal = ctrl.visitantes.findIndex((vis) => vis === oc);
-                          const tieneDatos = Boolean(oc.nombre && oc.nombre.trim());
-                          return (
-                            <div
-                              key={`veh-${v.id}-${idxOriginal}`}
-                              className="flex items-center justify-between rounded-lg border border-zinc-800/60 bg-zinc-900/60 p-2 px-3"
-                            >
-                              {tieneDatos ? (
-                                <Group gap="xs">
-                                  <Text size="xs" className="text-zinc-100 font-semibold">
-                                    {oc.nombre} {oc.apellido ?? ""}
-                                  </Text>
-                                  {oc.dni && (
-                                    <Text size="xs" c="zinc.5">
-                                      ({oc.dni})
-                                    </Text>
-                                  )}
-                                  {oc.es_conductor ? (
-                                    <Badge color="indigo" variant="light" size="xs">
-                                      Conductor Vehículo
-                                    </Badge>
-                                  ) : (
-                                    <Badge color="gray" variant="light" size="xs">
-                                      Acompañante
-                                    </Badge>
-                                  )}
-                                  {(Boolean(oc.foto_documento?.length) || Boolean(oc.foto_documento_existente)) ? (
-                                    <Button
-                                      variant="subtle"
-                                      size="compact-xs"
-                                      color="blue"
-                                      leftSection={<IconPhoto size={12} />}
-                                      onClick={() =>
-                                        setVisualizarFotos({
-                                          title: `Fotos de ${oc.nombre}`,
-                                          fotosNuevas: oc.foto_documento,
-                                          fotosExistentes: typeof oc.foto_documento_existente === "string" ? [oc.foto_documento_existente] : (Array.isArray(oc.foto_documento_existente) ? oc.foto_documento_existente : []),
-                                        })
-                                      }
-                                    >
-                                      {(oc.foto_documento?.length ?? 0) + (oc.foto_documento_existente ? 1 : 0)} foto(s)
-                                    </Button>
-                                  ) : null}
-                                </Group>
-                              ) : (
-                                <Group gap="xs">
-                                  <Badge color="yellow" variant="dot" size="xs">
-                                    Ocupante #{slotIdx + 1}
-                                  </Badge>
+                            {tieneDatos ? (
+                              <Group gap="xs">
+                                <Text size="xs" className="text-zinc-100 font-semibold">
+                                  {oc.nombre} {oc.apellido ?? ""}
+                                </Text>
+                                {oc.dni && (
                                   <Text size="xs" c="zinc.5">
-                                    Sin datos completados
+                                    ({oc.dni})
                                   </Text>
-                                </Group>
-                              )}
-
-                              <Group gap={6}>
-                                <Button
-                                  variant="subtle"
-                                  size="compact-xs"
-                                  color={tieneDatos ? "indigo" : "yellow"}
-                                  leftSection={tieneDatos ? <IconEdit size={12} /> : <IconUserPlus size={12} />}
-                                  onClick={() =>
-                                    setEditingSlot({
-                                      index: idxOriginal,
-                                      vehiculoPlaca: v.placa,
-                                      slotNum: slotIdx + 1,
-                                      datos: {
-                                        nombre: oc.nombre,
-                                        apellido: oc.apellido,
-                                        dni: oc.dni,
-                                        telefono: oc.telefono,
-                                        es_conductor: oc.es_conductor,
-                                        foto_documento: oc.foto_documento,
-                                      },
-                                    })
-                                  }
-                                >
-                                  {tieneDatos ? "Editar" : "Completar Datos"}
-                                </Button>
-                                <ActionIcon
-                                  variant="subtle"
-                                  color="red"
-                                  size="xs"
-                                  onClick={() => ctrl.eliminarVisitante(idxOriginal)}
-                                  disabled={confirmando}
-                                >
-                                  <IconX size={14} />
-                                </ActionIcon>
+                                )}
+                                {oc.es_conductor ? (
+                                  <Badge color="indigo" variant="light" size="xs">
+                                    Conductor Vehículo
+                                  </Badge>
+                                ) : (
+                                  <Badge color="gray" variant="light" size="xs">
+                                    Acompañante
+                                  </Badge>
+                                )}
+                                {(Boolean(oc.foto_documento?.length) || Boolean(oc.foto_documento_existente)) ? (
+                                  <Button
+                                    variant="subtle"
+                                    size="compact-xs"
+                                    color="blue"
+                                    leftSection={<IconPhoto size={12} />}
+                                    onClick={() =>
+                                      setVisualizarFotos({
+                                        title: `Fotos de ${oc.nombre}`,
+                                        fotosNuevas: oc.foto_documento,
+                                        fotosExistentes: typeof oc.foto_documento_existente === "string" ? [oc.foto_documento_existente] : (Array.isArray(oc.foto_documento_existente) ? oc.foto_documento_existente : []),
+                                      })
+                                    }
+                                  >
+                                    {(oc.foto_documento?.length ?? 0) + (oc.foto_documento_existente ? 1 : 0)} foto(s)
+                                  </Button>
+                                ) : null}
                               </Group>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <Text size="xs" c="zinc.5" fs="italic">
-                        Sin ocupantes registrados para este vehículo.
-                      </Text>
-                    )}
-                  </div>
-                );
-              })}
-            </Stack>
+                            ) : (
+                              <Group gap="xs">
+                                <Badge color="yellow" variant="dot" size="xs">
+                                  Ocupante #{slotIdx + 1}
+                                </Badge>
+                                <Text size="xs" c="zinc.5">
+                                  Sin datos completados
+                                </Text>
+                              </Group>
+                            )}
+
+                            <Group gap={6}>
+                              <Button
+                                variant="subtle"
+                                size="compact-xs"
+                                color={tieneDatos ? "indigo" : "yellow"}
+                                leftSection={tieneDatos ? <IconEdit size={12} /> : <IconUserPlus size={12} />}
+                                onClick={() =>
+                                  setEditingSlot({
+                                    index: idxOriginal,
+                                    vehiculoPlaca: v.placa,
+                                    slotNum: slotIdx + 1,
+                                    datos: {
+                                      nombre: oc.nombre,
+                                      apellido: oc.apellido,
+                                      dni: oc.dni,
+                                      telefono: oc.telefono,
+                                      es_conductor: oc.es_conductor,
+                                      foto_documento: oc.foto_documento,
+                                    },
+                                  })
+                                }
+                              >
+                                {tieneDatos ? "Editar" : "Completar Datos"}
+                              </Button>
+                              <ActionIcon
+                                variant="subtle"
+                                color="red"
+                                size="xs"
+                                onClick={() => ctrl.eliminarVisitante(idxOriginal)}
+                                disabled={confirmando}
+                              >
+                                <IconX size={14} />
+                              </ActionIcon>
+                            </Group>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <Text size="xs" c="zinc.5" fs="italic">
+                      Sin ocupantes registrados para este vehículo.
+                    </Text>
+                  )}
+                </div>
+              );
+            })}
+          </Stack>
+        </div>
+      )}
+    </>
+  );
+
+  const accionesEscritorio = (
+    <Group justify="flex-end" gap="md" mt="xl">
+      <Button
+        type="button"
+        variant="subtle"
+        onClick={onClose}
+        disabled={confirmando}
+        radius="xl"
+        size="sm"
+        className="text-zinc-400 hover:text-white hover:bg-zinc-800/50"
+      >
+        Cancelar
+      </Button>
+      <Button
+        type="button"
+        loading={confirmando}
+        onClick={handleConfirmar}
+        radius="xl"
+        size="sm"
+        leftSection={<IconCheck size={16} />}
+        className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-900/20 px-8"
+      >
+        {programacion ? "Confirmar Programación" : "Registrar Recepción"}
+      </Button>
+    </Group>
+  );
+
+  /* --------------------------------------------------------------------- */
+  /* Wizard móvil                                                          */
+  /* --------------------------------------------------------------------- */
+
+  const headerWizard = (
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-3 space-y-3">
+      <Group justify="space-between" wrap="nowrap" gap="sm">
+        <Group gap="sm" wrap="nowrap" className="min-w-0">
+          <ThemeIcon size={30} radius="xl" variant="light" color="indigo">
+            <Text size="xs" fw={800}>
+              {paso + 1}
+            </Text>
+          </ThemeIcon>
+          <div className="min-w-0">
+            <Text size="10px" fw={700} className="text-zinc-500 uppercase tracking-widest">
+              Paso {paso + 1} de {PASOS_WIZARD.length}
+            </Text>
+            <Text size="sm" fw={700} className="text-zinc-100 truncate">
+              {PASOS_WIZARD[paso].titulo}
+            </Text>
           </div>
+        </Group>
+      </Group>
+
+      <Progress
+        value={((paso + 1) / PASOS_WIZARD.length) * 100}
+        size="xs"
+        radius="xl"
+        color="indigo"
+      />
+
+      <Group gap={6} wrap="nowrap">
+        {PASOS_WIZARD.map((p, indice) => {
+          const activo = indice === paso;
+          const completado = indice < paso;
+          return (
+            <UnstyledButton
+              key={p.titulo}
+              type="button"
+              onClick={() => irAPaso(indice)}
+              className="flex-1 min-w-0"
+              aria-current={activo ? "step" : undefined}
+            >
+              <div
+                className={`flex flex-col items-center gap-1 rounded-lg border px-1 py-1.5 transition-colors ${
+                  activo
+                    ? "border-indigo-500/60 bg-indigo-500/10"
+                    : "border-zinc-800 bg-zinc-950/40"
+                }`}
+              >
+                <div
+                  className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${
+                    completado
+                      ? "bg-emerald-500/20 text-emerald-300"
+                      : activo
+                        ? "bg-indigo-500 text-white"
+                        : "bg-zinc-800 text-zinc-400"
+                  }`}
+                >
+                  {completado ? <IconCheck size={12} /> : indice + 1}
+                </div>
+                <Text
+                  size="9px"
+                  fw={700}
+                  truncate
+                  className={activo ? "text-indigo-200" : "text-zinc-500"}
+                >
+                  {p.titulo}
+                </Text>
+              </div>
+            </UnstyledButton>
+          );
+        })}
+      </Group>
+    </div>
+  );
+
+  const contenidoPaso = (
+    <>
+      {paso === 0 && (
+        <Stack gap="md">
+          {campoEmpresaTransporte}
+          {campoConductor}
+        </Stack>
+      )}
+
+      {paso === 1 && (
+        <Stack gap="md">
+          {campoVehiculo}
+          {campoTipoVehiculo}
+          {campoVehiculoCarreta}
+        </Stack>
+      )}
+
+      {paso === 2 && (
+        <Stack gap="md">
+          {esDespacho ? (
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4">
+              <Text size="sm" c="zinc.4">
+                En el despacho de mineral no se registran guías. Puede continuar
+                al paso de cierre.
+              </Text>
+            </div>
+          ) : (
+            bloqueGuias
+          )}
+        </Stack>
+      )}
+
+      {paso === 3 && (
+        <Stack gap="md">
+          {bloqueEvidencias}
+          {bloqueObservacion}
+          {separadorAcompanantes}
+          {botonesAcompanantes}
+          {listaAcompanantes}
+          {listaVehiculosAcompanantes}
+        </Stack>
+      )}
+    </>
+  );
+
+  const navegacionWizard = (
+    <Group justify="space-between" gap="sm" mt="md" className="sticky bottom-0 bg-zinc-950/95 pt-2 pb-1 backdrop-blur">
+      <Group gap="xs">
+        <Button
+          type="button"
+          variant="subtle"
+          onClick={onClose}
+          disabled={confirmando}
+          radius="xl"
+          size="sm"
+          className="text-zinc-400 hover:text-white hover:bg-zinc-800/50"
+        >
+          Cancelar
+        </Button>
+        <Button
+          type="button"
+          variant="default"
+          onClick={retrocederPaso}
+          disabled={paso === 0 || confirmando}
+          radius="xl"
+          size="sm"
+          leftSection={<IconChevronLeft size={16} />}
+          className="bg-zinc-800/80! hover:bg-zinc-700/80! text-zinc-200! border-zinc-700!"
+        >
+          Anterior
+        </Button>
+      </Group>
+
+      {paso < PASOS_WIZARD.length - 1 ? (
+        <Button
+          type="submit"
+          radius="xl"
+          size="sm"
+          rightSection={<IconChevronRight size={16} />}
+          className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-900/20 px-6"
+        >
+          Siguiente
+        </Button>
+      ) : (
+        <Button
+          type="submit"
+          radius="xl"
+          size="sm"
+          loading={confirmando}
+          leftSection={<IconCheck size={16} />}
+          className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-900/20 px-6"
+        >
+          {programacion ? "Confirmar" : "Registrar"}
+        </Button>
+      )}
+    </Group>
+  );
+
+  return (
+    <ModalEstandar
+      opened={opened}
+      close={onClose}
+      title={programacion ? `Confirmar Programación #${programacion.id}` : "Registrar Recepción de Unidad"}
+      size="xl"
+      fullScreen={esMovil}
+      validateClose
+    >
+      <Stack gap="md">
+        {esMovil ? (
+          <form
+            onSubmit={handleSubmitWizard}
+            onKeyDown={handleKeyDownWizard}
+            className="flex flex-col gap-4"
+          >
+            {headerWizard}
+            {contenidoPaso}
+            {navegacionWizard}
+          </form>
+        ) : (
+          <>
+            {/* Datos de la Programación y Unidad */}
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4 space-y-3">
+              <Group justify="space-between">
+                <Group gap="xs">
+                  <IconTruck className="w-4 h-4 text-indigo-400" />
+                  <Text size="xs" fw={700} className="text-zinc-300 uppercase tracking-wider">
+                    Datos de la Unidad y Transporte
+                  </Text>
+                </Group>
+                <Badge variant="subtle" color="zinc" size="xs">
+                  {programacion
+                    ? "Los datos previamente ingresados se mantienen bloqueados"
+                    : "Ingreso directo de unidad a planta"}
+                </Badge>
+              </Group>
+
+              <Grid gutter="sm">
+                <Grid.Col span={{ base: 12, sm: 6 }}>
+                  {campoEmpresaTransporte}
+                </Grid.Col>
+
+                <Grid.Col span={{ base: 12, sm: 6 }}>
+                  {campoVehiculo}
+                </Grid.Col>
+
+                <Grid.Col span={{ base: 12, sm: 6 }}>
+                  {campoConductor}
+                </Grid.Col>
+
+                {!esDespacho && (
+                  <Grid.Col span={{ base: 12, sm: 6 }}>
+                    {campoProveedor}
+                  </Grid.Col>
+                )}
+
+                <Grid.Col span={{ base: 12, sm: 6 }}>
+                  {campoTipoVehiculo}
+                </Grid.Col>
+
+                <Grid.Col span={{ base: 12, sm: 6 }}>
+                  {campoVehiculoCarreta}
+                </Grid.Col>
+              </Grid>
+
+              {/* Guías */}
+              {!esDespacho && bloqueGuias}
+            </div>
+
+            {/* Evidencias de la Recepción */}
+            {bloqueEvidencias}
+
+            {/* Observación de la Recepción */}
+            {bloqueObservacion}
+
+            {separadorAcompanantes}
+
+            {botonesAcompanantes}
+
+            {listaAcompanantes}
+
+            {listaVehiculosAcompanantes}
+
+            {accionesEscritorio}
+          </>
         )}
 
         {/* Modales secundarios */}
@@ -1058,35 +1463,7 @@ const esDespacho =
             }}
           />
         </ModalEstandar>
-
-        {/* Acciones */}
-        <Group justify="flex-end" gap="md" mt="xl">
-          <Button
-            variant="subtle"
-            onClick={onClose}
-            disabled={confirmando}
-            radius="xl"
-            size="sm"
-            className="text-zinc-400 hover:text-white hover:bg-zinc-800/50"
-          >
-            Cancelar
-          </Button>
-          <Button
-            loading={confirmando}
-            onClick={handleConfirmar}
-            radius="xl"
-            size="sm"
-            leftSection={<IconCheck size={16} />}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-900/20 px-8"
-          >
-            {programacion ? "Confirmar Programación" : "Registrar Recepción"}
-          </Button>
-        </Group>
       </Stack>
     </ModalEstandar>
   );
 };
-
-
-
-

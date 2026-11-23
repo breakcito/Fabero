@@ -13,6 +13,9 @@ import { FiltrosProgramaciones } from "./components/filtros-programaciones";
 import { TablaProgramaciones } from "./components/tabla-programaciones";
 import { ProgramarRecepcionModal } from "./components/programar-modal";
 import { useTicketIngresoVehiculo } from "../../../hooks/useTicketIngresoVehiculo";
+import { TicketIngresoService } from "../../../service/ticket-ingreso.service";
+import { ModalSeleccionGuiaTicket } from "../../../presentation/utils/modal-seleccion-guia-ticket";
+import type { GuiaRecepcionItem } from "../../../service/responses/ticket-ingreso-vehiculo";
 import { RefreshButton } from "../../../presentation/utils/refresh-button";
 import { LimpiarFiltrosButton } from "../../../presentation/utils/limpiar-filtros-button";
 import {
@@ -77,6 +80,13 @@ export const ProgramarRecepcionPage = () => {
     useState<ProgramacionDetail | null>(null);
   const [editandoId, setEditandoId] = useState<number | null>(null);
   const [viendoTicketId, setViendoTicketId] = useState<number | null>(null);
+  const [modalSeleccionGuiaOpen, setModalSeleccionGuiaOpen] = useState(false);
+  const [guiasTicket, setGuiasTicket] = useState<GuiaRecepcionItem[]>([]);
+  const [programacionTicket, setProgramacionTicket] =
+    useState<ProgramacionListItem | null>(null);
+  const [idGuiaImprimiendo, setIdGuiaImprimiendo] = useState<number | null>(
+    null,
+  );
 
   const { printTicketIngreso } = useTicketIngresoVehiculo();
 
@@ -126,12 +136,34 @@ export const ProgramarRecepcionPage = () => {
   /**
    * El ticket de ingreso vehicular se muestra como PDF en otra pestaña
    * (mismo flujo que el botón de impresión de Recepción de Unidades).
+   *
+   * Si la unidad tiene varias guías de primer tramo registradas, primero se
+   * pregunta cuál usar; con una sola se imprime directamente.
    */
-  const abrirTicket = (programacion: ProgramacionListItem) => {
+  const abrirTicket = async (programacion: ProgramacionListItem) => {
     setViendoTicketId(programacion.id);
-    void printTicketIngreso(programacion.id).finally(() =>
-      setViendoTicketId(null),
-    );
+    try {
+      const guias = await TicketIngresoService.getGuiasRecepcion(
+        programacion.id,
+      );
+      if (guias.length > 1) {
+        setProgramacionTicket(programacion);
+        setGuiasTicket(guias);
+        setModalSeleccionGuiaOpen(true);
+      } else if (guias.length === 1) {
+        await printTicketIngreso(programacion.id, guias[0].id);
+      } else {
+        await printTicketIngreso(programacion.id);
+      }
+    } catch (e) {
+      console.error(
+        "Error al obtener las guías de la unidad para imprimir el ticket",
+        e,
+      );
+      await printTicketIngreso(programacion.id);
+    } finally {
+      setViendoTicketId(null);
+    }
   };
 
   return (
@@ -188,6 +220,22 @@ export const ProgramarRecepcionPage = () => {
         programacion={programacionAEditar}
         onSuccess={(nueva) => {
           insertProgramacion(toListItem(nueva));
+        }}
+      />
+
+      <ModalSeleccionGuiaTicket
+        opened={modalSeleccionGuiaOpen}
+        guias={guiasTicket}
+        idGuiaImprimiendo={idGuiaImprimiendo}
+        onClose={() => setModalSeleccionGuiaOpen(false)}
+        onSelect={(idGuia) => {
+          if (programacionTicket) {
+            setIdGuiaImprimiendo(idGuia);
+            void printTicketIngreso(programacionTicket.id, idGuia).finally(() =>
+              setIdGuiaImprimiendo(null),
+            );
+            setModalSeleccionGuiaOpen(false);
+          }
         }}
       />
     </div>

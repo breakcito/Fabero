@@ -172,6 +172,20 @@ export const CondicionesComercialesProveedorPage = () => {
         ),
       },
       {
+        accessor: "observacion",
+        title: "Observación",
+        render: (r: RES_CondicionComercialProveedor) =>
+          r.observacion ? (
+            <Tooltip label={r.observacion} multiline w={320} withArrow>
+              <span className="truncate block max-w-[220px] text-[11px] text-zinc-400">
+                {r.observacion}
+              </span>
+            </Tooltip>
+          ) : (
+            <span className="text-zinc-600 text-[11px]">—</span>
+          ),
+      },
+      {
         accessor: "estado",
         title: "Estado",
         textAlign: "center" as const,

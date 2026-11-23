@@ -3,6 +3,7 @@ import { ActionIcon, Select, Tooltip, Loader } from "@mantine/core";
 import {
   IconPlus,
   IconTrashX,
+  IconTrash,
   IconEye,
   IconLink,
   IconPrinter,
@@ -20,6 +21,7 @@ import type {
 } from "../../service/cierre-leyes.responses";
 import { CellInput } from "./cell-input";
 import { BotonEvidenciaAnalisis } from "./boton-evidencia-analisis";
+import { decimalAPorcentajeRedondeado } from "../utils/porcentaje";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
 import { CambiosLogViewer } from "../../../../presentation/utils/cambios-log-viewer";
 import { ModalDocumentosAnalisis } from "./modal-documentos-analisis";
@@ -46,6 +48,9 @@ interface TablaMuestrasExternasProps {
   ) => void;
   onEliminarAnalisis: (idAnalisis: number) => Promise<boolean>;
   eliminandoAnalisis?: Record<number, boolean>;
+  /** Eliminación FÍSICA de la muestra externa (con sus ensayos). */
+  onEliminarMuestra?: (muestra: MuestraExternaResponse) => void;
+  eliminandoMuestraExterna?: Record<number, boolean>;
   onAsociarAGrupo: (idMuestraExterna: number, idGrupo: number) => Promise<boolean>;
   onAsociarMuestrasMultiples?: (idsMuestraExterna: number[], idGrupo: number) => Promise<boolean>;
   onSubirDocumentos: (idAnalisis: number, archivos: File[]) => Promise<IArchivoDoc[] | boolean | null>;
@@ -61,6 +66,8 @@ export const TablaMuestrasExternas = ({
   onAbrirModalAgregarAnalisis,
   onEliminarAnalisis,
   eliminandoAnalisis,
+  onEliminarMuestra,
+  eliminandoMuestraExterna,
   onAsociarAGrupo,
   onAsociarMuestrasMultiples,
   onSubirDocumentos,
@@ -176,7 +183,7 @@ export const TablaMuestrasExternas = ({
 
     if (items.length === 1) {
       const it = items[0];
-      const codigo = it.codigo_cliente || it.correlativo || `Muestra #${it.id_muestra_externa}`;
+      const codigo = it.correlativo || it.codigo_cliente || `Muestra #${it.id_muestra_externa}`;
       const proveedor = it.proveedor_nombre || "Sin Proveedor";
       container.innerHTML = `
         <div style="display: flex; align-items: center; gap: 8px;">
@@ -197,7 +204,7 @@ export const TablaMuestrasExternas = ({
         .map(
           (it) => `
           <span style="display: inline-block; background: rgba(99, 102, 241, 0.25); border: 1px solid rgba(129, 140, 248, 0.5); border-radius: 5px; padding: 1px 6px; font-size: 10px; font-weight: 700; color: #c7d2fe; margin-right: 4px; margin-bottom: 3px;">
-            ${it.codigo_cliente || it.correlativo || it.nombre}
+            ${it.correlativo || it.codigo_cliente || it.nombre}
           </span>
         `
         )
@@ -245,7 +252,7 @@ export const TablaMuestrasExternas = ({
       proveedorNombre: m.proveedor_nombre,
       muestras: muestrasToDrag.map((x) => ({
         id: x.id_muestra_externa,
-        codigo: x.codigo_cliente || x.correlativo || x.nombre,
+        codigo: x.correlativo || x.codigo_cliente || x.nombre,
         proveedor: x.proveedor_nombre,
       })),
     };
@@ -335,12 +342,12 @@ export const TablaMuestrasExternas = ({
           <thead>
             <tr className="bg-zinc-900/80 border-b border-zinc-800 text-[10px] font-bold tracking-wider text-zinc-400 uppercase">
               <th className="p-2.5 border-r border-zinc-800 text-center w-[32%] min-w-52">Muestra</th>
-              <th className="p-2 border-r border-zinc-800 text-center w-[8%] min-w-18">Evidencia</th>
+              <th className="p-2 border-r border-zinc-800 text-center w-[10%] min-w-22">Certificado y muestras</th>
               <th className="p-2 border-r border-zinc-800 text-center w-[18%] min-w-33">Origen</th>
               <th className="p-2 border-r border-zinc-800 text-center w-[13%] min-w-22">NWAU (Oro)</th>
               <th className="p-2 border-r border-zinc-800 text-center w-[13%] min-w-22">NWAG (Plata)</th>
-              <th className="p-2 border-r border-zinc-800 text-center w-[8%] min-w-18">Humedad</th>
-              <th className="p-2 text-center w-[8%] min-w-21">Recuperación</th>
+              <th className="p-2 border-r border-zinc-800 text-center w-[8%] min-w-18">Humedad (%)</th>
+              <th className="p-2 text-center w-[8%] min-w-21">Recuperación (%)</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-800 text-xs">
@@ -368,7 +375,7 @@ export const TablaMuestrasExternas = ({
                           title="Seleccionar para asociar o imprimir"
                         />
                         <span className="font-bold text-white text-xs shrink-0">
-                          {muestra.codigo_cliente || muestra.nombre}
+                          {muestra.correlativo || muestra.codigo_cliente || muestra.nombre}
                         </span>
                         {muestra.proveedor_nombre && (
                           <span
@@ -384,7 +391,7 @@ export const TablaMuestrasExternas = ({
                               type="button"
                               onClick={() =>
                                 handleOpenLogModal(
-                                  `Historial — Muestra ${muestra.codigo_cliente || muestra.nombre}`,
+                                  `Historial — Muestra ${muestra.correlativo || muestra.codigo_cliente || muestra.nombre}`,
                                   analisisList.flatMap((a) => a.log_cambios || [])
                                 )
                               }
@@ -400,6 +407,19 @@ export const TablaMuestrasExternas = ({
                             <IconGripVertical size={13} />
                           </span>
                         </Tooltip>
+                        {onEliminarMuestra && (
+                          <Tooltip label="Eliminar muestra (eliminación física)" withArrow>
+                            <button
+                              type="button"
+                              onClick={() => onEliminarMuestra(muestra)}
+                              disabled={eliminandoMuestraExterna?.[muestra.id_muestra_externa]}
+                              className="text-red-400 hover:text-red-300 transition-colors p-0.5 cursor-pointer flex items-center shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+                              title="Eliminar muestra"
+                            >
+                              <IconTrash size={13} />
+                            </button>
+                          </Tooltip>
+                        )}
                       </div>
 
                       <button
@@ -577,9 +597,11 @@ export const TablaMuestrasExternas = ({
                               >
                                 <CellInput
                                   initialValue={
-                                    analisisList.find((a) => a.ley_humedad > 0)?.ley_humedad ??
-                                    analisisList[0]?.ley_humedad ??
-                                    0
+                                    decimalAPorcentajeRedondeado(
+                                      analisisList.find((a) => a.ley_humedad > 0)?.ley_humedad ??
+                                        analisisList[0]?.ley_humedad ??
+                                        0,
+                                    ) ?? 0
                                   }
                                   initialChecked={false}
                                   disabled={!analisisList.some((a) => a.documentos && a.documentos.length > 0)}
@@ -601,9 +623,12 @@ export const TablaMuestrasExternas = ({
                               >
                                 <CellInput
                                   initialValue={
-                                    analisisList.find((a) => a.ley_recuperacion > 0)?.ley_recuperacion ??
-                                    analisisList[0]?.ley_recuperacion ??
-                                    0
+                                    decimalAPorcentajeRedondeado(
+                                      analisisList.find((a) => a.ley_recuperacion > 0)
+                                        ?.ley_recuperacion ??
+                                        analisisList[0]?.ley_recuperacion ??
+                                        0,
+                                    ) ?? 0
                                   }
                                   initialChecked={false}
                                   disabled={!analisisList.some((a) => a.documentos && a.documentos.length > 0)}
@@ -658,7 +683,7 @@ export const TablaMuestrasExternas = ({
                   key={m.id_muestra_externa}
                   className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-950/60 border border-indigo-700/60 text-xs font-semibold text-indigo-200"
                 >
-                  <span className="text-white">{m.codigo_cliente || m.correlativo || m.nombre}</span>
+                  <span className="text-white">{m.correlativo || m.codigo_cliente || m.nombre}</span>
                   {m.proveedor_nombre && (
                     <span className="text-[10px] text-zinc-400">({m.proveedor_nombre})</span>
                   )}

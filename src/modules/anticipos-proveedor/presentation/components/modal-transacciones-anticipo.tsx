@@ -74,7 +74,6 @@ const cargarTransacciones = async () => {
     };
 
     cargarTransacciones();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opened, anticipoInfo]);
 
   // Para cada transacción aprobada/anulada que NO tenga aún datos de aprobación,

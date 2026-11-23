@@ -8,6 +8,7 @@ import {
 } from "@tabler/icons-react";
 import { TipoOrigen } from "../../../../shared/enums/_generic/tipo-origen";
 import type { AnalisisDraftItem } from "../../service/cierre-leyes.requests";
+import { decimalAPorcentajeRedondeado } from "../utils/porcentaje";
 
 interface ListaAnalisisBorradorProps {
   items: AnalisisDraftItem[];
@@ -65,15 +66,27 @@ export const ListaAnalisisBorrador = ({
             const cantDocs = item.documentos.length;
             const esExterno = item.tipo_origen === TipoOrigen.Externo;
 
+            // El borrador guarda las leyes en decimal (igual que el API):
+            // humedad y recuperación se muestran en porcentaje.
             const leyes = [
-              { etiqueta: "Au", valor: item.ley_oro },
-              { etiqueta: "Ag", valor: item.ley_plata },
-              { etiqueta: "H₂O", valor: item.ley_humedad },
-              { etiqueta: "REC", valor: item.ley_recuperacion },
-            ].filter(
-              (l): l is { etiqueta: string; valor: number } =>
-                typeof l.valor === "number" && !Number.isNaN(l.valor),
-            );
+              { etiqueta: "Au", valor: item.ley_oro, esPorcentaje: false },
+              { etiqueta: "Ag", valor: item.ley_plata, esPorcentaje: false },
+              { etiqueta: "H₂O", valor: item.ley_humedad, esPorcentaje: true },
+              { etiqueta: "REC", valor: item.ley_recuperacion, esPorcentaje: true },
+            ]
+              .filter(
+                (l): l is {
+                  etiqueta: string;
+                  valor: number;
+                  esPorcentaje: boolean;
+                } => typeof l.valor === "number" && !Number.isNaN(l.valor),
+              )
+              .map((l) => ({
+                ...l,
+                valor: l.esPorcentaje
+                  ? (decimalAPorcentajeRedondeado(l.valor) ?? 0)
+                  : l.valor,
+              }));
             const tieneLeyes = leyes.length > 0;
 
             return (
@@ -123,7 +136,11 @@ export const ListaAnalisisBorrador = ({
                           key={l.etiqueta}
                           className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-zinc-800/80 border border-zinc-700 text-zinc-300"
                         >
-                          {l.etiqueta}: <strong className="text-white">{l.valor}</strong>
+                          {l.etiqueta}:{" "}
+                          <strong className="text-white">
+                            {l.esPorcentaje ? l.valor.toFixed(2) : l.valor}
+                            {l.esPorcentaje ? "%" : ""}
+                          </strong>
                         </span>
                       ))}
                     </div>

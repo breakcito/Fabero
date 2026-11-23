@@ -16,6 +16,11 @@ import { FormLaboratorio } from "../../../../presentation/utils/form-laboratorio
 import { MultiFilePicker } from "../../../../presentation/utils/archivo/multifile-picker";
 import { TipoOrigen } from "../../../../shared/enums/_generic/tipo-origen";
 import type { RES_Laboratorio } from "../../../../service/responses/laboratorio";
+import { useNotify } from "../../../../hooks/useNotify";
+import {
+  decimalAPorcentaje,
+  porcentajeADecimal,
+} from "../utils/porcentaje";
 import {
   ASUMIDO_POR_FABERO,
   ASUMIDO_POR_PROVEEDOR,
@@ -34,6 +39,7 @@ interface ModalFormAnalisisItemProps {
   onGuardarItem: (item: AnalisisDraftItem) => void;
   /**
    * Ley de humedad/recuperación heredada (cierre del grupo o análisis previo).
+   * Llega en DECIMAL (contrato del API) y se muestra en porcentaje.
    * Si `editable` es false, el grupo impone el valor y el campo se bloquea.
    */
   leyHumedadHeredada?: number | null;
@@ -73,6 +79,8 @@ const FormAnalisisItemBody = ({
   bloqueadoOro = false,
   bloqueadoPlata = false,
 }: FormBodyProps) => {
+  const { notifyError } = useNotify();
+
   const [idLaboratorio, setIdLaboratorio] = useState<string | null>(() => {
     if (itemEditar?.id_laboratorio) return String(itemEditar.id_laboratorio);
     return null;
@@ -101,15 +109,21 @@ const FormAnalisisItemBody = ({
   const [leyPlata, setLeyPlata] = useState<number | string>(
     itemEditar?.ley_plata ?? "",
   );
+  /**
+   * Humedad y recuperación se capture y muestran en PORCENTAJE.
+   * El borrador y el API trabajan en decimal: la conversión ocurre en los
+   * bordes de este formulario.
+   */
   const [leyHumedad, setLeyHumedad] = useState<number | string>(() => {
-    if (typeof itemEditar?.ley_humedad === "number") return itemEditar.ley_humedad;
-    const heredada = leyHumedadHeredada ?? 0;
+    if (typeof itemEditar?.ley_humedad === "number")
+      return decimalAPorcentaje(itemEditar.ley_humedad) ?? "";
+    const heredada = decimalAPorcentaje(leyHumedadHeredada) ?? 0;
     return heredada > 0 ? heredada : "";
   });
   const [leyRecuperacion, setLeyRecuperacion] = useState<number | string>(() => {
     if (typeof itemEditar?.ley_recuperacion === "number")
-      return itemEditar.ley_recuperacion;
-    const heredada = leyRecuperacionHeredada ?? 0;
+      return decimalAPorcentaje(itemEditar.ley_recuperacion) ?? "";
+    const heredada = decimalAPorcentaje(leyRecuperacionHeredada) ?? 0;
     return heredada > 0 ? heredada : "";
   });
 
@@ -142,6 +156,13 @@ const FormAnalisisItemBody = ({
   const humedadImpuesta = !leyHumedadEditable;
   const recuperacionImpuesta = !leyRecuperacionEditable;
 
+  /**
+   * El certificado (evidencia) es obligatorio: sin al menos un archivo
+   * adjunto NO se puede escribir NINGUNA ley (Au, Ag, humedad ni recuperación).
+   */
+  const sinEvidencia = archivos.length === 0;
+  const bloqueadoPorEvidencia = sinEvidencia;
+
   const handleGuardar = () => {
     const labEncontrado = laboratorios.find((l) => String(l.id) === resolvedIdLab);
     const laboratorioNombre = resolvedIdLab
@@ -151,6 +172,34 @@ const FormAnalisisItemBody = ({
     const aNumero = (v: number | string) =>
       typeof v === "number" && !Number.isNaN(v) ? v : null;
 
+    /** Porcentaje con 2 decimales: evita el ruido de coma flotante al convertir. */
+    const aPorcentaje = (v: number | string) => {
+      const n = aNumero(v);
+      return n === null ? null : Math.round(n * 100) / 100;
+    };
+
+    const humedadValor = aPorcentaje(leyHumedad);
+    const recuperacionValor = aPorcentaje(leyRecuperacion);
+
+    const oroValor = aNumero(leyOro);
+    const plataValor = aNumero(leyPlata);
+
+    const registraHumedad = !humedadImpuesta && humedadValor !== null && humedadValor > 0;
+    const registraRecuperacion =
+      !recuperacionImpuesta && recuperacionValor !== null && recuperacionValor > 0;
+    const registraOro = !bloqueadoOro && oroValor !== null && oroValor > 0;
+    const registraPlata = !bloqueadoPlata && plataValor !== null && plataValor > 0;
+
+    if (
+      sinEvidencia &&
+      (registraHumedad || registraRecuperacion || registraOro || registraPlata)
+    ) {
+      notifyError(
+        "Adjunta al menos un archivo de evidencia para poder registrar las leyes."
+      );
+      return;
+    }
+
     onGuardarItem({
       localId: itemEditar?.localId ?? `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       id_laboratorio: resolvedIdLab ? Number(resolvedIdLab) : null,
@@ -159,10 +208,10 @@ const FormAnalisisItemBody = ({
       numero_ensayo: numeroEnsayo > 0 ? numeroEnsayo : 1,
       tipo_origen: tipoOrigen,
       documentos: archivos,
-      ley_oro: bloqueadoOro ? null : aNumero(leyOro),
-      ley_plata: bloqueadoPlata ? null : aNumero(leyPlata),
-      ley_humedad: humedadImpuesta ? null : aNumero(leyHumedad),
-      ley_recuperacion: recuperacionImpuesta ? null : aNumero(leyRecuperacion),
+      ley_oro: bloqueadoOro || bloqueadoPorEvidencia ? null : oroValor,
+      ley_plata: bloqueadoPlata || bloqueadoPorEvidencia ? null : plataValor,
+      ley_humedad: humedadImpuesta ? null : porcentajeADecimal(humedadValor),
+      ley_recuperacion: recuperacionImpuesta ? null : porcentajeADecimal(recuperacionValor),
     });
     onClose();
   };
@@ -275,7 +324,7 @@ const FormAnalisisItemBody = ({
             decimalScale={3}
             fixedDecimalScale
             hideControls
-            disabled={bloqueadoOro}
+            disabled={bloqueadoOro || bloqueadoPorEvidencia}
             size="xs"
             radius="lg"
             classNames={{
@@ -292,7 +341,7 @@ const FormAnalisisItemBody = ({
             decimalScale={3}
             fixedDecimalScale
             hideControls
-            disabled={bloqueadoPlata}
+            disabled={bloqueadoPlata || bloqueadoPorEvidencia}
             size="xs"
             radius="lg"
             classNames={{
@@ -301,15 +350,16 @@ const FormAnalisisItemBody = ({
             }}
           />
           <NumberInput
-            label="Humedad"
-            placeholder="0.000"
+            label="Humedad (%)"
+            placeholder="0.00"
             value={leyHumedad}
             onChange={setLeyHumedad}
             min={0}
-            decimalScale={3}
+            max={100}
+            decimalScale={2}
             fixedDecimalScale
             hideControls
-            disabled={humedadImpuesta}
+            disabled={humedadImpuesta || bloqueadoPorEvidencia}
             size="xs"
             radius="lg"
             classNames={{
@@ -318,15 +368,16 @@ const FormAnalisisItemBody = ({
             }}
           />
           <NumberInput
-            label="Recuperación"
-            placeholder="0.000"
+            label="Recuperación (%)"
+            placeholder="0.00"
             value={leyRecuperacion}
             onChange={setLeyRecuperacion}
             min={0}
-            decimalScale={3}
+            max={100}
+            decimalScale={2}
             fixedDecimalScale
             hideControls
-            disabled={recuperacionImpuesta}
+            disabled={recuperacionImpuesta || bloqueadoPorEvidencia}
             size="xs"
             radius="lg"
             classNames={{
@@ -336,9 +387,18 @@ const FormAnalisisItemBody = ({
           />
         </div>
 
-        {(bloqueadoOro || bloqueadoPlata || humedadImpuesta || recuperacionImpuesta) && (
+        {(bloqueadoOro ||
+          bloqueadoPlata ||
+          humedadImpuesta ||
+          recuperacionImpuesta ||
+          bloqueadoPorEvidencia) && (
           <Text size="10px" className="text-zinc-400 leading-snug">
-            {humedadImpuesta || recuperacionImpuesta ? (
+            {bloqueadoPorEvidencia ? (
+              <>
+                Adjunta al menos un archivo de evidencia (certificado) para poder
+                registrar cualquier ley.
+              </>
+            ) : humedadImpuesta || recuperacionImpuesta ? (
               <>
                 La ley de{" "}
                 {humedadImpuesta && recuperacionImpuesta
@@ -366,7 +426,7 @@ const FormAnalisisItemBody = ({
 
         <MultiFilePicker
           label="Documentos / Sustento de Análisis"
-          description="PDF, JPG, PNG u otros certificados (opcional al crear, requerido para ingresar leyes)"
+          description="PDF, JPG, PNG u otros certificados (requerido para registrar leyes de humedad y recuperación)"
           files={archivos}
           onFilesChange={setArchivos}
         />

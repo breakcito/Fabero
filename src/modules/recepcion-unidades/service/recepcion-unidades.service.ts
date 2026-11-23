@@ -248,12 +248,6 @@ export const RecepcionUnidadesService = {
 
   /**
    * Obtener las guías de primer tramo asociadas a la recepción de unidad.
+   * Vive en `TicketIngresoService` (global) porque lo usan varios módulos.
    */
-  getGuiasRecepcion: async (id: number): Promise<import("./recepcion-unidades.responses").GuiaRecepcionItem[]> => {
-    const { data } = await api.get<IRespuesta<import("./recepcion-unidades.responses").GuiaRecepcionItem[]>>(
-      `/recepcion-unidades/${id}/guias`,
-    );
-    assertBusinessSuccess(data);
-    return data.data;
-  },
 };

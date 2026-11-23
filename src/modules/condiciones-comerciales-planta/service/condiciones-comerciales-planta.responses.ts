@@ -11,6 +11,7 @@ export interface RES_CondicionComercialPlanta {
   recuperacion: number | null;
   consumo: number | null;
   riesgo_comercial: number | null;
+  observacion: string | null;
   estado: EstadoBase;
   created_at?: string;
 }

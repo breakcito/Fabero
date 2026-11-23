@@ -25,6 +25,7 @@ import type { REQ_ValorizacionVentaDetalleItem } from "../../service/valorizacio
 import type {
   RES_ValorizacionVentaDetalle,
   RES_DespachoDetalleDisponible,
+  RES_CondicionComercialPlanta,
 } from "../../service/valorizacion-venta.responses";
 import { ValorizacionVentaAuxService } from "../../service/valorizacion-venta.service";
 
@@ -63,6 +64,7 @@ const fieldClasses = {
   input:
     "bg-zinc-900/50 border-zinc-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-white placeholder:text-zinc-500 transition-all h-9.5",
   label: "text-zinc-400 mb-1 font-medium text-xs ml-1 flex items-center gap-1.5",
+  description: "text-zinc-500 text-[10px] mt-0.5",
 };
 
 export const ModalAgregarDespachoDetalle = ({
@@ -97,6 +99,13 @@ export const ModalAgregarDespachoDetalle = ({
     fecha: string;
   } | null>(null);
   const [modalPrecioAbierto, setModalPrecioAbierto] = useState(false);
+
+  // Condiciones comerciales de la planta: permiten conocer la recuperación
+  // máxima de la condición ya aplicada cuando se edita un detalle existente.
+  const [condicionesPlanta, setCondicionesPlanta] = useState<{
+    Oro: RES_CondicionComercialPlanta[];
+    Plata: RES_CondicionComercialPlanta[];
+  }>({ Oro: [], Plata: [] });
 
   const fechaCorta = fechaHoraValorizacion?.split(" ")[0] ?? null;
 
@@ -143,6 +152,26 @@ export const ModalAgregarDespachoDetalle = ({
 
     cargar();
   }, [opened, idPlanta, idValorizacionEdicion, detalleEditar, notifyError]);
+
+  useEffect(() => {
+    if (!opened || !idPlanta) return;
+
+    let cancelado = false;
+    ValorizacionVentaAuxService.getCondicionesComercialesPlanta(idPlanta)
+      .then((res) => {
+        if (cancelado) return;
+        setCondicionesPlanta(
+          res.success && res.data ? res.data : { Oro: [], Plata: [] },
+        );
+      })
+      .catch(() => {
+        if (!cancelado) setCondicionesPlanta({ Oro: [], Plata: [] });
+      });
+
+    return () => {
+      cancelado = true;
+    };
+  }, [opened, idPlanta]);
 
   useEffect(() => {
     if (!detalleEditar) return;
@@ -309,6 +338,37 @@ export const ModalAgregarDespachoDetalle = ({
       setConsumo(0);
     }
   }, [condicionEncontrada, detalleEditar]);
+
+  // Recuperación máxima que impone la condición comercial de la planta.
+  // En alta proviene de la condición encontrada por el backend; en edición se
+  // busca la condición ya aplicada al detalle por su id.
+  const recuperacionMaxima = useMemo<number | null>(() => {
+    if (detalleEditar) {
+      const idCondicion = detalleEditar.req.id_condicion_comercial;
+      if (!idCondicion) return null;
+      const lista =
+        elemento === ElementoQuimicoValorizacion.Oro
+          ? condicionesPlanta.Oro
+          : condicionesPlanta.Plata;
+      const condicion = lista.find((c) => c.id === idCondicion);
+      return condicion ? Number(condicion.recuperacion) : null;
+    }
+    return condicionEncontrada ? Number(condicionEncontrada.recuperacion) : null;
+  }, [detalleEditar, condicionesPlanta, elemento, condicionEncontrada]);
+
+  // La recuperación nunca puede superar el máximo de la condición aplicada.
+  const handleRecuperacionChange = (valor: number | string) => {
+    const numero = typeof valor === "number" ? valor : parseFloat(String(valor)) || 0;
+    if (recuperacionMaxima !== null && numero > recuperacionMaxima) {
+      notifyWarning(
+        `La recuperación no puede superar el máximo de la condición comercial (${recuperacionMaxima}%). Se ajustó al máximo permitido.`,
+      );
+      setRecuperacion(recuperacionMaxima);
+      return;
+    }
+    if (typeof valor === "number") setRecuperacion(valor);
+    else setRecuperacion(parseFloat(String(valor)) || 0);
+  };
 
   // Ley aplicada: viene de la ley final confirmada de despacho_detalle
   const ley = useMemo(() => {
@@ -741,11 +801,13 @@ export const ModalAgregarDespachoDetalle = ({
             <Grid.Col span={{ base: 6, sm: 4 }}>
               <NumberInput
                 label="RECUPERACIÓN (%):"
+                description={
+                  recuperacionMaxima !== null
+                    ? `Máximo según la condición: ${recuperacionMaxima.toFixed(3)}%`
+                    : undefined
+                }
                 value={recuperacion}
-                onChange={(val) => {
-                  if (typeof val === "number") setRecuperacion(val);
-                  else setRecuperacion(parseFloat(String(val)) || 0);
-                }}
+                onChange={handleRecuperacionChange}
                 min={0}
                 max={100}
                 decimalScale={2}

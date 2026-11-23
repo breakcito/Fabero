@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button, Group } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
@@ -32,11 +32,24 @@ export const FechaHoraModal = ({
     toDate(value) ?? defaultValue
   );
 
-  useEffect(() => {
+  /**
+   * Al abrir el modal, el valor local se sincroniza con el de la fila.
+   *
+   * El ajuste se hace DURANTE el render (comparando con el valor previo) y
+   * no dentro de un efecto: un `setState` síncrono en un efecto provoca
+   * renders en cascada y la regla `react-hooks/set-state-in-effect` lo marca.
+   */
+  const [prevAbierto, setPrevAbierto] = useState(opened);
+  const [prevValor, setPrevValor] = useState(value);
+
+  if (opened !== prevAbierto || value !== prevValor) {
+    setPrevAbierto(opened);
+    setPrevValor(value);
+
     if (opened) {
       setLocal(toDate(value) ?? defaultValue);
     }
-  }, [opened, value, defaultValue]);
+  }
 
   const handleConfirm = () => {
     if (local) {

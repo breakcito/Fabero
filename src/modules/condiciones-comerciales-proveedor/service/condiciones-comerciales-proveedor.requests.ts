@@ -9,6 +9,7 @@ export interface DTO_CrearCondicionComercial {
   recuperacion: number;
   consumo: number;
   riesgo_comercial: number;
+  observacion?: string | null;
 }
 
 export interface DTO_ActualizarCondicionComercial {
@@ -19,4 +20,5 @@ export interface DTO_ActualizarCondicionComercial {
   recuperacion: number;
   consumo: number;
   riesgo_comercial: number;
+  observacion?: string | null;
 }

@@ -156,6 +156,12 @@ export interface RecepcionMineralResponse {
   lotes: RES_LoteMineral[];
   distribucion_detalles: DistribucionDetalleItem[];
   documentos_programacion: IDocumentoProgramacion | null;
+  /**
+   * Ticket de Ingreso Vehicular (T.I.V.). Se genera al confirmar la llegada
+   * de la unidad a planta; si es null, la unidad todavía no tiene ticket.
+   */
+  id_ticket_recepcion_unidades: number | null;
+  ticket_correlativo: string | null;
   log_cambios?: RES_CambiosLog[] | null;
   /**
    * Proveedor denormalizado desde `recepcion_unidad.id_proveedor_minero`. Se usa

@@ -8,3 +8,9 @@ export interface DTO_CrearAnticipoPlanta {
 export interface DTO_AnularAnticipoPlanta {
   motivo: string;
 }
+
+export interface DTO_GestionarEvidenciasAnticipoPlanta {
+  evidencias: File[];
+  eliminar: string[];
+  motivo?: string;
+}

@@ -1,5 +1,6 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 import type { MuestraExternaResponse } from "../../service/cierre-leyes.responses";
+import { decimalAPorcentaje } from "../utils/porcentaje";
 
 const OZT_TO_GRAMS = 34.2856;
 
@@ -86,7 +87,7 @@ const formatFecha = (isoString: string | null | undefined): string => {
 };
 
 const num = (v: number | null | undefined, decimals: number = 3): string => {
-  if (v === null || v === undefined || isNaN(v)) return "0.000";
+  if (v === null || v === undefined || isNaN(v)) return (0).toFixed(decimals);
   return v.toFixed(decimals);
 };
 
@@ -122,7 +123,7 @@ export const ReporteMuestrasExternasPdf = ({
 
   const cols: { key: string; flex: number; label: string; alt: boolean }[] = [
     { key: "item", flex: 5, label: "Item", alt: false },
-    { key: "codigo", flex: 15, label: "Código Cliente", alt: false },
+    { key: "codigo", flex: 15, label: "RC / Código Cliente", alt: false },
     { key: "fecha", flex: 12, label: "Fecha de Ingreso", alt: false },
     { key: "h2o", flex: 9, label: "% H2O aprox", alt: false },
     { key: "au", flex: 11, label: "Ley Au (Onz/TC)", alt: true },
@@ -137,7 +138,8 @@ export const ReporteMuestrasExternasPdf = ({
     const baseStyle = isAlt ? styles.dataCellAlt : styles.dataCell;
     const { leyOro, leyPlata, leyHumedad, leyRecuperacion } = getLeyesMuestra(m);
 
-    const codigoTexto = m?.codigo_cliente || m?.nombre || m?.correlativo || "";
+    // El RC (correlativo de la muestra) tiene prioridad sobre el código cliente.
+    const codigoTexto = m?.correlativo || m?.codigo_cliente || m?.nombre || "";
     const fechaTexto = formatFecha(m?.created_at);
 
     const text =
@@ -148,7 +150,7 @@ export const ReporteMuestrasExternasPdf = ({
         : colKey === "fecha"
         ? fechaTexto
         : colKey === "h2o"
-        ? num(leyHumedad, 3)
+        ? num(decimalAPorcentaje(leyHumedad), 2)
         : colKey === "au"
         ? num(leyOro, 3)
         : colKey === "auGr"
@@ -158,7 +160,7 @@ export const ReporteMuestrasExternasPdf = ({
         : colKey === "agGr"
         ? num((leyPlata ?? 0) * OZT_TO_GRAMS, 3)
         : colKey === "recAu"
-        ? num(leyRecuperacion, 2)
+        ? num(decimalAPorcentaje(leyRecuperacion), 2)
         : "";
     return <Text style={baseStyle}>{text}</Text>;
   };

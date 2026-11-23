@@ -6,7 +6,13 @@ export const ASUMIDO_POR_FABERO = "Fabero";
 export const ASUMIDO_POR_PROVEEDOR = "Proveedor";
 export type AsumidoPor = typeof ASUMIDO_POR_FABERO | typeof ASUMIDO_POR_PROVEEDOR;
 
-/** Leyes opcionales que se pueden registrar junto al análisis. */
+/**
+ * Leyes opcionales que se pueden registrar junto al análisis.
+ *
+ * Humedad y recuperación viajan en DECIMAL (0.06 = 6%): es el contrato con el
+ * API y con la BD. La UI captura y muestra porcentajes y convierte en la
+ * frontera (formulario del ítem / hook de la tabla).
+ */
 export interface LeyesAnalisis {
   ley_oro?: number | null;
   ley_plata?: number | null;
@@ -54,6 +60,12 @@ export interface AgregarAnalisisGrupoPayload {
   analisis?: AnalisisItemPayload[];
 }
 
+/**
+ * Valores editados en la tabla de análisis.
+ *
+ * Humedad y recuperación llegan en PORCENTAJE (lo que ve el operador) y el
+ * hook `useCierreLeyes` los convierte a decimal antes de enviar al API.
+ */
 export interface GuardarValoresAnalisisPayload {
   ley_oro?: number;
   ley_plata?: number;
@@ -68,6 +80,12 @@ export interface GuardarValoresAnalisisPayload {
   motivo?: string;
 }
 
+/**
+ * Leyes de cierre editadas en la tabla de grupos.
+ *
+ * Humedad y recuperación llegan en PORCENTAJE (lo que ve el operador) y el
+ * hook `useCierreLeyes` los convierte a decimal antes de enviar al API.
+ */
 export interface GuardarLeyesCierreGrupoPayload {
   ley_oro_cierre?: number;
   ley_plata_cierre?: number;

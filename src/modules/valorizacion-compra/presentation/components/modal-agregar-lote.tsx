@@ -19,11 +19,16 @@ import {
   IconCheck,
   IconFlask,
   IconInfoCircle,
+  IconAlertTriangle,
 } from "@tabler/icons-react";
 import { ElementoQuimicoValorizacion } from "../../../../shared/enums/_generic/elemento-quimico-valorizacion";
 import { AuxService } from "../../../../service/auxiliar.service";
 import { useNotify } from "../../../../hooks/useNotify";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
+import {
+  MAX_LOTES_POR_PROPUESTA,
+  MENSAJE_MAX_LOTES,
+} from "../utils/valorizacion-limites.utils";
 import type { REQ_ValorizacionDetalleItem } from "../../service/valorizacion-compra.requests";
 import type { RES_ValorizacionCompraDetalle } from "../../service/valorizacion-compra.responses";
 
@@ -118,6 +123,22 @@ const fieldClasses = {
   input:
     "bg-zinc-900/50 border-zinc-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-white placeholder:text-zinc-500 transition-all h-9.5",
   label: "text-zinc-400 mb-1 font-medium text-xs ml-1 flex items-center gap-1.5",
+  description: "text-zinc-500 text-[10px] mt-0.5",
+};
+
+/** Factor de conversión por defecto (USD/oz -> PEN/oz). */
+const FACTOR_POR_DEFECTO = 1.1023;
+
+/**
+ * Convierte el valor de un NumberInput a número, respetando el 0.
+ * `parseFloat(x) || def` convertía un factor 0 en el valor por defecto.
+ */
+const toNumero = (valor: number | string, porDefecto: number): number => {
+  if (typeof valor === "number") {
+    return Number.isFinite(valor) ? valor : porDefecto;
+  }
+  const parseado = Number.parseFloat(String(valor).replace(",", "."));
+  return Number.isFinite(parseado) ? parseado : porDefecto;
 };
 
 export const ModalAgregarLote = ({
@@ -152,7 +173,7 @@ export const ModalAgregarLote = ({
   const [desInter, setDesInter] = useState<number | string>(0);
   const [maquila, setMaquila] = useState<number | string>(0);
   const [consumo, setConsumo] = useState<number | string>(0);
-  const [factor, setFactor] = useState<number | string>(1.1023);
+  const [factor, setFactor] = useState<number | string>(FACTOR_POR_DEFECTO);
   const [montoPenalidad, setMontoPenalidad] = useState<number | string>(0);
   const [montoFlete, setMontoFlete] = useState<number | string>(0);
 
@@ -241,7 +262,7 @@ export const ModalAgregarLote = ({
     setRecuperacion(req.recuperacion);
     setMaquila(req.maquila);
     setConsumo(req.consumo);
-    setFactor(req.factor ?? 1.1023);
+    setFactor(req.factor ?? FACTOR_POR_DEFECTO);
     setMontoPenalidad(display.monto_penalidad ?? 0);
     setMontoFlete(display.monto_flete ?? 0);
     setSelectedGrupoAnalisisId(req.id_grupo_analisis ? String(req.id_grupo_analisis) : null);
@@ -603,7 +624,85 @@ export const ModalAgregarLote = ({
     }
   }, [condicionActual, loteSeleccionado, elemento, detalleEditar]);
 
+  // Recuperación máxima que impone la condición comercial aplicada.
+  // En alta proviene de la condición que coincide con el rango de ley del lote;
+  // en edición se busca la condición ya aplicada al detalle por su id.
+  const recuperacionMaxima = useMemo<number | null>(() => {
+    if (detalleEditar) {
+      const idCondicion = detalleEditar.req.id_condicion_comercial;
+      if (!idCondicion) return null;
+      const loteReal = lotes.find(
+        (l) => l.id_lote_guia === detalleEditar.req.id_lote_guia,
+      );
+      const condicion = loteReal?.condiciones_comerciales?.find(
+        (c) => c.id === idCondicion,
+      );
+      return condicion ? Number(condicion.recuperacion) : null;
+    }
+    if (!condicionActual) return null;
+    return Number(condicionActual.recuperacion);
+  }, [detalleEditar, lotes, condicionActual]);
+
+  // La recuperación nunca puede superar el máximo de la condición aplicada.
+  const handleRecuperacionChange = (valor: number | string) => {
+    const numero = typeof valor === "number" ? valor : parseFloat(String(valor)) || 0;
+    if (recuperacionMaxima !== null && numero > recuperacionMaxima) {
+      notifyWarning(
+        `La recuperación no puede superar el máximo de la condición comercial (${recuperacionMaxima}%). Se ajustó al máximo permitido.`,
+      );
+      setRecuperacion(recuperacionMaxima);
+      return;
+    }
+    setRecuperacion(valor);
+  };
+
   const esSinValorComercial = loteSeleccionado?.con_valor_comercial === false;
+
+  /**
+   * Detecta si el elemento COMPLEMENTARIO del lote seleccionado (Oro <-> Plata)
+   * ya está valorizado en OTRA valorización.
+   *
+   * Regla de negocio: ambos elementos de un mismo lote deben valorizarse en la
+   * misma valorización (documento). Dentro de una misma valorización puede haber
+   * varias propuestas/versiones y ahí sí se permite repartirlos.
+   *
+   * `es_valorizado_oro` / `es_valorizado_plata` del endpoint de lotes disponibles
+   * se calculan sobre las valorizaciones VIVAS (Propuesta/Aprobado) excluyendo la
+   * propuesta que se está editando (mismo uuid_grupo), por lo que un "true"
+   * significa "está en otra valorización".
+   */
+  const elementoComplementarioEnOtraValorizacion = useMemo<{
+    elemento: ElementoQuimicoValorizacion;
+    correlativoLote: string;
+  } | null>(() => {
+    if (!loteSeleccionado || !elemento) return null;
+
+    const complementario =
+      elemento === ElementoQuimicoValorizacion.Oro
+        ? ElementoQuimicoValorizacion.Plata
+        : ElementoQuimicoValorizacion.Oro;
+
+    const complementarioValorizado =
+      elemento === ElementoQuimicoValorizacion.Oro
+        ? loteSeleccionado.es_valorizado_plata
+        : loteSeleccionado.es_valorizado_oro;
+
+    if (!complementarioValorizado) return null;
+
+    // Si el complementario ya está en los detalles de esta misma valorización
+    // (documento en construcción o propuesta que se está editando), está permitido.
+    const yaEnEstaValorizacion = existingDetalles.some(
+      (d) =>
+        d.id_lote_guia === loteSeleccionado.id_lote_guia &&
+        d.elemento_quimico === complementario,
+    );
+    if (yaEnEstaValorizacion) return null;
+
+    return {
+      elemento: complementario,
+      correlativoLote: loteSeleccionado.correlativo_lote,
+    };
+  }, [loteSeleccionado, elemento, existingDetalles]);
 
   const tmsCalculado = useMemo(() => {
     if (!loteSeleccionado) return 0;
@@ -618,12 +717,12 @@ export const ModalAgregarLote = ({
   const ptn = useMemo(() => {
     if (esSinValorComercial) return 0;
 
-    const numInter = typeof inter === "number" ? inter : parseFloat(String(inter)) || 0;
-    const numDes = typeof desInter === "number" ? desInter : parseFloat(String(desInter)) || 0;
-    const numRec = typeof recuperacion === "number" ? recuperacion : parseFloat(String(recuperacion)) || 0;
-    const numMaq = typeof maquila === "number" ? maquila : parseFloat(String(maquila)) || 0;
-    const numRea = typeof consumo === "number" ? consumo : parseFloat(String(consumo)) || 0;
-    const numFac = typeof factor === "number" ? factor : parseFloat(String(factor)) || 1.1023;
+    const numInter = toNumero(inter, 0);
+    const numDes = toNumero(desInter, 0);
+    const numRec = toNumero(recuperacion, 0);
+    const numMaq = toNumero(maquila, 0);
+    const numRea = toNumero(consumo, 0);
+    const numFac = toNumero(factor, FACTOR_POR_DEFECTO);
 
     const res = ((numInter - numDes) * ley * (numRec / 100) - numMaq - numRea) * numFac;
     return res;
@@ -653,7 +752,16 @@ export const ModalAgregarLote = ({
       return;
     }
 
-    // Validación de máximo 10 lotes únicos por propuesta
+    // El lote no puede quedar repartido entre valorizaciones distintas:
+    // si el elemento complementario ya está en otra valorización, se rechaza.
+    if (elementoComplementarioEnOtraValorizacion) {
+      notifyWarning(
+        `El lote ${elementoComplementarioEnOtraValorizacion.correlativoLote} ya tiene el ${elementoComplementarioEnOtraValorizacion.elemento} en otra valorización. Ambos elementos (Oro y Plata) del mismo lote deben valorizarse en la misma valorización.`,
+      );
+      return;
+    }
+
+    // Validación de máximo 10 lotes únicos por propuesta (20 elementos)
     const uniqueLotsCount = new Set(existingDetalles.map((d) => d.id_lote_guia)).size;
     const isEditingThisDetail = Boolean(
       detalleEditar && detalleEditar.display.id_lote_guia === loteSeleccionado.id_lote_guia,
@@ -661,8 +769,12 @@ export const ModalAgregarLote = ({
     const isLotAlreadyInDetalles = existingDetalles.some(
       (d) => d.id_lote_guia === loteSeleccionado.id_lote_guia,
     );
-    if (!isEditingThisDetail && !isLotAlreadyInDetalles && uniqueLotsCount >= 10) {
-      notifyWarning("Solo se puede valorizar un máximo de 10 lotes por propuesta");
+    if (
+      !isEditingThisDetail &&
+      !isLotAlreadyInDetalles &&
+      uniqueLotsCount >= MAX_LOTES_POR_PROPUESTA
+    ) {
+      notifyWarning(MENSAJE_MAX_LOTES);
       return;
     }
 
@@ -673,12 +785,12 @@ export const ModalAgregarLote = ({
       return;
     }
 
-    const numRec = typeof recuperacion === "number" ? recuperacion : parseFloat(String(recuperacion)) || 0;
-    const numInter = typeof inter === "number" ? inter : parseFloat(String(inter)) || 0;
-    const numDes = typeof desInter === "number" ? desInter : parseFloat(String(desInter)) || 0;
-    const numMaq = typeof maquila === "number" ? maquila : parseFloat(String(maquila)) || 0;
-    const numRea = typeof consumo === "number" ? consumo : parseFloat(String(consumo)) || 0;
-    const numFac = typeof factor === "number" ? factor : parseFloat(String(factor)) || 1.1023;
+    const numRec = toNumero(recuperacion, 0);
+    const numInter = toNumero(inter, 0);
+    const numDes = toNumero(desInter, 0);
+    const numMaq = toNumero(maquila, 0);
+    const numRea = toNumero(consumo, 0);
+    const numFac = toNumero(factor, FACTOR_POR_DEFECTO);
 
     const cond = condicionActual;
 
@@ -693,7 +805,9 @@ export const ModalAgregarLote = ({
       recuperacion: esSinValorComercial ? 0 : numRec,
       maquila: esSinValorComercial ? 0 : numMaq,
       consumo: esSinValorComercial ? 0 : numRea,
-      factor: esSinValorComercial ? 1 : numFac,
+      // El factor capturado por el operador siempre se respeta: es editable
+      // aunque el lote no tenga valor comercial (en ese caso los importes son 0).
+      factor: numFac,
       monto_penalidad: numPen,
       monto_flete: numFle,
       // Se envían ambas leyes: el backend solo usa la del elemento valorizado
@@ -728,7 +842,7 @@ export const ModalAgregarLote = ({
       recuperacion: esSinValorComercial ? 0 : numRec,
       maquila: esSinValorComercial ? 0 : numMaq,
       consumo: esSinValorComercial ? 0 : numRea,
-      factor: esSinValorComercial ? 1 : numFac,
+      factor: numFac,
       precio_por_tonelada: esSinValorComercial ? 0 : Number(ptn.toFixed(2)),
       monto_penalidad: numPen,
       monto_flete: numFle,
@@ -748,16 +862,17 @@ export const ModalAgregarLote = ({
     setSelectedGrupoAnalisisId(null);
     setInter(0);
     setDesInter(0);
-    setFactor(1.1023);
+    setFactor(FACTOR_POR_DEFECTO);
     setMontoPenalidad(0);
     setMontoFlete(0);
     setPrecioEncontrado(null);
     onClose();
   };
 
-  // INTER siempre bloqueado: el valor proviene del precio INTER registrado
-  // para la fecha y elemento seleccionados (via boton "+").
-  const interBloqueado = true;
+  // El INTER se autocompleta con el precio INTER registrado (elemento + fecha de
+  // valorización), pero el operador puede ajustarlo para esta valorización.
+  // El ajuste es LOCAL: no se modifica el precio INTER registrado
+  // (tabla precio_elemento_quimico); queda en el detalle de la valorización.
 
   return (
     <ModalEstandar
@@ -988,10 +1103,31 @@ export const ModalAgregarLote = ({
             )}
           </Group>
 
+          {elementoComplementarioEnOtraValorizacion && (
+            <Alert
+              variant="light"
+              color="red"
+              icon={<IconAlertTriangle size={16} />}
+              className="text-xs my-2"
+            >
+              El lote {elementoComplementarioEnOtraValorizacion.correlativoLote} ya
+              tiene el {elementoComplementarioEnOtraValorizacion.elemento} en otra
+              valorización. Ambos elementos (Oro y Plata) del mismo lote deben
+              valorizarse en la misma valorización.
+            </Alert>
+          )}
+
           <Grid gutter="xs">
             <Grid.Col span={{ base: 6, sm: 4 }}>
               <NumberInput
                 label="INTER ($/oz):"
+                description={
+                  esSinValorComercial
+                    ? "Lote sin valor comercial: no aplica precio internacional."
+                    : precioEncontrado
+                      ? `Autocompletado con el precio INTER registrado (${precioEncontrado.fecha}). Puedes ajustarlo solo para esta valorización.`
+                      : "No se encontró precio INTER registrado para la fecha de valorización."
+                }
                 value={inter}
                 onChange={(val) => setInter(val ?? 0)}
                 min={0}
@@ -1002,7 +1138,7 @@ export const ModalAgregarLote = ({
                 rightSection={<Text fz={10} c="zinc.5" mr={6}>$/oz</Text>}
                 rightSectionWidth={44}
                 classNames={fieldClasses}
-                disabled={interBloqueado}
+                disabled={esSinValorComercial}
               />
             </Grid.Col>
             <Grid.Col span={{ base: 6, sm: 4 }}>
@@ -1024,8 +1160,13 @@ export const ModalAgregarLote = ({
             <Grid.Col span={{ base: 6, sm: 4 }}>
               <NumberInput
                 label="RECUPERACIÓN (%):"
+                description={
+                  recuperacionMaxima !== null
+                    ? `Máximo según la condición: ${recuperacionMaxima.toFixed(3)}%`
+                    : undefined
+                }
                 value={recuperacion}
-                onChange={(val) => setRecuperacion(val ?? 0)}
+                onChange={handleRecuperacionChange}
                 min={0}
                 max={100}
                 decimalScale={2}
@@ -1073,8 +1214,9 @@ export const ModalAgregarLote = ({
             <Grid.Col span={{ base: 6, sm: 4 }}>
               <NumberInput
                 label="FACTOR:"
+                description="Factor de conversión siempre editable."
                 value={factor}
-                onChange={(val) => setFactor(val ?? 1.1023)}
+                onChange={(val) => setFactor(val ?? FACTOR_POR_DEFECTO)}
                 min={0}
                 step={0.0001}
                 decimalScale={4}
@@ -1082,7 +1224,6 @@ export const ModalAgregarLote = ({
                 radius="lg"
                 hideControls
                 classNames={fieldClasses}
-                disabled={esSinValorComercial}
               />
             </Grid.Col>
             <Grid.Col span={{ base: 6, sm: 4 }}>

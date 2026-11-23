@@ -42,6 +42,7 @@ import { ModalHistorialPagos } from "./components/modal-historial-pagos";
 import { ModalRegistroPago } from "./components/modal-registro-pago";
 import { ModalAnularComprobante } from "./components/modal-anular-comprobante";
 import { ModalRegistroComprobante } from "./components/modal-registro-comprobante";
+import { ModalGestionarEvidencias } from "./components/modal-gestionar-evidencias";
 import { ModalRegistroNotaComprobante } from "./components/modal-registro-nota-comprobante";
 import { ModalAnularNotaComprobante } from "./components/modal-anular-nota-comprobante";
 
@@ -114,6 +115,7 @@ export default function ContabilidadPage() {
     crearComprobante: crearComprobanteCompra,
     aprobarComprobante,
     anularComprobante: anularComprobanteCompra,
+    actualizarComprobanteEnLista,
   } = useComprobantesCompra();
 
   const { anularPago: anularPagoCompra } = usePagosComprobante();
@@ -176,6 +178,9 @@ export default function ContabilidadPage() {
   const [tituloEvidencias, setTituloEvidencias] = useState<string>(
     "Evidencias del Comprobante",
   );
+  // Gestor de evidencias (solo comprobantes de compra: permite agregar y quitar)
+  const [comprobanteEvidencias, setComprobanteEvidencias] =
+    useState<RES_ComprobanteCompra | null>(null);
 
   // Cargar Catálogos Auxiliares
   useEffect(() => {
@@ -562,9 +567,7 @@ export default function ContabilidadPage() {
                 onAnular={() => setComprobanteAAnular(c)}
                 onVerPagos={() => void handleVerHistorial(c.id, false)}
                 onVerEvidencias={() => {
-                  setTituloEvidencias("Evidencias del Comprobante");
-                  setSelectedEvidencias(c.evidencias ?? []);
-                  setEvidenceModalOpen(true);
+                  setComprobanteEvidencias(c);
                 }}
                 onEmitirNota={(tipo) => handleAbrirNota(c, tipo)}
                 onAnularNota={(idNota) => {
@@ -684,7 +687,15 @@ export default function ContabilidadPage() {
         loading={notaIdAnulando !== null && (anulandoPorId[notaIdAnulando] ?? false)}
       />
 
-      {/* Modal Evidencias Compartido */}
+      {/* --- MODAL GESTOR DE EVIDENCIAS (COMPRA) --- */}
+      <ModalGestionarEvidencias
+        opened={comprobanteEvidencias !== null}
+        comprobante={comprobanteEvidencias}
+        onClose={() => setComprobanteEvidencias(null)}
+        onGuardado={actualizarComprobanteEnLista}
+      />
+
+      {/* Modal Evidencias Compartido (solo lectura: venta y documentos de notas) */}
       <ModalEstandar
         opened={evidenceModalOpen}
         close={() => {

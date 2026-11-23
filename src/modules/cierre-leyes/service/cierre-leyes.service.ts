@@ -192,6 +192,18 @@ export const CierreLeyesService = {
     await api.delete(`/cierre-leyes/analisis/${idAnalisis}`);
   },
 
+  /**
+   * Eliminación FÍSICA de una muestra externa (con todos sus ensayos).
+   */
+  eliminarMuestraExterna: async (idMuestraExterna: number): Promise<void> => {
+    const { data } = await api.delete(
+      `/cierre-leyes/muestras-externas/${idMuestraExterna}`,
+    );
+    if (data?.success === false) {
+      throw new Error(data.message || "No se pudo eliminar la muestra externa.");
+    }
+  },
+
   confirmarLote: async (idLote: number, conValorComercial: boolean): Promise<void> => {
     await api.post(`/cierre-leyes/lotes/${idLote}/cerrar`, {
       con_valor_comercial: conValorComercial,

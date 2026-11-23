@@ -11,6 +11,7 @@ export interface RES_CondicionComercialProveedor {
   recuperacion: number;
   consumo: number;
   riesgo_comercial: number;
+  observacion: string | null;
   estado: EstadoBase;
   created_at?: string;
 }

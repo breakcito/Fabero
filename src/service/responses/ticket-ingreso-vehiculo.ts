@@ -49,3 +49,20 @@ export interface RES_TicketIngresoVehiculoData {
   };
   observaciones: string;
 }
+
+/**
+ * Guía de primer tramo asociada a una recepción de unidad.
+ * Cuando una unidad tiene más de una, hay que elegir con cuál se genera el
+ * Ticket de Ingreso Vehicular.
+ */
+export interface GuiaRecepcionItem {
+  id: number;
+  guia_remitente: string | null;
+  guia_transportista: string | null;
+  sin_guia_transportista: boolean;
+  con_no_conformidad: boolean;
+  peso_guia_remision: number;
+  peso_vehicular_total: number;
+  fecha_emision: string | null;
+  created_at: string;
+}

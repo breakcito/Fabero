@@ -16,7 +16,7 @@ export const dateFromInput = (input: string | null | undefined): string | null =
   if (!trimmed) return null;
 
   const match = trimmed.match(
-    /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:\s+(\d{1,2}):(\d{2}))?$/
+    /^(\d{1,2})[/-](\d{1,2})[/-](\d{4})(?:\s+(\d{1,2}):(\d{2}))?$/
   );
   if (!match) return null;
 

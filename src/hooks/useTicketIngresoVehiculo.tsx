@@ -15,7 +15,7 @@ import { usePrint } from "./usePrint";
  */
 export const useTicketIngresoVehiculo = () => {
   const { print, prepare } = usePrint();
-  const { notifyError, notifySuccess } = useNotify();
+  const { notifyError } = useNotify();
   const [loadingTicket, setLoadingTicket] = useState(false);
 
   const printTicketIngreso = useCallback(
@@ -35,7 +35,6 @@ export const useTicketIngresoVehiculo = () => {
           documentTitle: `Ticket de Ingreso ${data.tiv || data.correlativo}`,
           target,
         });
-        notifySuccess("Ticket de ingreso generado. Revisa la nueva ventana del navegador.");
       } catch (err) {
         const message = err instanceof Error ? err.message : "Error desconocido";
         notifyError(`Error al imprimir el ticket de ingreso: ${message}`);
@@ -44,7 +43,7 @@ export const useTicketIngresoVehiculo = () => {
         setLoadingTicket(false);
       }
     },
-    [print, prepare, notifyError, notifySuccess],
+    [print, prepare, notifyError],
   );
 
   return useMemo(

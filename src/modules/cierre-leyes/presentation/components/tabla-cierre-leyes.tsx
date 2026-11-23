@@ -4,7 +4,6 @@ import {
   IconPlus,
   IconTrashX,
   IconEye,
-  IconPrinter,
   IconLock,
   IconAlertCircle,
   IconCheck,
@@ -28,6 +27,7 @@ import type {
 import type { RES_CambiosLog } from "../../../../service/responses/_generic/cambios-log";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
 import { CambiosLogViewer } from "../../../../presentation/utils/cambios-log-viewer";
+import { decimalAPorcentajeRedondeado } from "../utils/porcentaje";
 import { CellInput } from "./cell-input";
 import { BotonEvidenciaAnalisis } from "./boton-evidencia-analisis";
 import { ModalDocumentosAnalisis } from "./modal-documentos-analisis";
@@ -56,12 +56,44 @@ interface TablaCierreLeyesProps {
   onSubirDocumentos: (idAnalisis: number, archivos: File[]) => Promise<IArchivoDoc[] | boolean | null>;
   muestrasAsociadasPorGrupo?: Record<number, MuestraAsociadaResponse[]>;
   onCargarMuestrasAsociadas?: (idGrupo: number) => Promise<MuestraAsociadaResponse[]>;
-  onImprimirGrupo?: (lote: LoteCierreResponse, grupo?: GrupoAnalisisLoteResponse) => void;
   onConfirmarLote?: (idLote: number, conValorComercial: boolean) => Promise<boolean>;
   confirmandoLote?: Record<number, boolean>;
   onAsociarMuestrasMultiples?: (idsMuestraExterna: number[], idGrupo: number) => Promise<boolean>;
   onAsociarAGrupo?: (idMuestraExterna: number, idGrupo: number) => Promise<boolean>;
+  /** Grupos marcados para imprimir juntos (deben ser del mismo proveedor). */
+  gruposSeleccionados?: number[];
+  onToggleSeleccionGrupo?: (idGrupo: number) => void;
 }
+
+type CampoLeyGrupo = "ley_humedad" | "ley_recuperacion";
+type CampoCierreGrupo = "ley_humedad_cierre" | "ley_recuperacion_cierre";
+
+/**
+ * Ley vigente de humedad/recuperación de un grupo.
+ *
+ * Si el grupo ya tiene leyes registradas (cierre vigente) mandan esas y el
+ * campo queda impuesto: no se modifican desde el análisis. Si el grupo todavía
+ * no tiene leyes, se heredan las de la muestra asociada (o del propio ensayo).
+ */
+const obtenerLeyVigenteGrupo = (
+  ga: GrupoAnalisisLoteResponse,
+  campo: CampoLeyGrupo,
+  campoCierre: CampoCierreGrupo,
+): { valor: number; editable: boolean } => {
+  const cierre = ga[campoCierre] ?? 0;
+  if (cierre > 0) {
+    return { valor: cierre, editable: false };
+  }
+
+  const analisis = ga.analisis ?? [];
+  const conLey = analisis.filter((a) => (a[campo] ?? 0) > 0);
+  const propia = conLey.find((a) => !a.id_muestra_externa);
+  const deMuestra = conLey.find((a) => Boolean(a.id_muestra_externa));
+
+  const origen = propia ?? deMuestra;
+
+  return { valor: origen ? (origen[campo] ?? 0) : 0, editable: true };
+};
 
 interface BotonValorComercialProps {
   lote: LoteCierreResponse;
@@ -230,11 +262,12 @@ export const TablaCierreLeyes = ({
   onSubirDocumentos,
   muestrasAsociadasPorGrupo,
   onCargarMuestrasAsociadas,
-  onImprimirGrupo,
   onConfirmarLote,
   confirmandoLote,
   onAsociarMuestrasMultiples,
   onAsociarAGrupo,
+  gruposSeleccionados = [],
+  onToggleSeleccionGrupo,
 }: TablaCierreLeyesProps) => {
   const { notifyWarning } = useNotify();
   const [dragOverGrupoId, setDragOverGrupoId] = useState<number | null>(null);
@@ -387,9 +420,9 @@ export const TablaCierreLeyes = ({
                 Grupo
               </th>
 
-              {/* EVIDENCIA (movida justo después de Grupo) */}
-              <th rowSpan={2} className="p-2 border-r border-zinc-800 text-center align-middle w-[7%] min-w-18">
-                Evidencia
+              {/* CERTIFICADO Y MUESTRAS (movida justo después de Grupo) */}
+              <th rowSpan={2} className="p-2 border-r border-zinc-800 text-center align-middle w-[8%] min-w-22">
+                Certificado
               </th>
 
               {/* LEYES (cubriendo Origen, Au, Prom, Ag, Prom, Humedad, Recuperación -> 7 columnas) */}
@@ -405,8 +438,8 @@ export const TablaCierreLeyes = ({
               <th className="p-1.5 border-r border-zinc-800 text-center w-[8%] min-w-19 text-indigo-300">Promedio</th>
               <th className="p-1.5 border-r border-zinc-800 text-center w-[10%] min-w-24">NWAG (Plata)</th>
               <th className="p-1.5 border-r border-zinc-800 text-center w-[8%] min-w-19 text-indigo-300">Promedio</th>
-              <th className="p-1.5 border-r border-zinc-800 text-center w-[5%] min-w-18">Humedad</th>
-              <th className="p-1.5 text-center w-[6%] min-w-21">Recuperación</th>
+              <th className="p-1.5 border-r border-zinc-800 text-center w-[5%] min-w-18">Humedad (%)</th>
+              <th className="p-1.5 text-center w-[6%] min-w-21">Recuperación (%)</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-800 text-xs">
@@ -467,6 +500,8 @@ export const TablaCierreLeyes = ({
                     <tr key={`lote-empty-${lote.id}`} className="hover:bg-zinc-800/20 transition-colors">
                       {buildLoteTd()}
 
+                      <td className="p-1 border-r border-zinc-800 bg-zinc-950/40" />
+
                       <td className="p-4 border-r border-zinc-800 text-center text-zinc-500 text-xs">
                         <span className="text-[10px] text-zinc-500 italic">Sin grupo</span>
                       </td>
@@ -493,6 +528,21 @@ export const TablaCierreLeyes = ({
                       const analisisList = ga.analisis ?? [];
                       const numAnalisis = analisisList.length > 0 ? analisisList.length : 1;
 
+                      const grupoSeleccionado = gruposSeleccionados.includes(ga.id);
+
+                      // Leyes vigentes del grupo: si ya tiene cierre registrado,
+                      // mandan esas; si no, se heredan las de la muestra.
+                      const leyHumedadGrupo = obtenerLeyVigenteGrupo(
+                        ga,
+                        "ley_humedad",
+                        "ley_humedad_cierre",
+                      );
+                      const leyRecuperacionGrupo = obtenerLeyVigenteGrupo(
+                        ga,
+                        "ley_recuperacion",
+                        "ley_recuperacion_cierre",
+                      );
+
                       const plataConfirmadas = analisisList.filter((a) => a.ley_plata_confirmada && a.ley_plata > 0);
                       const promedioPlata =
                         plataConfirmadas.length > 0
@@ -504,6 +554,12 @@ export const TablaCierreLeyes = ({
                         oroConfirmadas.length > 0
                           ? oroConfirmadas.reduce((acc, a) => acc + a.ley_oro, 0) / oroConfirmadas.length
                           : 0;
+
+                      // El certificado (evidencia) es obligatorio: sin al menos
+                      // un archivo adjunto NO se puede escribir ninguna ley.
+                      const grupoSinCertificado = !analisisList.some(
+                        (a) => a.documentos && a.documentos.length > 0,
+                      );
 
                       const renderLoteCell = isFirstRowOfLote ? buildLoteTd(loteTotalRows) : null;
 
@@ -537,6 +593,23 @@ export const TablaCierreLeyes = ({
                               </Badge>
                             )}
                             <div className="flex items-center gap-1.5">
+                              <Tooltip
+                                label={
+                                  grupoSeleccionado
+                                    ? "Quitar de la selección de impresión"
+                                    : "Seleccionar grupo para imprimir junto a los demás"
+                                }
+                                withArrow
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={grupoSeleccionado}
+                                  onChange={() => onToggleSeleccionGrupo?.(ga.id)}
+                                  disabled={!onToggleSeleccionGrupo}
+                                  className="rounded border-zinc-700 bg-zinc-900 text-indigo-600 focus:ring-0 focus:ring-offset-0 cursor-pointer h-3.5 w-3.5 shrink-0 disabled:cursor-not-allowed disabled:opacity-40"
+                                  title="Seleccionar grupo para imprimir junto"
+                                />
+                              </Tooltip>
                               <span className="font-bold text-zinc-200 text-xs">{ga.nombre}</span>
                               {(() => {
                                 const totalMuestras =
@@ -568,17 +641,6 @@ export const TablaCierreLeyes = ({
                                   </Tooltip>
                                 );
                               })()}
-                              {onImprimirGrupo && (
-                                <Tooltip label="Imprimir reporte del grupo" withArrow>
-                                  <button
-                                    type="button"
-                                    onClick={() => onImprimirGrupo(lote, ga)}
-                                    className="text-zinc-400 hover:text-indigo-300 transition-colors p-0.5 cursor-pointer"
-                                  >
-                                    <IconPrinter size={13} />
-                                  </button>
-                                </Tooltip>
-                              )}
                             </div>
                             {ga.tiene_propuesta_oro && (
                               <Badge
@@ -605,10 +667,10 @@ export const TablaCierreLeyes = ({
                                 type="button"
                                 onClick={() =>
                                   onAbrirModalAgregarAnalisis(ga.id, ga.nombre, {
-                                    leyHumedadHeredada: ga.ley_humedad_cierre,
-                                    leyRecuperacionHeredada: ga.ley_recuperacion_cierre,
-                                    leyHumedadEditable: !(ga.ley_humedad_cierre > 0),
-                                    leyRecuperacionEditable: !(ga.ley_recuperacion_cierre > 0),
+                                    leyHumedadHeredada: leyHumedadGrupo.valor,
+                                    leyRecuperacionHeredada: leyRecuperacionGrupo.valor,
+                                    leyHumedadEditable: leyHumedadGrupo.editable,
+                                    leyRecuperacionEditable: leyRecuperacionGrupo.editable,
                                     bloqueadoOro: ga.tiene_propuesta_oro,
                                     bloqueadoPlata: ga.tiene_propuesta_plata,
                                   })
@@ -665,12 +727,18 @@ export const TablaCierreLeyes = ({
                           analisis.id_muestra_externa && analisis.id_muestra_externa > 0
                         );
 
+                        // Sin certificado (evidencia) de este análisis no se
+                        // puede escribir ninguna de sus leyes.
+                        const sinCertificado = !(
+                          analisis.documentos && analisis.documentos.length > 0
+                        );
+
                         return (
                           <tr key={`analisis-${analisis.id}`} className="hover:bg-zinc-800/20 transition-colors">
                             {showLote && renderLoteCell}
                             {idx === 0 && renderGrupoCell}
 
-                            {/* EVIDENCIA (justo después de Grupo; gris sin archivos, verde con archivos) */}
+                            {/* CERTIFICADO Y MUESTRAS (justo después de Grupo; gris sin archivos, verde con archivos) */}
                             <td className="p-1.5 border-r border-zinc-800 text-center align-middle">
                               <BotonEvidenciaAnalisis
                                 cantidad={analisis.documentos?.length ?? 0}
@@ -819,11 +887,13 @@ export const TablaCierreLeyes = ({
                             {/* NWAU (ORO) */}
                             <td className="p-1 border-r border-zinc-800 text-center align-middle">
                               <Tooltip
-                                disabled={!ga.tiene_propuesta_oro}
+                                disabled={!ga.tiene_propuesta_oro && !sinCertificado}
                                 label={
                                   ga.estado_valorizacion_oro === "Aprobado"
                                     ? "Bloqueado por valorización aprobada (Oro)"
-                                    : "Bloqueado por propuesta de valorización (Oro)"
+                                    : ga.tiene_propuesta_oro
+                                      ? "Bloqueado por propuesta de valorización (Oro)"
+                                      : "Adjunta el certificado (evidencia) para poder escribir la ley"
                                 }
                                 withArrow
                               >
@@ -831,7 +901,7 @@ export const TablaCierreLeyes = ({
                                   <CellInput
                                     initialValue={analisis.ley_oro}
                                     initialChecked={analisis.ley_oro_confirmada}
-                                    disabled={ga.tiene_propuesta_oro}
+                                    disabled={ga.tiene_propuesta_oro || sinCertificado}
                                     onSave={(val, chk) => {
                                       onGuardarValoresAnalisis(analisis.id, {
                                         ley_oro: val,
@@ -852,14 +922,16 @@ export const TablaCierreLeyes = ({
                                 <CierreInput
                                   value={ga.ley_oro_cierre}
                                   promedio={promedioOro}
-                                  disabled={ga.tiene_propuesta_oro}
+                                  disabled={ga.tiene_propuesta_oro || grupoSinCertificado}
                                   onSave={(val) => onGuardarLeyesCierreGrupo(ga.id, { ley_oro_cierre: val })}
                                   tooltipLabel={
                                     ga.tiene_propuesta_oro
                                       ? ga.estado_valorizacion_oro === "Aprobado"
                                         ? "Bloqueado: el grupo tiene una valorización aprobada para Oro"
                                         : "Bloqueado: el grupo tiene una propuesta de valorización para Oro"
-                                      : "Ley final de cierre para Oro (escribe o haz clic en el promedio arriba para aplicarlo)"
+                                      : grupoSinCertificado
+                                        ? "Adjunta el certificado (evidencia) de algún análisis para poder escribir la ley de cierre"
+                                        : "Ley final de cierre para Oro (escribe o haz clic en el promedio arriba para aplicarlo)"
                                   }
                                 />
                               </td>
@@ -868,11 +940,13 @@ export const TablaCierreLeyes = ({
                             {/* NWAG (PLATA) */}
                             <td className="p-1 border-r border-zinc-800 text-center align-middle">
                               <Tooltip
-                                disabled={!ga.tiene_propuesta_plata}
+                                disabled={!ga.tiene_propuesta_plata && !sinCertificado}
                                 label={
                                   ga.estado_valorizacion_plata === "Aprobado"
                                     ? "Bloqueado por valorización aprobada (Plata)"
-                                    : "Bloqueado por propuesta de valorización (Plata)"
+                                    : ga.tiene_propuesta_plata
+                                      ? "Bloqueado por propuesta de valorización (Plata)"
+                                      : "Adjunta el certificado (evidencia) para poder escribir la ley"
                                 }
                                 withArrow
                               >
@@ -880,7 +954,7 @@ export const TablaCierreLeyes = ({
                                   <CellInput
                                     initialValue={analisis.ley_plata}
                                     initialChecked={analisis.ley_plata_confirmada}
-                                    disabled={ga.tiene_propuesta_plata}
+                                    disabled={ga.tiene_propuesta_plata || sinCertificado}
                                     onSave={(val, chk) => {
                                       onGuardarValoresAnalisis(analisis.id, {
                                         ley_plata: val,
@@ -901,14 +975,16 @@ export const TablaCierreLeyes = ({
                                 <CierreInput
                                   value={ga.ley_plata_cierre}
                                   promedio={promedioPlata}
-                                  disabled={ga.tiene_propuesta_plata}
+                                  disabled={ga.tiene_propuesta_plata || grupoSinCertificado}
                                   onSave={(val) => onGuardarLeyesCierreGrupo(ga.id, { ley_plata_cierre: val })}
                                   tooltipLabel={
                                     ga.tiene_propuesta_plata
                                       ? ga.estado_valorizacion_plata === "Aprobado"
                                         ? "Bloqueado: el grupo tiene una valorización aprobada para Plata"
                                         : "Bloqueado: el grupo tiene una propuesta de valorización para Plata"
-                                      : "Ley final de cierre para Plata (escribe o haz clic en el promedio arriba para aplicarlo)"
+                                      : grupoSinCertificado
+                                        ? "Adjunta el certificado (evidencia) de algún análisis para poder escribir la ley de cierre"
+                                        : "Ley final de cierre para Plata (escribe o haz clic en el promedio arriba para aplicarlo)"
                                   }
                                 />
                               </td>
@@ -921,25 +997,33 @@ export const TablaCierreLeyes = ({
                                 className="p-1 border-r border-zinc-800 text-center align-middle bg-zinc-950/20"
                               >
                                 <Tooltip
-                                  disabled={!ga.tiene_propuesta_oro && !ga.tiene_propuesta_plata}
+                                  disabled={
+                                    !ga.tiene_propuesta_oro &&
+                                    !ga.tiene_propuesta_plata &&
+                                    !grupoSinCertificado
+                                  }
                                   label={
                                     ga.estado_valorizacion_oro === "Aprobado" ||
                                     ga.estado_valorizacion_plata === "Aprobado"
                                       ? "Bloqueado por valorización aprobada"
-                                      : "Bloqueado por propuesta de valorización"
+                                      : ga.tiene_propuesta_oro || ga.tiene_propuesta_plata
+                                        ? "Bloqueado por propuesta de valorización"
+                                        : "Adjunta el certificado (evidencia) de algún análisis para poder escribir la ley"
                                   }
                                   withArrow
                                 >
                                   <div>
                                     <CellInput
                                       initialValue={
-                                        ga.ley_humedad_cierre > 0
-                                          ? ga.ley_humedad_cierre
-                                          : analisisList[0]?.ley_humedad || 0
+                                        decimalAPorcentajeRedondeado(leyHumedadGrupo.valor) ?? 0
                                       }
                                       initialChecked={false}
                                       hideCheckbox
-                                      disabled={ga.tiene_propuesta_oro || ga.tiene_propuesta_plata}
+                                      disabled={
+                                        ga.tiene_propuesta_oro ||
+                                        ga.tiene_propuesta_plata ||
+                                        grupoSinCertificado
+                                      }
                                       onSave={(val) => {
                                         onGuardarLeyesCierreGrupo(ga.id, { ley_humedad_cierre: val });
                                         analisisList.forEach((a) => {
@@ -959,25 +1043,33 @@ export const TablaCierreLeyes = ({
                                 className="p-1 text-center align-middle bg-zinc-950/20"
                               >
                                 <Tooltip
-                                  disabled={!ga.tiene_propuesta_oro && !ga.tiene_propuesta_plata}
+                                  disabled={
+                                    !ga.tiene_propuesta_oro &&
+                                    !ga.tiene_propuesta_plata &&
+                                    !grupoSinCertificado
+                                  }
                                   label={
                                     ga.estado_valorizacion_oro === "Aprobado" ||
                                     ga.estado_valorizacion_plata === "Aprobado"
                                       ? "Bloqueado por valorización aprobada"
-                                      : "Bloqueado por propuesta de valorización"
+                                      : ga.tiene_propuesta_oro || ga.tiene_propuesta_plata
+                                        ? "Bloqueado por propuesta de valorización"
+                                        : "Adjunta el certificado (evidencia) de algún análisis para poder escribir la ley"
                                   }
                                   withArrow
                                 >
                                   <div>
                                     <CellInput
                                       initialValue={
-                                        ga.ley_recuperacion_cierre > 0
-                                          ? ga.ley_recuperacion_cierre
-                                          : analisisList[0]?.ley_recuperacion || 0
+                                        decimalAPorcentajeRedondeado(leyRecuperacionGrupo.valor) ?? 0
                                       }
                                       initialChecked={false}
                                       hideCheckbox
-                                      disabled={ga.tiene_propuesta_oro || ga.tiene_propuesta_plata}
+                                      disabled={
+                                        ga.tiene_propuesta_oro ||
+                                        ga.tiene_propuesta_plata ||
+                                        grupoSinCertificado
+                                      }
                                       onSave={(val) => {
                                         onGuardarLeyesCierreGrupo(ga.id, { ley_recuperacion_cierre: val });
                                         analisisList.forEach((a) => {
@@ -1083,11 +1175,14 @@ export const TablaCierreLeyes = ({
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm font-bold text-white tracking-wide whitespace-nowrap">
-                          {m.codigo_cliente ? `Muestra ${m.codigo_cliente}` : `Muestra #${m.id_muestra_externa}`}
+                          {m.correlativo ||
+                            (m.codigo_cliente
+                              ? `Muestra ${m.codigo_cliente}`
+                              : `Muestra #${m.id_muestra_externa}`)}
                         </span>
-                        {m.correlativo && m.correlativo !== m.codigo_cliente && (
-                          <span className="font-mono text-[10px] font-semibold px-1.5 py-0.5 rounded bg-cyan-950/70 text-cyan-300 border border-cyan-800/60">
-                            {m.correlativo}
+                        {m.correlativo && m.codigo_cliente && m.correlativo !== m.codigo_cliente && (
+                          <span className="font-mono text-[10px] font-semibold px-1.5 py-0.5 rounded bg-zinc-800/90 text-zinc-300 border border-zinc-700/60">
+                            {m.codigo_cliente}
                           </span>
                         )}
                         {m.proveedor_nombre && (

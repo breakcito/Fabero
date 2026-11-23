@@ -1,6 +1,9 @@
 import { api } from "../../../service/_api";
 import type { IRespuesta } from "../../../shared/interfaces/_response";
-import type { DTO_CrearAnticipoProveedor } from "./anticipos-proveedor.requests";
+import type {
+  DTO_CrearAnticipoProveedor,
+  DTO_GestionarEvidenciasAnticipoProveedor,
+} from "./anticipos-proveedor.requests";
 import type { RES_AnticipoProveedor } from "./anticipos-proveedor.responses";
 
 export const AnticiposProveedorService = {
@@ -80,12 +83,34 @@ export const AnticiposProveedorService = {
     return data;
   },
 
-  get_historial_combinado: async (
-    id: number
-  ): Promise<IRespuesta<import("../../../service/responses/_generic/cambios-log").RES_CambiosLog[]>> => {
-    const { data } = await api.get<
-      IRespuesta<import("../../../service/responses/_generic/cambios-log").RES_CambiosLog[]>
-    >(`/anticipos-proveedor/${id}/historial-cambios`);
+  /**
+   * Gestionar las evidencias de un anticipo: agrega archivos nuevos y/o elimina
+   * los existentes (por su `path_relativo`).
+   *
+   * Se envía por POST con `_method=PUT` porque el cuerpo es multipart y el
+   * navegador no puede emitir PUT con FormData de forma nativa.
+   */
+  gestionarEvidencias: async (
+    id: number,
+    dto: DTO_GestionarEvidenciasAnticipoProveedor
+  ): Promise<IRespuesta<RES_AnticipoProveedor>> => {
+    const formData = new FormData();
+    formData.append("_method", "PUT");
+    dto.eliminar.forEach((path) => formData.append("eliminar[]", path));
+    dto.evidencias.forEach((file) => formData.append("evidencias[]", file));
+    if (dto.motivo) {
+      formData.append("motivo", dto.motivo);
+    }
+
+    const { data } = await api.post<IRespuesta<RES_AnticipoProveedor>>(
+      `/anticipos-proveedor/${id}/evidencias`,
+      formData
+    );
+
+    if (data.success === false) {
+      throw new Error(data.message || "No se pudieron actualizar las evidencias.");
+    }
+
     return data;
   },
 };

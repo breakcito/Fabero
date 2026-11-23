@@ -131,6 +131,13 @@ export const useComprobantesCompra = () => {
     }
   };
 
+  // Refrescar una fila puntual tras una mutacion (ej. gestion de evidencias).
+  const actualizarComprobanteEnLista = useCallback((actualizado: RES_ComprobanteCompra) => {
+    setComprobantes((prev) =>
+      prev.map((item) => (item.id === actualizado.id ? actualizado : item)),
+    );
+  }, []);
+
   return {
     idProveedorFiltro,
     setIdProveedorFiltro,
@@ -149,5 +156,6 @@ export const useComprobantesCompra = () => {
     crearComprobante,
     aprobarComprobante,
     anularComprobante,
+    actualizarComprobanteEnLista,
   };
 };

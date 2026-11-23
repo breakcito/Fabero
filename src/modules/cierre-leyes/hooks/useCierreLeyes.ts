@@ -13,6 +13,7 @@ import type {
 import type { RES_Laboratorio } from "../../../service/responses/laboratorio";
 import type { RES_Proveedor } from "../../../service/responses/proveedor";
 import { useNotify } from "../../../hooks/useNotify";
+import { porcentajeADecimal } from "../presentation/utils/porcentaje";
 import type {
   FiltrosLotesSugeridos,
   CrearGrupoPayload,
@@ -43,6 +44,7 @@ export const useCierreLeyes = () => {
   const [iniciandoMuestra, setIniciandoMuestra] = useState(false);
   const [agregandoAnalisis, setAgregandoAnalisis] = useState<Record<number, boolean>>({});
   const [eliminandoAnalisis, setEliminandoAnalisis] = useState<Record<number, boolean>>({});
+  const [eliminandoMuestraExterna, setEliminandoMuestraExterna] = useState<Record<number, boolean>>({});
   const [confirmandoLote, setConfirmandoLote] = useState<Record<number, boolean>>({});
   const [asociandoMuestra, setAsociandoMuestra] = useState<Record<number, boolean>>({});
   const [subiendoDocsPorAnalisis, setSubiendoDocsPorAnalisis] = useState<Record<number, boolean>>({});
@@ -175,20 +177,32 @@ export const useCierreLeyes = () => {
     async (idAnalisis: number, payload: GuardarValoresAnalisisPayload): Promise<boolean> => {
       setGuardandoValorPorAnalisis((prev) => ({ ...prev, [idAnalisis]: true }));
 
+      // Humedad y recuperación se editan en porcentaje desde las tablas:
+      // el API y el estado local trabajan en decimal.
+      const payloadDecimal: GuardarValoresAnalisisPayload = { ...payload };
+      if (payload.ley_humedad !== undefined) {
+        payloadDecimal.ley_humedad = porcentajeADecimal(payload.ley_humedad) ?? 0;
+      }
+      if (payload.ley_recuperacion !== undefined) {
+        payloadDecimal.ley_recuperacion =
+          porcentajeADecimal(payload.ley_recuperacion) ?? 0;
+      }
+
       setMuestras((prevMuestras) =>
         prevMuestras.map((muestra) => {
           const tieneEsteAnalisis = muestra.analisis.some((an) => an.id === idAnalisis);
           if (!tieneEsteAnalisis) return muestra;
 
-          const esHumedadORec = "ley_humedad" in payload || "ley_recuperacion" in payload;
+          const esHumedadORec =
+            "ley_humedad" in payloadDecimal || "ley_recuperacion" in payloadDecimal;
 
           return {
             ...muestra,
             analisis: muestra.analisis.map((an: AnalisisMineralResponse) => {
               if (esHumedadORec) {
-                return { ...an, ...payload };
+                return { ...an, ...payloadDecimal };
               }
-              return an.id === idAnalisis ? { ...an, ...payload } : an;
+              return an.id === idAnalisis ? { ...an, ...payloadDecimal } : an;
             }),
           };
         })
@@ -200,15 +214,16 @@ export const useCierreLeyes = () => {
             const tieneEsteAnalisis = g.analisis.some((an) => an.id === idAnalisis);
             if (!tieneEsteAnalisis) return g;
 
-            const esHumedadORec = "ley_humedad" in payload || "ley_recuperacion" in payload;
+            const esHumedadORec =
+              "ley_humedad" in payloadDecimal || "ley_recuperacion" in payloadDecimal;
 
             return {
               ...g,
               analisis: g.analisis.map((an: AnalisisMineralResponse) => {
                 if (esHumedadORec) {
-                  return { ...an, ...payload };
+                  return { ...an, ...payloadDecimal };
                 }
-                return an.id === idAnalisis ? { ...an, ...payload } : an;
+                return an.id === idAnalisis ? { ...an, ...payloadDecimal } : an;
               }),
             };
           };
@@ -222,7 +237,7 @@ export const useCierreLeyes = () => {
       );
 
       try {
-        await CierreLeyesService.guardarValoresAnalisis(idAnalisis, payload);
+        await CierreLeyesService.guardarValoresAnalisis(idAnalisis, payloadDecimal);
         void Promise.all([cargarLotes(), cargarMuestras()]);
         return true;
       } catch (err: unknown) {
@@ -239,8 +254,21 @@ export const useCierreLeyes = () => {
 
   const guardarLeyesCierreGrupo = useCallback(async (idGrupo: number, payload: GuardarLeyesCierreGrupoPayload): Promise<boolean> => {
     setGuardandoCierrePorGrupo((prev) => ({ ...prev, [idGrupo]: true }));
+
+    // Las leyes de cierre de humedad y recuperación se editan en porcentaje:
+    // el API las recibe en decimal.
+    const payloadDecimal: GuardarLeyesCierreGrupoPayload = { ...payload };
+    if (payload.ley_humedad_cierre !== undefined) {
+      payloadDecimal.ley_humedad_cierre =
+        porcentajeADecimal(payload.ley_humedad_cierre) ?? 0;
+    }
+    if (payload.ley_recuperacion_cierre !== undefined) {
+      payloadDecimal.ley_recuperacion_cierre =
+        porcentajeADecimal(payload.ley_recuperacion_cierre) ?? 0;
+    }
+
     try {
-      await CierreLeyesService.guardarLeyesCierreGrupo(idGrupo, payload);
+      await CierreLeyesService.guardarLeyesCierreGrupo(idGrupo, payloadDecimal);
       notifySuccess("Leyes de cierre guardadas correctamente");
       await cargarLotes();
       return true;
@@ -313,6 +341,29 @@ export const useCierreLeyes = () => {
       return false;
     } finally {
       setEliminandoAnalisis((prev) => ({ ...prev, [idAnalisis]: false }));
+    }
+  }, [cargarLotes, cargarMuestras, notifySuccess, notifyError]);
+
+  const eliminarMuestraExterna = useCallback(async (idMuestraExterna: number): Promise<boolean> => {
+    setEliminandoMuestraExterna((prev) => ({ ...prev, [idMuestraExterna]: true }));
+    try {
+      await CierreLeyesService.eliminarMuestraExterna(idMuestraExterna);
+      notifySuccess("Muestra externa eliminada");
+      await Promise.all([cargarLotes(), cargarMuestras()]);
+      return true;
+    } catch (err: unknown) {
+      console.error(err);
+      const axiosLike = err as {
+        response?: { data?: { message?: string } };
+        message?: string;
+      };
+      notifyError(
+        axiosLike?.response?.data?.message ||
+          (err instanceof Error ? err.message : "Error al eliminar la muestra externa"),
+      );
+      return false;
+    } finally {
+      setEliminandoMuestraExterna((prev) => ({ ...prev, [idMuestraExterna]: false }));
     }
   }, [cargarLotes, cargarMuestras, notifySuccess, notifyError]);
 
@@ -414,6 +465,8 @@ export const useCierreLeyes = () => {
     iniciandoMuestra,
     agregandoAnalisis,
     eliminandoAnalisis,
+    eliminandoMuestraExterna,
+    eliminarMuestraExterna,
     guardandoValorPorAnalisis,
     guardandoCierrePorGrupo,
     confirmandoLote,

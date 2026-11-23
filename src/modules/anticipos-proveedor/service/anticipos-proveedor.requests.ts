@@ -9,3 +9,9 @@ export interface DTO_CrearAnticipoProveedor {
 export interface DTO_AnularAnticipoProveedor {
   motivo: string;
 }
+
+export interface DTO_GestionarEvidenciasAnticipoProveedor {
+  evidencias: File[];
+  eliminar: string[];
+  motivo?: string;
+}
