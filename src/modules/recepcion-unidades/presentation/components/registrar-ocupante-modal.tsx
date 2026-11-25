@@ -1,14 +1,7 @@
-import { useState } from "react";
-import {
-  Stack,
-  Group,
-  Button,
-  Checkbox,
-  Text,
-} from "@mantine/core";
-import { FileButton } from "@mantine/core";
+import { useState, type FormEvent } from "react";
 import { IconFileUpload, IconUserCheck } from "@tabler/icons-react";
-import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
+import { ModalTsx } from "../../../../presentation/utils/modal-tsx";
+import { Boton, Casilla } from "../../../../presentation/utils/ui-tsx";
 import { SelectVisitante } from "../../../../presentation/utils/select-visitante";
 
 export interface DatosOcupanteSlot {
@@ -42,8 +35,12 @@ export const RegistrarOcupanteModal = ({
   const [apellido, setApellido] = useState(datosIniciales?.apellido ?? "");
   const [dni, setDni] = useState(datosIniciales?.dni ?? "");
   const [telefono, setTelefono] = useState(datosIniciales?.telefono ?? "");
-  const [esConductor, setEsConductor] = useState(Boolean(datosIniciales?.es_conductor));
-  const [fotos, setFotos] = useState<File[]>(datosIniciales?.foto_documento ?? []);
+  const [esConductor, setEsConductor] = useState(
+    Boolean(datosIniciales?.es_conductor),
+  );
+  const [fotos, setFotos] = useState<File[]>(
+    datosIniciales?.foto_documento ?? [],
+  );
   const [idVisitante, setIdVisitante] = useState<number | undefined>(
     datosIniciales?.id_visitante,
   );
@@ -65,7 +62,7 @@ export const RegistrarOcupanteModal = ({
     onClose();
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     onGuardar({
@@ -82,87 +79,78 @@ export const RegistrarOcupanteModal = ({
   };
 
   return (
-    <ModalEstandar
+    <ModalTsx
       opened={opened}
-      close={handleClose}
+      onClose={handleClose}
       title={`Ocupante ${String.fromCharCode(
         65 + Math.max(0, (numeroSlot ?? 1) - 1),
       )} - Vehículo ${placaVehiculo ?? ""}`}
-      size="md"
+      ancho="md"
       validateClose
+      footer={
+        <div className="flex items-center justify-end gap-2">
+          <Boton
+            variante="fantasma"
+            onClick={handleClose}
+            className="px-3 text-zinc-400 hover:text-white"
+          >
+            Cancelar
+          </Boton>
+          <Boton
+            type="submit"
+            form="form-registrar-ocupante"
+            variante="primario"
+          >
+            <IconUserCheck size={14} />
+            Guardar Ocupante
+          </Boton>
+        </div>
+      }
     >
-      <form onSubmit={handleSubmit}>
-        <Stack gap="md">
-          <Text size="xs" c="zinc.5">
-            Completa la información del ocupante de este vehículo acompañante.
-          </Text>
+      <form
+        id="form-registrar-ocupante"
+        onSubmit={handleSubmit}
+        className="flex flex-col gap-4"
+      >
+        <p className="text-xs text-zinc-500">
+          Completa la información del ocupante de este vehículo acompañante.
+        </p>
 
-          <SelectVisitante
-            label="Visitante"
-            placeholder="Buscar por nombre o DNI..."
-            value={idVisitante ?? null}
-            onChange={(v) => {
-              setIdVisitante(v.id_visitante);
-              setNombre(v.nombre);
-              setApellido(v.apellido);
-              setDni(v.dni);
-              setTelefono(v.telefono ?? "");
-            }}
-          />
+        <SelectVisitante
+          label="Visitante"
+          placeholder="Buscar por nombre o DNI..."
+          value={idVisitante ?? null}
+          onChange={(v) => {
+            setIdVisitante(v.id_visitante);
+            setNombre(v.nombre);
+            setApellido(v.apellido);
+            setDni(v.dni);
+            setTelefono(v.telefono ?? "");
+          }}
+        />
 
-          <Checkbox
-            label="¿Es Conductor de este Vehículo Acompañante?"
-            checked={esConductor}
-            onChange={(e) => setEsConductor(e.currentTarget.checked)}
-            color="indigo"
-            classNames={{
-              label: "text-zinc-300 text-xs font-medium cursor-pointer",
-            }}
-          />
+        <Casilla
+          label="¿Es Conductor de este Vehículo Acompañante?"
+          checked={esConductor}
+          onChange={(e) => setEsConductor(e.currentTarget.checked)}
+        />
 
-          <Group align="center" justify="space-between" className="pt-2 border-t border-zinc-800">
-            <FileButton
-              multiple
+        <div className="border-t border-zinc-800 pt-3">
+          <label className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2.5 text-sm font-semibold text-zinc-300 transition-colors hover:bg-zinc-700">
+            <IconFileUpload size={14} />
+            {fotos.length > 0
+              ? `${fotos.length} foto(s) seleccionada(s)`
+              : "Adjuntar Foto / Doc."}
+            <input
+              type="file"
               accept="image/*"
-              onChange={(files) => setFotos(files ?? [])}
-            >
-              {(props) => (
-                <Button
-                  {...props}
-                  variant="default"
-                  radius="xl"
-                  size="xs"
-                  leftSection={<IconFileUpload size={14} />}
-                  className="bg-zinc-800! text-zinc-300! border-zinc-700!"
-                >
-                  {fotos.length > 0 ? `${fotos.length} foto(s) seleccionada(s)` : "Adjuntar Foto / Doc."}
-                </Button>
-              )}
-            </FileButton>
-
-            <Group gap="sm">
-              <Button
-                variant="subtle"
-                onClick={handleClose}
-                radius="xl"
-                size="xs"
-                className="text-zinc-400 hover:text-white"
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                radius="xl"
-                size="xs"
-                leftSection={<IconUserCheck size={14} />}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white"
-              >
-                Guardar Ocupante
-              </Button>
-            </Group>
-          </Group>
-        </Stack>
+              multiple
+              className="sr-only"
+              onChange={(e) => setFotos(Array.from(e.currentTarget.files ?? []))}
+            />
+          </label>
+        </div>
       </form>
-    </ModalEstandar>
+    </ModalTsx>
   );
 };

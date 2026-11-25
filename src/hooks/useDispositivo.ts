@@ -24,6 +24,15 @@ export interface InfoDispositivo {
   esTablet: boolean;
   /** >= 1024px. */
   esEscritorioGrande: boolean;
+  /**
+   * Vista compacta: móvil o pantalla < 640px.
+   *
+   * Es el criterio que usan los formularios largos (registro de recepción,
+   * confirmación de programación, registro de visita) para mostrarse por
+   * pasos: una ventana angosta en escritorio tiene el mismo problema de alto
+   * que un celular en planta.
+   */
+  esCompacto: boolean;
 }
 
 /**
@@ -100,6 +109,7 @@ const construirInfo = (
     esPantallaPequena: ancho < ANCHO_TABLET_MIN,
     esTablet: ancho >= ANCHO_TABLET_MIN && ancho < ANCHO_ESCRITORIO_GRANDE_MIN,
     esEscritorioGrande: ancho >= ANCHO_ESCRITORIO_GRANDE_MIN,
+    esCompacto: esMovil || ancho < ANCHO_TABLET_MIN,
   };
 };
 

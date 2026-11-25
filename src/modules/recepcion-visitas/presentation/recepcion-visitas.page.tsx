@@ -5,7 +5,6 @@ import { useRecepcionVisitas } from "../hooks/useRecepcionVisitas";
 import { Filtros } from "./components/filtros";
 import { TablaVisitas } from "./components/tabla-visitas";
 import { RegistroVisita } from "./components/registro-visita";
-import { ModalEstandar } from "../../../presentation/utils/modal-estandar";
 import { RefreshButton } from "../../../presentation/utils/refresh-button";
 import { LimpiarFiltrosButton } from "../../../presentation/utils/limpiar-filtros-button";
 import { IconPlus } from "@tabler/icons-react";
@@ -144,21 +143,18 @@ export const RecepcionVisitasPage = () => {
       </Stack>
 
       {/* Modal: Registrar Ingreso / Recepción de Visitas */}
-      <ModalEstandar
-        opened={openRegistro}
-        close={() => setOpenRegistro(false)}
-        title="Nuevo Registro de Visita"
-        size="lg"
-        validateClose
-      >
+      {/* Se monta solo cuando está abierto para que los catálogos (motivos y
+          empleados) se carguen al abrir, igual que antes con el Modal de Mantine. */}
+      {openRegistro ? (
         <RegistroVisita
+          opened
           onCancel={() => setOpenRegistro(false)}
           onSuccess={(r) => {
             insertRecepcion(r);
             setOpenRegistro(false);
           }}
         />
-      </ModalEstandar>
+      ) : null}
     </div>
   );
 };

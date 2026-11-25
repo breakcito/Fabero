@@ -1,15 +1,11 @@
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
+import { IconFileUpload, IconTruck } from "@tabler/icons-react";
+import { ModalTsx } from "../../../../presentation/utils/modal-tsx";
 import {
-  Stack,
-  Group,
-  Button,
-  TextInput,
-  NumberInput,
-  Text,
-} from "@mantine/core";
-import { FileButton } from "@mantine/core";
-import { IconTruck, IconFileUpload } from "@tabler/icons-react";
-import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
+  Boton,
+  CampoNumero,
+  CampoTexto,
+} from "../../../../presentation/utils/ui-tsx";
 
 export interface DatosVehiculoForm {
   placa: string;
@@ -28,12 +24,6 @@ interface Props {
   ) => void;
 }
 
-const fieldClasses = {
-  input:
-    "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 focus:ring-1 focus:ring-zinc-300 transition-all",
-  label: "text-zinc-300 mb-1 font-medium text-xs",
-};
-
 const formatPlaca = (raw: string): string => {
   const cleaned = raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
   if (cleaned.length <= 3) return cleaned;
@@ -47,8 +37,12 @@ export const AgregarVehiculoModal = ({
   onGuardar,
 }: Props) => {
   const [placa, setPlaca] = useState(datosIniciales?.placa ?? "");
-  const [fotosVehiculo, setFotosVehiculo] = useState<File[]>(datosIniciales?.fotos ?? []);
-  const [cantidadPersonas, setCantidadPersonas] = useState<number>(datosIniciales?.cantidadPersonas ?? 1);
+  const [fotosVehiculo, setFotosVehiculo] = useState<File[]>(
+    datosIniciales?.fotos ?? [],
+  );
+  const [cantidadPersonas, setCantidadPersonas] = useState<number>(
+    datosIniciales?.cantidadPersonas ?? 1,
+  );
   const [errorPlaca, setErrorPlaca] = useState<string | null>(null);
 
   const [prevProps, setPrevProps] = useState({ datosIniciales, opened });
@@ -66,102 +60,103 @@ export const AgregarVehiculoModal = ({
     onClose();
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!placa.trim()) {
       setErrorPlaca("La placa del vehículo es obligatoria.");
       return;
     }
 
-    onGuardar(formatPlaca(placa), fotosVehiculo, Math.max(1, cantidadPersonas || 1));
+    onGuardar(
+      formatPlaca(placa),
+      fotosVehiculo,
+      Math.max(1, cantidadPersonas || 1),
+    );
     handleClose();
   };
 
   const isEditing = Boolean(datosIniciales);
 
   return (
-    <ModalEstandar
+    <ModalTsx
       opened={opened}
-      close={handleClose}
-      title={isEditing ? "Editar Vehículo Acompañante" : "Agregar Vehículo Acompañante"}
-      size="sm"
+      onClose={handleClose}
+      title={
+        isEditing
+          ? "Editar Vehículo Acompañante"
+          : "Agregar Vehículo Acompañante"
+      }
+      ancho="sm"
       validateClose
-    >
-      <form onSubmit={handleSubmit}>
-        <Stack gap="md">
-          <Text size="xs" c="zinc.5">
-            Ingresa o actualiza la información del vehículo acompañante y la cantidad de personas que viajan en él.
-          </Text>
-
-          <TextInput
-            label="Placa del Vehículo"
-            placeholder="Ej. ABC-123"
-            required
-            maxLength={7}
-            value={placa}
-            onChange={(e) => {
-              setPlaca(formatPlaca(e.target.value));
-              if (errorPlaca) setErrorPlaca(null);
-            }}
-            error={errorPlaca}
-            radius="xl"
-            classNames={{
-              ...fieldClasses,
-              input: `${fieldClasses.input} font-mono uppercase tracking-wider`,
-            }}
-          />
-
-          <NumberInput
-            label="Cantidad de personas en el vehículo"
-            min={1}
-            max={50}
-            radius="xl"
-            value={cantidadPersonas}
-            onChange={(val) => setCantidadPersonas(typeof val === "number" ? val : 1)}
-            classNames={fieldClasses}
-          />
-
-          <FileButton
-            multiple
-            accept="image/*"
-            onChange={(files) => setFotosVehiculo(files ?? [])}
+      footer={
+        <div className="flex items-center justify-end gap-2">
+          <Boton
+            variante="fantasma"
+            onClick={handleClose}
+            className="px-3 text-zinc-400 hover:text-white"
           >
-            {(props) => (
-              <Button
-                {...props}
-                variant="default"
-                radius="xl"
-                size="sm"
-                leftSection={<IconFileUpload size={16} />}
-                className="bg-zinc-800! text-zinc-300! border-zinc-700! w-full"
-              >
-                {fotosVehiculo.length > 0 ? `${fotosVehiculo.length} foto(s) seleccionada(s)` : "Adjuntar Fotos Vehículo"}
-              </Button>
-            )}
-          </FileButton>
+            Cancelar
+          </Boton>
+          <Boton
+            type="submit"
+            form="form-agregar-vehiculo"
+            variante="primario"
+          >
+            <IconTruck size={14} />
+            {isEditing ? "Actualizar Vehículo" : "Guardar Vehículo"}
+          </Boton>
+        </div>
+      }
+    >
+      <form
+        id="form-agregar-vehiculo"
+        onSubmit={handleSubmit}
+        className="flex flex-col gap-4"
+      >
+        <p className="text-xs text-zinc-500">
+          Ingresa o actualiza la información del vehículo acompañante y la
+          cantidad de personas que viajan en él.
+        </p>
 
-          <Group justify="flex-end" gap="sm" className="pt-2 border-t border-zinc-800">
-            <Button
-              variant="subtle"
-              onClick={handleClose}
-              radius="xl"
-              size="xs"
-              className="text-zinc-400 hover:text-white"
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="submit"
-              radius="xl"
-              size="xs"
-              leftSection={<IconTruck size={14} />}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white"
-            >
-              {isEditing ? "Actualizar Vehículo" : "Guardar Vehículo"}
-            </Button>
-          </Group>
-        </Stack>
+        <CampoTexto
+          label="Placa del Vehículo"
+          placeholder="Ej. ABC-123"
+          requerido
+          maxLength={7}
+          value={placa}
+          onChange={(e) => {
+            setPlaca(formatPlaca(e.target.value));
+            if (errorPlaca) setErrorPlaca(null);
+          }}
+          error={errorPlaca ?? undefined}
+          className="font-mono uppercase tracking-wider"
+        />
+
+        <CampoNumero
+          label="Cantidad de personas en el vehículo"
+          min={1}
+          max={50}
+          value={cantidadPersonas}
+          onChange={(e) => {
+            const raw = e.currentTarget.value;
+            setCantidadPersonas(raw === "" ? 1 : Number(raw));
+          }}
+        />
+
+        <label className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2.5 text-sm font-semibold text-zinc-300 transition-colors hover:bg-zinc-700">
+          <IconFileUpload size={16} />
+          {fotosVehiculo.length > 0
+            ? `${fotosVehiculo.length} foto(s) seleccionada(s)`
+            : "Adjuntar Fotos Vehículo"}
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            className="sr-only"
+            onChange={(e) => setFotosVehiculo(Array.from(e.currentTarget.files ?? []))}
+          />
+        </label>
       </form>
-    </ModalEstandar>
+    </ModalTsx>
   );
 };

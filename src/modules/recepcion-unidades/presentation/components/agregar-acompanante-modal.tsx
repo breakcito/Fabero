@@ -1,8 +1,7 @@
-import { useState } from "react";
-import { Stack, Group, Button } from "@mantine/core";
-import { FileButton } from "@mantine/core";
+import { useState, type FormEvent } from "react";
 import { IconFileUpload, IconUserCheck } from "@tabler/icons-react";
-import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
+import { ModalTsx } from "../../../../presentation/utils/modal-tsx";
+import { Boton } from "../../../../presentation/utils/ui-tsx";
 import { SelectVisitante } from "../../../../presentation/utils/select-visitante";
 
 export interface DatosAcompananteForm {
@@ -58,7 +57,7 @@ export const AgregarAcompananteModal = ({
     onClose();
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!nombre.trim()) {
       return;
@@ -80,77 +79,66 @@ export const AgregarAcompananteModal = ({
   const isEditing = Boolean(datosIniciales);
 
   return (
-    <ModalEstandar
+    <ModalTsx
       opened={opened}
-      close={handleClose}
+      onClose={handleClose}
       title={isEditing ? "Editar Acompañante" : "Agregar Acompañante"}
-      size="md"
+      ancho="md"
       validateClose
-    >
-      <form onSubmit={handleSubmit}>
-        <Stack gap="md">
-          <SelectVisitante
-            label="Visitante"
-            placeholder="Buscar por nombre o DNI..."
-            value={idVisitante ?? null}
-            onChange={(v) => {
-              setIdVisitante(v.id_visitante);
-              setNombre(v.nombre);
-              setApellido(v.apellido);
-              setDni(v.dni);
-              setTelefono(v.telefono ?? "");
-            }}
-          />
-
-          <Group
-            align="center"
-            justify="space-between"
-            className="pt-2 border-t border-zinc-800"
+      footer={
+        <div className="flex items-center justify-end gap-2">
+          <Boton
+            variante="fantasma"
+            onClick={handleClose}
+            className="px-3 text-zinc-400 hover:text-white"
           >
-            <FileButton
-              multiple
-              accept="image/*"
-              onChange={(files) => setFotos(files ?? [])}
-            >
-              {(props) => (
-                <Button
-                  {...props}
-                  variant="default"
-                  radius="xl"
-                  size="xs"
-                  leftSection={<IconFileUpload size={14} />}
-                  className="bg-zinc-800! text-zinc-300! border-zinc-700!"
-                >
-                  {fotos.length > 0
-                    ? `${fotos.length} foto(s) seleccionada(s)`
-                    : "Adjuntar Foto / Doc."}
-                </Button>
-              )}
-            </FileButton>
+            Cancelar
+          </Boton>
+          <Boton
+            type="submit"
+            form="form-agregar-acompanante"
+            variante="primario"
+          >
+            <IconUserCheck size={14} />
+            {isEditing ? "Actualizar Acompañante" : "Guardar Acompañante"}
+          </Boton>
+        </div>
+      }
+    >
+      <form
+        id="form-agregar-acompanante"
+        onSubmit={handleSubmit}
+        className="flex flex-col gap-4"
+      >
+        <SelectVisitante
+          label="Visitante"
+          placeholder="Buscar por nombre o DNI..."
+          value={idVisitante ?? null}
+          onChange={(v) => {
+            setIdVisitante(v.id_visitante);
+            setNombre(v.nombre);
+            setApellido(v.apellido);
+            setDni(v.dni);
+            setTelefono(v.telefono ?? "");
+          }}
+        />
 
-            <Group gap="sm">
-              <Button
-                variant="subtle"
-                onClick={handleClose}
-                radius="xl"
-                size="xs"
-                className="text-zinc-400 hover:text-white"
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                radius="xl"
-                size="xs"
-                leftSection={<IconUserCheck size={14} />}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white"
-              >
-                {isEditing ? "Actualizar Acompañante" : "Guardar Acompañante"}
-              </Button>
-            </Group>
-          </Group>
-        </Stack>
+        <div className="border-t border-zinc-800 pt-3">
+          <label className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2.5 text-sm font-semibold text-zinc-300 transition-colors hover:bg-zinc-700">
+            <IconFileUpload size={14} />
+            {fotos.length > 0
+              ? `${fotos.length} foto(s) seleccionada(s)`
+              : "Adjuntar Foto / Doc."}
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              className="sr-only"
+              onChange={(e) => setFotos(Array.from(e.currentTarget.files ?? []))}
+            />
+          </label>
+        </div>
       </form>
-    </ModalEstandar>
+    </ModalTsx>
   );
 };

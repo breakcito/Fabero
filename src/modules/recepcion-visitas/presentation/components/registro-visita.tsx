@@ -1,20 +1,8 @@
 import { useEffect, useState } from "react";
 import {
-  Button,
-  Grid,
-  Select,
-  Textarea,
-  Alert,
-  ActionIcon,
-  Text,
-  Loader,
-  Group,
-  Stack,
-  Badge,
-  TextInput,
-  NumberInput,
-} from "@mantine/core";
-import {
+  IconCheck,
+  IconChevronLeft,
+  IconChevronRight,
   IconDeviceFloppy,
   IconExclamationCircle,
   IconTrash,
@@ -26,18 +14,49 @@ import {
   IconPlus,
 } from "@tabler/icons-react";
 import { useRegistroVisita, type VisitanteFormItem } from "../../hooks/useRegistroVisita";
-import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
+import { ModalTsx } from "../../../../presentation/utils/modal-tsx";
+import {
+  AreaTexto,
+  Aviso,
+  Boton,
+  BotonIcono,
+  CampoNumero,
+  CampoSeleccion,
+  CampoTexto,
+  Cargador,
+  Insignia,
+} from "../../../../presentation/utils/ui-tsx";
 import { SelectVisitante } from "../../../../presentation/utils/select-visitante";
 import { RegistroMotivoIngreso } from "../../../../presentation/utils/registro-motivo-ingreso";
 import { MultiFilePicker } from "../../../../presentation/utils/archivo/multifile-picker";
 import { useNotify } from "../../../../hooks/useNotify";
+import { useDispositivo } from "../../../../hooks/useDispositivo";
 import { useRecepcionVisitasContextStore } from "../../stores/recepcion-visitas-context.store";
 import type { RecepcionVisitaResponse } from "../../service/recepcion-visitas.responses";
 
 interface Props {
+  /** El modal (con todo su contenido) se monta solo cuando está abierto. */
+  opened: boolean;
   onCancel: () => void;
   onSuccess: (r: RecepcionVisitaResponse) => void;
 }
+
+/** El botón de enviar vive en el `footer` del modal (fuera del <form>), por eso
+ *  se asocia al formulario por id en vez de anidarse dentro de él. */
+const ID_FORMULARIO = "form-registro-visita";
+
+/**
+ * Pasos del formulario en vista compacta (móvil o pantalla < 640px).
+ *
+ * El escritorio mantiene el layout de una sola página; en planta el vigilante
+ * registra la visita desde el celular, donde el formulario completo satura la
+ * pantalla y obliga a hacer scroll infinito.
+ */
+const PASOS_VISITA = [
+  { titulo: "Motivo y Personal", descripcion: "Motivo de ingreso y persona que autoriza" },
+  { titulo: "Observación y Evidencias", descripcion: "Observación y fotografías de respaldo" },
+  { titulo: "Acompañantes y Vehículos", descripcion: "Visitantes y vehículos acompañantes" },
+] as const;
 
 const formatPlaca = (raw: string): string => {
   const cleaned = raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
@@ -45,7 +64,7 @@ const formatPlaca = (raw: string): string => {
   return `${cleaned.slice(0, 3)}-${cleaned.slice(3, 6)}`.slice(0, 7);
 };
 
-export const RegistroVisita = ({ onCancel, onSuccess }: Props) => {
+export const RegistroVisita = ({ opened, onCancel, onSuccess }: Props) => {
   const {
     payload,
     handleChange,
@@ -127,6 +146,20 @@ export const RegistroVisita = ({ onCancel, onSuccess }: Props) => {
   const [visitorError, setVisitorError] = useState<string | null>(null);
 
   const { notifyError } = useNotify();
+  const { esCompacto } = useDispositivo();
+
+  // Wizard de vista compacta: el formulario largo se recorre por pasos.
+  const [paso, setPaso] = useState(0);
+  const [errorPaso, setErrorPaso] = useState<string | null>(null);
+  const [abiertoAnterior, setAbiertoAnterior] = useState(opened);
+
+  // Cada apertura del modal arranca en el primer paso del wizard.
+  // Se ajusta durante el render (no en un efecto) para evitar renders
+  // en cascada: sólo cambia cuando el estado de `opened` cambia.
+  if (opened !== abiertoAnterior) {
+    setAbiertoAnterior(opened);
+    if (opened) setPaso(0);
+  }
 
   const setFormEnCurso = useRecepcionVisitasContextStore(
     (s) => s.setFormEnCurso,
@@ -187,12 +220,6 @@ export const RegistroVisita = ({ onCancel, onSuccess }: Props) => {
       value: String(m.id_motivo_ingreso),
       label: m.nombre,
     }));
-
-  const fieldClasses = {
-    input:
-      "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 transition-all",
-    label: "text-zinc-400 font-medium text-xs mb-1.5",
-  };
 
   // Guardar vehículo acompañante (crear o editar)
   const handleSaveVehiculo = async () => {
@@ -267,8 +294,59 @@ export const RegistroVisita = ({ onCancel, onSuccess }: Props) => {
 
   const visitantesPeatonales = visitantes.filter((v) => !v.id_visita_vehiculo);
 
+  /**
+   * Validación del paso 1: motivo y personal son obligatorios.
+   *
+   * El mensaje del motivo es el mismo que usa el envío del formulario; el
+   * del personal sigue la misma fórmula para que el aviso se lea igual.
+   */
+  const validarPaso = (indice: number): boolean => {
+    if (indice === 0) {
+      if (!payload.id_motivo_ingreso) {
+        setErrorPaso("Debe seleccionar el motivo de ingreso.");
+        return false;
+      }
+      if (!payload.id_empleado_contacto) {
+        setErrorPaso("Debe seleccionar el personal de contacto.");
+        return false;
+      }
+    }
+    setErrorPaso(null);
+    return true;
+  };
+
+  const avanzarPaso = () => {
+    if (!validarPaso(paso)) return;
+    if (paso < PASOS_VISITA.length - 1) setPaso(paso + 1);
+  };
+
+  const retrocederPaso = () => {
+    if (paso > 0) setPaso(paso - 1);
+  };
+
+  const irAPaso = (destino: number) => {
+    if (destino === paso) return;
+    if (destino < paso) {
+      setPaso(destino);
+      return;
+    }
+    for (let i = paso; i < destino; i += 1) {
+      if (!validarPaso(i)) {
+        setPaso(i);
+        return;
+      }
+    }
+    setPaso(destino);
+  };
+
   const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    // En vista compacta el botón "Siguiente" es un submit de este mismo
+    // formulario: el submit avanza de paso en vez de registrar la visita.
+    if (esCompacto && paso < PASOS_VISITA.length - 1) {
+      avanzarPaso();
+      return;
+    }
     if (visitantes.length === 0 && vehiculos.length === 0) {
       notifyError("Debes agregar al menos un visitante o un vehículo acompañante.");
       return;
@@ -276,565 +354,821 @@ export const RegistroVisita = ({ onCancel, onSuccess }: Props) => {
     submit(e);
   };
 
+  const cargarPlaca = (valor: string) => {
+    setFormVehiculo((prev) => ({ ...prev, placa: formatPlaca(valor) }));
+  };
+
+  const cargarCantidadPersonas = (valor: string) => {
+    const parsed = Number.parseInt(valor, 10);
+    const cantidad = Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+    setFormVehiculo((prev) => ({ ...prev, cantidadPersonas: cantidad }));
+  };
+
+  /* --------------------------------------------------------------------- */
+  /* Bloques del formulario (compartidos por escritorio y vista compacta)   */
+  /* --------------------------------------------------------------------- */
+
+  const bloqueMotivo = (
+    <div className="flex items-end gap-2">
+      <div className="flex-1">
+        <CampoSeleccion
+          label="Motivo Visita"
+          placeholder={
+            loadingCatalogos ? "Cargando..." : "Elija una opción..."
+          }
+          requerido
+          deshabilitado={loadingCatalogos}
+          valor={
+            payload.id_motivo_ingreso ? String(payload.id_motivo_ingreso) : null
+          }
+          onChange={(valor) =>
+            handleChange("id_motivo_ingreso", valor ? Number(valor) : 0)
+          }
+          opciones={getMotivosDropdown()}
+        />
+      </div>
+      {loadingCatalogos ? (
+        <span className="pb-2.5 text-zinc-400">
+          <Cargador tamano={16} />
+        </span>
+      ) : null}
+      <BotonIcono
+        color="zinc"
+        etiqueta="Registrar nuevo motivo de ingreso"
+        onClick={() => setOpenModalMotivo(true)}
+        className="mb-0.5 h-10! w-10! shrink-0 bg-zinc-800! text-zinc-300! border! border-zinc-700! hover:bg-zinc-700!"
+      >
+        <IconPlus size={18} />
+      </BotonIcono>
+    </div>
+  );
+
+  const bloquePersonal = (
+    <div className="flex items-end gap-2">
+      <div className="flex-1">
+        <CampoSeleccion
+          label="Personal Contacto (Persona que Autoriza)"
+          placeholder={
+            loadingCatalogos ? "Cargando..." : "Elija una opción..."
+          }
+          requerido
+          deshabilitado={loadingCatalogos}
+          valor={
+            payload.id_empleado_contacto
+              ? String(payload.id_empleado_contacto)
+              : null
+          }
+          onChange={(valor) =>
+            handleChange("id_empleado_contacto", valor ? Number(valor) : 0)
+          }
+          opciones={getEmpleadosDropdown()}
+        />
+      </div>
+      {loadingCatalogos ? (
+        <span className="pb-2.5 text-zinc-400">
+          <Cargador tamano={16} />
+        </span>
+      ) : null}
+    </div>
+  );
+
+  const bloqueObservacion = (
+    <AreaTexto
+      label="Observación"
+      placeholder="Escriba alguna observación adicional sobre el ingreso..."
+      rows={3}
+      value={payload.observacion || ""}
+      onChange={(e) => handleChange("observacion", e.target.value)}
+    />
+  );
+
+  const bloqueEvidencias = (
+    <div className="bg-zinc-900/30 border border-zinc-800/80 p-4 rounded-2xl">
+      <MultiFilePicker
+        files={evidencias}
+        onFilesChange={setEvidencias}
+        label="Evidencias de Ingreso"
+        description="Fotografías del pase de ingreso, vehículo o documentos adjuntos"
+      />
+    </div>
+  );
+
+  const bloqueAcompanantes = (
+    <div className="flex flex-col gap-4 pt-2">
+      {/* Sección: Acompañantes y Vehículos de la Visita */}
+      <div className="relative flex items-center justify-center">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-zinc-800" />
+        </div>
+        <div className="relative bg-zinc-950 px-4 text-[11px] font-bold tracking-wider text-zinc-400 uppercase">
+          ACOMPAÑANTES Y VEHÍCULOS DE LA VISITA
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
+        <Boton
+          variante="secundario"
+          onClick={() => {
+            setVisitorForm({
+              dni: "",
+              nombre: "",
+              apellido: "",
+              telefono: "",
+              fotos_documento: [],
+            });
+            setEditingAcompanante(null);
+            setVisitorError(null);
+            setOpenModalAcompanante(true);
+          }}
+          disabled={loading}
+          className="w-full shadow-sm sm:w-auto"
+        >
+          <IconUserPlus size={18} className="text-indigo-400" />
+          Agregar Visitante
+        </Boton>
+
+        <Boton
+          variante="secundario"
+          onClick={() => {
+            setFormVehiculo({ placa: "", cantidadPersonas: 1, fotos: [] });
+            setEditingVehiculo(null);
+            setVisitorError(null);
+            setOpenModalVehiculo(true);
+          }}
+          disabled={loading}
+          className="w-full shadow-sm sm:w-auto"
+        >
+          <IconTruck size={18} className="text-indigo-400" />
+          Agregar Vehículo Acompañante
+        </Boton>
+      </div>
+
+      {/* Lista de Visitantes Peatonales */}
+      {visitantesPeatonales.length > 0 ? (
+        <div className="flex flex-col gap-2">
+          <p className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+            Visitantes Peatonales / Individuales (
+            {visitantesPeatonales.length})
+          </p>
+          <div className="flex flex-col gap-2">
+            {visitantes.map((v, index) => {
+              if (v.id_visita_vehiculo) return null;
+              return (
+                <div
+                  key={`peatonal-${index}`}
+                  className="flex flex-col gap-2 rounded-lg border border-zinc-800 bg-zinc-900/40 p-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <IconUserCheck className="w-5 h-5 shrink-0 text-indigo-400" />
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-sm font-semibold text-zinc-100">
+                          {v.nombre} {v.apellido ?? ""}
+                        </span>
+                        <Insignia color="indigo">Peatonal</Insignia>
+                      </div>
+                      <span className="text-xs text-zinc-500">
+                        {v.dni ? `DNI: ${v.dni}` : "Sin DNI"}{" "}
+                        {v.telefono ? `• Tel: ${v.telefono}` : ""}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1 sm:justify-end">
+                    {(v.foto_documento?.length ?? 0) > 0 ? (
+                      <Boton
+                        variante="fantasma"
+                        tamano="sm"
+                        onClick={() =>
+                          setVisualizarFotos({
+                            title: `Fotos de ${v.nombre}`,
+                            fotosNuevas: v.foto_documento,
+                          })
+                        }
+                        className="text-sky-300! hover:bg-sky-500/10! py-2.5! sm:py-1.5!"
+                      >
+                        <IconPhoto size={12} />
+                        Ver {v.foto_documento.length} foto(s)
+                      </Boton>
+                    ) : (
+                      <span className="text-xs italic text-zinc-600">
+                        Sin fotos
+                      </span>
+                    )}
+                    <Boton
+                      variante="fantasma"
+                      tamano="sm"
+                      onClick={() => {
+                        setEditingAcompanante({
+                          index,
+                          datos: {
+                            nombre: v.nombre,
+                            apellido: v.apellido,
+                            dni: v.dni,
+                            telefono: v.telefono,
+                            foto_documento: v.foto_documento,
+                          },
+                        });
+                        setVisitorForm({
+                          id_visitante: v.id_visitante,
+                          nombre: v.nombre,
+                          apellido: v.apellido,
+                          dni: v.dni,
+                          telefono: v.telefono,
+                          fotos_documento: v.foto_documento,
+                        });
+                        setOpenModalAcompanante(true);
+                      }}
+                      className="text-indigo-300! hover:bg-indigo-500/10! py-2.5! sm:py-1.5!"
+                    >
+                      <IconEdit size={12} />
+                      Editar
+                    </Boton>
+                    <BotonIcono
+                      color="rojo"
+                      etiqueta="Eliminar visitante"
+                      onClick={() => handleRemoverVisitante(index)}
+                      disabled={loading}
+                    >
+                      <IconTrash size={16} />
+                    </BotonIcono>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+
+      {/* Lista de Vehículos Acompañantes y sus Ocupantes */}
+      {vehiculos.length > 0 ? (
+        <div className="flex flex-col gap-3">
+          <p className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+            Vehículos Acompañantes ({vehiculos.length})
+          </p>
+          <div className="flex flex-col gap-2">
+            {vehiculos.map((v) => {
+              const ocupantesDeVeh = visitantes.filter(
+                (vis) => vis.id_visita_vehiculo === v.id,
+              );
+              const fotosLocalesVeh = v.archivos ?? [];
+              const totalFotosVeh = fotosLocalesVeh.length;
+              return (
+                <div
+                  key={v.id}
+                  className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 flex flex-col gap-3"
+                >
+                  <div className="flex flex-col gap-2 border-b border-zinc-800/80 pb-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <IconTruck className="w-5 h-5 text-indigo-400" />
+                      <span className="font-mono text-sm font-bold uppercase tracking-wider text-zinc-100">
+                        Placa: {v.placa}
+                      </span>
+                      <Insignia color="indigo">
+                        {ocupantesDeVeh.length} ocupante(s)
+                      </Insignia>
+                      {totalFotosVeh > 0 ? (
+                        <Boton
+                          variante="fantasma"
+                          tamano="sm"
+                          onClick={() =>
+                            setVisualizarFotos({
+                              title: `Fotos del Vehículo ${v.placa}`,
+                              fotosNuevas: fotosLocalesVeh,
+                            })
+                          }
+                          className="text-sky-300! hover:bg-sky-500/10! py-2.5! sm:py-1.5!"
+                        >
+                          <IconPhoto size={12} />
+                          Ver {totalFotosVeh} foto(s) vehículo
+                        </Boton>
+                      ) : (
+                        <span className="text-xs italic text-zinc-600">
+                          Sin fotos
+                        </span>
+                      )}
+                      <Boton
+                        variante="fantasma"
+                        tamano="sm"
+                        onClick={() => {
+                          setEditingVehiculo({
+                            id: v.id,
+                            datos: {
+                              placa: v.placa,
+                              fotos: v.archivos,
+                              cantidadPersonas:
+                                v.cantidad_personas ??
+                                ocupantesDeVeh.length,
+                            },
+                          });
+                          setFormVehiculo({
+                            placa: v.placa,
+                            cantidadPersonas:
+                              v.cantidad_personas ??
+                              ocupantesDeVeh.length,
+                            fotos: v.archivos ?? [],
+                          });
+                          setOpenModalVehiculo(true);
+                        }}
+                        className="text-indigo-300! hover:bg-indigo-500/10! py-2.5! sm:py-1.5!"
+                      >
+                        <IconEdit size={12} />
+                        Editar
+                      </Boton>
+                    </div>
+                    <BotonIcono
+                      color="rojo"
+                      etiqueta="Eliminar vehículo"
+                      onClick={() => eliminarVehiculo(v.id)}
+                      disabled={loadingVehiculo || loading}
+                    >
+                      <IconTrash size={16} />
+                    </BotonIcono>
+                  </div>
+
+                  {ocupantesDeVeh.length > 0 ? (
+                    <div className="flex flex-col gap-2 pl-2">
+                      {ocupantesDeVeh.map((oc, slotIdx) => {
+                        const idxOriginal = visitantes.findIndex(
+                          (vis) => vis === oc,
+                        );
+                        const tieneDatos = Boolean(
+                          oc.nombre && oc.nombre.trim(),
+                        );
+                        return (
+                          <div
+                            key={`veh-${v.id}-${idxOriginal}`}
+                            className="flex flex-col gap-2 rounded-lg border border-zinc-800/60 bg-zinc-900/60 p-2 px-3 sm:flex-row sm:items-center sm:justify-between"
+                          >
+                            {tieneDatos ? (
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <span className="text-xs font-semibold text-zinc-100">
+                                  {oc.nombre} {oc.apellido ?? ""}
+                                </span>
+                                {oc.dni ? (
+                                  <span className="text-xs text-zinc-500">
+                                    ({oc.dni})
+                                  </span>
+                                ) : null}
+                                {oc.es_conductor ? (
+                                  <Insignia color="indigo">
+                                    Conductor Vehículo
+                                  </Insignia>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      marcarConductorVehiculo(
+                                        v.id,
+                                        idxOriginal,
+                                      )
+                                    }
+                                    className="inline-flex items-center rounded-md border border-zinc-600/40 bg-zinc-700/40 px-1.5 text-[10px] font-bold uppercase tracking-wide text-zinc-300 transition-colors hover:bg-indigo-500/20 hover:text-indigo-300 py-2.5! sm:py-0.5!"
+                                  >
+                                    Hacer Conductor
+                                  </button>
+                                )}
+                                {(oc.foto_documento?.length ?? 0) > 0 ? (
+                                  <Boton
+                                    variante="fantasma"
+                                    tamano="sm"
+                                    onClick={() =>
+                                      setVisualizarFotos({
+                                        title: `Fotos de ${oc.nombre}`,
+                                        fotosNuevas: oc.foto_documento,
+                                      })
+                                    }
+                                    className="text-sky-300! hover:bg-sky-500/10! py-2.5! sm:py-1.5!"
+                                  >
+                                    <IconPhoto size={12} />
+                                    Ver {oc.foto_documento.length} foto(s)
+                                  </Boton>
+                                ) : (
+                                  <span className="text-xs italic text-zinc-600">
+                                    Sin foto
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <Insignia color="zinc">
+                                  Slot #{slotIdx + 1}
+                                </Insignia>
+                                <span className="text-xs italic text-zinc-500">
+                                  {oc.es_conductor
+                                    ? "Conductor (Sin registrar datos)"
+                                    : "Acompañante sin registrar datos (no se guardará)"}
+                                </span>
+                              </div>
+                            )}
+
+                            <div className="flex flex-wrap items-center gap-1 sm:justify-end">
+                              <Boton
+                                variante="fantasma"
+                                tamano="sm"
+                                onClick={() => {
+                                  setEditingAcompanante({
+                                    index: idxOriginal,
+                                    datos: {
+                                      nombre: oc.nombre,
+                                      apellido: oc.apellido,
+                                      dni: oc.dni,
+                                      telefono: oc.telefono,
+                                      foto_documento: oc.foto_documento,
+                                    },
+                                  });
+                                  setVisitorForm({
+                                    id_visitante: oc.id_visitante,
+                                    nombre: oc.nombre,
+                                    apellido: oc.apellido,
+                                    dni: oc.dni,
+                                    telefono: oc.telefono,
+                                    fotos_documento: oc.foto_documento,
+                                  });
+                                  setOpenModalAcompanante(true);
+                                }}
+                                className="text-indigo-300! hover:bg-indigo-500/10! py-2.5! sm:py-1.5!"
+                              >
+                                <IconEdit size={12} />
+                                {tieneDatos ? "Editar" : "Llenar Datos"}
+                              </Boton>
+                              {tieneDatos ? (
+                                <BotonIcono
+                                  color="zinc"
+                                  etiqueta="Limpiar datos del ocupante"
+                                  onClick={() => {
+                                    setVisitantes((prev) =>
+                                      prev.map((vis, i) =>
+                                        i === idxOriginal
+                                          ? {
+                                              ...vis,
+                                              nombre: "",
+                                              apellido: "",
+                                              dni: "",
+                                              telefono: "",
+                                              foto_documento: [],
+                                            }
+                                          : vis,
+                                      ),
+                                    );
+                                  }}
+                                >
+                                  <IconTrash size={14} />
+                                </BotonIcono>
+                              ) : null}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+
+  /* --------------------------------------------------------------------- */
+  /* Wizard de vista compacta                                               */
+  /* --------------------------------------------------------------------- */
+
+  const headerWizard = (
+    <div className="space-y-3 rounded-xl border border-zinc-800 bg-zinc-900/40 p-3">
+      <div className="flex items-center gap-3">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-500/15 text-xs font-extrabold text-indigo-200">
+          {paso + 1}
+        </div>
+        <div className="min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">
+            Paso {paso + 1} de {PASOS_VISITA.length}
+          </p>
+          <p className="truncate text-sm font-bold text-zinc-100">
+            {PASOS_VISITA[paso].titulo}
+          </p>
+        </div>
+      </div>
+
+      <div
+        role="progressbar"
+        aria-valuemin={1}
+        aria-valuemax={PASOS_VISITA.length}
+        aria-valuenow={paso + 1}
+        aria-label="Avance del formulario"
+        className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-800"
+      >
+        <div
+          className="h-full rounded-full bg-indigo-500 transition-all"
+          style={{ width: `${((paso + 1) / PASOS_VISITA.length) * 100}%` }}
+        />
+      </div>
+
+      <div className="flex gap-1.5">
+        {PASOS_VISITA.map((p, indice) => {
+          const activo = indice === paso;
+          const completado = indice < paso;
+          return (
+            <button
+              key={p.titulo}
+              type="button"
+              onClick={() => irAPaso(indice)}
+              className="min-w-0 flex-1"
+              aria-current={activo ? "step" : undefined}
+            >
+              <div
+                className={`flex flex-col items-center gap-1 rounded-lg border px-1 py-1.5 transition-colors ${
+                  activo
+                    ? "border-indigo-500/60 bg-indigo-500/10"
+                    : "border-zinc-800 bg-zinc-950/40"
+                }`}
+              >
+                <div
+                  className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${
+                    completado
+                      ? "bg-emerald-500/20 text-emerald-300"
+                      : activo
+                        ? "bg-indigo-500 text-white"
+                        : "bg-zinc-800 text-zinc-400"
+                  }`}
+                >
+                  {completado ? <IconCheck size={12} /> : indice + 1}
+                </div>
+                <span
+                  className={`w-full truncate text-[9px] font-bold ${
+                    activo ? "text-indigo-200" : "text-zinc-500"
+                  }`}
+                >
+                  {p.titulo}
+                </span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  const contenidoPaso = (
+    <>
+      {paso === 0 ? (
+        <div className="flex flex-col gap-4">
+          {bloqueMotivo}
+          {bloquePersonal}
+        </div>
+      ) : null}
+
+      {paso === 1 ? (
+        <div className="flex flex-col gap-4">
+          {bloqueObservacion}
+          {bloqueEvidencias}
+        </div>
+      ) : null}
+
+      {paso === 2 ? (
+        <div className="flex flex-col gap-4">
+          {bloqueAcompanantes}
+        </div>
+      ) : null}
+    </>
+  );
+
+  /**
+   * Pie fijo del modal.
+   *
+   * En vista compacta los botones de navegación viven fuera del `<form>` (el
+   * panel tiene su propia zona de scroll): el atributo `form` los enlaza al
+   * formulario para que "Siguiente" y "Confirmar" disparen el mismo submit.
+   */
+  const pieModal = esCompacto ? (
+    <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center gap-1">
+        <Boton
+          variante="fantasma"
+          onClick={onCancel}
+          disabled={loading}
+          className="px-2 text-zinc-400! hover:text-zinc-100!"
+        >
+          Cancelar
+        </Boton>
+        <Boton
+          variante="secundario"
+          onClick={retrocederPaso}
+          disabled={paso === 0 || loading}
+          className="px-3"
+        >
+          <IconChevronLeft size={16} />
+          Anterior
+        </Boton>
+      </div>
+
+      {paso < PASOS_VISITA.length - 1 ? (
+        <Boton
+          type="submit"
+          form={ID_FORMULARIO}
+          variante="primario"
+          className="px-5"
+        >
+          Siguiente
+          <IconChevronRight size={16} />
+        </Boton>
+      ) : (
+        <Boton
+          type="submit"
+          form={ID_FORMULARIO}
+          variante="primario"
+          cargando={loading}
+          disabled={visitantes.length === 0 && vehiculos.length === 0}
+          className="px-5"
+        >
+          <IconDeviceFloppy size={18} />
+          Confirmar y Registrar Visita
+        </Boton>
+      )}
+    </div>
+  ) : (
+    <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+      <Boton
+        variante="fantasma"
+        onClick={onCancel}
+        className="w-full text-zinc-400! hover:text-zinc-100! sm:w-auto"
+      >
+        Cancelar
+      </Boton>
+      <Boton
+        type="submit"
+        form={ID_FORMULARIO}
+        variante="primario"
+        cargando={loading}
+        disabled={visitantes.length === 0 && vehiculos.length === 0}
+        className="w-full sm:w-auto"
+      >
+        <IconDeviceFloppy size={18} />
+        Confirmar y Registrar Visita
+      </Boton>
+    </div>
+  );
+
   return (
     <>
-      <form onSubmit={handleFormSubmit} className="flex flex-col gap-6">
-        {error && (
-          <Alert
-            icon={<IconExclamationCircle size={16} />}
-            color="red"
-            variant="filled"
-            radius="lg"
-          >
-            {error}
-          </Alert>
-        )}
+      {/* Modal principal: Nuevo Registro de Visita */}
+      <ModalTsx
+        opened={opened}
+        onClose={onCancel}
+        title="Nuevo Registro de Visita"
+        ancho="lg"
+        validateClose
+        footer={pieModal}
+      >
+        <form
+          id={ID_FORMULARIO}
+          onSubmit={handleFormSubmit}
+          className="flex flex-col gap-5"
+        >
+          {error ? (
+            <Aviso tono="rojo">
+              <span className="flex items-start gap-2">
+                <IconExclamationCircle size={16} className="mt-0.5 shrink-0" />
+                <span>{error}</span>
+              </span>
+            </Aviso>
+          ) : null}
 
-        <Grid gutter="md">
-          {/* Motivo Visita */}
-          <Grid.Col span={{ base: 12, md: 6 }}>
-            <div className="flex items-end gap-2">
-              <div className="flex-1">
-                <Select
-                  label="Motivo Visita"
-                  placeholder={loadingCatalogos ? "Cargando..." : "Elija una opción..."}
-                  searchable
-                  withAsterisk
-                  radius="lg"
-                  disabled={loadingCatalogos}
-                  rightSection={loadingCatalogos ? <Loader size={16} /> : undefined}
-                  data={getMotivosDropdown()}
-                  value={payload.id_motivo_ingreso ? String(payload.id_motivo_ingreso) : null}
-                  onChange={(val) => handleChange("id_motivo_ingreso", val ? Number(val) : 0)}
-                  classNames={fieldClasses}
-                />
+          {errorPaso ? (
+            <Aviso tono="rojo">
+              <span className="flex items-start gap-2">
+                <IconExclamationCircle size={16} className="mt-0.5 shrink-0" />
+                <span>{errorPaso}</span>
+              </span>
+            </Aviso>
+          ) : null}
+
+          {esCompacto ? (
+            <>
+              {headerWizard}
+              {contenidoPaso}
+            </>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                {bloqueMotivo}
+                {bloquePersonal}
+                <div className="md:col-span-2">{bloqueObservacion}</div>
+                <div className="md:col-span-2">{bloqueEvidencias}</div>
               </div>
-              <ActionIcon
-                type="button"
-                variant="filled"
-                color="zinc"
-                radius="xl"
-                size="lg"
-                onClick={() => setOpenModalMotivo(true)}
-                title="Registrar nuevo motivo de ingreso"
-                className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 mb-0.5 shrink-0"
-              >
-                <IconPlus size={18} />
-              </ActionIcon>
-            </div>
-          </Grid.Col>
-
-          {/* Personal Contacto */}
-          <Grid.Col span={{ base: 12, md: 6 }}>
-            <Select
-              label="Personal Contacto (Persona que Autoriza)"
-              placeholder={loadingCatalogos ? "Cargando..." : "Elija una opción..."}
-              searchable
-              withAsterisk
-              radius="lg"
-              disabled={loadingCatalogos}
-              rightSection={loadingCatalogos ? <Loader size={16} /> : undefined}
-              data={getEmpleadosDropdown()}
-              value={payload.id_empleado_contacto ? String(payload.id_empleado_contacto) : null}
-              onChange={(val) => handleChange("id_empleado_contacto", val ? Number(val) : 0)}
-              classNames={fieldClasses}
-            />
-          </Grid.Col>
-
-          {/* Observaciones */}
-          <Grid.Col span={12}>
-            <Textarea
-              label="Observación"
-              placeholder="Escriba alguna observación adicional sobre el ingreso..."
-              radius="lg"
-              minRows={3}
-              value={payload.observacion || ""}
-              onChange={(e) => handleChange("observacion", e.target.value)}
-              classNames={fieldClasses}
-            />
-          </Grid.Col>
-
-          {/* Evidencias de Ingreso */}
-          <Grid.Col span={12}>
-            <div className="bg-zinc-900/30 border border-zinc-800/80 p-4 rounded-2xl">
-              <MultiFilePicker
-                files={evidencias}
-                onFilesChange={setEvidencias}
-                label="Evidencias de Ingreso"
-                description="Fotografías del pase de ingreso, vehículo o documentos adjuntos"
-              />
-            </div>
-          </Grid.Col>
-        </Grid>
-
-        {/* Sección: Acompañantes y Vehículos de la Visita */}
-        <div className="space-y-4 pt-2">
-          <div className="relative flex items-center justify-center">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-zinc-800" />
-            </div>
-            <div className="relative bg-zinc-950 px-4 text-[11px] font-bold tracking-wider text-zinc-400 uppercase">
-              ACOMPAÑANTES Y VEHÍCULOS DE LA VISITA
-            </div>
-          </div>
-
-          <Group justify="center" gap="sm">
-            <Button
-              radius="xl"
-              variant="default"
-              size="sm"
-              leftSection={<IconUserPlus size={18} className="text-indigo-400" />}
-              onClick={() => {
-                setVisitorForm({ dni: "", nombre: "", apellido: "", telefono: "", fotos_documento: [] });
-                setEditingAcompanante(null);
-                setVisitorError(null);
-                setOpenModalAcompanante(true);
-              }}
-              disabled={loading}
-              className="bg-zinc-800/80! hover:bg-zinc-700/80! text-zinc-200! border-zinc-700! shadow-sm py-2"
-            >
-              Agregar Visitante
-            </Button>
-
-            <Button
-              radius="xl"
-              variant="default"
-              size="sm"
-              leftSection={<IconTruck size={18} className="text-indigo-400" />}
-              onClick={() => {
-                setFormVehiculo({ placa: "", cantidadPersonas: 1, fotos: [] });
-                setEditingVehiculo(null);
-                setVisitorError(null);
-                setOpenModalVehiculo(true);
-              }}
-              disabled={loading}
-              className="bg-zinc-800/80! hover:bg-zinc-700/80! text-zinc-200! border-zinc-700! shadow-sm py-2"
-            >
-              Agregar Vehículo Acompañante
-            </Button>
-          </Group>
-
-          {/* Lista de Visitantes Peatonales */}
-          {visitantesPeatonales.length > 0 && (
-            <div className="space-y-2">
-              <Text size="xs" fw={700} className="text-zinc-400 uppercase tracking-wider">
-                Visitantes Peatonales / Individuales ({visitantesPeatonales.length})
-              </Text>
-              <Stack gap="xs">
-                {visitantes.map((v, index) => {
-                  if (v.id_visita_vehiculo) return null;
-                  return (
-                    <div
-                      key={`peatonal-${index}`}
-                      className="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900/40 p-3"
-                    >
-                      <Group gap="sm">
-                        <IconUserCheck className="w-5 h-5 text-indigo-400" />
-                        <div>
-                          <Group gap="xs">
-                            <Text size="sm" fw={600} className="text-zinc-100">
-                              {v.nombre} {v.apellido ?? ""}
-                            </Text>
-                            <Badge color="blue" variant="light" size="xs">
-                              Peatonal
-                            </Badge>
-                          </Group>
-                          <Text size="xs" c="zinc.5">
-                            {v.dni ? `DNI: ${v.dni}` : "Sin DNI"}{" "}
-                            {v.telefono ? `• Tel: ${v.telefono}` : ""}
-                          </Text>
-                        </div>
-                      </Group>
-                      <Group gap="xs">
-                        {(v.foto_documento?.length ?? 0) > 0 ? (
-                          <Button
-                            variant="subtle"
-                            size="compact-xs"
-                            color="blue"
-                            leftSection={<IconPhoto size={12} />}
-                            onClick={() =>
-                              setVisualizarFotos({
-                                title: `Fotos de ${v.nombre}`,
-                                fotosNuevas: v.foto_documento,
-                              })
-                            }
-                          >
-                            Ver {v.foto_documento.length} foto(s)
-                          </Button>
-                        ) : (
-                          <Text size="xs" c="zinc.6" fs="italic">
-                            Sin fotos
-                          </Text>
-                        )}
-                        <Button
-                          variant="subtle"
-                          size="compact-xs"
-                          color="indigo"
-                          leftSection={<IconEdit size={12} />}
-                          onClick={() => {
-                            setEditingAcompanante({
-                              index,
-                              datos: {
-                                nombre: v.nombre,
-                                apellido: v.apellido,
-                                dni: v.dni,
-                                telefono: v.telefono,
-                                foto_documento: v.foto_documento,
-                              },
-                            });
-                            setVisitorForm({
-                              id_visitante: v.id_visitante,
-                              nombre: v.nombre,
-                              apellido: v.apellido,
-                              dni: v.dni,
-                              telefono: v.telefono,
-                              fotos_documento: v.foto_documento,
-                            });
-                            setOpenModalAcompanante(true);
-                          }}
-                        >
-                          Editar
-                        </Button>
-                        <ActionIcon
-                          variant="subtle"
-                          color="red"
-                          onClick={() => handleRemoverVisitante(index)}
-                          disabled={loading}
-                        >
-                          <IconTrash size={16} />
-                        </ActionIcon>
-                      </Group>
-                    </div>
-                  );
-                })}
-              </Stack>
-            </div>
+              {bloqueAcompanantes}
+            </>
           )}
-
-          {/* Lista de Vehículos Acompañantes y sus Ocupantes */}
-          {vehiculos.length > 0 && (
-            <div className="space-y-3">
-              <Text size="xs" fw={700} className="text-zinc-400 uppercase tracking-wider">
-                Vehículos Acompañantes ({vehiculos.length})
-              </Text>
-              <Stack gap="sm">
-                {vehiculos.map((v) => {
-                  const ocupantesDeVeh = visitantes.filter((vis) => vis.id_visita_vehiculo === v.id);
-                  const fotosLocalesVeh = v.archivos ?? [];
-                  const totalFotosVeh = fotosLocalesVeh.length;
-                  return (
-                    <div
-                      key={v.id}
-                      className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 space-y-3"
-                    >
-                      <div className="flex items-center justify-between border-b border-zinc-800/80 pb-2">
-                        <Group gap="xs">
-                          <IconTruck className="w-5 h-5 text-indigo-400" />
-                          <Text size="sm" fw={700} className="text-zinc-100 font-mono uppercase tracking-wider">
-                            Placa: {v.placa}
-                          </Text>
-                          <Badge variant="subtle" color="indigo" size="xs">
-                            {ocupantesDeVeh.length} ocupante(s)
-                          </Badge>
-                          {totalFotosVeh > 0 ? (
-                            <Button
-                              variant="subtle"
-                              size="compact-xs"
-                              color="blue"
-                              leftSection={<IconPhoto size={12} />}
-                              onClick={() =>
-                                setVisualizarFotos({
-                                  title: `Fotos del Vehículo ${v.placa}`,
-                                  fotosNuevas: fotosLocalesVeh,
-                                })
-                              }
-                            >
-                              Ver {totalFotosVeh} foto(s) vehículo
-                            </Button>
-                          ) : (
-                            <Text size="xs" c="zinc.6" fs="italic">
-                              Sin fotos
-                            </Text>
-                          )}
-                          <Button
-                            variant="subtle"
-                            size="compact-xs"
-                            color="indigo"
-                            leftSection={<IconEdit size={12} />}
-                            onClick={() => {
-                              setEditingVehiculo({
-                                id: v.id,
-                                datos: {
-                                  placa: v.placa,
-                                  fotos: v.archivos,
-                                  cantidadPersonas: v.cantidad_personas ?? ocupantesDeVeh.length,
-                                },
-                              });
-                              setFormVehiculo({
-                                placa: v.placa,
-                                cantidadPersonas: v.cantidad_personas ?? ocupantesDeVeh.length,
-                                fotos: v.archivos ?? [],
-                              });
-                              setOpenModalVehiculo(true);
-                            }}
-                          >
-                            Editar
-                          </Button>
-                        </Group>
-                        <ActionIcon
-                          variant="subtle"
-                          color="red"
-                          onClick={() => eliminarVehiculo(v.id)}
-                          disabled={loadingVehiculo || loading}
-                        >
-                          <IconTrash size={16} />
-                        </ActionIcon>
-                      </div>
-
-                      {ocupantesDeVeh.length > 0 && (
-                        <div className="space-y-2 pl-2">
-                          {ocupantesDeVeh.map((oc, slotIdx) => {
-                            const idxOriginal = visitantes.findIndex((vis) => vis === oc);
-                            const tieneDatos = Boolean(oc.nombre && oc.nombre.trim());
-                            return (
-                              <div
-                                key={`veh-${v.id}-${idxOriginal}`}
-                                className="flex items-center justify-between rounded-lg border border-zinc-800/60 bg-zinc-900/60 p-2 px-3"
-                              >
-                                {tieneDatos ? (
-                                  <Group gap="xs">
-                                    <Text size="xs" className="text-zinc-100 font-semibold">
-                                      {oc.nombre} {oc.apellido ?? ""}
-                                    </Text>
-                                    {oc.dni && (
-                                      <Text size="xs" c="zinc.5">
-                                        ({oc.dni})
-                                      </Text>
-                                    )}
-                                    {oc.es_conductor ? (
-                                      <Badge color="indigo" variant="light" size="xs" className="cursor-default">
-                                        Conductor Vehículo
-                                      </Badge>
-                                    ) : (
-                                      <Badge
-                                        color="gray"
-                                        variant="subtle"
-                                        size="xs"
-                                        className="cursor-pointer hover:bg-indigo-500/20 hover:text-indigo-300 transition-all"
-                                        onClick={() => marcarConductorVehiculo(v.id, idxOriginal)}
-                                      >
-                                        Hacer Conductor
-                                      </Badge>
-                                    )}
-                                    {(oc.foto_documento?.length ?? 0) > 0 ? (
-                                      <Button
-                                        variant="subtle"
-                                        size="compact-xs"
-                                        color="blue"
-                                        leftSection={<IconPhoto size={12} />}
-                                        onClick={() =>
-                                          setVisualizarFotos({
-                                            title: `Fotos de ${oc.nombre}`,
-                                            fotosNuevas: oc.foto_documento,
-                                          })
-                                        }
-                                      >
-                                        Ver {oc.foto_documento.length} foto(s)
-                                      </Button>
-                                    ) : (
-                                      <Text size="xs" c="zinc.6" fs="italic">
-                                        Sin foto
-                                      </Text>
-                                    )}
-                                  </Group>
-                                ) : (
-                                  <Group gap="xs">
-                                    <Badge color="dark" variant="outline" size="xs">
-                                      Slot #{slotIdx + 1}
-                                    </Badge>
-                                    <Text size="xs" c="zinc.5" fs="italic">
-                                      {oc.es_conductor
-                                        ? "Conductor (Sin registrar datos)"
-                                        : "Acompañante sin registrar datos (no se guardará)"}
-                                    </Text>
-                                  </Group>
-                                )}
-
-                                <Group gap="xs">
-                                  <Button
-                                    variant="subtle"
-                                    size="compact-xs"
-                                    color="indigo"
-                                    leftSection={<IconEdit size={12} />}
-                                    onClick={() => {
-                                      setEditingAcompanante({
-                                        index: idxOriginal,
-                                        datos: {
-                                          nombre: oc.nombre,
-                                          apellido: oc.apellido,
-                                          dni: oc.dni,
-                                          telefono: oc.telefono,
-                                          foto_documento: oc.foto_documento,
-                                        },
-                                      });
-                                      setVisitorForm({
-                                        id_visitante: oc.id_visitante,
-                                        nombre: oc.nombre,
-                                        apellido: oc.apellido,
-                                        dni: oc.dni,
-                                        telefono: oc.telefono,
-                                        fotos_documento: oc.foto_documento,
-                                      });
-                                      setOpenModalAcompanante(true);
-                                    }}
-                                  >
-                                    {tieneDatos ? "Editar" : "Llenar Datos"}
-                                  </Button>
-                                  {tieneDatos && (
-                                    <ActionIcon
-                                      variant="subtle"
-                                      color="gray"
-                                      size="sm"
-                                      onClick={() => {
-                                        setVisitantes((prev) =>
-                                          prev.map((vis, i) =>
-                                            i === idxOriginal
-                                              ? {
-                                                  ...vis,
-                                                  nombre: "",
-                                                  apellido: "",
-                                                  dni: "",
-                                                  telefono: "",
-                                                  foto_documento: [],
-                                                }
-                                              : vis,
-                                          ),
-                                        );
-                                      }}
-                                    >
-                                      <IconTrash size={14} />
-                                    </ActionIcon>
-                                  )}
-                                </Group>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </Stack>
-            </div>
-          )}
-        </div>
-
-        {/* Botones del formulario */}
-        <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-zinc-800">
-          <Button
-            type="button"
-            variant="subtle"
-            color="gray"
-            radius="lg"
-            onClick={onCancel}
-            classNames={{ root: "text-zinc-400 hover:bg-zinc-800" }}
-          >
-            Cerrar
-          </Button>
-          <Button
-            type="submit"
-            loading={loading}
-            disabled={visitantes.length === 0 && vehiculos.length === 0}
-            radius="lg"
-            leftSection={<IconDeviceFloppy size={18} />}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-900/20"
-          >
-            Confirmar y Registrar Visita
-          </Button>
-        </div>
-      </form>
+        </form>
+      </ModalTsx>
 
       {/* Sub-modal: Agregar / Editar Vehículo Acompañante */}
-      <ModalEstandar
+      <ModalTsx
         opened={openModalVehiculo}
-        close={() => setOpenModalVehiculo(false)}
-        title={editingVehiculo ? "Editar Vehículo Acompañante" : "Agregar Vehículo Acompañante"}
-        size="md"
+        onClose={() => setOpenModalVehiculo(false)}
+        title={
+          editingVehiculo ? "Editar Vehículo Acompañante" : "Agregar Vehículo Acompañante"
+        }
+        ancho="md"
         validateClose
+        footer={
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Boton
+              variante="fantasma"
+              onClick={() => setOpenModalVehiculo(false)}
+              className="w-full text-zinc-400! hover:text-zinc-100! sm:w-auto"
+            >
+              Cancelar
+            </Boton>
+            <Boton
+              variante="primario"
+              cargando={loadingVehiculo}
+              onClick={handleSaveVehiculo}
+              className="w-full sm:w-auto"
+            >
+              Guardar Vehículo
+            </Boton>
+          </div>
+        }
       >
         <div className="flex flex-col gap-4">
-          {visitorError && (
-            <Alert icon={<IconExclamationCircle size={16} />} color="red" variant="filled" radius="lg">
-              {visitorError}
-            </Alert>
-          )}
+          {visitorError ? (
+            <Aviso tono="rojo">
+              <span className="flex items-start gap-2">
+                <IconExclamationCircle size={16} className="mt-0.5 shrink-0" />
+                <span>{visitorError}</span>
+              </span>
+            </Aviso>
+          ) : null}
 
-          <TextInput
+          <CampoTexto
             label="Placa del Vehículo"
             placeholder="Ej. F1B-890"
-            required
+            requerido
             maxLength={7}
-            radius="lg"
             value={formVehiculo.placa}
-            onChange={(e) =>
-              setFormVehiculo((prev) => ({ ...prev, placa: formatPlaca(e.target.value) }))
-            }
-            classNames={fieldClasses}
+            onChange={(e) => cargarPlaca(e.target.value)}
           />
 
-          <NumberInput
+          <CampoNumero
             label="Cantidad de Personas (Ocupantes)"
             placeholder="1"
             min={1}
-            required
-            radius="lg"
+            requerido
             value={formVehiculo.cantidadPersonas}
-            onChange={(val) =>
-              setFormVehiculo((prev) => ({
-                ...prev,
-                cantidadPersonas: typeof val === "number" ? Math.max(1, val) : 1,
-              }))
-            }
-            classNames={fieldClasses}
+            onChange={(e) => cargarCantidadPersonas(e.target.value)}
           />
 
           <MultiFilePicker
             files={formVehiculo.fotos}
-            onFilesChange={(files) => setFormVehiculo((prev) => ({ ...prev, fotos: files }))}
+            onFilesChange={(files) =>
+              setFormVehiculo((prev) => ({ ...prev, fotos: files }))
+            }
             label="Fotografía del Vehículo (Opcional)"
             description="Adjunte imágenes del vehículo o placa"
           />
-
-          <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-zinc-800">
-            <Button variant="subtle" color="gray" radius="lg" onClick={() => setOpenModalVehiculo(false)}>
-              Cancelar
-            </Button>
-            <Button
-              radius="lg"
-              loading={loadingVehiculo}
-              onClick={handleSaveVehiculo}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white"
-            >
-              Guardar Vehículo
-            </Button>
-          </div>
         </div>
-      </ModalEstandar>
+      </ModalTsx>
 
       {/* Sub-modal: Agregar / Editar Visitante */}
-      <ModalEstandar
+      <ModalTsx
         opened={openModalAcompanante}
-        close={() => setOpenModalAcompanante(false)}
-        title={editingAcompanante !== null ? "Editar Datos del Visitante" : "Agregar Visitante"}
-        size="md"
+        onClose={() => setOpenModalAcompanante(false)}
+        title={
+          editingAcompanante !== null
+            ? "Editar Datos del Visitante"
+            : "Agregar Visitante"
+        }
+        ancho="md"
         validateClose
+        footer={
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Boton
+              variante="fantasma"
+              onClick={() => setOpenModalAcompanante(false)}
+              className="w-full text-zinc-400! hover:text-zinc-100! sm:w-auto"
+            >
+              Cancelar
+            </Boton>
+            <Boton
+              variante="primario"
+              onClick={handleSaveVisitor}
+              className="w-full sm:w-auto"
+            >
+              Guardar Datos
+            </Boton>
+          </div>
+        }
       >
         <div className="flex flex-col gap-4">
-          {visitorError && (
-            <Alert icon={<IconExclamationCircle size={16} />} color="red" variant="filled" radius="lg">
-              {visitorError}
-            </Alert>
-          )}
+          {visitorError ? (
+            <Aviso tono="rojo">
+              <span className="flex items-start gap-2">
+                <IconExclamationCircle size={16} className="mt-0.5 shrink-0" />
+                <span>{visitorError}</span>
+              </span>
+            </Aviso>
+          ) : null}
 
           <SelectVisitante
             label="Visitante"
@@ -854,53 +1188,61 @@ export const RegistroVisita = ({ onCancel, onSuccess }: Props) => {
 
           <MultiFilePicker
             files={visitorForm.fotos_documento}
-            onFilesChange={(files) => setVisitorForm((prev) => ({ ...prev, fotos_documento: files }))}
+            onFilesChange={(files) =>
+              setVisitorForm((prev) => ({ ...prev, fotos_documento: files }))
+            }
             label="Foto del Documento de Identidad"
             description="Suba fotografías legibles del DNI o carné"
           />
-
-          <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-zinc-800">
-            <Button variant="subtle" color="gray" radius="lg" onClick={() => setOpenModalAcompanante(false)}>
-              Cancelar
-            </Button>
-            <Button radius="lg" onClick={handleSaveVisitor} className="bg-indigo-600 hover:bg-indigo-700 text-white">
-              Guardar Datos
-            </Button>
-          </div>
         </div>
-      </ModalEstandar>
+      </ModalTsx>
 
       {/* Modal: Visualizar Fotografías */}
-      <ModalEstandar
+      <ModalTsx
         opened={!!visualizarFotos}
-        close={() => setVisualizarFotos(null)}
+        onClose={() => setVisualizarFotos(null)}
         title={visualizarFotos?.title || "Fotografías Adjuntas"}
-        size="md"
+        ancho="md"
+        footer={
+          <div className="flex justify-end">
+            <Boton
+              variante="fantasma"
+              onClick={() => setVisualizarFotos(null)}
+              className="w-full text-zinc-400! hover:text-zinc-100! sm:w-auto"
+            >
+              Cerrar
+            </Boton>
+          </div>
+        }
       >
-        <div className="space-y-4">
-          {visualizarFotos?.fotosNuevas && visualizarFotos.fotosNuevas.length > 0 && (
+        <div className="flex flex-col gap-4">
+          {visualizarFotos?.fotosNuevas && visualizarFotos.fotosNuevas.length > 0 ? (
             <div>
-              <Text size="xs" fw={700} className="text-zinc-400 mb-2 uppercase">
+              <p className="mb-2 text-xs font-bold uppercase text-zinc-400">
                 Archivos Locales Cargados:
-              </Text>
+              </p>
               <div className="flex flex-col gap-2">
                 {visualizarFotos.fotosNuevas.map((file, idx) => (
-                  <div key={idx} className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 p-2 rounded-xl">
+                  <div
+                    key={idx}
+                    className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 p-2 rounded-xl"
+                  >
                     <IconPhoto size={16} className="text-indigo-400 shrink-0" />
-                    <Text size="xs" c="zinc.3" className="truncate font-mono">
+                    <span className="truncate font-mono text-xs text-zinc-300">
                       {file.name} ({(file.size / 1024).toFixed(1)} KB)
-                    </Text>
+                    </span>
                   </div>
                 ))}
               </div>
             </div>
-          )}
+          ) : null}
 
-          {visualizarFotos?.fotosExistentes && visualizarFotos.fotosExistentes.length > 0 && (
+          {visualizarFotos?.fotosExistentes &&
+          visualizarFotos.fotosExistentes.length > 0 ? (
             <div>
-              <Text size="xs" fw={700} className="text-zinc-400 mb-2 uppercase">
+              <p className="mb-2 text-xs font-bold uppercase text-zinc-400">
                 Archivos en Servidor:
-              </Text>
+              </p>
               <div className="grid grid-cols-2 gap-2">
                 {visualizarFotos.fotosExistentes.map((url, idx) => (
                   <a
@@ -910,27 +1252,25 @@ export const RegistroVisita = ({ onCancel, onSuccess }: Props) => {
                     rel="noreferrer"
                     className="block border border-zinc-800 rounded-xl overflow-hidden bg-zinc-900 hover:border-indigo-500 transition-all"
                   >
-                    <img src={url} alt={`Foto ${idx + 1}`} className="w-full h-32 object-cover" />
+                    <img
+                      src={url}
+                      alt={`Foto ${idx + 1}`}
+                      className="w-full h-32 object-cover"
+                    />
                   </a>
                 ))}
               </div>
             </div>
-          )}
-
-          <div className="flex justify-end pt-3 border-t border-zinc-800">
-            <Button variant="subtle" color="gray" radius="lg" onClick={() => setVisualizarFotos(null)}>
-              Cerrar
-            </Button>
-          </div>
+          ) : null}
         </div>
-      </ModalEstandar>
+      </ModalTsx>
 
       {/* Modal: Registrar Nuevo Motivo de Ingreso */}
-      <ModalEstandar
+      <ModalTsx
         opened={openModalMotivo}
-        close={() => setOpenModalMotivo(false)}
+        onClose={() => setOpenModalMotivo(false)}
         title="Registrar Nuevo Motivo de Ingreso"
-        size="md"
+        ancho="md"
         validateClose
       >
         <RegistroMotivoIngreso
@@ -940,7 +1280,7 @@ export const RegistroVisita = ({ onCancel, onSuccess }: Props) => {
             setOpenModalMotivo(false);
           }}
         />
-      </ModalEstandar>
+      </ModalTsx>
     </>
   );
 };
