@@ -13,6 +13,13 @@ export interface IGuiaRecepcion {
   guia_transportista: string;
   guia_remitente_archivo: IArchivo | null;
   guia_transportista_archivo: IArchivo | null;
+  /**
+   * La guía es interna: la emite la propia empresa, no un proveedor.
+   *
+   * Sólo aplica a las guías de SALIDA (`guias_salida`): cuando es `true`
+   * no hay que elegir ni indicar proveedor.
+   */
+  es_interno?: boolean;
 }
 
 /**

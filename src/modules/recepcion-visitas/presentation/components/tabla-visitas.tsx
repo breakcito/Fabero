@@ -227,7 +227,7 @@ export const TablaVisitas = ({ recepciones, loading, onUpdateRecepcion }: Props)
                         setObservacionSalidaGeneral("");
                         setEvidenciasSalidaGeneral([]);
                       }}
-                      className="bg-red-600 hover:bg-red-700 text-white font-bold h-5.5 px-2 text-[10px] shadow-sm mt-1"
+                      className="bg-red-600 hover:bg-red-700 text-white font-bold h-5.5 px-2 text-xs shadow-sm mt-1"
                     >
                       Salida General
                     </Button>
@@ -276,7 +276,7 @@ export const TablaVisitas = ({ recepciones, loading, onUpdateRecepcion }: Props)
                       radius="xl"
                       leftSection={<IconPaperclip size={11} />}
                       onClick={() => setViewAllEvidenciasRecord(r)}
-                      className="bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 border border-indigo-500/10 h-4.5 px-1.5 text-[9px] font-bold mt-0.5"
+                      className="bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 border border-indigo-500/10 h-4.5 px-1.5 text-xs font-bold mt-0.5"
                     >
                       Evidencias ({totalEv})
                     </Button>
@@ -331,7 +331,7 @@ export const TablaVisitas = ({ recepciones, loading, onUpdateRecepcion }: Props)
                               radius="xl"
                               leftSection={<IconPaperclip size={11} />}
                               onClick={() => handleOpenEvidencias(photos)}
-                              className="bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 border border-indigo-500/10 h-4.5 px-1.5 text-[9px] font-bold mt-0.5"
+                              className="bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 border border-indigo-500/10 h-4.5 px-1.5 text-xs font-bold mt-0.5"
                             >
                               Fotos ({photos.length})
                             </Button>
@@ -371,7 +371,7 @@ export const TablaVisitas = ({ recepciones, loading, onUpdateRecepcion }: Props)
                                 radius="xl"
                                 leftSection={<IconPaperclip size={11} />}
                                 onClick={() => handleOpenEvidencias(photos)}
-                                className="bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 border border-indigo-500/10 h-4.5 px-1.5 text-[9px] font-bold mt-0.5"
+                                className="bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 border border-indigo-500/10 h-4.5 px-1.5 text-xs font-bold mt-0.5"
                               >
                                 Fotos ({photos.length})
                               </Button>
@@ -461,7 +461,7 @@ export const TablaVisitas = ({ recepciones, loading, onUpdateRecepcion }: Props)
                                         });
                                         handleOpenEvidencias(mapped);
                                       }}
-                                      className="bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 border border-indigo-500/10 h-4.5 px-1.5 text-[9px] font-bold"
+                                      className="bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 border border-indigo-500/10 h-4.5 px-1.5 text-xs font-bold"
                                     >
                                       Ver ({allVisitorFiles.length})
                                     </Button>
@@ -495,7 +495,7 @@ export const TablaVisitas = ({ recepciones, loading, onUpdateRecepcion }: Props)
                                     setObservacionSalida("");
                                     setEvidenciasSalida([]);
                                   }}
-                                  className="bg-red-500/10 hover:bg-red-500/25 text-red-400 font-bold h-5 px-2 text-[9px]"
+                                  className="bg-red-500/10 hover:bg-red-500/25 text-red-400 font-bold h-5 px-2 text-xs"
                                 >
                                   Salida
                                 </Button>
@@ -504,8 +504,8 @@ export const TablaVisitas = ({ recepciones, loading, onUpdateRecepcion }: Props)
                           </div>
 
                           {v.estado !== "En Planta" && v.estado && (
-                            <div className="text-[10px] text-zinc-400 mt-0.5 pt-1 border-t border-zinc-800/40">
-                              <span className="font-semibold text-zinc-500 text-[9px] mr-1">Salida:</span>
+                            <div className="text-xs text-zinc-400 mt-0.5 pt-1 border-t border-zinc-800/40">
+                              <span className="font-semibold text-zinc-500 text-xs mr-1">Salida:</span>
                               <span className="font-mono text-zinc-300 mr-2">{v.fecha_hora_salida ? formatFecha(v.fecha_hora_salida) : "—"}</span>
                               {v.observacion_salida && (
                                 <span className="italic text-zinc-400">({v.observacion_salida})</span>

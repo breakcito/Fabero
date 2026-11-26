@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { InterfacesPesosBalanzasService } from "../service/interfaces-pesosbalanzas.service";
 
 /** Frecuencia de lectura del peso desde la balanza (milisegundos). */
-const INTERVALO_MS = 300;
+const INTERVALO_MS = 100;
 
 interface UsePesoBalanzaParams {
   /**
@@ -59,13 +59,13 @@ export const usePesoBalanza = ({
       );
       const peso = respuesta?.peso ?? null;
 
-      if (peso === null || peso <= 0) {
+      if (peso != null && peso < 0) {
         setHayLectura(false);
         return;
       }
 
       setHayLectura(true);
-      setPesoActual(peso);
+      setPesoActual(peso ?? 0);
       onPesoRef.current(String(peso));
     } catch (error) {
       // Una lectura fallida no debe romper el formulario: se reintenta en el

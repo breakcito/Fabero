@@ -31,6 +31,11 @@ export interface RecepcionUnidadResponse {
   evidencias: IArchivo[];
   observacion: string | null;
   estado: EstadoUnidad | string | null;
+  /**
+   * Estado de la unidad al ingresar a planta: "Con Carga" o "Vacío".
+   * Usa los mismos valores que `estado_salida`.
+   */
+  estado_ingreso: EstadoSalida | string | null;
   estado_salida: EstadoSalida | string | null;
   fecha_hora_salida: string | null;
   observacion_salida: string | null;
@@ -56,6 +61,11 @@ export interface RecepcionUnidadResponse {
    * Guías por proveedor de la carga (modelo nuevo).
    */
   guias: IGuiaRecepcion[];
+  /**
+   * Guías de SALIDA por proveedor (modelo nuevo). Se registran cuando la
+   * unidad sale de planta; tienen el mismo contrato que `guias`.
+   */
+  guias_salida: IGuiaRecepcion[];
   /**
    * Proveedores de la carga de la unidad (modelo nuevo).
    */

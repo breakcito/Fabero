@@ -35,6 +35,13 @@ interface ModalTsxProps {
   validateClose?: boolean;
   closeConfirmationTitle?: string;
   closeConfirmationMessage?: ReactNode;
+  /**
+   * Cabecera reducida (menos padding y título más chico).
+   *
+   * Se usa en los modales de planta, donde cada píxel de alto cuenta: el
+   * operador ve el formulario completo sin desplazamiento.
+   */
+  compacto?: boolean;
 }
 
 const ANCHOS: Record<string, string> = {
@@ -55,6 +62,7 @@ export const ModalTsx = ({
   validateClose = false,
   closeConfirmationTitle,
   closeConfirmationMessage,
+  compacto = false,
 }: ModalTsxProps) => {
   const [confirmando, setConfirmando] = useState(false);
 
@@ -117,10 +125,24 @@ export const ModalTsx = ({
         className={`relative w-full ${ANCHOS[ancho]} max-h-[94dvh] sm:max-h-[88dvh] flex flex-col overflow-hidden bg-zinc-950 border border-white/10 shadow-2xl shadow-black rounded-t-2xl sm:rounded-xl`}
       >
         {/* Cabecera */}
-        <div className="flex items-start justify-between gap-4 px-4 sm:px-6 pt-4 sm:pt-5 pb-3 sm:pb-4 border-b border-white/10 shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-1 h-6 bg-linear-to-b from-[#ffc933] to-[#b8920a] rounded-full shadow-[0_0_10px_#d4a50a] shrink-0" />
-            <span className="text-lg sm:text-xl font-bold bg-linear-to-r from-white via-zinc-100 to-zinc-400 bg-clip-text text-transparent tracking-tight leading-normal truncate">
+        <div
+          className={`flex items-start justify-between gap-4 border-b border-white/10 shrink-0 ${
+            compacto
+              ? "px-4 py-2.5"
+              : "px-4 sm:px-6 pt-4 sm:pt-5 pb-3 sm:pb-4"
+          }`}
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div
+              className={`w-1 rounded-full bg-linear-to-b from-[#ffc933] to-[#b8920a] shadow-[0_0_10px_#d4a50a] shrink-0 ${
+                compacto ? "h-5" : "h-6"
+              }`}
+            />
+            <span
+              className={`font-bold bg-linear-to-r from-white via-zinc-100 to-zinc-400 bg-clip-text text-transparent tracking-tight leading-normal truncate ${
+                compacto ? "text-base" : "text-lg sm:text-xl"
+              }`}
+            >
               {title}
             </span>
           </div>

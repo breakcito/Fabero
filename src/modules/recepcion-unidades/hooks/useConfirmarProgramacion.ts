@@ -23,8 +23,8 @@ import type { RES_Conductor } from "../../../service/responses/conductor";
 import type { RES_Proveedor } from "../../../service/responses/proveedor";
 import type { RES_TipoVehiculo } from "../../../service/responses/tipo-vehiculo";
 import type { EmpresaTransporteResponse } from "../../empresas-transporte/service/empresas-transporte.responses";
-import type { ProveedorResponse } from "../../proveedores-mineros/service/proveedores.responses";
 import { TipoIngreso } from "../../../shared/enums/_generic/tipo-ingreso";
+import { EstadoSalida } from "../../../shared/enums/_generic/estado-salida";
 import { useUIStore } from "../../../stores/ui.store";
 
 export interface VisitanteFormItem {
@@ -51,29 +51,21 @@ interface Props {
 }
 
 /**
- * Guías con las que abre la confirmación de llegada.
+ * Guías de la carga: una entrada por proveedor seleccionado.
  *
- * Se arma un par de guías por cada proveedor de la carga: si la programación
- * lo registró se respeta tal cual, si la agenda lo dejó vacío el operador
- * completa el número de guía al confirmar. Las guías sin proveedor asignado
- * (guía de la unidad) se conservan al final.
+ * Si la programación ya tenía guías se respetan tal cual (el proveedor
+ * conserva su número y su archivo); los proveedores nuevos arrancan vacíos.
  */
-const guiasBaseDe = (
-  programacion?: RecepcionUnidadResponse | null,
-): IGuiaRecepcion[] => {
-  const guias = programacion?.guias ?? [];
-  const proveedores = programacion?.proveedores ?? [];
-
-  if (proveedores.length === 0) {
-    return guias;
-  }
-
-  const porProveedor = proveedores.map((p) => {
-    const registrada = guias.find((g) => g.id_proveedor === p.id_proveedor);
+const guiasDe = (
+  proveedores: number[],
+  guiasPrevias: IGuiaRecepcion[],
+): IGuiaRecepcion[] =>
+  proveedores.map((idProveedor) => {
+    const previa = guiasPrevias.find((g) => g.id_proveedor === idProveedor);
 
     return (
-      registrada ?? {
-        id_proveedor: p.id_proveedor,
+      previa ?? {
+        id_proveedor: idProveedor,
         guia_remitente: "",
         guia_transportista: "",
         guia_remitente_archivo: null,
@@ -81,13 +73,6 @@ const guiasBaseDe = (
       }
     );
   });
-
-  const sinProveedor = guias.filter(
-    (g) => !proveedores.some((p) => p.id_proveedor === g.id_proveedor),
-  );
-
-  return [...porProveedor, ...sinProveedor];
-};
 
 export const useConfirmarProgramacion = ({ programacion, opened = true }: Props) => {
   const { notifySuccess, notifyError } = useNotify();
@@ -123,22 +108,48 @@ export const useConfirmarProgramacion = ({ programacion, opened = true }: Props)
     programacion?.visita?.observacion ?? programacion?.observacion ?? "",
   );
 
-  const [guiaRemitente, setGuiaRemitente] = useState<string>(
-    programacion?.guias?.[0]?.guia_remitente ?? "",
-  );
-  const [guiaTransportista, setGuiaTransportista] = useState<string>(
-    programacion?.guias?.[0]?.guia_transportista ?? "",
+  /**
+   * Estado de la unidad al ingresar a planta: "Con Carga" o "Vacío".
+   *
+   * No lo decide el tipo de ingreso (recepción o despacho): lo declara el
+   * operador según cómo llega el vehículo.
+   */
+  const [estadoIngreso, setEstadoIngreso] = useState<EstadoSalida | null>(
+    (programacion?.estado_ingreso as EstadoSalida | null) ?? null,
   );
 
   /**
-   * Guías de la programación, editables SOLO las que llegaron vacías.
+   * Archivos nuevos adjuntos a las guías, por proveedor.
    *
-   * Cada proveedor tiene su propio par de guías. Si la programación ya
-   * registró la guía, queda bloqueada; si la dejó vacía, el operador puede
-   * completarla al confirmar la llegada.
+   * La clave es el `id_proveedor` de la guía; al enviarse se reindexan por
+   * la posición que ocupa en el array de guías (`guias_archivos[<índice>]`).
+   */
+  const [guiasArchivos, setGuiasArchivos] = useState<
+    Record<number, { guia_remitente?: File; guia_transportista?: File }>
+  >({});
+
+  /**
+   * Proveedores de la carga.
+   *
+   * Cada uno aporta su propia guía (remitente y transportista) y sus
+   * archivos. En una PROGRAMACIÓN vienen fijados por el documento
+   * autorizado: se muestran pero no se pueden cambiar. En el registro
+   * directo los elige el operador.
+   */
+  const proveedoresIniciales =
+    programacion?.proveedores?.map((p) => p.id_proveedor) ?? [];
+
+  const [proveedoresSeleccionados, setProveedoresSeleccionadosState] =
+    useState<number[]>(proveedoresIniciales);
+
+  /**
+   * Guías de la carga, editables SOLO las que llegaron vacías.
+   *
+   * Si la programación ya registró la guía, queda bloqueada; si la dejó
+   * vacía, el operador puede completarla al confirmar la llegada.
    */
   const [guiasConfirmacion, setGuiasConfirmacion] = useState<IGuiaRecepcion[]>(
-    () => guiasBaseDe(programacion),
+    () => guiasDe(proveedoresIniciales, programacion?.guias ?? []),
   );
 
   const setGuiaConfirmacion = useCallback(
@@ -150,6 +161,70 @@ export const useConfirmarProgramacion = ({ programacion, opened = true }: Props)
             : g,
         ),
       );
+    },
+    [],
+  );
+
+  /**
+   * Cambiar los proveedores de la carga rehace el listado de guías: los
+   * que se quedan conservan lo capturado y los nuevos arrancan vacíos.
+   */
+  const setProveedoresSeleccionados = useCallback((ids: number[]) => {
+    setProveedoresSeleccionadosState(ids);
+    setGuiasConfirmacion((prev) => guiasDe(ids, prev));
+    setGuiasArchivos((prev) => {
+      const archivos: Record<
+        number,
+        { guia_remitente?: File; guia_transportista?: File }
+      > = {};
+      ids.forEach((id) => {
+        if (prev[id]) archivos[id] = prev[id];
+      });
+      return archivos;
+    });
+  }, []);
+
+  const setGuiaArchivo = useCallback(
+    (
+      idProveedor: number,
+      campo: "guia_remitente" | "guia_transportista",
+      archivo: File | null,
+    ) => {
+      setGuiasArchivos((prev) => {
+        const siguiente = { ...prev };
+        const deProveedor = { ...(prev[idProveedor] ?? {}) };
+
+        if (archivo) {
+          deProveedor[campo] = archivo;
+        } else {
+          delete deProveedor[campo];
+        }
+
+        siguiente[idProveedor] = deProveedor;
+        return siguiente;
+      });
+    },
+    [],
+  );
+
+  /**
+   * Quita el archivo ya guardado de una guía.
+   *
+   * El backend recibe `null` en el archivo y lo retira del contrato.
+   */
+  const [guiaArchivoQuitado, setGuiaArchivoQuitado] = useState(false);
+
+  const quitarArchivoGuia = useCallback(
+    (
+      idProveedor: number,
+      campo: "guia_remitente_archivo" | "guia_transportista_archivo",
+    ) => {
+      setGuiasConfirmacion((prev) =>
+        prev.map((g) =>
+          g.id_proveedor === idProveedor ? { ...g, [campo]: null } : g,
+        ),
+      );
+      setGuiaArchivoQuitado(true);
     },
     [],
   );
@@ -173,7 +248,7 @@ export const useConfirmarProgramacion = ({ programacion, opened = true }: Props)
       idProveedor: number,
       campo: "guia_remitente" | "guia_transportista",
     ): boolean => {
-      const previa = guiasBaseDe(programacion).find(
+      const previa = (programacion?.guias ?? []).find(
         (p) => p.id_proveedor === idProveedor,
       );
       if (!previa) {
@@ -186,7 +261,7 @@ export const useConfirmarProgramacion = ({ programacion, opened = true }: Props)
 
   /** ¿El operador capturó alguna guía que la programación dejó vacía? */
   const guiasCapturadasEnConfirmacion = useCallback((): boolean => {
-    const base = guiasBaseDe(programacion);
+    const base = programacion?.guias ?? [];
     return guiasConfirmacion.some((g) => {
       const previa = base.find((p) => p.id_proveedor === g.id_proveedor);
       const remitentePrevio = (previa?.guia_remitente ?? "").trim();
@@ -212,11 +287,16 @@ export const useConfirmarProgramacion = ({ programacion, opened = true }: Props)
       setIdConductor(programacion?.id_conductor ?? null);
       setIdMotivoIngreso(programacion?.visita?.id_motivo_ingreso ?? null);
       setObservacion(programacion?.visita?.observacion ?? programacion?.observacion ?? "");
-      // En la confirmación las guías vienen de la programación; las que
-      // llegaron vacías las completa el operador al confirmar.
-      setGuiaRemitente(programacion?.guias?.[0]?.guia_remitente ?? "");
-      setGuiaTransportista(programacion?.guias?.[0]?.guia_transportista ?? "");
-      setGuiasConfirmacion(guiasBaseDe(programacion));
+      setEstadoIngreso((programacion?.estado_ingreso as EstadoSalida | null) ?? null);
+      // Las guías se derivan de los proveedores: en la confirmación vienen
+      // fijados por la programación; en el registro directo los elige el
+      // operador.
+      setProveedoresSeleccionadosState(proveedoresIniciales);
+      setGuiasConfirmacion(
+        guiasDe(proveedoresIniciales, programacion?.guias ?? []),
+      );
+      setGuiasArchivos({});
+      setGuiaArchivoQuitado(false);
       setVehiculos(programacion?.visita?.vehiculos ?? []);
       setVisitantes(
         programacion?.visita?.detalles?.map((d: VisitaDetalleResponse) => ({
@@ -369,15 +449,8 @@ export const useConfirmarProgramacion = ({ programacion, opened = true }: Props)
     notifySuccess(`Empresa ${nueva.razon_social} registrada`);
   }, [notifySuccess, programacion?.id_empresa_transporte]);
 
-  const handleProveedorCreado = useCallback((nuevo: ProveedorResponse) => {
-    const resProv: RES_Proveedor = {
-      id_proveedor: nuevo.id_proveedor,
-      razon_social: nuevo.razon_social,
-      direccion: nuevo.direccion,
-      documento: nuevo.ruc || nuevo.dni || null,
-      telefono: nuevo.telefono,
-    };
-    setProveedoresCatalog((prev) => [resProv, ...prev.filter((p) => p.id_proveedor !== nuevo.id_proveedor)]);
+  const handleProveedorCreado = useCallback((nuevo: RES_Proveedor) => {
+    setProveedoresCatalog((prev) => [nuevo, ...prev.filter((p) => p.id_proveedor !== nuevo.id_proveedor)]);
     notifySuccess(`Proveedor ${nuevo.razon_social} registrado`);
   }, [notifySuccess]);
 
@@ -567,8 +640,6 @@ export const useConfirmarProgramacion = ({ programacion, opened = true }: Props)
     const idEmp = programacion?.id_empresa_transporte ?? idEmpresaTransporteEditado ?? null;
     const idVeh = programacion?.id_vehiculo ?? idVehiculoEditado ?? null;
     const idTip = programacion?.id_tipo_vehiculo ?? idTipoVehiculoEditado ?? null;
-    const gRemitente = (guiaRemitente ?? "").trim().toUpperCase();
-    const gTransportista = (guiaTransportista ?? "").trim().toUpperCase();
 
     if (idVeh && idTip != null) {
       const vFound = vehiculosCatalog.find((v) => v.id_vehiculo === idVeh);
@@ -596,6 +667,10 @@ export const useConfirmarProgramacion = ({ programacion, opened = true }: Props)
       notifyError("Debe seleccionar el Conductor");
       return null;
     }
+    if (!estadoIngreso) {
+      notifyError("Debe seleccionar el Estado de Ingreso (Con carga o Vacío)");
+      return null;
+    }
 
     setLoadingConfirmar(true);
     try {
@@ -615,11 +690,30 @@ export const useConfirmarProgramacion = ({ programacion, opened = true }: Props)
         // Si el operador completó alguna guía que la programación dejó vacía,
         // se guarda ANTES de confirmar: mientras la programación está
         // pendiente sus guías no están bloqueadas.
-        if (guiasCapturadasEnConfirmacion()) {
+        if (
+          guiasCapturadasEnConfirmacion() ||
+          Object.keys(guiasArchivos).length > 0 ||
+          guiaArchivoQuitado
+        ) {
           try {
+            // Los archivos se reindexan por la POSICIÓN dentro del array de
+            // guías: es como los empareja el backend
+            // (`guias_archivos[<posición>][guia_*]`).
+            const archivosPorPosicion: Record<
+              number,
+              { guia_remitente?: File; guia_transportista?: File }
+            > = {};
+            guiasConfirmacion.forEach((guia, posicion) => {
+              const archivos = guiasArchivos[guia.id_proveedor];
+              if (archivos?.guia_remitente || archivos?.guia_transportista) {
+                archivosPorPosicion[posicion] = archivos;
+              }
+            });
+
             await RecepcionUnidadesService.setGuias(
               programacion.id,
               guiasConfirmacion,
+              archivosPorPosicion,
             );
           } catch (e) {
             console.error("No se pudieron guardar las guías capturadas:", e);
@@ -645,6 +739,7 @@ export const useConfirmarProgramacion = ({ programacion, opened = true }: Props)
           id_conductor: idConductor ?? undefined,
           id_vehiculo_carreta: idVehiculoCarreta ?? undefined,
           observacion: observacion || undefined,
+          estado_ingreso: estadoIngreso ?? undefined,
           motivo: 'Confirmación inicial',
           evidencias: evidencias.length > 0 ? evidencias : undefined,
         });
@@ -679,6 +774,8 @@ export const useConfirmarProgramacion = ({ programacion, opened = true }: Props)
           evidencias: [],
           observacion: updated.observacion,
           estado_salida: updated.estado_salida,
+          estado_ingreso: updated.estado_ingreso ?? programacion.estado_ingreso,
+          guias_salida: updated.guias_salida ?? programacion.guias_salida ?? [],
           fecha_hora_salida: updated.fecha_hora_salida,
           observacion_salida: updated.observacion_salida,
           estado_pesaje: updated.estado_pesaje,
@@ -760,21 +857,27 @@ export const useConfirmarProgramacion = ({ programacion, opened = true }: Props)
 
         const hasVisitaInfo = visitantesValidos.length > 0 || vehiculos.length > 0;
 
-        // En el ingreso directo solo se capturan las guías: el proveedor de
-        // la carga se conoce después, con el registro de los lotes. Por eso
-        // la guía se envía con `id_proveedor = 0` ("guía de la unidad").
-        const guias =
-          gRemitente !== "" || gTransportista !== ""
-            ? [
-                {
-                  id_proveedor: 0,
-                  guia_remitente: gRemitente,
-                  guia_transportista: gTransportista,
-                  guia_remitente_archivo: null,
-                  guia_transportista_archivo: null,
-                },
-              ]
-            : [];
+        // Cada proveedor seleccionado aporta su propia guía (remitente,
+        // transportista) y sus archivos. Los archivos viajan indexados por
+        // la posición que ocupa la guía en el array.
+        const guias = guiasConfirmacion.map((g) => ({
+          id_proveedor: g.id_proveedor,
+          guia_remitente: g.guia_remitente.trim().toUpperCase(),
+          guia_transportista: g.guia_transportista.trim().toUpperCase(),
+          guia_remitente_archivo: null,
+          guia_transportista_archivo: null,
+        }));
+
+        const guiasArchivosPorPosicion: Record<
+          number,
+          { guia_remitente?: File; guia_transportista?: File }
+        > = {};
+        guiasConfirmacion.forEach((g, posicion) => {
+          const archivos = guiasArchivos[g.id_proveedor];
+          if (archivos?.guia_remitente || archivos?.guia_transportista) {
+            guiasArchivosPorPosicion[posicion] = archivos;
+          }
+        });
 
         const payload: CrearRecepcionRequest = {
           id_vehiculo: idVeh,
@@ -785,8 +888,10 @@ export const useConfirmarProgramacion = ({ programacion, opened = true }: Props)
           id_vehiculo_carreta: idVehiculoCarreta ?? null,
           id_sucursal: sucursalTarget,
           tipo_ingreso: TipoIngreso.RecepcionMineral,
-          proveedores: [],
+          estado_ingreso: estadoIngreso ?? undefined,
+          proveedores: proveedoresSeleccionados,
           guias,
+          guias_archivos: guiasArchivosPorPosicion,
           id_motivo_ingreso: hasVisitaInfo ? motivoFinal : undefined,
           observacion: observacion || undefined,
           evidencias,
@@ -851,12 +956,15 @@ export const useConfirmarProgramacion = ({ programacion, opened = true }: Props)
     setIdMotivoIngreso,
     observacion,
     setObservacion,
-    guiaRemitente,
-    setGuiaRemitente,
-    guiaTransportista,
-    setGuiaTransportista,
+    estadoIngreso,
+    setEstadoIngreso,
     guiasConfirmacion,
     setGuiaConfirmacion,
+    proveedoresSeleccionados,
+    setProveedoresSeleccionados,
+    guiasArchivos,
+    setGuiaArchivo,
+    quitarArchivoGuia,
     guiaConfirmacionDe,
     guiaBloqueadaDe,
     evidencias,

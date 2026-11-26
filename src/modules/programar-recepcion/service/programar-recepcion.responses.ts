@@ -6,6 +6,7 @@ import type {
 } from "../../../shared/interfaces/guia-recepcion";
 import type { RES_CambiosLog } from "../../../service/responses/_generic/cambios-log";
 import type { TipoIngreso } from "../../../shared/enums/_generic/tipo-ingreso";
+import type { EstadoSalida } from "../../../shared/enums/_generic/estado-salida";
 
 export interface ProgramacionListItem {
   id: number;
@@ -127,6 +128,12 @@ export interface ProgramacionDetail {
   fecha_estimada_llegada: string | null;
   /** Guías por proveedor de la carga (modelo nuevo). */
   guias: IGuiaRecepcion[];
+  /**
+   * Estado de la unidad al ingresar a planta: "Con Carga" o "Vacío".
+   */
+  estado_ingreso: EstadoSalida | string | null;
+  /** Guías de SALIDA (mismo contrato que `guias`). */
+  guias_salida: IGuiaRecepcion[];
   /** Proveedores de la carga (modelo nuevo). */
   proveedores: IProveedorRecepcion[];
   /**

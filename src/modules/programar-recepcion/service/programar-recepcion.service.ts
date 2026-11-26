@@ -13,6 +13,8 @@ export interface ConfirmarProgramacionPayload {
   id_empresa_transporte?: number;
   id_vehiculo_carreta?: number | null;
   observacion?: string;
+  /** Estado de la unidad al ingresar: "Con Carga" o "Vacío". */
+  estado_ingreso?: string;
   motivo?: string;
   evidencias?: File[];
 }
@@ -144,6 +146,7 @@ export const ProgramarRecepcionService = {
     appendIfDefined("id_empresa_transporte", payload.id_empresa_transporte);
     appendIfDefined("id_vehiculo_carreta", payload.id_vehiculo_carreta);
     appendIfDefined("observacion", payload.observacion);
+    appendIfDefined("estado_ingreso", payload.estado_ingreso);
     appendIfDefined("motivo", payload.motivo);
     payload.evidencias?.forEach((file) => formData.append("evidencias[]", file));
 

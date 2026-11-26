@@ -2,6 +2,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import { motion } from "motion/react";
 import { Navbar } from "./components/navbar";
 import { Header } from "./components/header";
+import { HeaderPlanta } from "./components/header-planta";
 import { GlobalNotification } from "./components/global-notification";
 import { GlobalBlackcito } from "./components/global-blackcito";
 import { useAuthLayout } from "./hooks/useAuthLayout";
@@ -9,14 +10,27 @@ import { GlobalPrinterPortal } from "../../utils/printer/GlobalPrinterPortal";
 import { GlobalExcelPortal } from "../../utils/excel/GlobalExcelPortal";
 import { AIAssistantPanel } from "./components/ai-assistant-panel";
 import { ModuleAIContextBridge } from "./components/module-ai-context-bridge";
+import { useDispositivo } from "../../../hooks/useDispositivo";
+
+/**
+ * Rutas que se usan en planta con el teléfono/tablet: ahí no hace falta el
+ * menú lateral, sólo la barra compacta con pestañas, sucursal y logout.
+ */
+const RUTAS_PLANTA = ["/recepcion-unidades", "/recepcion-visitas"];
 
 export const AuthLayout = () => {
   const { open, setOpen } = useAuthLayout();
   const { pathname } = useLocation();
+  const { esAndroid } = useDispositivo();
 
   // El Centro de Ayuda es una vista independiente (se abre en otra pestaña):
   // sin header ni menu lateral, ocupa toda la pantalla.
   const esCentroAyuda = pathname === "/centro-ayuda";
+
+  // Modo planta: en Android se oculta el header general (y con él el acceso
+  // a los demás módulos) y se muestra la barra compacta.
+  const esModoPlanta =
+    esAndroid && RUTAS_PLANTA.some((ruta) => pathname.startsWith(ruta));
 
   return (
     <div className="relative min-h-screen w-full bg-[#030303] text-zinc-100 flex flex-col overflow-hidden">
@@ -53,15 +67,22 @@ export const AuthLayout = () => {
       {/* Capa de contenido */}
       <div className="relative z-10 flex flex-col flex-1">
         <ModuleAIContextBridge />
-        {!esCentroAyuda && <Header onMenuToggle={() => setOpen(true)} />}
-        {!esCentroAyuda && open && <Navbar onClose={() => setOpen(false)} />}
+        {!esCentroAyuda &&
+          (esModoPlanta ? (
+            <HeaderPlanta />
+          ) : (
+            <Header onMenuToggle={() => setOpen(true)} />
+          ))}
+        {!esCentroAyuda && !esModoPlanta && open && (
+          <Navbar onClose={() => setOpen(false)} />
+        )}
         <GlobalNotification />
         <GlobalBlackcito />
         <AIAssistantPanel />
 
         <main
           className={`flex-1 mx-auto w-full px-4 pb-10 overflow-hidden relative ${
-            esCentroAyuda ? "pt-5" : "pt-22"
+            esCentroAyuda ? "pt-5" : esModoPlanta ? "pt-16" : "pt-22"
           }`}
         >
           <motion.div

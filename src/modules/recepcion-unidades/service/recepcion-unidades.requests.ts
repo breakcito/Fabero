@@ -1,6 +1,25 @@
 import type { IArchivo } from "../../../shared/interfaces/archivo";
 import type { IGuiaRecepcion } from "../../../shared/interfaces/guia-recepcion";
 import type { TipoIngreso } from "../../../shared/enums/_generic/tipo-ingreso";
+import type { EstadoSalida } from "../../../shared/enums/_generic/estado-salida";
+
+/**
+ * Registro de salida de una unidad.
+ *
+ * Las guías de salida tienen el mismo contrato que las de ingreso (una
+ * entrada por proveedor) y se guardan en `recepcion_unidad.guias_salida`.
+ */
+export interface DTO_RegistrarSalida {
+  estado_salida: EstadoSalida | string;
+  observacion_salida?: string;
+  guias_salida?: IGuiaRecepcion[];
+  /** Archivos nuevos de las guías de salida, indexados por proveedor. */
+  guias_archivos?: Record<
+    number,
+    { guia_remitente?: File; guia_transportista?: File }
+  >;
+  evidencias?: File[];
+}
 
 export interface DTO_EditarObservacionEvidencias {
   observacion?: string | null;
@@ -25,6 +44,10 @@ export interface DTO_ActualizarCampos {
     id_vehiculo_carreta?: number | null;
     id_empresa_transporte?: number | null;
     id_conductor?: number | null;
+    /** Fecha y hora de ingreso (YYYY-MM-DD HH:MM:SS). */
+    fecha_hora_ingreso?: string | null;
+    /** Fecha y hora de salida (YYYY-MM-DD HH:MM:SS). */
+    fecha_hora_salida?: string | null;
   };
   motivo?: string | null;
 }
@@ -43,7 +66,23 @@ export interface CrearRecepcionRequest {
    * cargas.
    */
   guias?: IGuiaRecepcion[];
+  /**
+   * Archivos nuevos de las guías, indexados por la posición que ocupa la
+   * guía dentro del array `guias`.
+   */
+  guias_archivos?: Record<
+    number,
+    { guia_remitente?: File; guia_transportista?: File }
+  >;
+  /** Archivo de la guía remitente de la unidad (ingreso directo). */
+  guia_remitente_file?: File;
+  /** Archivo de la guía transportista de la unidad (ingreso directo). */
+  guia_transportista_file?: File;
   tipo_ingreso?: TipoIngreso;
+  /**
+   * Estado de la unidad al ingresar a planta: "Con Carga" o "Vacío".
+   */
+  estado_ingreso?: EstadoSalida | string;
   id_vehiculo_carreta?: number | null;
   observacion?: string;
   evidencias?: File[];

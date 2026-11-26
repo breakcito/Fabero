@@ -11,7 +11,11 @@ window.Pusher = Pusher;
 const socket = new Echo({
   broadcaster: "reverb",
   key: import.meta.env.VITE_REVERB_APP_KEY,
-  wsHost: import.meta.env.VITE_REVERB_HOST,
+  // Si VITE_REVERB_HOST viene vacio se usa el host desde el que se cargo la
+  // pagina. En desarrollo en LAN (tablet) eso es la IP de la PC, no
+  // "localhost": con "localhost" el tablet apuntaria a si mismo y el
+  // websocket nunca conectaria.
+  wsHost: import.meta.env.VITE_REVERB_HOST || window.location.hostname,
   wsPort: import.meta.env.VITE_REVERB_PORT ?? 80,
   wssPort: import.meta.env.VITE_REVERB_PORT ?? 443,
   forceTLS: (import.meta.env.VITE_REVERB_SCHEME ?? "https") === "https",

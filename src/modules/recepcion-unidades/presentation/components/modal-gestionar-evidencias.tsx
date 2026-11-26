@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import { Stack, Group, Button, Text, Loader } from "@mantine/core";
 import { IconDeviceFloppy } from "@tabler/icons-react";
-import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
-import { MultiFilePicker } from "../../../../presentation/utils/archivo/multifile-picker";
+import { ModalTsx } from "../../../../presentation/utils/modal-tsx";
+import { Boton } from "../../../../presentation/utils/ui-tsx";
+import { ListaArchivosSimple } from "../../../../presentation/utils/archivo/lista-archivos-simple";
 import { RecepcionUnidadesService } from "../../service/recepcion-unidades.service";
 import type { RecepcionUnidadResponse } from "../../service/recepcion-unidades.responses";
 import type { IArchivo } from "../../../../shared/interfaces/archivo";
@@ -55,7 +55,9 @@ export const ModalGestionarEvidencias = ({
     );
   };
 
-  const hayCambios = existentes.length !== (recepcion?.evidencias?.length ?? 0) || nuevas.length > 0;
+  const hayCambios =
+    existentes.length !== (recepcion?.evidencias?.length ?? 0) ||
+    nuevas.length > 0;
 
   const handleGuardar = async () => {
     if (!recepcion) return;
@@ -84,61 +86,43 @@ export const ModalGestionarEvidencias = ({
   };
 
   return (
-    <ModalEstandar
+    <ModalTsx
       opened={opened && recepcion !== null}
-      close={onClose}
+      onClose={onClose}
       title="Evidencias de la Recepción"
-      size="lg"
+      ancho="lg"
       validateClose={hayCambios}
       closeConfirmationTitle="Cerrar sin guardar"
       closeConfirmationMessage="Tienes archivos sin guardar. ¿Quieres cerrar de todos modos?"
-    >
-      {!recepcion ? (
-        <div className="py-8 text-center">
-          <Loader size="sm" color="indigo" />
+      compacto
+      footer={
+        <div className="flex items-center justify-end gap-2">
+          <Boton
+            variante="fantasma"
+            onClick={onClose}
+            disabled={loading}
+            className="text-zinc-400 hover:text-white"
+          >
+            Cancelar
+          </Boton>
+          <Boton
+            variante="primario"
+            onClick={() => void handleGuardar()}
+            cargando={loading}
+          >
+            <IconDeviceFloppy size={18} />
+            Guardar Evidencias
+          </Boton>
         </div>
-      ) : (
-        <Stack gap="md">
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4">
-            <MultiFilePicker
-              files={nuevas}
-              onFilesChange={setNuevas}
-              existingFiles={existentes}
-              onRemoveExisting={handleRemoveExisting}
-              label="Evidencias de la Recepción"
-              description="Puedes subir nuevas evidencias o quitar las existentes. Los cambios quedan registrados en el historial."
-            />
-            {existentes.length === 0 && nuevas.length === 0 && (
-              <Text size="sm" c="dimmed" fs="italic" mt="xs">
-                No hay evidencias adjuntas.
-              </Text>
-            )}
-          </div>
-
-          <Group justify="flex-end" gap="md" mt="sm">
-            <Button
-              variant="subtle"
-              onClick={onClose}
-              disabled={loading}
-              radius="lg"
-              size="md"
-              className="text-zinc-400 hover:text-white"
-            >
-              Cancelar
-            </Button>
-            <Button
-              loading={loading}
-              onClick={handleGuardar}
-              radius="lg"
-              size="md"
-              leftSection={<IconDeviceFloppy size={18} />}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6"
-            >
-              Guardar Evidencias
-            </Button>
-          </Group>
-        </Stack>
-      )}
-    </ModalEstandar>
+      }
+    >
+      <ListaArchivosSimple
+        archivos={nuevas}
+        onFilesChange={setNuevas}
+        existentes={existentes}
+        onRemoveExisting={handleRemoveExisting}
+        label="Adjuntar evidencias"
+      />
+    </ModalTsx>
   );
 };

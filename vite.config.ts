@@ -1,4 +1,4 @@
-import { defineConfig, type Plugin } from "vite";
+import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { existsSync, readdirSync, statSync } from "node:fs";
@@ -100,17 +100,65 @@ function ayudaVideosPlugin(): Plugin {
 }
 
 // https://vite.dev/config/
-export default defineConfig({
-  plugins: [
-    react({
-      babel: {
-        plugins: [["babel-plugin-react-compiler"]],
+export default defineConfig(({ mode }) => {
+  // `loadEnv` lee los .env (incluido .env.development) para poder apuntar el
+  // proxy al dominio de Herd sin tocar este archivo.
+  const env = loadEnv(mode, process.cwd(), "");
+
+  /** Dominio de Herd donde corre la API (sin /api: el prefijo lo pone Laravel). */
+  const API_HERD = env.VITE_API_HERD_URL ?? "http://api-local-fabero.test";
+
+  return {
+    plugins: [
+      react({
+        babel: {
+          plugins: [["babel-plugin-react-compiler"]],
+        },
+      }),
+      tailwindcss(),
+      ayudaVideosPlugin(),
+    ],
+    build: {
+      chunkSizeWarningLimit: 5000, // Subir el límite de la advertencia a 5MB
+    },
+    server: {
+      // Expone el dev server en la LAN (0.0.0.0) para poder abrirlo desde un
+      // tablet. El host de la maquina es `host: true` (sin esto Vite solo
+      // escucha en 127.0.0.1 y el tablet no llega).
+      host: true,
+      // Herd solo escucha en 127.0.0.1, asi que todo lo que sale del servidor de
+      // Vite (API y archivos subidos) se reenvia a Herd desde la PC.
+      //
+      // OJO con el target: NO debe llevar `/api`. El prefijo `/api` lo agrega
+      // Laravel (routes con prefix 'api') y el proxy reenvia el path tal cual,
+      // por lo que un `/api` en el target produce `/api/api/...` y Laravel
+      // responde 404 en todas las peticiones.
+      proxy: {
+        "/api": {
+          target: API_HERD,
+          changeOrigin: true,
+          secure: false, // evita errores si tienes activado HTTPS en Herd
+          configure: (proxy) => {
+            proxy.on("error", (err) => {
+              console.error(`[proxy] /api -> ${API_HERD}: ${err.message}`);
+            });
+          },
+        },
+        // Archivos subidos (fotos, logos). El backend los expone con
+        // asset('storage/...'), que devuelve una URL absoluta; con ASSET_URL
+        // apuntando al dev server el navegador pide /storage/... y aqui se
+        // reenvia a Herd.
+        "/storage": {
+          target: API_HERD,
+          changeOrigin: true,
+          secure: false,
+          configure: (proxy) => {
+            proxy.on("error", (err) => {
+              console.error(`[proxy] /storage -> ${API_HERD}: ${err.message}`);
+            });
+          },
+        },
       },
-    }),
-    tailwindcss(),
-    ayudaVideosPlugin(),
-  ],
-  build: {
-    chunkSizeWarningLimit: 5000, // Subir el límite de la advertencia a 5MB
-  },
+    },
+  };
 });

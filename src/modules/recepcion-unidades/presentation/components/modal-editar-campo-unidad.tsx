@@ -1,15 +1,12 @@
 import { useState, useEffect } from "react";
-import {
-  Select,
-  MultiSelect,
-  Button,
-  Stack,
-  Text,
-  Tooltip,
-  ActionIcon,
-} from "@mantine/core";
+import { MultiSelect } from "@mantine/core";
 import { IconDeviceFloppy, IconPlus, IconLock } from "@tabler/icons-react";
-import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
+import { ModalTsx } from "../../../../presentation/utils/modal-tsx";
+import {
+  Boton,
+  BotonIcono,
+  CampoSeleccion,
+} from "../../../../presentation/utils/ui-tsx";
 import { AuxService } from "../../../../service/auxiliar.service";
 import { RecepcionUnidadesService } from "../../service/recepcion-unidades.service";
 import type { RecepcionUnidadResponse } from "../../service/recepcion-unidades.responses";
@@ -43,13 +40,6 @@ const TITULOS: Record<GrupoEdicion, string> = {
   proveedor: "Editar Proveedor Minero",
 };
 
-/** Inputs grandes: `size="md"` (16px) con label y hint legibles. */
-const fieldClasses = {
-  input:
-    "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 focus:ring-1 focus:ring-zinc-300 transition-all",
-  label: "text-zinc-200 mb-1.5 font-semibold text-sm",
-};
-
 export const ModalEditarCampoUnidad = ({
   opened,
   recepcion,
@@ -72,7 +62,9 @@ export const ModalEditarCampoUnidad = ({
   const [idConductor, setIdConductor] = useState<string | null>(null);
   const [idsProveedor, setIdsProveedor] = useState<string[]>([]);
 
-  const [subModal, setSubModal] = useState<"vehiculo" | "conductor" | "empresa" | "tipo" | "proveedor" | null>(null);
+  const [subModal, setSubModal] = useState<
+    "vehiculo" | "conductor" | "empresa" | "tipo" | "proveedor" | null
+  >(null);
   const [submitting, setSubmitting] = useState(false);
 
   /**
@@ -233,107 +225,123 @@ export const ModalEditarCampoUnidad = ({
     .filter((v) => Number(v.es_carreta) === 1)
     .map((v) => ({ value: String(v.id_vehiculo), label: v.placa }));
 
-  const SelectGrande = ({
+  /**
+   * Campo de catálogo con botón de registro rápido.
+   *
+   * El botón va en una columna propia (y no dentro del input) para no
+   * depender de la posición del chevron del desplegable.
+   */
+  const CampoConRegistro = ({
     label,
-    data,
-    value,
+    opciones,
+    valor,
     onChange,
     onPlus,
-    disabled,
+    deshabilitado,
   }: {
     label: string;
-    data: Array<{ value: string; label: string }>;
-    value: string | null;
+    opciones: Array<{ value: string; label: string }>;
+    valor: string | null;
     onChange: (v: string | null) => void;
     onPlus?: () => void;
-    disabled?: boolean;
+    deshabilitado?: boolean;
   }) => (
     <div className="flex items-end gap-2">
-      <Select
-        label={label}
-        placeholder="Seleccione"
-        data={data}
-        value={value}
-        onChange={onChange}
-        searchable
-        clearable
-        size="md"
-        radius="lg"
-        className="flex-1 min-w-0"
-        classNames={fieldClasses}
-        disabled={disabled}
-        comboboxProps={{ withinPortal: true }}
-      />
-      {onPlus && (
-        <Tooltip label={`Registrar ${label.toLowerCase()}`} withArrow>
-          <ActionIcon
-            variant="filled"
-            color="indigo"
-            radius="lg"
-            size="lg"
-            onClick={onPlus}
-            disabled={disabled}
-            className="shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white"
-          >
-            <IconPlus size={18} />
-          </ActionIcon>
-        </Tooltip>
-      )}
+      <div className="min-w-0 flex-1">
+        <CampoSeleccion
+          label={label}
+          placeholder="Seleccione"
+          opciones={opciones}
+          valor={valor}
+          onChange={onChange}
+          deshabilitado={deshabilitado}
+          buscable
+        />
+      </div>
+      {onPlus ? (
+        <BotonIcono
+          etiqueta={`Registrar ${label.toLowerCase()}`}
+          color="indigo"
+          onClick={onPlus}
+          disabled={deshabilitado}
+          className="h-11 w-11 border border-zinc-700 bg-zinc-800 text-zinc-200 hover:bg-zinc-700"
+        >
+          <IconPlus size={18} />
+        </BotonIcono>
+      ) : null}
     </div>
   );
 
   const AvisoBloqueado = ({ campo }: { campo: string }) => {
     if (!bloqueado(campo)) return null;
     return (
-      <div className="flex items-center gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2">
-        <IconLock size={16} className="text-yellow-400" />
-        <Text size="sm" className="text-yellow-200">
-          Este dato se registró en la programación, por lo que no se puede
-          editar.
-        </Text>
+      <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
+        <IconLock size={16} className="shrink-0 text-amber-400" />
+        Registrado en la programación: no se puede editar.
       </div>
     );
   };
 
   return (
     <>
-      <ModalEstandar
+      <ModalTsx
         opened={opened}
-        close={onClose}
+        onClose={onClose}
         title={TITULOS[grupo]}
-        size="lg"
+        ancho="lg"
         validateClose
+        compacto
+        footer={
+          <div className="flex items-center justify-end gap-2 border-t border-zinc-800 pt-3">
+            <Boton
+              variante="fantasma"
+              onClick={onClose}
+              disabled={submitting}
+              className="text-zinc-400 hover:text-white"
+            >
+              Cancelar
+            </Boton>
+            <Boton
+              variante="primario"
+              onClick={() => void handleGuardar()}
+              cargando={submitting}
+            >
+              <IconDeviceFloppy size={18} />
+              Guardar
+            </Boton>
+          </div>
+        }
       >
-        <Stack gap="lg" className="p-1">
+        <div className="flex flex-col gap-4">
           {grupo === "vehiculo" && (
             <>
               <AvisoBloqueado campo="id_vehiculo" />
-              <SelectGrande
+              <CampoConRegistro
                 label="Vehículo"
-                data={vehiculosData}
-                value={idVehiculo}
+                opciones={vehiculosData}
+                valor={idVehiculo}
                 onChange={setIdVehiculo}
                 onPlus={() => setSubModal("vehiculo")}
-                disabled={bloqueado("id_vehiculo")}
+                deshabilitado={bloqueado("id_vehiculo")}
               />
-              <SelectGrande
+              <CampoConRegistro
                 label="Tipo de Vehículo"
-                data={tiposVehiculo.map((t) => ({
+                opciones={tiposVehiculo.map((t) => ({
                   value: String(t.id_tipo_vehiculo),
                   label: t.nombre,
                 }))}
-                value={idTipoVehiculo}
+                valor={idTipoVehiculo}
                 onChange={setIdTipoVehiculo}
                 onPlus={() => setSubModal("tipo")}
-                disabled={bloqueado("id_tipo_vehiculo")}
+                deshabilitado={bloqueado("id_tipo_vehiculo")}
               />
-              <SelectGrande
+              <CampoConRegistro
                 label="Vehículo Carreta (opcional)"
-                data={carretasData}
-                value={idVehiculoCarreta}
+                opciones={carretasData}
+                valor={idVehiculoCarreta}
                 onChange={setIdVehiculoCarreta}
                 onPlus={() => setSubModal("vehiculo")}
-                disabled={bloqueado("id_vehiculo_carreta")}
+                deshabilitado={bloqueado("id_vehiculo_carreta")}
               />
             </>
           )}
@@ -341,16 +349,16 @@ export const ModalEditarCampoUnidad = ({
           {grupo === "transportista" && (
             <>
               <AvisoBloqueado campo="id_empresa_transporte" />
-              <SelectGrande
+              <CampoConRegistro
                 label="Empresa de Transporte"
-                data={empresas.map((e) => ({
+                opciones={empresas.map((e) => ({
                   value: String(e.id_empresa_transporte),
                   label: `${e.razon_social}${e.ruc ? ` (${e.ruc})` : ""}`,
                 }))}
-                value={idEmpresa}
+                valor={idEmpresa}
                 onChange={setIdEmpresa}
                 onPlus={() => setSubModal("empresa")}
-                disabled={bloqueado("id_empresa_transporte")}
+                deshabilitado={bloqueado("id_empresa_transporte")}
               />
             </>
           )}
@@ -358,16 +366,16 @@ export const ModalEditarCampoUnidad = ({
           {grupo === "conductor" && (
             <>
               <AvisoBloqueado campo="id_conductor" />
-              <SelectGrande
+              <CampoConRegistro
                 label="Conductor"
-                data={conductores.map((c) => ({
+                opciones={conductores.map((c) => ({
                   value: String(c.id_conductor),
                   label: `${c.nombre_completo} (${c.dni})`,
                 }))}
-                value={idConductor}
+                valor={idConductor}
                 onChange={setIdConductor}
                 onPlus={() => setSubModal("conductor")}
-                disabled={bloqueado("id_conductor")}
+                deshabilitado={bloqueado("id_conductor")}
               />
             </>
           )}
@@ -388,58 +396,35 @@ export const ModalEditarCampoUnidad = ({
                 hidePickedOptions
                 size="md"
                 radius="lg"
-                className="flex-1 min-w-0"
-                classNames={fieldClasses}
+                className="min-w-0 flex-1"
+                classNames={{
+                  input:
+                    "bg-zinc-900/60 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all",
+                  label: "text-zinc-300 mb-1.5 font-semibold text-sm",
+                }}
                 comboboxProps={{ withinPortal: true }}
               />
-              <Tooltip label="Registrar proveedor minero" withArrow>
-                <ActionIcon
-                  variant="filled"
-                  color="indigo"
-                  radius="lg"
-                  size="lg"
-                  onClick={() => setSubModal("proveedor")}
-                  className="shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white"
-                >
-                  <IconPlus size={18} />
-                </ActionIcon>
-              </Tooltip>
+              <BotonIcono
+                etiqueta="Registrar proveedor minero"
+                color="indigo"
+                onClick={() => setSubModal("proveedor")}
+                className="h-11 w-11 border border-zinc-700 bg-zinc-800 text-zinc-200 hover:bg-zinc-700"
+              >
+                <IconPlus size={18} />
+              </BotonIcono>
             </div>
           )}
-
-          <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800">
-            <Button
-              variant="subtle"
-              color="gray"
-              radius="lg"
-              size="md"
-              onClick={onClose}
-              disabled={submitting}
-              className="text-zinc-400 hover:text-white"
-            >
-              Cancelar
-            </Button>
-            <Button
-              radius="lg"
-              size="md"
-              loading={submitting}
-              onClick={handleGuardar}
-              leftSection={<IconDeviceFloppy size={18} />}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6"
-            >
-              Guardar
-            </Button>
-          </div>
-        </Stack>
-      </ModalEstandar>
+        </div>
+      </ModalTsx>
 
       {subModal === "vehiculo" && (
-        <ModalEstandar
+        <ModalTsx
           opened
-          close={() => setSubModal(null)}
+          onClose={() => setSubModal(null)}
           title="Registrar vehículo"
-          size="sm"
+          ancho="sm"
           validateClose
+          compacto
         >
           <RegistroVehiculoSimple
             idEmpresaTransporte={idEmpresa ? Number(idEmpresa) : null}
@@ -450,16 +435,17 @@ export const ModalEditarCampoUnidad = ({
               setSubModal(null);
             }}
           />
-        </ModalEstandar>
+        </ModalTsx>
       )}
 
       {subModal === "conductor" && (
-        <ModalEstandar
+        <ModalTsx
           opened
-          close={() => setSubModal(null)}
+          onClose={() => setSubModal(null)}
           title="Registrar conductor"
-          size="sm"
+          ancho="sm"
           validateClose
+          compacto
         >
           <RegistroConductor
             onCancel={() => setSubModal(null)}
@@ -468,16 +454,17 @@ export const ModalEditarCampoUnidad = ({
               setSubModal(null);
             }}
           />
-        </ModalEstandar>
+        </ModalTsx>
       )}
 
       {subModal === "empresa" && (
-        <ModalEstandar
+        <ModalTsx
           opened
-          close={() => setSubModal(null)}
+          onClose={() => setSubModal(null)}
           title="Registrar empresa de transporte"
-          size="md"
+          ancho="md"
           validateClose
+          compacto
         >
           <RegistroEmpresaTransporte
             onCancel={() => setSubModal(null)}
@@ -486,16 +473,17 @@ export const ModalEditarCampoUnidad = ({
               setSubModal(null);
             }}
           />
-        </ModalEstandar>
+        </ModalTsx>
       )}
 
       {subModal === "tipo" && (
-        <ModalEstandar
+        <ModalTsx
           opened
-          close={() => setSubModal(null)}
+          onClose={() => setSubModal(null)}
           title="Registrar tipo de vehículo"
-          size="sm"
+          ancho="sm"
           validateClose
+          compacto
         >
           <RegistroTipoVehiculoSimple
             onCancel={() => setSubModal(null)}
@@ -504,16 +492,17 @@ export const ModalEditarCampoUnidad = ({
               setSubModal(null);
             }}
           />
-        </ModalEstandar>
+        </ModalTsx>
       )}
 
       {subModal === "proveedor" && (
-        <ModalEstandar
+        <ModalTsx
           opened
-          close={() => setSubModal(null)}
+          onClose={() => setSubModal(null)}
           title="Registrar proveedor minero"
-          size="sm"
+          ancho="sm"
           validateClose
+          compacto
         >
           <RegistroProveedorMineroSimple
             onCancel={() => setSubModal(null)}
@@ -526,7 +515,7 @@ export const ModalEditarCampoUnidad = ({
               setSubModal(null);
             }}
           />
-        </ModalEstandar>
+        </ModalTsx>
       )}
     </>
   );

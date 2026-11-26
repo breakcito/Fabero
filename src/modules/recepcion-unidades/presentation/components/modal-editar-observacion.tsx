@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { Stack, Group, Button, Textarea, Loader } from "@mantine/core";
 import { IconDeviceFloppy } from "@tabler/icons-react";
-import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
+import { ModalTsx } from "../../../../presentation/utils/modal-tsx";
+import { AreaTexto, Boton } from "../../../../presentation/utils/ui-tsx";
 import { RecepcionUnidadesService } from "../../service/recepcion-unidades.service";
 import type { RecepcionUnidadResponse } from "../../service/recepcion-unidades.responses";
 import { useNotify } from "../../../../hooks/useNotify";
@@ -102,67 +102,44 @@ export const ModalEditarObservacion = ({
   };
 
   return (
-    <ModalEstandar
+    <ModalTsx
       opened={opened && recepcion !== null}
-      close={onClose}
-      title={esSalida ? "Editar Observación de Salida" : "Editar Observación"}
-      size="lg"
+      onClose={onClose}
+      title={esSalida ? "Observación de salida" : "Observación"}
+      ancho="md"
       validateClose={hayCambios}
       closeConfirmationTitle="Cerrar sin guardar"
       closeConfirmationMessage="Tienes cambios sin guardar en la observación."
-    >
-      {!recepcion ? (
-        <div className="py-8 text-center">
-          <Loader size="sm" color="indigo" />
-        </div>
-      ) : (
-        <Stack gap="md">
-          <Textarea
-            label={esSalida ? "Observación de salida" : "Observación"}
-            placeholder={
-              esSalida
-                ? "Escribe la observación de salida (opcional)"
-                : "Escribe una observación (opcional)"
-            }
-            value={observacion}
-            onChange={(e) => setObservacion(e.currentTarget.value)}
-            minRows={4}
-            maxRows={10}
-            autosize
-            size="md"
-            radius="lg"
+      compacto
+      footer={
+        <div className="flex items-center justify-end gap-2">
+          <Boton
+            variante="fantasma"
+            onClick={onClose}
             disabled={loading}
-            classNames={{
-              input:
-                "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 focus:ring-1 focus:ring-zinc-300 transition-all",
-              label: "text-zinc-200 mb-1.5 font-semibold text-sm",
-            }}
-          />
-
-          <Group justify="flex-end" gap="md" mt="sm">
-            <Button
-              variant="subtle"
-              onClick={onClose}
-              disabled={loading}
-              radius="lg"
-              size="md"
-              className="text-zinc-400 hover:text-white"
-            >
-              Cancelar
-            </Button>
-            <Button
-              loading={loading}
-              onClick={handleGuardar}
-              radius="lg"
-              size="md"
-              leftSection={<IconDeviceFloppy size={18} />}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6"
-            >
-              Guardar
-            </Button>
-          </Group>
-        </Stack>
-      )}
-    </ModalEstandar>
+            className="text-zinc-400 hover:text-white"
+          >
+            Cancelar
+          </Boton>
+          <Boton
+            variante="primario"
+            onClick={() => void handleGuardar()}
+            cargando={loading}
+          >
+            <IconDeviceFloppy size={18} />
+            Guardar
+          </Boton>
+        </div>
+      }
+    >
+      <AreaTexto
+        label={esSalida ? "Observación de salida" : "Observación"}
+        placeholder="Opcional"
+        value={observacion}
+        onChange={(e) => setObservacion(e.currentTarget.value)}
+        disabled={loading}
+        className="max-h-60"
+      />
+    </ModalTsx>
   );
 };

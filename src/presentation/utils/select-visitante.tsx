@@ -1,16 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  ActionIcon,
-  Group,
-  Loader,
-  Select,
-  Tooltip,
-} from "@mantine/core";
 import { IconUserPlus } from "@tabler/icons-react";
 import { AuxService } from "../../service/auxiliar.service";
 import { useNotify } from "../../hooks/useNotify";
 import type { RES_Visitante } from "../../service/responses/auxiliar-visitas";
 import { ModalRegistroVisitante } from "./modal-registro-visitante";
+import { BotonIcono, CampoSeleccion } from "./ui-tsx";
 
 export interface VisitanteFormValue {
   id_visitante?: number;
@@ -52,7 +46,6 @@ export const SelectVisitante = ({
   showPhone = false,
   w,
 }: SelectVisitanteProps) => {
-  const [search, setSearch] = useState("");
   const [visitantes, setVisitantes] = useState<RES_Visitante[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalCrearAbierto, setModalCrearAbierto] = useState(false);
@@ -79,9 +72,9 @@ export const SelectVisitante = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // `data` deriva de la lista completa para que el Select tenga
-  // acceso a la label del visitante recién creado (sin re-fetch).
-  const data = useMemo(() => {
+  // `opciones` deriva de la lista completa para que el select muestre la
+  // etiqueta del visitante recién creado (sin refetch).
+  const opciones = useMemo(() => {
     return visitantes.map((v) => {
       const nombreCompleto = [v.nombre, v.apellido].filter(Boolean).join(" ");
       const dniStr = v.dni ? ` (${v.dni})` : "";
@@ -93,15 +86,10 @@ export const SelectVisitante = ({
     });
   }, [visitantes, showPhone]);
 
-  const handleSearchChange = (q: string) => {
-    setSearch(q);
-    cargar(q);
-  };
-
   const handleVisitanteCreado = (v: RES_Visitante) => {
     setModalCrearAbierto(false);
-    // Prepend el visitante nuevo al state local para que el Select lo muestre
-    // de inmediato, sin re-fetch ni esperar al próximo `cargar`.
+    // Prepend el visitante nuevo al state local para que el select lo muestre
+    // de inmediato, sin refetch ni esperar al próximo `cargar`.
     setVisitantes((prev) => [v, ...prev]);
     onChange({
       id_visitante: v.id_visitante,
@@ -112,66 +100,60 @@ export const SelectVisitante = ({
     });
   };
 
+  const seleccionar = (val: string | null) => {
+    if (val === null) {
+      onChange({
+        id_visitante: undefined,
+        nombre: "",
+        apellido: "",
+        dni: "",
+        telefono: null,
+      });
+      return;
+    }
+
+    const id = Number(val);
+    const v = visitantes.find((x) => x.id_visitante === id);
+    if (v) {
+      onChange({
+        id_visitante: v.id_visitante,
+        nombre: v.nombre,
+        apellido: v.apellido ?? "",
+        dni: v.dni ?? "",
+        telefono: v.telefono ?? null,
+      });
+    }
+  };
+
   return (
     <>
-      <Group gap="xs" align="flex-end" wrap="nowrap">
-        <Select
-          label={label}
-          placeholder={placeholder}
-          data={data}
-          value={value != null ? String(value) : null}
-          searchable
-          searchValue={search}
-          onSearchChange={handleSearchChange}
-          nothingFoundMessage={loading ? "Buscando..." : "Sin resultados"}
-          rightSection={loading ? <Loader size="xs" /> : undefined}
-          onChange={(val) => {
-            if (val === null) {
-              onChange({
-                id_visitante: undefined,
-                nombre: "",
-                apellido: "",
-                dni: "",
-                telefono: null,
-              });
-              return;
-            }
-            const id = Number(val);
-            const v = visitantes.find((x) => x.id_visitante === id);
-            if (v) {
-              onChange({
-                id_visitante: v.id_visitante,
-                nombre: v.nombre,
-                apellido: v.apellido ?? "",
-                dni: v.dni ?? "",
-                telefono: v.telefono ?? null,
-              });
-            }
-          }}
-          w={w}
-          classNames={{
-            input: "bg-zinc-900/50 border-zinc-800",
-            label: "text-zinc-300 mb-1 font-medium text-xs",
-          }}
-          style={{ flex: 1 }}
-        />
-        {showCreateButton && (
-          <Tooltip label="Crear nuevo visitante" withArrow>
-            <ActionIcon
-              type="button"
-              variant="filled"
-              color="indigo"
-              size="lg"
-              radius="md"
-              onClick={() => setModalCrearAbierto(true)}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white mb-0.5"
-              aria-label="Crear nuevo visitante"
-            >
-              <IconUserPlus size={16} />
-            </ActionIcon>
-          </Tooltip>
-        )}
-      </Group>
+      <div className="flex items-end gap-2">
+        <div
+          className="min-w-0 flex-1"
+          style={w ? { width: typeof w === "number" ? `${w}px` : w } : undefined}
+        >
+          <CampoSeleccion
+            label={label}
+            placeholder={loading ? "Buscando..." : placeholder}
+            opciones={opciones}
+            valor={value != null ? String(value) : null}
+            onChange={seleccionar}
+            onBusqueda={(texto) => void cargar(texto)}
+            buscable
+          />
+        </div>
+
+        {showCreateButton ? (
+          <BotonIcono
+            etiqueta="Crear nuevo visitante"
+            color="indigo"
+            onClick={() => setModalCrearAbierto(true)}
+            className="h-11 w-11 shrink-0 border border-zinc-700 bg-zinc-800 text-zinc-200 hover:bg-zinc-700"
+          >
+            <IconUserPlus size={18} />
+          </BotonIcono>
+        ) : null}
+      </div>
 
       <ModalRegistroVisitante
         opened={modalCrearAbierto}

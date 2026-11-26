@@ -1,13 +1,12 @@
 import { useEffect, useState } from "react";
-import { Stack, Button } from "@mantine/core";
+import { Stack } from "@mantine/core";
 import { useTitlePage } from "../../../hooks/useTitlePage";
 import { useRecepcionVisitas } from "../hooks/useRecepcionVisitas";
 import { Filtros } from "./components/filtros";
 import { TablaVisitas } from "./components/tabla-visitas";
 import { RegistroVisita } from "./components/registro-visita";
-import { RefreshButton } from "../../../presentation/utils/refresh-button";
-import { LimpiarFiltrosButton } from "../../../presentation/utils/limpiar-filtros-button";
-import { IconPlus } from "@tabler/icons-react";
+import { Boton } from "../../../presentation/utils/ui-tsx";
+import { IconFilter, IconPlus, IconRefresh } from "@tabler/icons-react";
 import {
   defaultFechaInicio,
   defaultFechaFin,
@@ -35,6 +34,7 @@ export const RecepcionVisitasPage = () => {
   } = useRecepcionVisitas();
 
   const [openRegistro, setOpenRegistro] = useState(false);
+  const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
 
   const setFiltros = useRecepcionVisitasContextStore((s) => s.setFiltros);
   const setModalRegistroAbierto = useRecepcionVisitasContextStore(
@@ -107,32 +107,53 @@ export const RecepcionVisitasPage = () => {
 
   return (
     <div className="space-y-6 animate-fadeIn">
-      <div className="flex flex-col xl:flex-row gap-4 items-end justify-between w-full">
-        <div className="flex-1 w-full">
-          <Filtros
-            filters={filters}
-            handleFilterChange={handleFilterChange}
-          />
-        </div>
-        
-        <div className="flex items-center gap-2 shrink-0 pb-0.5">
-          {hasActiveFilters && (
-            <LimpiarFiltrosButton onClick={clearFilters} />
-          )}
+      {/* Barra de acciones: filtros, recarga y nuevo registro */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Boton
+          variante={filtrosAbiertos || hasActiveFilters ? "primario" : "secundario"}
+          onClick={() => setFiltrosAbiertos((v) => !v)}
+          className="h-11 border-zinc-700 bg-zinc-800/80 px-4 text-zinc-100 hover:bg-zinc-700/80"
+        >
+          <IconFilter size={18} />
+          Aplicar filtros
+        </Boton>
 
-          <RefreshButton onClick={fetchRecepciones} loading={loading} label="Recargar visitas" />
-
-          <Button
-            radius="lg"
-            size="sm"
-            leftSection={<IconPlus size={18} />}
-            onClick={() => setOpenRegistro(true)}
-            className="bg-[#7A604D] hover:bg-[#8c6d53] text-white shadow-lg shadow-zinc-900/40 shrink-0 h-9.5 px-6 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+        {hasActiveFilters ? (
+          <Boton
+            variante="fantasma"
+            onClick={clearFilters}
+            className="h-11 px-4 text-zinc-300 hover:bg-zinc-800 hover:text-white"
           >
-            Nuevo Registro
-          </Button>
-        </div>
+            Quitar filtros
+          </Boton>
+        ) : null}
+
+        <Boton
+          variante="secundario"
+          onClick={() => void fetchRecepciones()}
+          cargando={loading}
+          className="h-11 border-zinc-700 bg-zinc-800/80 px-4 text-zinc-100 hover:bg-zinc-700/80"
+        >
+          <IconRefresh size={18} />
+          Recargar
+        </Boton>
+
+        <button
+          type="button"
+          onClick={() => setOpenRegistro(true)}
+          className="ml-auto flex h-11 items-center justify-center gap-2 rounded-lg bg-[#7A604D] px-5 font-semibold text-white shadow-lg shadow-zinc-900/40 transition-colors hover:bg-[#8c6d53]"
+        >
+          <IconPlus size={18} />
+          <span className="truncate">Nuevo Registro</span>
+        </button>
       </div>
+
+      {filtrosAbiertos ? (
+        <Filtros
+          filters={filters}
+          handleFilterChange={handleFilterChange}
+        />
+      ) : null}
 
       <Stack gap="md">
         <TablaVisitas

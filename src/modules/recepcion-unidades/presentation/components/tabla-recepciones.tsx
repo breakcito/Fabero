@@ -1,22 +1,24 @@
 import { useState } from "react";
-import { Text, Button, Select, Textarea, Badge, Group, ActionIcon, Tooltip, Stack, type MantineColor } from "@mantine/core";
 import { DataTableEstandar } from "../../../../presentation/utils/datatable-estandar";
-import { IconPaperclip, IconClipboardCheck, IconPencil, IconHistory, IconTruck, IconPrinter, IconLock } from "@tabler/icons-react";
-import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
-
-import { MultiFilePicker } from "../../../../presentation/utils/archivo/multifile-picker";
+import {
+  IconClipboardCheck,
+  IconPaperclip,
+  IconPencil,
+  IconPrinter,
+  IconLock,
+} from "@tabler/icons-react";
 import { ModalSeleccionTicketIngreso } from "../../../../presentation/utils/modal-seleccion-ticket-ingreso";
+import { ModalRegistrarSalida } from "./modal-registrar-salida";
 import type { RecepcionUnidadResponse } from "../../service/recepcion-unidades.responses";
 import type { RES_TicketIngresoDisponible } from "../../../../service/responses/ticket-ingreso-vehiculo";
 
-import { RecepcionUnidadesService } from "../../service/recepcion-unidades.service";
-import { useNotify } from "../../../../hooks/useNotify";
 import { useDispositivo } from "../../../../hooks/useDispositivo";
 import { useTicketIngresoVehiculo } from "../../../../hooks/useTicketIngresoVehiculo";
 import { EstadoSalida } from "../../../../shared/enums/_generic/estado-salida";
 import { EstadoUnidad } from "../../../../shared/enums/_generic/estado-unidad";
 import type { GrupoEdicion } from "./modal-editar-campo-unidad";
 import type { CampoObservacion } from "./modal-editar-observacion";
+import { ArrowUpTrayIcon } from "@heroicons/react/24/outline";
 
 interface Props {
   recepciones: RecepcionUnidadResponse[];
@@ -31,7 +33,13 @@ interface Props {
   onVerHistorial: (r: RecepcionUnidadResponse) => void;
   onEditarCampo: (r: RecepcionUnidadResponse, grupo: GrupoEdicion) => void;
   onEditarGuias: (r: RecepcionUnidadResponse) => void;
+  onEditarGuiasSalida: (r: RecepcionUnidadResponse) => void;
+  onEditarFecha: (
+    r: RecepcionUnidadResponse,
+    campo: "fecha_hora_ingreso" | "fecha_hora_salida",
+  ) => void;
 }
+
 
 export const TablaRecepciones = ({
   recepciones,
@@ -40,9 +48,10 @@ export const TablaRecepciones = ({
   onConfirmarProgramacion,
   onEditarObservacionEvidencias,
   onGestionarEvidencias,
-  onVerHistorial,
   onEditarCampo,
   onEditarGuias,
+  onEditarGuiasSalida,
+  onEditarFecha,
 }: Props) => {
   const [modalSeleccionTicketOpen, setModalSeleccionTicketOpen] = useState(false);
   const [ticketsDisponibles, setTicketsDisponibles] = useState<RES_TicketIngresoDisponible[]>([]);
@@ -51,11 +60,6 @@ export const TablaRecepciones = ({
   const [idProveedorImprimiendo, setIdProveedorImprimiendo] = useState<number | null>(null);
 
   const [exitRecord, setExitRecord] = useState<RecepcionUnidadResponse | null>(null);
-  const [estadoSalida, setEstadoSalida] = useState<EstadoSalida | null>(null);
-  const [observacionSalida, setObservacionSalida] = useState("");
-  const [evidenciasSalida, setEvidenciasSalida] = useState<File[]>([]);
-  const [savingExit, setSavingExit] = useState(false);
-  const { notifySuccess, notifyError } = useNotify();
   const { printTicketIngreso, imprimirTicketPorProveedor, loadingTicket } = useTicketIngresoVehiculo();
   const { esPantallaPequena } = useDispositivo();
 
@@ -105,43 +109,46 @@ export const TablaRecepciones = ({
    * producen badge; cualquier otro valor (datos legacy fuera del enum,
    * como "Salió de Planta") se renderiza como "—" sin inventar mappings.
    */
-  const ESTADO_UNIDAD_COLORS: Record<EstadoUnidad, MantineColor> = {
-    [EstadoUnidad.EnPlanta]: "teal",
-    [EstadoUnidad.FueraDePlanta]: "dark",
+  const ESTADO_UNIDAD_COLORS: Record<string, string> = {
+    [EstadoUnidad.EnPlanta]: "border-teal-500/30 bg-teal-500/15 text-teal-300",
+    [EstadoUnidad.FueraDePlanta]: "border-zinc-600/40 bg-zinc-700/40 text-zinc-300",
   };
 
   const ESTADO_UNIDAD_VALUES = new Set<string>(
     Object.values(EstadoUnidad) as string[],
   );
 
-  /**
-   * Render del estado de la unit (`recepcion_unidad.estado`). Si el valor
-   * está en el enum `EstadoUnidad` se muestra como badge; si no, se muestra
-   * "—" (datos legacy fuera del enum no se inventan).
-   */
+  /** Badge del estado de la unidad (En Planta / Fuera de Planta). */
   const estadoUnidadBadge = (estado: string | null | undefined) => {
-    const texto = estado ?? "—";
-    if (!ESTADO_UNIDAD_VALUES.has(texto)) {
-      return (
-        <Text size="sm" c="dimmed">
-          —
-        </Text>
-      );
-    }
-    const color = ESTADO_UNIDAD_COLORS[texto as EstadoUnidad];
+    const texto = estado ?? "";
+    if (!ESTADO_UNIDAD_VALUES.has(texto)) return null;
 
     return (
-      <Badge
-        color={color}
-        variant="filled"
-        radius="md"
-        size="sm"
-        fw={700}
-        tt="uppercase"
-        className="tracking-wide"
+      <span
+        className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-xs font-bold uppercase tracking-wide ${
+          ESTADO_UNIDAD_COLORS[texto]
+        }`}
       >
         {texto}
-      </Badge>
+      </span>
+    );
+  };
+
+  /** Badge del estado de carga (Con Carga / Vacío) del ingreso o de la salida. */
+  const badgeCarga = (estado: string | null | undefined) => {
+    if (!estado) return null;
+    const conCarga = estado === EstadoSalida.ConCarga;
+
+    return (
+      <span
+        className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-xs font-bold uppercase tracking-wide ${
+          conCarga
+            ? "border-amber-500/30 bg-amber-500/15 text-amber-300"
+            : "border-zinc-600/40 bg-zinc-700/40 text-zinc-300"
+        }`}
+      >
+        {estado}
+      </span>
     );
   };
 
@@ -170,52 +177,61 @@ export const TablaRecepciones = ({
         : "Editar";
 
     return (
-      <Tooltip label={motivo} withArrow>
-        <ActionIcon
-          variant="subtle"
-          color={bloqueado ? "gray" : "indigo"}
-          radius="sm"
-          size="md"
-          disabled={bloqueado}
-          onClick={() => onEditarCampo(r, grupo)}
-          className={
-            bloqueado
-              ? "text-zinc-600 opacity-50 cursor-not-allowed"
-              : "text-indigo-300 hover:bg-indigo-500/10"
-          }
-          aria-label="Editar"
-        >
-          {bloqueado ? <IconLock size={16} /> : <IconPencil size={16} />}
-        </ActionIcon>
-      </Tooltip>
+      <button
+        type="button"
+        title={motivo}
+        disabled={bloqueado}
+        onClick={() => onEditarCampo(r, grupo)}
+        aria-label={motivo}
+        className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors ${
+          bloqueado
+            ? "cursor-not-allowed text-zinc-600 opacity-50"
+            : "text-indigo-300 hover:bg-indigo-500/10"
+        }`}
+      >
+        {bloqueado ? <IconLock size={16} /> : <IconPencil size={16} />}
+      </button>
     );
   };
 
-  const handleSaveExit = async () => {    if (!exitRecord) return;
-    if (!estadoSalida) {
-      notifyError("Debe seleccionar el estado de la unidad.");
-      return;
-    }
+  /**
+   * Botón de edición de la fecha y hora de ingreso o de salida.
+   */
+  const pencilFecha = (
+    r: RecepcionUnidadResponse,
+    campo: "fecha_hora_ingreso" | "fecha_hora_salida",
+  ) => {
+    const llegadaPendiente = r.es_programacion && !r.id_empleado_recepcion;
+    const bloqueado = llegadaPendiente;
 
-    setSavingExit(true);
-    try {
-      const updated = await RecepcionUnidadesService.registrarSalida(exitRecord.id, {
-        estado_salida: estadoSalida,
-        observacion_salida: observacionSalida,
-        evidencias: evidenciasSalida,
-      });
-      notifySuccess("Salida de unidad registrada correctamente");
-      onUpdateRecepcion(updated);
-      setExitRecord(null);
-      setEstadoSalida(null);
-      setObservacionSalida("");
-      setEvidenciasSalida([]);
-    } catch (err: unknown) {
-      console.error(err);
-      notifyError("Ocurrió un error al registrar la salida");
-    } finally {
-      setSavingExit(false);
-    }
+    const motivo = bloqueado
+      ? "Confirme la llegada para poder editar"
+      : "Editar fecha y hora";
+
+    return (
+      <button
+        type="button"
+        title={motivo}
+        aria-label={motivo}
+        disabled={bloqueado}
+        onClick={() => onEditarFecha(r, campo)}
+        className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors ${
+          bloqueado
+            ? "cursor-not-allowed text-zinc-600 opacity-50"
+            : "text-indigo-300 hover:bg-indigo-500/10"
+        }`}
+      >
+        {bloqueado ? <IconLock size={16} /> : <IconPencil size={16} />}
+      </button>
+    );
+  };
+
+  /**
+   * Abre el modal de salida. La precarga de las guías por proveedor la
+   * hace el propio modal.
+   */
+  const abrirSalida = (r: RecepcionUnidadResponse) => {
+    setExitRecord(r);
   };
 
   return (
@@ -235,7 +251,7 @@ export const TablaRecepciones = ({
             accessor: "acciones",
             title: "Acciones",
             textAlign: "center",
-            width: 200,
+            width: 260,
             render: (r: RecepcionUnidadResponse) => {
               const noConfirmada = r.es_programacion && !r.id_empleado_recepcion;
 
@@ -250,75 +266,51 @@ export const TablaRecepciones = ({
                */
               if (noConfirmada) {
                 return (
-                  <Button
-                    radius="lg"
-                    size="sm"
-                    leftSection={<IconClipboardCheck size={18} />}
+                  <button
+                    type="button"
                     onClick={() => onConfirmarProgramacion(r)}
-                    className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm px-4 py-2 shadow-lg shadow-indigo-900/20"
+                    className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-bold text-white shadow-lg shadow-indigo-900/20 transition-colors hover:bg-indigo-500"
                   >
+                    <IconClipboardCheck size={18} />
                     Confirmar llegada
-                  </Button>
+                  </button>
                 );
               }
 
               return (
-                <Group gap={6} wrap="nowrap" justify="center">
-                  <Tooltip
-                    label={
-                      Array.isArray(r.evidencias) && r.evidencias.length > 0
-                        ? `Gestionar evidencias (${r.evidencias.length})`
-                        : "Agregar evidencias"
-                    }
-                    withArrow
+                <div className="flex flex-wrap items-center justify-center gap-1.5">
+                  <button
+                    type="button"
+                    title="Subir evidencias"
+                    aria-label="Subir evidencias"
+                    onClick={() => onGestionarEvidencias(r)}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-teal-500/20 bg-teal-500/10 text-teal-400 transition-colors hover:bg-teal-500/20"
                   >
-                    <ActionIcon
-                      variant="light"
-                      color="indigo"
-                      radius="xl"
-                      size="lg"
-                      onClick={() => onGestionarEvidencias(r)}
-                      className="bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/10"
-                    >
-                      <IconPaperclip size={18} />
-                    </ActionIcon>
-                  </Tooltip>
+                    <ArrowUpTrayIcon className="h-4 w-4" />
+                  </button>
 
                   {/* Botón de historial OCULTO: el modal sigue disponible, pero
                       el operador no lo ve en la columna de acciones. */}
-                  <Tooltip label="Ver historial de cambios" withArrow>
-                    <ActionIcon
-                      variant="light"
-                      color="gray"
-                      radius="xl"
-                      size="lg"
-                      onClick={() => onVerHistorial(r)}
-                      className="hidden bg-zinc-700/10 hover:bg-zinc-700/20 text-zinc-400 border border-zinc-500/10 disabled:opacity-40"
-                    >
-                      <IconHistory size={18} />
-                    </ActionIcon>
-                  </Tooltip>
+                  {/* <button
+                    type="button"
+                    title="Ver historial de cambios"
+                    aria-label="Ver historial de cambios"
+                    onClick={() => onVerHistorial(r)}
+                    className="hidden h-9 w-9 items-center justify-center rounded-full border border-zinc-500/10 bg-zinc-700/10 text-zinc-400 transition-colors hover:bg-zinc-700/20"
+                  >
+                    <IconHistory size={18} />
+                  </button> */}
 
-                  {puedeRegistrarSalida && (
-                    <Tooltip label="Registrar salida" withArrow>
-                      <ActionIcon
-                        variant="light"
-                        color="red"
-                        radius="xl"
-                        size="lg"
-                        onClick={() => {
-                          setExitRecord(r);
-                          setEstadoSalida(null);
-                          setObservacionSalida("");
-                          setEvidenciasSalida([]);
-                        }}
-                        className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20"
-                      >
-                        <IconTruck size={18} />
-                      </ActionIcon>
-                    </Tooltip>
-                  )}
-                </Group>
+                  {puedeRegistrarSalida ? (
+                    <button
+                      type="button"
+                      onClick={() => abrirSalida(r)}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-rose-500/25 bg-rose-500/10 px-3 py-2 text-sm font-semibold text-rose-300 transition-colors hover:bg-rose-500/20"
+                    >
+                      Marcar salida
+                    </button>
+                  ) : null}
+                </div>
               );
             },
           },
@@ -326,29 +318,32 @@ export const TablaRecepciones = ({
             accessor: "ticket_correlativo",
             title: "Ticket",
             textAlign: "center",
-            width: 170,
+            width: 180,
             render: (r: RecepcionUnidadResponse) => {
               const noConfirmada = r.es_programacion && !r.id_empleado_recepcion;
 
               return (
-                <Group gap={6} wrap="nowrap" justify="center">
-                  <Text size="sm" fw={700} className="text-white font-mono">
-                    {r.ticket_correlativo ?? "—"}
-                  </Text>
-                  <Tooltip label="Imprimir Ticket de Ingreso" withArrow>
-                    <ActionIcon
-                      variant="light"
-                      color="yellow"
-                      radius="xl"
-                      size="lg"
+                <div className="flex flex-col items-center gap-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-mono text-sm font-bold text-white">
+                      {r.ticket_correlativo ?? "—"}
+                    </span>
+                    <button
+                      type="button"
+                      title="Imprimir Ticket de Ingreso"
+                      aria-label="Imprimir Ticket de Ingreso"
                       disabled={noConfirmada || loadingTicket || loadingTicketsIngreso}
                       onClick={() => handlePrintTicket(r)}
-                      className="bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 disabled:opacity-40"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-amber-500/20 bg-amber-500/10 text-amber-400 transition-colors hover:bg-amber-500/20 disabled:opacity-40"
                     >
-                      <IconPrinter size={18} />
-                    </ActionIcon>
-                  </Tooltip>
-                </Group>
+                      <IconPrinter size={16} />
+                    </button>
+                  </div>
+
+                  {/* El estado de la unidad va debajo del ticket: la columna
+                      propia se eliminó para no ensanchar la grilla. */}
+                  {estadoUnidadBadge(r.estado)}
+                </div>
               );
             },
           },
@@ -360,35 +355,28 @@ export const TablaRecepciones = ({
             render: (r: RecepcionUnidadResponse) => {
               if (!r.vehiculo_placa) {
                 return (
-                  <Group gap={6} wrap="nowrap" justify="center">
-                    <Text size="sm" className="text-white italic">
+                  <div className="flex items-center justify-center gap-1">
+                    <span className="text-sm italic text-white">
                       (sin asignar)
-                    </Text>
+                    </span>
                     {pencilCampo(r, "id_vehiculo", "vehiculo")}
-                  </Group>
+                  </div>
                 );
               }
               return (
-                <div className="flex flex-col gap-1.5 items-center">
-                  <Group gap={6} wrap="nowrap" justify="center">
-                    <div className="inline-flex items-center justify-center bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 px-2.5 py-0.5 rounded-md font-bold text-xs tracking-wider uppercase font-mono">
+                <div className="flex flex-col items-center gap-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="inline-flex items-center justify-center rounded-md border border-indigo-500/20 bg-indigo-500/10 px-2.5 py-0.5 font-mono text-xs font-bold uppercase tracking-wider text-indigo-300">
                       {r.vehiculo_placa}
-                    </div>
+                    </span>
                     {pencilCampo(r, "id_vehiculo", "vehiculo")}
-                  </Group>
-                  <Text size="sm" className="text-white">
+                  </div>
+                  <span className="text-sm text-white">
                     {r.tipo_vehiculo_nombre ?? ""}
-                  </Text>
+                  </span>
                 </div>
               );
             },
-          },
-          {
-            accessor: "estado",
-            title: "Estado Unidad",
-            textAlign: "center",
-            width: 180,
-            render: (r: RecepcionUnidadResponse) => estadoUnidadBadge(r.estado),
           },
           {
             accessor: "empresa_transporte_razon_social",
@@ -396,17 +384,16 @@ export const TablaRecepciones = ({
             textAlign: "center",
             width: 240,
             render: (r: RecepcionUnidadResponse) => (
-              <Group gap={6} wrap="nowrap" justify="center" align="center">
-                <Text
-                  size="sm"
-                  className="text-white"
+              <div className="flex items-center justify-center gap-1">
+                <span
+                  className="text-sm text-white"
                   style={{ whiteSpace: "normal", overflowWrap: "anywhere" }}
                   title={r.empresa_transporte_razon_social}
                 >
                   {r.empresa_transporte_razon_social}
-                </Text>
+                </span>
                 {pencilCampo(r, "id_empresa_transporte", "transportista")}
-              </Group>
+              </div>
             ),
           },
           {
@@ -415,22 +402,20 @@ export const TablaRecepciones = ({
             textAlign: "center",
             width: 240,
             render: (r: RecepcionUnidadResponse) => (
-              <div className="flex flex-col gap-1 items-center">
-                <Group gap={6} wrap="nowrap" justify="center" align="center">
-                  <Text
-                    size="sm"
-                    className="text-white"
-                    fw={500}
+              <div className="flex flex-col items-center gap-1">
+                <div className="flex items-center justify-center gap-1">
+                  <span
+                    className="text-sm font-medium text-white"
                     style={{ whiteSpace: "normal", overflowWrap: "anywhere" }}
                     title={r.conductor_nombre_completo ?? ""}
                   >
                     {r.conductor_nombre_completo ?? "—"}
-                  </Text>
+                  </span>
                   {pencilCampo(r, "id_conductor", "conductor")}
-                </Group>
-                <Text size="sm" className="text-white">
+                </div>
+                <span className="text-sm text-white">
                   Licencia: {r.conductor_numero_licencia ?? "—"}
-                </Text>
+                </span>
               </div>
             ),
           },
@@ -438,17 +423,24 @@ export const TablaRecepciones = ({
             accessor: "fecha_hora_ingreso",
             title: "Fecha Ingreso",
             textAlign: "center",
-            width: 200,
+            width: 210,
             render: (r: RecepcionUnidadResponse) => (
-              <div className="flex flex-col gap-1 items-center">
-                <Text size="sm" className="text-white" fw={500}>
-                  {formatFecha(r.fecha_hora_ingreso)}
-                </Text>
-                {r.fecha_hora_ingreso && (
-                  <Text size="sm" className="text-white">
-                    Por: {r.empleado_recepcion_nombre ?? r.empleado_registro_nombre ?? "—"}
-                  </Text>
-                )}
+              <div className="flex flex-col items-center gap-1">
+                <div className="flex items-center gap-1">
+                  <span className="text-sm font-medium text-white">
+                    {formatFecha(r.fecha_hora_ingreso)}
+                  </span>
+                  {pencilFecha(r, "fecha_hora_ingreso")}
+                </div>
+                {badgeCarga(r.estado_ingreso)}
+                {r.fecha_hora_ingreso ? (
+                  <span className="text-sm text-white">
+                    Por:{" "}
+                    {r.empleado_recepcion_nombre ??
+                      r.empleado_registro_nombre ??
+                      "—"}
+                  </span>
+                ) : null}
               </div>
             ),
           },
@@ -456,140 +448,198 @@ export const TablaRecepciones = ({
             accessor: "fecha_hora_salida",
             title: "F. Salida",
             textAlign: "center",
-            width: 170,
+            width: 190,
             // Columna secundaria: en pantallas pequeñas se oculta para que
             // las columnas importantes quepan sin tanto scroll horizontal.
             hidden: esPantallaPequena,
             render: (r: RecepcionUnidadResponse) => (
-              <Text size="sm" className="text-zinc-200" fw={500}>
-                {r.fecha_hora_salida ? formatFecha(r.fecha_hora_salida) : "—"}
-              </Text>
+              <div className="flex flex-col items-center gap-1">
+                <div className="flex items-center gap-1">
+                  <span className="text-sm font-medium text-zinc-200">
+                    {r.fecha_hora_salida ? formatFecha(r.fecha_hora_salida) : "—"}
+                  </span>
+                  {pencilFecha(r, "fecha_hora_salida")}
+                </div>
+                {badgeCarga(r.estado_salida)}
+              </div>
             ),
           },
           {
-            accessor: "proveedores",
-            title: "Proveedor(es)",
+            accessor: "guias",
+            title: "Guías Ingreso",
             textAlign: "center",
-            width: 220,
+            width: 290,
             render: (r: RecepcionUnidadResponse) => {
+              const bloqueados = r.campos_bloqueados ?? [];
+              const algunaBloqueada =
+                bloqueados.includes("guia_remitente") ||
+                bloqueados.includes("guia_transportista");
+
               const proveedores = r.proveedores ?? [];
-              if (proveedores.length === 0) {
-                return (
-                  <Text size="sm" c="dimmed" fs="italic">
-                    —
-                  </Text>
-                );
-              }
+              const guias = r.guias ?? [];
+
+              /** Enlace al archivo de una guía (abre en otra pestaña). */
+              const archivoGuia = (url: string | undefined) =>
+                url ? (
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noreferrer"
+                    title="Ver archivo"
+                    aria-label="Ver archivo de la guía"
+                    className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-indigo-500/10 hover:text-indigo-300"
+                  >
+                    <IconPaperclip size={15} />
+                  </a>
+                ) : null;
+
               return (
-                <Group gap={6} wrap="nowrap" justify="center" align="center">
-                  <Stack gap={2} align="center">
-                    {proveedores.map((p) => (
-                      <Text
-                        key={p.id_proveedor}
-                        size="sm"
-                        className="text-white"
-                        style={{ whiteSpace: "normal", overflowWrap: "anywhere" }}
-                        title={p.razon_social}
+                <div className="flex flex-col items-stretch gap-2">
+                  {/* Encabezado con el pencil de proveedores
+                  <div className="flex items-center justify-center gap-1">
+                    <span className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+                      Proveedores
+                    </span>
+                    {pencilCampo(r, "id_proveedor_minero", "proveedor")}
+                  </div> */}
+
+                  {guias.length === 0 ? (
+                    <p className="py-2 text-center text-sm italic text-zinc-500">
+                      Sin guías de ingreso
+                    </p>
+                  ) : (
+                    guias.map((g) => (
+                      <div
+                        key={g.id_proveedor}
+                        className="space-y-1 rounded-lg border border-zinc-800 bg-zinc-900/40 px-2.5 py-2 text-left"
                       >
-                        {p.razon_social}
-                      </Text>
-                    ))}
-                  </Stack>
-                  {pencilCampo(r, "id_proveedor_minero", "proveedor")}
-                </Group>
+                        <p className="truncate text-xs font-bold text-zinc-200">
+                          {proveedores.find(
+                            (p) => p.id_proveedor === g.id_proveedor,
+                          )?.razon_social ?? "Proveedor de la carga"}
+                        </p>
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="text-xs text-zinc-400">
+                            Remitente:{" "}
+                            <span className="font-mono text-zinc-200">
+                              {g.guia_remitente || "—"}
+                            </span>
+                          </span>
+                          {archivoGuia(g.guia_remitente_archivo?.url)}
+                        </div>
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="text-xs text-zinc-400">
+                            Transp.:{" "}
+                            <span className="font-mono text-zinc-200">
+                              {g.guia_transportista || "—"}
+                            </span>
+                          </span>
+                          {archivoGuia(g.guia_transportista_archivo?.url)}
+                        </div>
+                      </div>
+                    ))
+                  )}
+
+                  {/* Botón de edición de las guías de ingreso */}
+                  <button
+                    type="button"
+                    title={
+                      algunaBloqueada
+                        ? "Las guías se registraron en la programación y no se pueden editar"
+                        : "Editar guías de ingreso"
+                    }
+                    aria-label="Editar guías de ingreso"
+                    disabled={algunaBloqueada}
+                    onClick={() => onEditarGuias(r)}
+                    className={`inline-flex items-center justify-center gap-1.5 rounded-md border px-2 py-1.5 text-xs font-semibold transition-colors ${
+                      algunaBloqueada
+                        ? "cursor-not-allowed border-zinc-800 text-zinc-600"
+                        : "border-indigo-500/25 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20"
+                    }`}
+                  >
+                    <IconPencil size={13} />
+                    Editar guías
+                  </button>
+                </div>
               );
             },
           },
           {
-            accessor: "guias",
-            title: "Guías",
+            accessor: "guias_salida",
+            title: "Guías Salida",
             textAlign: "center",
-            width: 280,
+            width: 290,
             render: (r: RecepcionUnidadResponse) => {
-              const bloqueados = r.campos_bloqueados ?? [];
-              const remitenteBloqueado = bloqueados.includes("guia_remitente");
-              const transportistaBloqueado = bloqueados.includes(
-                "guia_transportista",
-              );
-              const algunaBloqueada =
-                remitenteBloqueado || transportistaBloqueado;
+              const guiasSalida = r.guias_salida ?? [];
+              const proveedores = r.proveedores ?? [];
 
-              const guias = r.guias ?? [];
-              if (guias.length === 0) {
-                return (
-                  <Group gap={8} wrap="nowrap" justify="center">
-                    <Text size="sm" c="dimmed" fs="italic">
-                      —
-                    </Text>
-                    <Tooltip
-                      label={algunaBloqueada ? "Las guías se registraron en la programación y no se pueden editar" : "Editar guías"}
-                      withArrow
-                    >
-                      <ActionIcon
-                        variant="subtle"
-                        color="indigo"
-                        radius="sm"
-                        size="md"
-                        onClick={() => onEditarGuias(r)}
-                        disabled={algunaBloqueada}
-                        className={
-                          algunaBloqueada
-                            ? "text-zinc-700 opacity-40 cursor-not-allowed"
-                            : "text-indigo-300 hover:bg-indigo-500/10"
-                        }
-                        aria-label="Editar guías"
-                      >
-                        <IconPencil size={16} />
-                      </ActionIcon>
-                    </Tooltip>
-                  </Group>
-                );
-              }
+              /** Enlace al archivo de una guía de salida. */
+              const archivoGuia = (url: string | undefined) =>
+                url ? (
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noreferrer"
+                    title="Ver archivo"
+                    aria-label="Ver archivo de la guía de salida"
+                    className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-indigo-500/10 hover:text-indigo-300"
+                  >
+                    <IconPaperclip size={15} />
+                  </a>
+                ) : null;
 
               return (
-                <Group gap={8} wrap="nowrap" justify="center">
-                  <Stack gap={2} align="center">
-                    {guias.map((g) => (
-                      <div key={g.id_proveedor} className="flex flex-col items-center">
-                        <Text size="sm" className="text-white">
-                          Remitente:{" "}
-                          <span className="font-mono">{g.guia_remitente || "—"}</span>
-                        </Text>
-                        <Text size="sm" className="text-white">
-                          Transportista:{" "}
-                          <span className="font-mono">
-                            {g.guia_transportista || "—"}
+                <div className="flex flex-col items-stretch gap-2">
+                  {guiasSalida.length === 0 ? (
+                    <p className="py-2 text-center text-sm italic text-zinc-500">
+                      Sin guías de salida
+                    </p>
+                  ) : (
+                    guiasSalida.map((g, indice) => (
+                      <div
+                        key={`${g.id_proveedor}-${indice}`}
+                        className="space-y-1 rounded-lg border border-zinc-800 bg-zinc-900/40 px-2.5 py-2 text-left"
+                      >
+                        <p className="truncate text-xs font-bold text-zinc-200">
+                          {g.es_interno
+                            ? "Internas de la empresa"
+                            : (proveedores.find(
+                                (p) => p.id_proveedor === g.id_proveedor,
+                              )?.razon_social ?? "Proveedor de la carga")}
+                        </p>
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="text-xs text-zinc-400">
+                            Remitente:{" "}
+                            <span className="font-mono text-zinc-200">
+                              {g.guia_remitente || "—"}
+                            </span>
                           </span>
-                        </Text>
+                          {archivoGuia(g.guia_remitente_archivo?.url)}
+                        </div>
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="text-xs text-zinc-400">
+                            Transp.:{" "}
+                            <span className="font-mono text-zinc-200">
+                              {g.guia_transportista || "—"}
+                            </span>
+                          </span>
+                          {archivoGuia(g.guia_transportista_archivo?.url)}
+                        </div>
                       </div>
-                    ))}
-                  </Stack>
-                  <Tooltip
-                    label={
-                      algunaBloqueada
-                        ? "Las guías se registraron en la programación y no se pueden editar"
-                        : "Editar guías"
-                    }
-                    withArrow
+                    ))
+                  )}
+
+                  <button
+                    type="button"
+                    title="Editar guías de salida"
+                    aria-label="Editar guías de salida"
+                    onClick={() => onEditarGuiasSalida(r)}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-md border border-indigo-500/25 bg-indigo-500/10 px-2 py-1.5 text-xs font-semibold text-indigo-300 transition-colors hover:bg-indigo-500/20"
                   >
-                    <ActionIcon
-                      variant="subtle"
-                      color="indigo"
-                      radius="sm"
-                      size="md"
-                      onClick={() => onEditarGuias(r)}
-                      disabled={algunaBloqueada}
-                      className={
-                        algunaBloqueada
-                          ? "text-zinc-700 opacity-40 cursor-not-allowed"
-                          : "text-indigo-300 hover:bg-indigo-500/10"
-                      }
-                      aria-label="Editar guías"
-                    >
-                      <IconPencil size={16} />
-                    </ActionIcon>
-                  </Tooltip>
-                </Group>
+                    <IconPencil size={13} />
+                    Editar guías
+                  </button>
+                </div>
               );
             },
           },
@@ -599,32 +649,29 @@ export const TablaRecepciones = ({
             textAlign: "center",
             width: 220,
             render: (r: RecepcionUnidadResponse) => (
-              <Group gap={6} wrap="nowrap" justify="center">
+              <div className="flex items-center justify-center gap-1">
                 {!r.observacion ? (
-                  <Text size="sm" className="text-white italic max-w-45">
+                  <span className="max-w-45 truncate text-sm italic text-white">
                     —
-                  </Text>
+                  </span>
                 ) : (
-                  <Tooltip label={r.observacion} multiline w={320} withArrow>
-                    <Text size="sm" className="text-white italic max-w-45 truncate">
-                      {r.observacion}
-                    </Text>
-                  </Tooltip>
-                )}
-                <Tooltip label="Editar observación" withArrow>
-                  <ActionIcon
-                    variant="subtle"
-                    color="indigo"
-                    radius="sm"
-                    size="md"
-                    onClick={() => onEditarObservacionEvidencias(r, "observacion")}
-                    className="text-indigo-300 hover:bg-indigo-500/10"
-                    aria-label="Editar observación"
+                  <span
+                    className="max-w-45 truncate text-sm italic text-white"
+                    title={r.observacion}
                   >
-                    <IconPencil size={16} />
-                  </ActionIcon>
-                </Tooltip>
-              </Group>
+                    {r.observacion}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  title="Editar observación"
+                  aria-label="Editar observación"
+                  onClick={() => onEditarObservacionEvidencias(r, "observacion")}
+                  className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-indigo-300 transition-colors hover:bg-indigo-500/10"
+                >
+                  <IconPencil size={16} />
+                </button>
+              </div>
             ),
           },
           {
@@ -635,99 +682,42 @@ export const TablaRecepciones = ({
             // Columna secundaria: se oculta en pantallas pequeñas.
             hidden: esPantallaPequena,
             render: (r: RecepcionUnidadResponse) => (
-              <Group gap={6} wrap="nowrap" justify="center">
+              <div className="flex items-center justify-center gap-1">
                 {!r.observacion_salida ? (
-                  <Text size="sm" className="text-white italic max-w-45">
+                  <span className="max-w-45 truncate text-sm italic text-white">
                     —
-                  </Text>
+                  </span>
                 ) : (
-                  <Tooltip label={r.observacion_salida} multiline w={320} withArrow>
-                    <Text size="sm" className="text-white italic max-w-45 truncate">
-                      {r.observacion_salida}
-                    </Text>
-                  </Tooltip>
-                )}
-                <Tooltip label="Editar observación de salida" withArrow>
-                  <ActionIcon
-                    variant="subtle"
-                    color="indigo"
-                    radius="sm"
-                    size="md"
-                    onClick={() =>
-                      onEditarObservacionEvidencias(r, "observacion_salida")
-                    }
-                    className="text-indigo-300 hover:bg-indigo-500/10"
-                    aria-label="Editar observación de salida"
+                  <span
+                    className="max-w-45 truncate text-sm italic text-white"
+                    title={r.observacion_salida}
                   >
-                    <IconPencil size={16} />
-                  </ActionIcon>
-                </Tooltip>
-              </Group>
+                    {r.observacion_salida}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  title="Editar observación de salida"
+                  aria-label="Editar observación de salida"
+                  onClick={() =>
+                    onEditarObservacionEvidencias(r, "observacion_salida")
+                  }
+                  className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-indigo-300 transition-colors hover:bg-indigo-500/10"
+                >
+                  <IconPencil size={16} />
+                </button>
+              </div>
             ),
           },
         ]}
       />
 
-      <ModalEstandar
+      <ModalRegistrarSalida
         opened={!!exitRecord}
-        close={() => setExitRecord(null)}
-        title="Registro de Salida"
-        size="md"
-        validateClose
-      >
-        <div className="flex flex-col gap-4">
-          <Select
-            label="Estado Unidad"
-            placeholder="Elija una opción..."
-            data={[
-              { value: EstadoSalida.ConCarga, label: EstadoSalida.ConCarga },
-              { value: EstadoSalida.Vacio, label: EstadoSalida.Vacio },
-            ]}
-            value={estadoSalida}
-            onChange={(val) => setEstadoSalida(val as EstadoSalida)}
-            required
-            classNames={{
-              input: "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all h-[38px]",
-              label: "text-zinc-400 mb-1 font-medium text-xs ml-1",
-            }}
-          />
-          <Textarea
-            label="Observación"
-            placeholder="Escriba alguna observación de salida..."
-            value={observacionSalida}
-            onChange={(e) => setObservacionSalida(e.target.value)}
-            minRows={3}
-            classNames={{
-              input: "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all",
-              label: "text-zinc-400 mb-1 font-medium text-xs ml-1",
-            }}
-          />
-          <MultiFilePicker
-            label="Evidencias de Salida"
-            files={evidenciasSalida}
-            onFilesChange={setEvidenciasSalida}
-          />
-          <div className="flex justify-end gap-3 mt-4 pt-3 border-t border-zinc-800">
-            <Button
-              type="button"
-              variant="subtle"
-              color="gray"
-              onClick={() => setExitRecord(null)}
-              classNames={{ root: "text-zinc-400 hover:bg-zinc-800" }}
-            >
-              Cerrar
-            </Button>
-            <Button
-              type="button"
-              onClick={handleSaveExit}
-              loading={savingExit}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-900/20"
-            >
-              Grabar
-            </Button>
-          </div>
-        </div>
-      </ModalEstandar>
+        recepcion={exitRecord}
+        onClose={() => setExitRecord(null)}
+        onGuardada={(actualizada) => onUpdateRecepcion(actualizada)}
+      />
 
       {/* Modal para elegir el proveedor cuando la unidad trae carga de varios */}
       <ModalSeleccionTicketIngreso

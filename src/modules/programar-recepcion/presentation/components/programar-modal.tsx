@@ -19,11 +19,9 @@ import {
   IconBuildingFactory,
   IconTruck,
   IconUser,
-  IconArrowsUpDown,
   IconCalendarTime,
   IconCheck,
   IconPlus,
-  IconLock,
   IconFileText,
 } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
@@ -36,7 +34,6 @@ import { RegistroConductor } from "../../../../presentation/utils/registro-condu
 import { formatLocalDate, parseLocalDate } from "../../../../presentation/utils/local-date";
 import { useProgramarForm } from "../../hooks/useProgramarForm";
 import type { ProgramacionDetail } from "../../service/programar-recepcion.responses";
-import { TipoIngreso } from "../../../../shared/enums/_generic/tipo-ingreso";
 import { MultiFilePicker } from "../../../../presentation/utils/archivo/multifile-picker";
 
 interface Props {
@@ -163,10 +160,6 @@ export const ProgramarRecepcionModal = ({
   const idTipoVehiculoCarreta =
     (tiposVehiculo ?? []).find((t) => Number(t.es_carreta) === 1)?.id_tipo_vehiculo ?? null;
 
-  // El tipo de ingreso es un campo bloqueado: en edición muestra el valor
-  // que ya tenía la programación.
-  const tipoIngresoValor = form.tipo_ingreso ?? TipoIngreso.RecepcionMineral;
-
   const proveedoresSeleccionados = form.guias.map((g) => String(g.id_proveedor));
 
   return (
@@ -184,7 +177,7 @@ export const ProgramarRecepcionModal = ({
       >
         <Stack gap="md">
           <Grid gutter="sm">
-            {/* Fila 1: Empresa + Tipo de Ingreso (bloqueado) */}
+            {/* Fila 1: Empresa de Transporte */}
             <Grid.Col span={{ base: 12, sm: 6 }}>
               <div className="flex gap-2 items-end">
                 <Select
@@ -218,21 +211,6 @@ export const ProgramarRecepcionModal = ({
                   </ActionIcon>
                 </Tooltip>
               </div>
-            </Grid.Col>
-
-            <Grid.Col span={{ base: 12, sm: 6 }}>
-              <Select
-                label="Tipo de Ingreso"
-                placeholder="Tipo de ingreso"
-                data={[{ value: tipoIngresoValor, label: tipoIngresoValor }]}
-                value={tipoIngresoValor}
-                leftSection={<IconArrowsUpDown className="w-4 h-4 text-zinc-500" />}
-                radius="xl"
-                disabled
-                readOnly
-                rightSection={<IconLock size={14} className="text-zinc-500" />}
-                classNames={fieldClasses}
-              />
             </Grid.Col>
 
             {/* Fila 2: Vehículo + Fecha Estimada de Llegada.
@@ -534,7 +512,7 @@ export const ProgramarRecepcionModal = ({
                   <Grid gutter="sm">
                     <Grid.Col span={{ base: 12, sm: 6 }}>
                       <TextInput
-                        label="Guía Remitente (serie-número)"
+                        label="Guía Remitente"
                         placeholder="Ej. 001-123456"
                         radius="xl"
                         value={guia.guia_remitente}
@@ -550,7 +528,7 @@ export const ProgramarRecepcionModal = ({
 
                     <Grid.Col span={{ base: 12, sm: 6 }}>
                       <TextInput
-                        label="Guía Transportista (serie-número)"
+                        label="Guía Transportista (opcional)"
                         placeholder="Ej. 001-123456"
                         radius="xl"
                         value={guia.guia_transportista}

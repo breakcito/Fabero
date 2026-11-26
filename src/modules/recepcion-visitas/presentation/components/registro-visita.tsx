@@ -28,7 +28,7 @@ import {
 } from "../../../../presentation/utils/ui-tsx";
 import { SelectVisitante } from "../../../../presentation/utils/select-visitante";
 import { RegistroMotivoIngreso } from "../../../../presentation/utils/registro-motivo-ingreso";
-import { MultiFilePicker } from "../../../../presentation/utils/archivo/multifile-picker";
+import { ListaArchivosSimple } from "../../../../presentation/utils/archivo/lista-archivos-simple";
 import { useNotify } from "../../../../hooks/useNotify";
 import { useDispositivo } from "../../../../hooks/useDispositivo";
 import { useRecepcionVisitasContextStore } from "../../stores/recepcion-visitas-context.store";
@@ -150,7 +150,6 @@ export const RegistroVisita = ({ opened, onCancel, onSuccess }: Props) => {
 
   // Wizard de vista compacta: el formulario largo se recorre por pasos.
   const [paso, setPaso] = useState(0);
-  const [errorPaso, setErrorPaso] = useState<string | null>(null);
   const [abiertoAnterior, setAbiertoAnterior] = useState(opened);
 
   // Cada apertura del modal arranca en el primer paso del wizard.
@@ -295,28 +294,10 @@ export const RegistroVisita = ({ opened, onCancel, onSuccess }: Props) => {
   const visitantesPeatonales = visitantes.filter((v) => !v.id_visita_vehiculo);
 
   /**
-   * Validación del paso 1: motivo y personal son obligatorios.
-   *
-   * El mensaje del motivo es el mismo que usa el envío del formulario; el
-   * del personal sigue la misma fórmula para que el aviso se lea igual.
+   * El operador puede moverse libremente entre pasos: los campos se
+   * validan al confirmar, no al avanzar.
    */
-  const validarPaso = (indice: number): boolean => {
-    if (indice === 0) {
-      if (!payload.id_motivo_ingreso) {
-        setErrorPaso("Debe seleccionar el motivo de ingreso.");
-        return false;
-      }
-      if (!payload.id_empleado_contacto) {
-        setErrorPaso("Debe seleccionar el personal de contacto.");
-        return false;
-      }
-    }
-    setErrorPaso(null);
-    return true;
-  };
-
   const avanzarPaso = () => {
-    if (!validarPaso(paso)) return;
     if (paso < PASOS_VISITA.length - 1) setPaso(paso + 1);
   };
 
@@ -326,16 +307,6 @@ export const RegistroVisita = ({ opened, onCancel, onSuccess }: Props) => {
 
   const irAPaso = (destino: number) => {
     if (destino === paso) return;
-    if (destino < paso) {
-      setPaso(destino);
-      return;
-    }
-    for (let i = paso; i < destino; i += 1) {
-      if (!validarPaso(i)) {
-        setPaso(i);
-        return;
-      }
-    }
     setPaso(destino);
   };
 
@@ -443,14 +414,11 @@ export const RegistroVisita = ({ opened, onCancel, onSuccess }: Props) => {
   );
 
   const bloqueEvidencias = (
-    <div className="bg-zinc-900/30 border border-zinc-800/80 p-4 rounded-2xl">
-      <MultiFilePicker
-        files={evidencias}
-        onFilesChange={setEvidencias}
-        label="Evidencias de Ingreso"
-        description="Fotografías del pase de ingreso, vehículo o documentos adjuntos"
-      />
-    </div>
+    <ListaArchivosSimple
+      archivos={evidencias}
+      onFilesChange={setEvidencias}
+      label="Evidencias de Ingreso"
+    />
   );
 
   const bloqueAcompanantes = (
@@ -506,7 +474,7 @@ export const RegistroVisita = ({ opened, onCancel, onSuccess }: Props) => {
       {/* Lista de Visitantes Peatonales */}
       {visitantesPeatonales.length > 0 ? (
         <div className="flex flex-col gap-2">
-          <p className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+          <p className="text-sm font-bold uppercase tracking-wider text-zinc-400">
             Visitantes Peatonales / Individuales (
             {visitantesPeatonales.length})
           </p>
@@ -602,7 +570,7 @@ export const RegistroVisita = ({ opened, onCancel, onSuccess }: Props) => {
       {/* Lista de Vehículos Acompañantes y sus Ocupantes */}
       {vehiculos.length > 0 ? (
         <div className="flex flex-col gap-3">
-          <p className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+          <p className="text-sm font-bold uppercase tracking-wider text-zinc-400">
             Vehículos Acompañantes ({vehiculos.length})
           </p>
           <div className="flex flex-col gap-2">
@@ -722,7 +690,7 @@ export const RegistroVisita = ({ opened, onCancel, onSuccess }: Props) => {
                                         idxOriginal,
                                       )
                                     }
-                                    className="inline-flex items-center rounded-md border border-zinc-600/40 bg-zinc-700/40 px-1.5 text-[10px] font-bold uppercase tracking-wide text-zinc-300 transition-colors hover:bg-indigo-500/20 hover:text-indigo-300 py-2.5! sm:py-0.5!"
+                                    className="inline-flex items-center rounded-md border border-zinc-600/40 bg-zinc-700/40 px-1.5 text-xs font-bold uppercase tracking-wide text-zinc-300 transition-colors hover:bg-indigo-500/20 hover:text-indigo-300 py-2.5! sm:py-0.5!"
                                   >
                                     Hacer Conductor
                                   </button>
@@ -835,28 +803,14 @@ export const RegistroVisita = ({ opened, onCancel, onSuccess }: Props) => {
   /* --------------------------------------------------------------------- */
 
   const headerWizard = (
-    <div className="space-y-3 rounded-xl border border-zinc-800 bg-zinc-900/40 p-3">
-      <div className="flex items-center gap-3">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-500/15 text-xs font-extrabold text-indigo-200">
-          {paso + 1}
-        </div>
-        <div className="min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">
-            Paso {paso + 1} de {PASOS_VISITA.length}
-          </p>
-          <p className="truncate text-sm font-bold text-zinc-100">
-            {PASOS_VISITA[paso].titulo}
-          </p>
-        </div>
-      </div>
-
+    <div className="space-y-2">
       <div
         role="progressbar"
         aria-valuemin={1}
         aria-valuemax={PASOS_VISITA.length}
         aria-valuenow={paso + 1}
         aria-label="Avance del formulario"
-        className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-800"
+        className="h-1 w-full overflow-hidden rounded-full bg-zinc-800"
       >
         <div
           className="h-full rounded-full bg-indigo-500 transition-all"
@@ -864,7 +818,7 @@ export const RegistroVisita = ({ opened, onCancel, onSuccess }: Props) => {
         />
       </div>
 
-      <div className="flex gap-1.5">
+      <div className="flex gap-1">
         {PASOS_VISITA.map((p, indice) => {
           const activo = indice === paso;
           const completado = indice < paso;
@@ -877,14 +831,14 @@ export const RegistroVisita = ({ opened, onCancel, onSuccess }: Props) => {
               aria-current={activo ? "step" : undefined}
             >
               <div
-                className={`flex flex-col items-center gap-1 rounded-lg border px-1 py-1.5 transition-colors ${
+                className={`flex items-center justify-center gap-1 rounded-md border px-1 py-1.5 transition-colors ${
                   activo
                     ? "border-indigo-500/60 bg-indigo-500/10"
                     : "border-zinc-800 bg-zinc-950/40"
                 }`}
               >
-                <div
-                  className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${
+                <span
+                  className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
                     completado
                       ? "bg-emerald-500/20 text-emerald-300"
                       : activo
@@ -892,11 +846,11 @@ export const RegistroVisita = ({ opened, onCancel, onSuccess }: Props) => {
                         : "bg-zinc-800 text-zinc-400"
                   }`}
                 >
-                  {completado ? <IconCheck size={12} /> : indice + 1}
-                </div>
+                  {completado ? <IconCheck size={10} /> : indice + 1}
+                </span>
                 <span
-                  className={`w-full truncate text-[9px] font-bold ${
-                    activo ? "text-indigo-200" : "text-zinc-500"
+                  className={`truncate text-xs font-bold ${
+                    activo ? "text-indigo-200" : "text-zinc-400"
                   }`}
                 >
                   {p.titulo}
@@ -1018,6 +972,7 @@ export const RegistroVisita = ({ opened, onCancel, onSuccess }: Props) => {
         title="Nuevo Registro de Visita"
         ancho="lg"
         validateClose
+        compacto
         footer={pieModal}
       >
         <form
@@ -1030,15 +985,6 @@ export const RegistroVisita = ({ opened, onCancel, onSuccess }: Props) => {
               <span className="flex items-start gap-2">
                 <IconExclamationCircle size={16} className="mt-0.5 shrink-0" />
                 <span>{error}</span>
-              </span>
-            </Aviso>
-          ) : null}
-
-          {errorPaso ? (
-            <Aviso tono="rojo">
-              <span className="flex items-start gap-2">
-                <IconExclamationCircle size={16} className="mt-0.5 shrink-0" />
-                <span>{errorPaso}</span>
               </span>
             </Aviso>
           ) : null}
@@ -1119,13 +1065,12 @@ export const RegistroVisita = ({ opened, onCancel, onSuccess }: Props) => {
             onChange={(e) => cargarCantidadPersonas(e.target.value)}
           />
 
-          <MultiFilePicker
-            files={formVehiculo.fotos}
+          <ListaArchivosSimple
+            archivos={formVehiculo.fotos}
             onFilesChange={(files) =>
               setFormVehiculo((prev) => ({ ...prev, fotos: files }))
             }
             label="Fotografía del Vehículo (Opcional)"
-            description="Adjunte imágenes del vehículo o placa"
           />
         </div>
       </ModalTsx>
@@ -1186,13 +1131,12 @@ export const RegistroVisita = ({ opened, onCancel, onSuccess }: Props) => {
             }}
           />
 
-          <MultiFilePicker
-            files={visitorForm.fotos_documento}
+          <ListaArchivosSimple
+            archivos={visitorForm.fotos_documento}
             onFilesChange={(files) =>
               setVisitorForm((prev) => ({ ...prev, fotos_documento: files }))
             }
             label="Foto del Documento de Identidad"
-            description="Suba fotografías legibles del DNI o carné"
           />
         </div>
       </ModalTsx>

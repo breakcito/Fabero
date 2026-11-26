@@ -1,4 +1,4 @@
-import { Stack, Button } from "@mantine/core";
+import { Stack } from "@mantine/core";
 import { useTitlePage } from "../../../hooks/useTitlePage";
 import { useRecepciones } from "../hooks/useRecepciones";
 import { Filtros } from "./components/filtros";
@@ -6,14 +6,14 @@ import { TablaRecepciones } from "./components/tabla-recepciones";
 import { ConfirmarProgramacionModal } from "./components/confirmar-programacion-modal";
 import { ModalEditarObservacion, type CampoObservacion } from "./components/modal-editar-observacion";
 import { ModalEditarGuias } from "./components/modal-editar-guias";
+import { ModalEditarGuiasSalida } from "./components/modal-editar-guias-salida";
+import { ModalEditarFechas } from "./components/modal-editar-fechas";
 import { ModalGestionarEvidencias } from "./components/modal-gestionar-evidencias";
 import { ModalEditarCampoUnidad, type GrupoEdicion } from "./components/modal-editar-campo-unidad";
 import { ModalVerHistorial } from "./components/modal-ver-historial";
-import { RefreshButton } from "../../../presentation/utils/refresh-button";
-import { LimpiarFiltrosButton } from "../../../presentation/utils/limpiar-filtros-button";
-import { useDispositivo } from "../../../hooks/useDispositivo";
+import { Boton } from "../../../presentation/utils/ui-tsx";
 import { useEffect, useMemo, useState } from "react";
-import { IconPlus } from "@tabler/icons-react";
+import { IconFilter, IconPlus, IconRefresh, IconChevronUp, IconChevronDown } from "@tabler/icons-react";
 import {
   defaultFechaInicio,
   defaultFechaFin,
@@ -25,14 +25,12 @@ import type { RecepcionUnidadResponse } from "../service/recepcion-unidades.resp
 
 export const RecepcionUnidadesPage = () => {
   useTitlePage("Recepción de Unidades", true);
-  const { esPantallaPequena } = useDispositivo();
 
   const {
     recepciones,
     loading,
     filters,
     handleFilterChange,
-    handleSearch,
     empresas,
     insertRecepcion,
     updateRecepcion,
@@ -42,6 +40,7 @@ export const RecepcionUnidadesPage = () => {
   } = useRecepciones();
 
   const [openRegistro, setOpenRegistro] = useState(false);
+  const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
 
   const [programacionAConfirmar, setProgramacionAConfirmar] =
     useState<RecepcionUnidadResponse | null>(null);
@@ -57,6 +56,14 @@ export const RecepcionUnidadesPage = () => {
     useState<RecepcionUnidadResponse | null>(null);
   const [recepcionAGuias, setRecepcionAGuias] =
     useState<RecepcionUnidadResponse | null>(null);
+  const [recepcionAGuiasSalida, setRecepcionAGuiasSalida] =
+    useState<RecepcionUnidadResponse | null>(null);
+
+  /** Edición de la fecha y hora de ingreso o de salida. */
+  const [recepcionAFecha, setRecepcionAFecha] = useState<{
+    recepcion: RecepcionUnidadResponse;
+    campo: "fecha_hora_ingreso" | "fecha_hora_salida";
+  } | null>(null);
 
   // Edición por columna (vehículo / transportista / conductor / proveedor).
   const [campoAEditar, setCampoAEditar] = useState<{
@@ -89,6 +96,8 @@ export const RecepcionUnidadesPage = () => {
             estado: full.estado,
             fecha_hora_ingreso: full.fecha_hora_ingreso,
             guias: full.guias ?? programacionAConfirmar.guias ?? [],
+            guias_salida: full.guias_salida ?? programacionAConfirmar.guias_salida ?? [],
+            estado_ingreso: full.estado_ingreso ?? programacionAConfirmar.estado_ingreso ?? null,
             proveedores: full.proveedores ?? programacionAConfirmar.proveedores ?? [],
             guia_remitente: full.guia_remitente,
             guia_transportista: full.guia_transportista,
@@ -128,49 +137,61 @@ export const RecepcionUnidadesPage = () => {
 
   return (
     <div className="space-y-6 animate-fadeIn">
-      <div className="flex flex-col xl:flex-row gap-4 items-stretch xl:items-end justify-between w-full">
-        <div className="flex-1 w-full min-w-0">
-          <Filtros
-            filters={filters}
-            handleFilterChange={handleFilterChange}
-            handleSearch={handleSearch}
-            empresas={empresas}
-            onClearTextFilter={clearTextFilterAndSearch}
-          />
-        </div>
-
-        <div
-          className={
-            esPantallaPequena
-              ? "flex w-full items-center gap-2"
-              : "flex items-center gap-2 shrink-0 pb-0.5"
-          }
+      {/* Barra de acciones: filtros, recarga y nueva recepción */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Boton
+          variante={filtrosAbiertos || hasActiveFilters ? "primario" : "secundario"}
+          onClick={() => setFiltrosAbiertos((v) => !v)}
+          className="h-11 border-zinc-700 bg-zinc-800/80 px-4 text-zinc-100 hover:bg-zinc-700/80"
         >
-          <LimpiarFiltrosButton
+          <IconFilter size={18} />
+          Aplicar filtros
+          {/* El chevron indica que el panel se despliega u oculta. */}
+          {filtrosAbiertos ? (
+            <IconChevronUp size={18} className="text-indigo-200" />
+          ) : (
+            <IconChevronDown size={18} className="text-zinc-400" />
+          )}
+        </Boton>
+
+        {hasActiveFilters ? (
+          <Boton
+            variante="fantasma"
             onClick={clearFilters}
-            disabled={!hasActiveFilters}
-            label="Limpiar todos los filtros"
-          />
-
-          <RefreshButton onClick={fetchRecepciones} loading={loading} label="Recargar recepciones" />
-
-          <Button
-            radius="lg"
-            size="sm"
-            leftSection={<IconPlus size={18} />}
-            onClick={() => setOpenRegistro(true)}
-            className={
-              esPantallaPequena
-                ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-900/20 flex-1 min-w-0 h-11 px-3 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
-                : "bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-900/20 shrink-0 h-9.5 px-6 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
-            }
+            className="h-11 px-4 text-zinc-300 hover:bg-zinc-800 hover:text-white"
           >
-            <span className="inline-block max-w-full truncate align-middle">
-              Nueva Recepción
-            </span>
-          </Button>
-        </div>
+            Quitar filtros
+          </Boton>
+        ) : null}
+
+        <Boton
+          variante="secundario"
+          onClick={() => void fetchRecepciones()}
+          cargando={loading}
+          className="h-11 border-zinc-700 bg-zinc-800/80 px-4 text-zinc-100 hover:bg-zinc-700/80"
+        >
+          <IconRefresh size={18} />
+          Recargar
+        </Boton>
+
+        <button
+          type="button"
+          onClick={() => setOpenRegistro(true)}
+          className="ml-auto flex h-11 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-5 font-semibold text-white shadow-lg shadow-indigo-900/20 transition-colors hover:bg-indigo-700"
+        >
+          <IconPlus size={18} />
+          <span className="truncate">Nueva Recepción</span>
+        </button>
       </div>
+
+      {filtrosAbiertos ? (
+        <Filtros
+          filters={filters}
+          handleFilterChange={handleFilterChange}
+          empresas={empresas}
+          onClearTextFilter={clearTextFilterAndSearch}
+        />
+      ) : null}
 
       <Stack gap="md">
         <TablaRecepciones
@@ -185,6 +206,8 @@ export const RecepcionUnidadesPage = () => {
           onVerHistorial={(r) => setRecepcionAVerHistorial(r)}
           onEditarCampo={(r, grupo) => setCampoAEditar({ recepcion: r, grupo })}
           onEditarGuias={(r) => setRecepcionAGuias(r)}
+          onEditarGuiasSalida={(r) => setRecepcionAGuiasSalida(r)}
+          onEditarFecha={(r, campo) => setRecepcionAFecha({ recepcion: r, campo })}
         />
       </Stack>
 
@@ -249,6 +272,25 @@ export const RecepcionUnidadesPage = () => {
         opened={!!recepcionAGuias}
         recepcion={recepcionAGuias}
         onClose={() => setRecepcionAGuias(null)}
+        onGuardada={(actualizada) => {
+          updateRecepcion(actualizada);
+        }}
+      />
+
+      <ModalEditarGuiasSalida
+        opened={!!recepcionAGuiasSalida}
+        recepcion={recepcionAGuiasSalida}
+        onClose={() => setRecepcionAGuiasSalida(null)}
+        onGuardada={(actualizada) => {
+          updateRecepcion(actualizada);
+        }}
+      />
+
+      <ModalEditarFechas
+        opened={!!recepcionAFecha}
+        recepcion={recepcionAFecha?.recepcion ?? null}
+        campo={recepcionAFecha?.campo ?? "fecha_hora_ingreso"}
+        onClose={() => setRecepcionAFecha(null)}
         onGuardada={(actualizada) => {
           updateRecepcion(actualizada);
         }}

@@ -5,6 +5,7 @@ import type {
   CrearVisitaVehiculoRequest,
   DTO_ActualizarCampos,
   DTO_EditarObservacionEvidencias,
+  DTO_RegistrarSalida,
   RecepcionFilters,
 } from "./recepcion-unidades.requests";
 import type {
@@ -63,7 +64,28 @@ export const RecepcionUnidadesService = {
     if (payload.guias && payload.guias.length > 0) {
       formData.append("guias", JSON.stringify(payload.guias));
     }
+    Object.entries(payload.guias_archivos ?? {}).forEach(([indice, archivos]) => {
+      if (archivos.guia_remitente) {
+        formData.append(
+          `guias_archivos[${indice}][guia_remitente]`,
+          archivos.guia_remitente,
+        );
+      }
+      if (archivos.guia_transportista) {
+        formData.append(
+          `guias_archivos[${indice}][guia_transportista]`,
+          archivos.guia_transportista,
+        );
+      }
+    });
+    if (payload.guia_remitente_file) {
+      formData.append("guia_remitente_file", payload.guia_remitente_file);
+    }
+    if (payload.guia_transportista_file) {
+      formData.append("guia_transportista_file", payload.guia_transportista_file);
+    }
     appendIfDefined(formData, "tipo_ingreso", payload.tipo_ingreso);
+    appendIfDefined(formData, "estado_ingreso", payload.estado_ingreso);
     appendIfDefined(formData, "id_sucursal", payload.id_sucursal);
     appendIfDefined(formData, "id_vehiculo_carreta", payload.id_vehiculo_carreta);
     appendIfDefined(formData, "observacion", payload.observacion);
@@ -108,18 +130,52 @@ export const RecepcionUnidadesService = {
   },
 
   /**
-   * Registrar la salida de una unidad
+   * Registrar la salida de una unidad.
+   *
+   * Las guías de salida viajan como string JSON (el endpoint acepta FormData
+   * cuando hay evidencias) y el backend las guarda en `guias_salida`.
    */
   registrarSalida: async (
     id: number,
-    payload: { estado_salida: string; observacion_salida: string; evidencias?: File[] },
+    payload: DTO_RegistrarSalida,
   ): Promise<RecepcionUnidadResponse> => {
-    if (payload.evidencias && payload.evidencias.length > 0) {
+    const guiasSalida = (payload.guias_salida ?? []).filter(
+      (g) =>
+        (g.guia_remitente ?? "").trim() !== "" ||
+        (g.guia_transportista ?? "").trim() !== "",
+    );
+
+    const guiasArchivos = payload.guias_archivos ?? {};
+    const hayArchivosDeGuia = Object.values(guiasArchivos).some(
+      (a) => a.guia_remitente || a.guia_transportista,
+    );
+
+    const tieneEvidencias =
+      payload.evidencias && payload.evidencias.length > 0;
+
+    if (tieneEvidencias || guiasSalida.length > 0 || hayArchivosDeGuia) {
       const formData = new FormData();
       formData.append("_method", "PUT");
       formData.append("estado_salida", payload.estado_salida);
-      formData.append("observacion_salida", payload.observacion_salida || "");
-      payload.evidencias.forEach((f) => {
+      formData.append("observacion_salida", payload.observacion_salida ?? "");
+      if (guiasSalida.length > 0) {
+        formData.append("guias_salida", JSON.stringify(guiasSalida));
+      }
+      Object.entries(guiasArchivos).forEach(([indice, archivos]) => {
+        if (archivos.guia_remitente) {
+          formData.append(
+            `guias_archivos[${indice}][guia_remitente]`,
+            archivos.guia_remitente,
+          );
+        }
+        if (archivos.guia_transportista) {
+          formData.append(
+            `guias_archivos[${indice}][guia_transportista]`,
+            archivos.guia_transportista,
+          );
+        }
+      });
+      payload.evidencias?.forEach((f) => {
         formData.append("evidencias[]", f);
       });
 
@@ -303,14 +359,106 @@ export const RecepcionUnidadesService = {
    *
    * Cada entrada corresponde a un proveedor de `proveedores`; el backend
    * rechaza `id_proveedor` repetidos o inexistentes.
+   *
+   * `guiasArchivos` permite adjuntar el archivo de una guía: se indexa por
+   * la posición de la guía dentro del array (el backend los reindexa con la
+   * misma clave).
    */
   setGuias: async (
     id: number,
     guias: IGuiaRecepcion[],
+    guiasArchivos?: Record<
+      number,
+      { guia_remitente?: File; guia_transportista?: File }
+    >,
   ): Promise<IGuiaRecepcion[]> => {
-    const { data } = await api.put<IRespuesta<IGuiaRecepcion[]>>(
+    const hayArchivos = Object.values(guiasArchivos ?? {}).some(
+      (a) => a.guia_remitente || a.guia_transportista,
+    );
+
+    if (!hayArchivos) {
+      const { data } = await api.put<IRespuesta<IGuiaRecepcion[]>>(
+        `/recepcion-unidades/${id}/guias-recepcion`,
+        { guias },
+      );
+      assertBusinessSuccess(data);
+      return data.data;
+    }
+
+    const formData = new FormData();
+    formData.append("_method", "PUT");
+    formData.append("guias", JSON.stringify(guias));
+    Object.entries(guiasArchivos ?? {}).forEach(([indice, archivos]) => {
+      if (archivos.guia_remitente) {
+        formData.append(
+          `guias_archivos[${indice}][guia_remitente]`,
+          archivos.guia_remitente,
+        );
+      }
+      if (archivos.guia_transportista) {
+        formData.append(
+          `guias_archivos[${indice}][guia_transportista]`,
+          archivos.guia_transportista,
+        );
+      }
+    });
+
+    const { data } = await api.post(
       `/recepcion-unidades/${id}/guias-recepcion`,
-      { guias },
+      formData,
+    );
+    assertBusinessSuccess(data);
+    return data.data;
+  },
+
+  /**
+   * Reemplazar el array de guías de SALIDA de una recepción de unidad.
+   *
+   * Es un contrato aparte del de ingreso: se registra cuando la unidad sale
+   * de planta.
+   */
+  setGuiasSalida: async (
+    id: number,
+    guias: IGuiaRecepcion[],
+    guiasArchivos?: Record<
+      number,
+      { guia_remitente?: File; guia_transportista?: File }
+    >,
+  ): Promise<IGuiaRecepcion[]> => {
+    const hayArchivos = Object.values(guiasArchivos ?? {}).some(
+      (a) => a.guia_remitente || a.guia_transportista,
+    );
+
+    if (!hayArchivos) {
+      const { data } = await api.put<IRespuesta<IGuiaRecepcion[]>>(
+        `/recepcion-unidades/${id}/guias-salida`,
+        { guias },
+      );
+      assertBusinessSuccess(data);
+      return data.data;
+    }
+
+    const formData = new FormData();
+    formData.append("_method", "PUT");
+    formData.append("guias", JSON.stringify(guias));
+    Object.entries(guiasArchivos ?? {}).forEach(([indice, archivos]) => {
+      if (archivos.guia_remitente) {
+        formData.append(
+          `guias_archivos[${indice}][guia_remitente]`,
+          archivos.guia_remitente,
+        );
+      }
+      if (archivos.guia_transportista) {
+        formData.append(
+          `guias_archivos[${indice}][guia_transportista]`,
+          archivos.guia_transportista,
+        );
+      }
+    });
+
+    const { data } = await api.post(
+      `/recepcion-unidades/${id}/guias-salida`,
+      formData,
     );
     assertBusinessSuccess(data);
     return data.data;
