@@ -225,10 +225,21 @@ export const ModalEditarGuias = ({
         actualizadas,
         archivosPorPosicion,
       );
+
+      // El backend sincroniza la lista de proveedores de la carga
+      // (`proveedor_recepcion`) con las guías: se relee para dejar la fila
+      // al día.
+      const proveedoresActualizados =
+        await RecepcionUnidadesService.getProveedores(recepcion.id);
+
       notifySuccess("Guías actualizadas correctamente");
       onGuardada({
         ...recepcion,
         guias: actualizadas,
+        proveedores: proveedoresActualizados,
+        id_proveedor_minero: proveedoresActualizados[0]?.id_proveedor ?? null,
+        proveedor_razon_social: proveedoresActualizados[0]?.razon_social ?? null,
+        proveedor_ruc: proveedoresActualizados[0]?.ruc ?? null,
         guia_remitente:
           actualizadas.find((g) => g.id_proveedor === proveedores[0]?.id_proveedor)
             ?.guia_remitente ?? null,
