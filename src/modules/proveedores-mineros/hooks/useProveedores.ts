@@ -97,6 +97,16 @@ export const useProveedores = () => {
     );
   };
 
+  const actualizarCantidadContactosProveedor = (idProveedor: number, count: number) => {
+    setProveedores((prev) =>
+      prev.map((p) =>
+        p.id_proveedor === idProveedor
+          ? { ...p, cantidad_contactos: count }
+          : p
+      )
+    );
+  };
+
   return {
     proveedores: proveedoresFiltrados,
     loading,
@@ -109,5 +119,6 @@ export const useProveedores = () => {
     deleteProveedor,
     toggleEstado,
     actualizarCantidadCuentasProveedor,
+    actualizarCantidadContactosProveedor,
   };
 };

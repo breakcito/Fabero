@@ -145,6 +145,7 @@ src/
 - **`printer/GlobalPrinterPortal`**: cola de impresión de vales físicos.
 - **`cambios-log-viewer.tsx`**: visualizador unificado de `RES_CambiosLog[]` para historiales de auditoría.
 - **`modal-confirmacion.tsx`**: diálogo de confirmación para acciones destructivas.
+- **`campo-peso-balanza.tsx`**: campo de peso conectado a una **balanza física**. Trae el interruptor "Peso automático" (activo por defecto): mientras está activo, el peso publicado por la balanza rellena el input solo; al apagarlo, el valor se congela y el operador escribe a mano. Props: `label`, `valor`, `onChange`, `error?`, `disabled?`, `placeholder?`, `codBalanza?`, `automaticoInicial?`, `onAutomaticoChange?`. **Úsalo en cualquier modal de pesaje** (hoy: peso inicial y final de lotes y particiones en `recepcion-mineral`).
 - **Plantillas PDF** (varias): generadores con `@react-pdf/renderer`.
 
 ## Hooks globales (`src/hooks`)
@@ -157,6 +158,7 @@ src/
 - `useJsonScanner` — parsing de QR/códigos.
 - `useTitlePage` — sincroniza `<title>` con módulo activo.
 - `useBlackcito` — asistente animado.
+- `usePesoBalanza` — lee cada 300 ms el peso publicado por una balanza física (tabla `interfaces_pesosbalanzas`). Entrega `null` cuando la balanza no tiene lectura pendiente. Params: `activo`, `codBalanza?`, `onPeso`.
 
 ## Servicios (`src/service`)
 
@@ -164,6 +166,7 @@ src/
 - **`_socket.ts`** — Laravel Echo + Pusher para eventos tiempo real (ej. Modo Auditoría).
 - **`auxiliar.service.ts`** — hub de catálogos compartidos.
 - **`archivo.service.ts`** — gestión de adjuntos.
+- **`interfaces-pesosbalanzas.service.ts`** — lectura del peso publicado por una balanza física y liberación de la balanza (`peso = -1`).
 - **`menu-nav.service.ts`** — árbol de menús por rol.
 - **`responses/`** — interfaces TypeScript que mapean al 100% las respuestas HTTP de la API.
 
@@ -258,6 +261,15 @@ El resumen lista **tres tipos de fila**, discriminados por `tipo_pesaje`:
 - **Los datos de transporte son de la unidad** (vehículo, empresa de transporte, conductor): cada partición tiene la suya. No se editan desde el resumen.
 - **Bloqueo por valorización**: un lote con valorización viva (`Propuesta` o `Aprobado`) no es editable. La fila muestra un candado, el botón Editar queda deshabilitado con tooltip del motivo y el backend rechaza la escritura. Si lo que se valorizó fue una partición, el bloqueo alcanza al lote padre completo.
 - Los pesos de una partición se editan con `PUT /recepcion-mineral/particiones/{id}/actualizar`, **no** con los endpoints de pesaje: el pesaje pisa las fechas de pesaje, que son el registro histórico.
+
+## Contactos del proveedor (`src/modules/proveedores-mineros`)
+
+Un proveedor puede tener varios **contactos** (personas con nombre, DNI, teléfono y correo). Se gestionan en la **columna "Contactos"** de la tabla de proveedores (badge con la cantidad + ícono para abrir el modal).
+
+- **Componentes**: `ModalContactos` (listado, búsqueda, alta, edición y borrado) y `RegistroContacto` (formulario). Hook: `useRegistroContacto` (validación con Zod + llamada al service).
+- **Service**: `ProveedoresService.getContactosProveedor / crearContactoProveedor / editarContactoProveedor / eliminarContactoProveedor` y `getContactoDocumento`.
+- **En los documentos** (orden de compra): se pide el contacto al backend con `GET /proveedores/{id}/contacto-documento`. Si el proveedor **no tiene contactos registrados**, el backend **replica los datos del propio proveedor** (razón social, teléfono y correo) y el documento los imprime igual. Si el contacto existe pero le falta el teléfono o el correo, se completan con los del proveedor.
+- `ProveedorResponse` trae `cantidad_contactos` (lo calcula el backend en el listado).
 
 ## Catálogo Mantine v8 (instalado)
 

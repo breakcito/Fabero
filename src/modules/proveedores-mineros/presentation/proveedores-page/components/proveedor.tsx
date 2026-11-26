@@ -10,6 +10,7 @@ import {
   IconPencil,
   IconPower,
   IconMapPin,
+  IconAddressBook,
 } from "@tabler/icons-react";
 import { DataTableEstandar } from "../../../../../presentation/utils/datatable-estandar";
 import type { ProveedorResponse } from "../../../service/proveedores.responses";
@@ -21,6 +22,7 @@ interface Props {
   togglingIds: Record<number, boolean>;
   onOpenCuentas: (proveedor: ProveedorResponse) => void;
   onOpenConcesiones: (proveedor: ProveedorResponse) => void;
+  onOpenContactos: (proveedor: ProveedorResponse) => void;
   onEdit: (proveedor: ProveedorResponse) => void;
   onDelete: (id: number) => void;
   onToggleEstado: (id: number, currentEstado: EstadoBase) => void;
@@ -32,6 +34,7 @@ export const Proveedor = ({
   togglingIds,
   onOpenCuentas,
   onOpenConcesiones,
+  onOpenContactos,
   onEdit,
   onToggleEstado,
 }: Props) => {
@@ -127,6 +130,38 @@ export const Proveedor = ({
                   onClick={() => onOpenCuentas(r)}
                 >
                   <IconBuildingBank size={16} stroke={1.5} />
+                </ActionIcon>
+              </Tooltip>
+            </Group>
+          ),
+        },
+
+        {
+          accessor: "cantidad_contactos",
+          title: "Contactos",
+          width: 150,
+          textAlign: "center",
+          render: (r: ProveedorResponse) => (
+            <Group gap="xs" justify="center" wrap="nowrap">
+              <Badge
+                color={r.cantidad_contactos > 0 ? "indigo" : "gray"}
+                variant="light"
+                size="sm"
+                radius="xl"
+              >
+                {r.cantidad_contactos === 1
+                  ? "1 contacto"
+                  : `${r.cantidad_contactos} contactos`}
+              </Badge>
+              <Tooltip label="Gestionar Contactos" withArrow position="left">
+                <ActionIcon
+                  variant="subtle"
+                  color="indigo"
+                  radius="xl"
+                  size="sm"
+                  onClick={() => onOpenContactos(r)}
+                >
+                  <IconAddressBook size={16} stroke={1.5} />
                 </ActionIcon>
               </Tooltip>
             </Group>

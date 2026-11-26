@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import { Select, TextInput, Textarea, Button, ActionIcon, Tooltip, Stack, Text, Grid, Loader, Group } from "@mantine/core";
+import { Select, TextInput, Textarea, Button, ActionIcon, Tooltip, Stack, Grid, Loader, Group } from "@mantine/core";
 import { IconPlus, IconWeight, IconUserPlus } from "@tabler/icons-react";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
+import { CampoPesoBalanza } from "../../../../presentation/utils/campo-peso-balanza";
 import { FormZonaOrigen } from "../../../../presentation/utils/form-zona-origen";
 import { MultiFilePicker } from "../../../../presentation/utils/archivo/multifile-picker";
 import { RegistroProveedorMineroSimple } from "../../../../presentation/utils/registro-proveedor-minero-simple";
@@ -267,21 +268,12 @@ export const ModalPesoInicial = ({ lote, onCancel, onSubmit, targetIdOverride }:
           <Grid.Col span={12}>
             <Stack gap="md">
               {/* Peso Inicial */}
-              <div className="bg-zinc-950/40 p-4 rounded-2xl border border-zinc-900/80">
-                <Text className="text-zinc-300 font-bold text-sm mb-2">Peso Inicial (Kg):</Text>
-                <TextInput
-                  placeholder="Ingrese peso inicial en Kilos"
-                  value={pesoInicial}
-                  onChange={(e) => setPesoInicial(e.currentTarget.value.replace(/\D/g, ""))}
-                  classNames={{
-                    input:
-                      "bg-zinc-900/60 border-zinc-800 text-center font-bold text-white focus:border-zinc-300 transition-all",
-                  }}
-                  radius="lg"
-                  autoFocus
-                  required
-                />
-              </div>
+              <CampoPesoBalanza
+                label="Peso Inicial (Kg):"
+                valor={pesoInicial}
+                onChange={setPesoInicial}
+                placeholder="Ingrese peso inicial en Kilos"
+              />
 
               {/* Observaciones */}
               <Textarea

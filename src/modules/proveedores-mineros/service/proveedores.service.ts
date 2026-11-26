@@ -3,11 +3,15 @@ import { EstadoBase } from "../../../shared/enums/_generic/estado-base";
 import type {
   CrearCuentaBancariaRequest,
   CrearProveedorRequest,
+  CrearContactoProveedorRequest,
   EditarCuentaBancariaRequest,
+  EditarContactoProveedorRequest,
 } from "./proveedores.requests";
 import type {
   CuentaBancariaResponse,
   ProveedorResponse,
+  RES_ContactoDocumento,
+  RES_ContactoProveedor,
 } from "./proveedores.responses";
 import type { RES_Concesion } from "./concesiones.responses";
 
@@ -93,5 +97,44 @@ export const ProveedoresService = {
   },
   eliminarCuentaBancaria: async (id: number): Promise<void> => {
     await api.delete(`/proveedores/cuentas-bancarias/${id}`);
+  },
+
+  getContactosProveedor: async (
+    idProveedor: number,
+  ): Promise<RES_ContactoProveedor[]> => {
+    const { data } = await api.get(`/proveedores/${idProveedor}/contactos`);
+    return data.data;
+  },
+
+  /**
+   * Contacto que debe figurar en los documentos del proveedor.
+   *
+   * Si el proveedor no tiene contactos registrados, devuelve los datos del
+   * propio proveedor (origen: "proveedor").
+   */
+  getContactoDocumento: async (
+    idProveedor: number,
+  ): Promise<RES_ContactoDocumento> => {
+    const { data } = await api.get(`/proveedores/${idProveedor}/contacto-documento`);
+    return data.data;
+  },
+
+  crearContactoProveedor: async (
+    payload: CrearContactoProveedorRequest,
+  ): Promise<RES_ContactoProveedor> => {
+    const { data } = await api.post("/proveedores/contactos", payload);
+    return data.data;
+  },
+
+  editarContactoProveedor: async (
+    id: number,
+    payload: EditarContactoProveedorRequest,
+  ): Promise<RES_ContactoProveedor> => {
+    const { data } = await api.put(`/proveedores/contactos/${id}`, payload);
+    return data.data;
+  },
+
+  eliminarContactoProveedor: async (id: number): Promise<void> => {
+    await api.delete(`/proveedores/contactos/${id}`);
   },
 };

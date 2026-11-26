@@ -5,6 +5,7 @@ import { useProveedores } from "../../hooks/useProveedores";
 import { RegistroProveedor } from "../registro-proveedor/registro-proveedor";
 import { CuentasBancariasGenerico } from "../../../../presentation/utils/cuentas-bancarias";
 import { ModalConcesiones } from "./components/ModalConcesiones";
+import { ModalContactos } from "./components/ModalContactos";
 import { useState } from "react";
 import type {
   CuentaBancariaResponse,
@@ -28,6 +29,7 @@ export const ProveedoresPage = () => {
     deleteProveedor,
     toggleEstado,
     actualizarCantidadCuentasProveedor,
+    actualizarCantidadContactosProveedor,
   } = useProveedores();
 
   const [openRegistro, setOpenRegistro] = useState(false);
@@ -36,6 +38,8 @@ export const ProveedoresPage = () => {
   const [proveedorAEditar, setProveedorAEditar] =
     useState<ProveedorResponse | null>(null);
   const [selectedProveedorConcesiones, setSelectedProveedorConcesiones] =
+    useState<ProveedorResponse | null>(null);
+  const [selectedProveedorContactos, setSelectedProveedorContactos] =
     useState<ProveedorResponse | null>(null);
 
   return (
@@ -53,6 +57,7 @@ export const ProveedoresPage = () => {
           togglingIds={togglingIds}
           onOpenCuentas={(p) => setSelectedProveedor(p)}
           onOpenConcesiones={(p) => setSelectedProveedorConcesiones(p)}
+          onOpenContactos={(p) => setSelectedProveedorContactos(p)}
           onEdit={(p) => setProveedorAEditar(p)}
           onDelete={deleteProveedor}
           onToggleEstado={toggleEstado}
@@ -144,6 +149,30 @@ export const ProveedoresPage = () => {
         )}
       </ModalEstandar>
 
+
+      {/* Modal: Gestión de Contactos */}
+      <ModalEstandar
+        opened={!!selectedProveedorContactos}
+        close={() => setSelectedProveedorContactos(null)}
+        title={
+          selectedProveedorContactos
+            ? `Contactos del Proveedor: ${selectedProveedorContactos.razon_social}`
+            : ""
+        }
+        size="lg"
+      >
+        {selectedProveedorContactos && (
+          <ModalContactos
+            proveedor={selectedProveedorContactos}
+            onCantidadChange={(count) =>
+              actualizarCantidadContactosProveedor(
+                selectedProveedorContactos.id_proveedor,
+                count,
+              )
+            }
+          />
+        )}
+      </ModalEstandar>
 
     </div>
   );

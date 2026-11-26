@@ -5,6 +5,8 @@ import { ValorizacionCompraService } from "../../valorizacion-compra/service/val
 import type { RES_ValorizacionCompra } from "../../valorizacion-compra/service/valorizacion-compra.responses";
 import { ContabilidadCompraService } from "../service/contabilidad-compra.service";
 import type { RES_ComprobanteCompra } from "../service/contabilidad-compra.responses";
+import { ProveedoresService } from "../../proveedores-mineros/service/proveedores.service";
+import type { RES_ContactoDocumento } from "../../proveedores-mineros/service/proveedores.responses";
 import { DeclaracionJuradaPdf } from "../presentation/components/declaracion-jurada-pdf";
 import { NotaIngresoAlmacenPdf } from "../presentation/components/nota-ingreso-almacen-pdf";
 import { OrdenCompraPdf } from "../presentation/components/orden-compra-pdf";
@@ -103,10 +105,27 @@ export const useDocumentosCompraPdf = () => {
             }
           }
 
+          // Contacto del proveedor: si no tiene contactos registrados, el
+          // backend replica los datos del propio proveedor.
+          let contacto: RES_ContactoDocumento | null = null;
+          if (compOc.id_proveedor) {
+            try {
+              contacto = await ProveedoresService.getContactoDocumento(
+                compOc.id_proveedor
+              );
+            } catch (e) {
+              console.warn(
+                "[useDocumentosCompraPdf] No se pudo obtener el contacto del proveedor:",
+                e
+              );
+            }
+          }
+
           print(
             <OrdenCompraPdf
               comprobante={compOc}
               valorizacion={valorizacion}
+              contacto={contacto}
             />,
             {
               documentTitle: `Orden de Compra ${compOc.codigo_completo}`,

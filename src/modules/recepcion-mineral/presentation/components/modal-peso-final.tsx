@@ -15,6 +15,7 @@ import {
 import { IconWeight, IconPlus, IconUserPlus } from "@tabler/icons-react";
 import { MultiFilePicker } from "../../../../presentation/utils/archivo/multifile-picker";
 import { ModalEstandar } from "../../../../presentation/utils/modal-estandar";
+import { CampoPesoBalanza } from "../../../../presentation/utils/campo-peso-balanza";
 import { FormZonaOrigen } from "../../../../presentation/utils/form-zona-origen";
 import { RegistroProveedorMineroSimple } from "../../../../presentation/utils/registro-proveedor-minero-simple";
 import { AuxService } from "../../../../service/auxiliar.service";
@@ -306,23 +307,12 @@ export const ModalPesoFinal = ({ lote, onCancel, onSubmit, targetIdOverride }: P
               </div>
 
               {/* Peso Final / Tara */}
-              <div className="bg-zinc-950/40 p-4 rounded-2xl border border-zinc-900/80">
-                <Text className="text-zinc-300 font-bold text-sm mb-2">
-                  Peso Final / Tara (Kg):
-                </Text>
-                <TextInput
-                  placeholder="Ingrese tara en Kilos"
-                  value={pesoFinal}
-                  onChange={(e) => setPesoFinal(e.currentTarget.value.replace(/\D/g, ""))}
-                  classNames={{
-                    input:
-                      "bg-zinc-900/60 border-zinc-800 text-center font-bold text-white focus:border-zinc-300 transition-all",
-                  }}
-                  radius="lg"
-                  autoFocus
-                  required
-                />
-              </div>
+              <CampoPesoBalanza
+                label="Peso Final / Tara (Kg):"
+                valor={pesoFinal}
+                onChange={setPesoFinal}
+                placeholder="Ingrese tara en Kilos"
+              />
 
               {/* Peso Neto */}
               <div className="bg-emerald-950/25 border border-emerald-800/40 p-4 rounded-2xl flex items-center justify-between gap-4">

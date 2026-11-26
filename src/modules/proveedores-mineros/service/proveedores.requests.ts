@@ -59,3 +59,24 @@ export const Schema_EditarCuentaBancaria = z.object({
 export type EditarCuentaBancariaRequest = z.infer<
   typeof Schema_EditarCuentaBancaria
 >;
+
+export const Schema_CrearContactoProveedor = z.object({
+  id_proveedor: z.number().min(1, "Seleccione un proveedor"),
+  nombre_completo: z.string().min(3, "El nombre completo es muy corto"),
+  dni: z.string().max(20).optional().nullable(),
+  telefono: z.string().max(30).optional().nullable(),
+  correo: z.email("Correo no válido").optional().or(z.literal("")),
+});
+export type CrearContactoProveedorRequest = z.infer<
+  typeof Schema_CrearContactoProveedor
+>;
+
+export const Schema_EditarContactoProveedor = z.object({
+  nombre_completo: z.string().min(3, "El nombre completo es muy corto"),
+  dni: z.string().max(20).optional().nullable(),
+  telefono: z.string().max(30).optional().nullable(),
+  correo: z.email("Correo no válido").optional().or(z.literal("")),
+});
+export type EditarContactoProveedorRequest = z.infer<
+  typeof Schema_EditarContactoProveedor
+>;

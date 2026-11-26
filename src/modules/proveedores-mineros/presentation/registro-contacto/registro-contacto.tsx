@@ -1,0 +1,140 @@
+import { IconDeviceFloppy, IconExclamationCircle } from "@tabler/icons-react";
+import { Button, Grid, TextInput, Alert } from "@mantine/core";
+import { useRegistroContacto } from "../../hooks/useRegistroContacto";
+import type { RES_ContactoProveedor } from "../../service/proveedores.responses";
+
+interface Props {
+  /** Proveedor al que pertenece el contacto. */
+  idProveedor: number;
+  /** Contacto a editar. Si no se envía, se registra uno nuevo. */
+  contacto?: RES_ContactoProveedor | null;
+  onCancel: () => void;
+  onSuccess: (contacto: RES_ContactoProveedor) => void;
+}
+
+export const RegistroContacto = ({
+  idProveedor,
+  contacto,
+  onCancel,
+  onSuccess,
+}: Props) => {
+  const { payload, handleChange, submit, loading, error } = useRegistroContacto(
+    (c) => onSuccess(c),
+    idProveedor,
+    contacto,
+  );
+
+  return (
+    <form onSubmit={submit} className="flex flex-col gap-6">
+      {error && (
+        <Alert
+          icon={<IconExclamationCircle size={16} />}
+          color="red"
+          variant="filled"
+          className="mb-2"
+        >
+          {error}
+        </Alert>
+      )}
+
+      <Grid>
+        <Grid.Col span={{ base: 12 }}>
+          <TextInput
+            label="Nombre Completo"
+            placeholder="Ej. Juan Pérez Ramírez"
+            radius="xl"
+            withAsterisk
+            maxLength={150}
+            value={payload.nombre_completo}
+            onChange={(e) => handleChange("nombre_completo", e.target.value)}
+            classNames={{
+              input:
+                "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 transition-all",
+              label: "text-zinc-400 font-medium text-xs",
+            }}
+          />
+        </Grid.Col>
+        <Grid.Col span={{ base: 12, md: 6 }}>
+          <TextInput
+            label="DNI"
+            placeholder="Opcional"
+            radius="xl"
+            maxLength={20}
+            value={payload.dni}
+            onChange={(e) => {
+              const val = e.target.value.replace(/\D/g, "");
+              handleChange("dni", val);
+            }}
+            classNames={{
+              input:
+                "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 transition-all",
+              label: "text-zinc-400 font-medium text-xs",
+            }}
+          />
+        </Grid.Col>
+        <Grid.Col span={{ base: 12, md: 6 }}>
+          <TextInput
+            label="Teléfono"
+            placeholder="Opcional"
+            radius="xl"
+            type="tel"
+            inputMode="tel"
+            maxLength={30}
+            value={payload.telefono}
+            onChange={(e) => {
+              const sanitizado = e.target.value.replace(/[^0-9+\-\s()]/g, "");
+              handleChange("telefono", sanitizado);
+            }}
+            onPaste={(e) => {
+              const textoPegado = e.clipboardData.getData("text");
+              if (/[a-zA-Z]/.test(textoPegado)) {
+                e.preventDefault();
+              }
+            }}
+            classNames={{
+              input:
+                "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 transition-all",
+              label: "text-zinc-400 font-medium text-xs",
+            }}
+          />
+        </Grid.Col>
+        <Grid.Col span={{ base: 12 }}>
+          <TextInput
+            label="Correo Electrónico"
+            placeholder="Opcional"
+            radius="xl"
+            maxLength={150}
+            value={payload.correo}
+            onChange={(e) => handleChange("correo", e.target.value)}
+            classNames={{
+              input:
+                "bg-zinc-900/50 border-zinc-800 text-white placeholder:text-zinc-500 focus:border-zinc-300 transition-all",
+              label: "text-zinc-400 font-medium text-xs",
+            }}
+          />
+        </Grid.Col>
+      </Grid>
+
+      <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-zinc-800">
+        <Button
+          variant="subtle"
+          color="gray"
+          radius="xl"
+          onClick={onCancel}
+          classNames={{ root: "text-zinc-400 hover:bg-zinc-800" }}
+        >
+          Cancelar
+        </Button>
+        <Button
+          type="submit"
+          loading={loading}
+          radius="xl"
+          leftSection={<IconDeviceFloppy size={18} />}
+          className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-900/20"
+        >
+          {contacto ? "Actualizar Contacto" : "Guardar Contacto"}
+        </Button>
+      </div>
+    </form>
+  );
+};

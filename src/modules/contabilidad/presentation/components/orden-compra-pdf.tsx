@@ -1,11 +1,19 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 import type { RES_ComprobanteCompra } from "../../service/contabilidad-compra.responses";
 import type { RES_ValorizacionCompra } from "../../../valorizacion-compra/service/valorizacion-compra.responses";
+import type { RES_ContactoDocumento } from "../../../proveedores-mineros/service/proveedores.responses";
 import { numeroALetras } from "../../../../shared/functions/numero-a-letras";
 
 interface Props {
   comprobante: RES_ComprobanteCompra;
   valorizacion?: RES_ValorizacionCompra | null;
+  /**
+   * Contacto del proveedor para el documento.
+   *
+   * Si el proveedor no tiene contactos registrados, el backend replica los
+   * datos del propio proveedor (razón social, teléfono y correo).
+   */
+  contacto?: RES_ContactoDocumento | null;
 }
 
 const COLOR_AMARILLO = "#F6C343";
@@ -240,12 +248,18 @@ const formatFechaCorta = (fecha?: string | null): string => {
   }
 };
 
-export const OrdenCompraPdf = ({ comprobante, valorizacion }: Props) => {
+export const OrdenCompraPdf = ({ comprobante, valorizacion, contacto }: Props) => {
   const proveedorNombre =
     comprobante.proveedor_nombre || valorizacion?.proveedor_nombre || "—";
   const proveedorRuc =
     comprobante.proveedor_ruc || valorizacion?.proveedor_ruc || "—";
   const proveedorDireccion = valorizacion?.proveedor_direccion || "—";
+
+  // Contacto del proveedor: si no hay contactos registrados, el backend
+  // replica los datos del propio proveedor.
+  const contactoNombre = contacto?.nombre || "—";
+  const contactoTelefono = contacto?.telefono || "—";
+  const contactoCorreo = contacto?.correo || "—";
 
   const concesionNombre =
     comprobante.concesion_nombre || valorizacion?.concesion_nombre || "—";
@@ -442,7 +456,7 @@ export const OrdenCompraPdf = ({ comprobante, valorizacion }: Props) => {
               <Text>NOMBRE DEL CONTACTO:</Text>
             </View>
             <View style={[styles.whiteCell, { width: "77%", borderRightWidth: 0 }]}>
-              <Text>—</Text>
+              <Text>{contactoNombre}</Text>
             </View>
           </View>
 
@@ -452,13 +466,13 @@ export const OrdenCompraPdf = ({ comprobante, valorizacion }: Props) => {
               <Text>TELÉFONO DEL CONTACTO:</Text>
             </View>
             <View style={[styles.whiteCell, { width: "20%" }]}>
-              <Text>—</Text>
+              <Text>{contactoTelefono}</Text>
             </View>
             <View style={[styles.yellowCell, { width: "20%" }]}>
               <Text>CORREO DEL CONTACTO:</Text>
             </View>
             <View style={[styles.whiteCell, { width: "37%", borderRightWidth: 0 }]}>
-              <Text>—</Text>
+              <Text>{contactoCorreo}</Text>
             </View>
           </View>
 
